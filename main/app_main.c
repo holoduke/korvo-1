@@ -18,8 +18,27 @@ static const char *TAG = "app_main";
 static bool s_wifi_up;
 static bool s_ha_up;
 
-/* Entities to subscribe to: all light tiles + the weather header. */
-static const char *s_subscribed[PANEL_LIGHT_COUNT + 1];
+/* Entities to subscribe to: every light tile on every tab + the weather header. */
+static const char *s_subscribed[PANEL_MAX_LIGHTS + 1];
+static int s_subscribed_count;
+
+static void collect_subscribed_entities(void)
+{
+    for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
+        const panel_tab_t *tab = &PANEL_TABS[t];
+        for (int i = 0; i < tab->light_count; i++) {
+            const char *id = tab->lights[i].entity_id;
+            bool seen = false;
+            for (int k = 0; k < s_subscribed_count && !seen; k++) {
+                seen = strcmp(s_subscribed[k], id) == 0;
+            }
+            if (!seen && s_subscribed_count < PANEL_MAX_LIGHTS) {
+                s_subscribed[s_subscribed_count++] = id;
+            }
+        }
+    }
+    s_subscribed[s_subscribed_count++] = PANEL_WEATHER_ENTITY;
+}
 
 static void on_ha_state(const char *entity_id, const char *state, float temperature)
 {
@@ -54,7 +73,7 @@ static void on_wifi_status(bool connected)
         }
 
         err = ha_client_start(HA_WEBSOCKET_URI, SECRET_HA_TOKEN,
-                              s_subscribed, PANEL_LIGHT_COUNT + 1,
+                              s_subscribed, s_subscribed_count,
                               on_ha_state, on_ha_conn);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "HA client failed to start: %s", esp_err_to_name(err));
@@ -86,10 +105,7 @@ void app_main(void)
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
-    for (int i = 0; i < (int)PANEL_LIGHT_COUNT; i++) {
-        s_subscribed[i] = PANEL_LIGHTS[i].entity_id;
-    }
-    s_subscribed[PANEL_LIGHT_COUNT] = PANEL_WEATHER_ENTITY;
+    collect_subscribed_entities();
 
     lv_display_t *disp = bsp_display_start();
     if (disp == NULL) {

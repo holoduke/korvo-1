@@ -13,10 +13,12 @@ set(SECRETS_DIR ${CMAKE_CURRENT_LIST_DIR}/../secrets)
 
 function(read_secret file out_var)
     set(path ${SECRETS_DIR}/${file})
+    # Watch the path unconditionally so that *creating* the file later still
+    # triggers a reconfigure (CMake supports depending on not-yet-existing files).
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${path})
     if(EXISTS ${path})
         file(READ ${path} val)
         string(STRIP "${val}" val)
-        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${path})
     else()
         message(WARNING "Secret file missing: ${path} - using placeholder")
         set(val "MISSING")
