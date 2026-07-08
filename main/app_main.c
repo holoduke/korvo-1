@@ -22,19 +22,27 @@ static bool s_ha_up;
 static const char *s_subscribed[PANEL_MAX_LIGHTS + 1];
 static int s_subscribed_count;
 
+static void add_subscribed(const char *id)
+{
+    for (int k = 0; k < s_subscribed_count; k++) {
+        if (strcmp(s_subscribed[k], id) == 0) {
+            return;
+        }
+    }
+    if (s_subscribed_count < PANEL_MAX_LIGHTS) {
+        s_subscribed[s_subscribed_count++] = id;
+    }
+}
+
 static void collect_subscribed_entities(void)
 {
     for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
         const panel_tab_t *tab = &PANEL_TABS[t];
         for (int i = 0; i < tab->light_count; i++) {
-            const char *id = tab->lights[i].entity_id;
-            bool seen = false;
-            for (int k = 0; k < s_subscribed_count && !seen; k++) {
-                seen = strcmp(s_subscribed[k], id) == 0;
-            }
-            if (!seen && s_subscribed_count < PANEL_MAX_LIGHTS) {
-                s_subscribed[s_subscribed_count++] = id;
-            }
+            add_subscribed(tab->lights[i].entity_id);
+        }
+        for (int i = 0; i < tab->device_count; i++) {
+            add_subscribed(tab->devices[i].entity_id);
         }
     }
     s_subscribed[s_subscribed_count++] = PANEL_WEATHER_ENTITY;
@@ -107,7 +115,12 @@ void app_main(void)
 
     collect_subscribed_entities();
 
-    lv_display_t *disp = bsp_display_start();
+    /* Triple-buffer tear avoidance + PPA hardware acceleration for smooth,
+     * tear-free rendering (the ESP32-S31 has a Pixel Processing Accelerator). */
+    bsp_display_config_t display_cfg = BSP_DISPLAY_DEFAULT_CONFIG();
+    display_cfg.tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_PARTIAL;
+    display_cfg.enable_ppa_accel = true;
+    lv_display_t *disp = bsp_display_start_with_config(&display_cfg);
     if (disp == NULL) {
         ESP_LOGE(TAG, "Display init failed");
         return;

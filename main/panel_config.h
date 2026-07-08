@@ -18,6 +18,8 @@ typedef struct {
     int light_count;
     const panel_entity_t *scenes;  /* chips along the bottom */
     int scene_count;
+    const panel_entity_t *devices; /* individual lights shown in the slide-out drawer */
+    int device_count;
 } panel_tab_t;
 
 /* ---- Tab: Thuis (ground floor) ------------------------------------------ */
@@ -34,6 +36,20 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
     { "scene.woonkamer_avond_licht", "Avond licht" },
     { "scene.woonkamer_alles_uit",   "Alles uit" },
 };
+static const panel_entity_t TAB_THUIS_DEVICES[] = {
+    { "light.lamp_woonkamer_kubus_1",      "Kubus" },
+    { "light.lamp_valerie_rieten_1",       "Rieten" },
+    { "light.lamp_woonkamer_plafond_tv_2", "Plafond TV 2" },
+    { "light.lamp_woonkamer_plafond_tv_3", "Plafond TV 3" },
+    { "light.lamp_keuken_plafond_1",       "Keuken 1" },
+    { "light.lamp_keuken_plafond_2",       "Keuken 2" },
+    { "light.lamp_keuken_plafond_3",       "Keuken 3" },
+    { "light.lamp_gang_deur_1",            "Gang deur" },
+    { "light.lamp_gang_trap_beneden_1",    "Gang trap" },
+    { "light.lamp_wc_beneden_1",           "WC" },
+    { "light.lamp_grond_1",                "Grond" },
+    { "light.lamp_trap_kast",              "Trapkast" },
+};
 
 /* ---- Tab: Boven (upper floors) ------------------------------------------ */
 static const panel_entity_t TAB_BOVEN_LIGHTS[] = {
@@ -49,19 +65,31 @@ static const panel_entity_t TAB_BOVEN_SCENES[] = {
     { "scene.slaapkamer_aan_fel", "Slaapk. fel" },
     { "scene.slaapkamer_uit",     "Slaapk. uit" },
 };
+static const panel_entity_t TAB_BOVEN_DEVICES[] = {
+    { "light.lamp_slaapkamer_gillis_ilse",       "Slaapkamer" },
+    { "light.lamp_slaapkamer_staand_ilse_gillis","Slaapk. staand" },
+    { "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje", "Nachtkastje" },
+    { "light.lamp_valerie_kamer_1",              "Valerie" },
+    { "light.lamp_jongens_kamer_1",              "Jongens" },
+    { "light.lamp_zolder_baby_kamer_1",          "Baby 1" },
+    { "light.lamp_zolder_baby_kamer_2",          "Baby 2" },
+    { "light.lamp_zolder_gang",                  "Zolder gang" },
+    { "light.lamp_badkamer_1",                   "Badkamer" },
+};
 
-#define TAB_ENTRY(name, lights, scenes) \
+#define TAB_ENTRY(name, lights, scenes, devices) \
     { name, lights, sizeof(lights) / sizeof((lights)[0]), \
-      scenes, sizeof(scenes) / sizeof((scenes)[0]) }
+      scenes, sizeof(scenes) / sizeof((scenes)[0]), \
+      devices, sizeof(devices) / sizeof((devices)[0]) }
 
 static const panel_tab_t PANEL_TABS[] = {
-    TAB_ENTRY("Thuis", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES),
-    TAB_ENTRY("Boven", TAB_BOVEN_LIGHTS, TAB_BOVEN_SCENES),
+    TAB_ENTRY("Thuis", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_DEVICES),
+    TAB_ENTRY("Boven", TAB_BOVEN_LIGHTS, TAB_BOVEN_SCENES, TAB_BOVEN_DEVICES),
 };
 #define PANEL_TAB_COUNT (sizeof(PANEL_TABS) / sizeof(PANEL_TABS[0]))
 
-/* Upper bound for the tile registry / subscribe list */
-#define PANEL_MAX_LIGHTS 24
+/* Upper bound for the tile registry / subscribe list (main tiles + drawer devices) */
+#define PANEL_MAX_LIGHTS 64
 
 /* Weather entity shown in the header */
 #define PANEL_WEATHER_ENTITY "weather.buienradar"
