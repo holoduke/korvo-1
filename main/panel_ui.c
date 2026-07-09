@@ -54,7 +54,17 @@ static lv_draw_buf_t *s_tab_snap[PANEL_TAB_COUNT];
 static bool s_snap_dirty[PANEL_TAB_COUNT];
 static lv_obj_t *s_slide_ov;
 static int s_slide_target;
-static bool s_swiping;
+static bool s_swiping;            /* release-snap animation running */
+/* Finger-drag paging over the cached bitmaps. */
+static lv_obj_t *s_drag_from_img;
+static lv_obj_t *s_drag_to_img;
+static bool s_drag_press;         /* a touch is down on the content */
+static bool s_drag_on;            /* a real horizontal drag is in progress */
+static bool s_drag_suppress_click;/* a drag happened -> swallow the tile click */
+static int s_drag_x0;             /* touch-down x */
+static int s_drag_from;
+static int s_drag_to;
+static lv_indev_t *s_drag_indev;
 static void mark_snapshots_dirty(void);
 static lv_obj_t *s_date_label;
 static lv_obj_t *s_dow_label;     /* weekday, right cluster */
@@ -122,6 +132,9 @@ static int32_t s_row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LA
 
 static void on_tile_clicked(lv_event_t *e)
 {
+    if (s_drag_suppress_click) {
+        return; /* this touch was a swipe, not a tap */
+    }
     const light_tile_t *tile = lv_event_get_user_data(e);
     if (s_light_cb) {
         s_light_cb(tile->entity->entity_id);
@@ -132,8 +145,18 @@ static void on_tile_clicked(lv_event_t *e)
 static void on_tile_long_pressed(lv_event_t *e)
 {
     const light_tile_t *tile = lv_event_get_user_data(e);
-    if (s_popup == NULL) {
-        return;
+    if (s_popup == NULL || s_drag_on || s_drag_suppress_click) {
+        return; /* don't open the popup mid-swipe */
+    }
+    /* Also suppress if the finger has moved since press: that's a swipe in
+     * progress (below the drag threshold), not an intentional hold. */
+    if (s_drag_press && s_drag_indev) {
+        lv_point_t p;
+        lv_indev_get_point(s_drag_indev, &p);
+        const int dx = p.x - s_drag_x0;
+        if (dx * dx > 10 * 10) {
+            return;
+        }
     }
     s_popup_entity = tile->entity;
     lv_label_set_text(s_popup_title, tile->entity->label);
@@ -1234,9 +1257,11 @@ static void slide_done_cb(lv_anim_t *a)
     (void)a;
     lv_tabview_set_active(s_tabview, s_slide_target, LV_ANIM_OFF);
     if (s_slide_ov) {
-        lv_obj_delete(s_slide_ov);
+        lv_obj_delete(s_slide_ov); /* also deletes the two child images */
         s_slide_ov = NULL;
     }
+    s_drag_from_img = NULL;
+    s_drag_to_img = NULL;
     if (s_bright_slider) {
         lv_obj_remove_flag(s_bright_slider, LV_OBJ_FLAG_HIDDEN);
     }
@@ -1246,29 +1271,40 @@ static void slide_done_cb(lv_anim_t *a)
     s_swiping = false;
 }
 
-/* Slide from the current tab to `target` by animating two cached bitmaps. */
-static void do_tab_switch(int target)
+/* Snap the drag to completion (commit) or back (cancel), then clean up. */
+static void drag_end(bool commit)
 {
-    if (s_tabview == NULL || s_swiping) {
-        return;
-    }
-    const int cur = (int)lv_tabview_get_tab_active(s_tabview);
-    if (target == cur || target < 0 || target >= (int)PANEL_TAB_COUNT) {
-        return;
-    }
-    refresh_snapshot(cur);
-    refresh_snapshot(target);
-    if (s_tab_snap[cur] == NULL || s_tab_snap[target] == NULL) {
-        lv_tabview_set_active(s_tabview, target, LV_ANIM_OFF); /* fallback */
-        return;
-    }
-
+    const int dir = s_drag_to > s_drag_from ? 1 : -1;
+    const int W = LV_HOR_RES;
+    s_slide_target = commit ? s_drag_to : s_drag_from;
     s_swiping = true;
-    s_slide_target = target;
-    const int dir = target > cur ? 1 : -1;
+    s_drag_on = false;
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_duration(&a, 160);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, slide_anim_x);
+    lv_anim_set_var(&a, s_drag_from_img);
+    lv_anim_set_values(&a, lv_obj_get_x(s_drag_from_img), commit ? -dir * W : 0);
+    lv_anim_start(&a);
+    lv_anim_set_var(&a, s_drag_to_img);
+    lv_anim_set_values(&a, lv_obj_get_x(s_drag_to_img), commit ? 0 : dir * W);
+    lv_anim_set_completed_cb(&a, slide_done_cb);
+    lv_anim_start(&a);
+}
+
+/* Build the drag overlay with the two cached bitmaps once a drag really starts. */
+static bool drag_begin(int from, int to)
+{
+    refresh_snapshot(from);
+    refresh_snapshot(to);
+    if (s_tab_snap[from] == NULL || s_tab_snap[to] == NULL) {
+        return false;
+    }
+    const int dir = to > from ? 1 : -1;
     const int W = LV_HOR_RES;
     const int y = HEADER_H + TABBAR_H;
-    const int h = LV_VER_RES - y;
 
     s_slide_ov = lv_obj_create(lv_screen_active());
     lv_obj_add_flag(s_slide_ov, LV_OBJ_FLAG_FLOATING);
@@ -1277,9 +1313,8 @@ static void do_tab_switch(int target)
     lv_obj_set_style_bg_color(s_slide_ov, COLOR_BG, 0);
     lv_obj_set_style_bg_opa(s_slide_ov, LV_OPA_COVER, 0);
     lv_obj_set_pos(s_slide_ov, 0, y);
-    lv_obj_set_size(s_slide_ov, W, h);
+    lv_obj_set_size(s_slide_ov, W, LV_VER_RES - y);
 
-    /* Hide the live slider (it isn't in the snapshot); it returns after. */
     if (s_bright_slider) {
         lv_obj_add_flag(s_bright_slider, LV_OBJ_FLAG_HIDDEN);
     }
@@ -1287,40 +1322,101 @@ static void do_tab_switch(int target)
         lv_obj_add_flag(s_bright_label, LV_OBJ_FLAG_HIDDEN);
     }
 
-    lv_obj_t *img_from = lv_image_create(s_slide_ov);
-    lv_image_set_src(img_from, s_tab_snap[cur]);
-    lv_obj_set_pos(img_from, 0, 0);
-    lv_obj_t *img_to = lv_image_create(s_slide_ov);
-    lv_image_set_src(img_to, s_tab_snap[target]);
-    lv_obj_set_pos(img_to, dir * W, 0);
-
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_duration(&a, 220);
-    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-    lv_anim_set_exec_cb(&a, slide_anim_x);
-    lv_anim_set_var(&a, img_from);
-    lv_anim_set_values(&a, 0, -dir * W);
-    lv_anim_start(&a);
-    lv_anim_set_var(&a, img_to);
-    lv_anim_set_values(&a, dir * W, 0);
-    lv_anim_set_completed_cb(&a, slide_done_cb);
-    lv_anim_start(&a);
+    s_drag_from_img = lv_image_create(s_slide_ov);
+    lv_image_set_src(s_drag_from_img, s_tab_snap[from]);
+    lv_obj_set_pos(s_drag_from_img, 0, 0);
+    s_drag_to_img = lv_image_create(s_slide_ov);
+    lv_image_set_src(s_drag_to_img, s_tab_snap[to]);
+    lv_obj_set_pos(s_drag_to_img, dir * W, 0);
+    return true;
 }
 
-static void on_screen_gesture(lv_event_t *e)
+/* True while any modal overlay is up (settings/popup/network/screensaver/drawer). */
+static bool overlays_open(void)
+{
+    lv_obj_t *ov[] = { s_settings, s_popup, s_wifi_list, s_saver };
+    for (int i = 0; i < (int)(sizeof(ov) / sizeof(ov[0])); i++) {
+        if (ov[i] && !lv_obj_has_flag(ov[i], LV_OBJ_FLAG_HIDDEN)) {
+            return true;
+        }
+    }
+    for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
+        if (s_drawers[i] && lv_obj_get_x(s_drawers[i]) < LV_HOR_RES) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Follow the finger: track horizontal movement over the tab content, slide the
+ * two cached bitmaps live, and snap to the nearest tab on release. */
+static void on_content_pressed(lv_event_t *e)
 {
     (void)e;
-    if (s_swiping) {
+    if (s_swiping || s_tabview == NULL) {
         return;
     }
-    const lv_dir_t d = lv_indev_get_gesture_dir(lv_indev_active());
-    const int cur = s_tabview ? (int)lv_tabview_get_tab_active(s_tabview) : 0;
-    if (d == LV_DIR_LEFT) {
-        do_tab_switch(cur + 1);
-    } else if (d == LV_DIR_RIGHT) {
-        do_tab_switch(cur - 1);
+    lv_indev_t *indev = lv_indev_active();
+    if (!indev) {
+        return;
     }
+    lv_point_t p;
+    lv_indev_get_point(indev, &p);
+    /* Only start tracking for touches that begin inside the tile area, clear of
+     * the header/tab bar, the right-edge brightness slider, and any overlay. */
+    if (p.y < HEADER_H + TABBAR_H || p.x > LV_HOR_RES - SLIDER_W - 24 || overlays_open()) {
+        return;
+    }
+    s_drag_press = true;
+    s_drag_on = false;
+    s_drag_suppress_click = false;
+    s_drag_x0 = p.x;
+    s_drag_indev = indev;
+    s_drag_from = (int)lv_tabview_get_tab_active(s_tabview);
+}
+
+/* Polls the touch point ~60Hz while a press is active (LVGL doesn't deliver
+ * PRESSING at the indev level, so we can't get continuous move events there). */
+static void drag_poll_cb(lv_timer_t *t)
+{
+    (void)t;
+    if (!s_drag_press || s_swiping || s_drag_indev == NULL) {
+        return;
+    }
+    lv_point_t p;
+    lv_indev_get_point(s_drag_indev, &p);
+    const int dx = p.x - s_drag_x0;
+    if (!s_drag_on) {
+        if (dx > -16 && dx < 16) {
+            return; /* not yet a horizontal drag */
+        }
+        const int dir = dx < 0 ? 1 : -1;
+        const int to = s_drag_from + dir;
+        if (to < 0 || to >= (int)PANEL_TAB_COUNT || !drag_begin(s_drag_from, to)) {
+            s_drag_press = false; /* at an edge or no snapshot: ignore */
+            return;
+        }
+        s_drag_to = to;
+        s_drag_on = true;
+        s_drag_suppress_click = true; /* this touch is a drag, not a tap */
+    }
+    const int dir = s_drag_to > s_drag_from ? 1 : -1;
+    lv_obj_set_x(s_drag_from_img, dx);
+    lv_obj_set_x(s_drag_to_img, dx + dir * LV_HOR_RES);
+}
+
+static void on_content_released(lv_event_t *e)
+{
+    (void)e;
+    if (!s_drag_press) {
+        return;
+    }
+    s_drag_press = false;
+    if (!s_drag_on) {
+        return;
+    }
+    const int dx = lv_obj_get_x(s_drag_from_img); /* last dragged position */
+    drag_end((dx < 0 ? -dx : dx) > LV_HOR_RES / 4); /* commit past a quarter screen */
 }
 
 
@@ -1411,12 +1507,19 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     style_tab_bar(s_tabview);
 
     /* Take over swiping: disable the tabview's live finger-scroll (which
-     * re-rasterizes every frame) and slide cached bitmaps on a gesture instead.
+     * re-rasterizes every frame) and finger-drag cached bitmaps instead.
      * Instant programmatic scroll so tab-bar button clicks don't slow-scroll. */
     lv_obj_t *tv_content = lv_tabview_get_content(s_tabview);
     lv_obj_clear_flag(tv_content, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_anim_duration(tv_content, 0, 0);
-    lv_obj_add_event_cb(screen, on_screen_gesture, LV_EVENT_GESTURE, NULL);
+    /* Track touches at the input-device level so a drag works no matter which
+     * tile the finger lands on (object events wouldn't bubble up reliably). */
+    lv_indev_t *touch = lv_indev_get_next(NULL);
+    if (touch) {
+        lv_indev_add_event_cb(touch, on_content_pressed, LV_EVENT_PRESSED, NULL);
+        lv_indev_add_event_cb(touch, on_content_released, LV_EVENT_RELEASED, NULL);
+    }
+    lv_timer_create(drag_poll_cb, 16, NULL); /* ~60Hz finger tracking during a drag */
     lv_timer_create(snap_timer_cb, 900, NULL);
 
     /* Slider sits above the tabview (draggable); drawers are created afterwards
