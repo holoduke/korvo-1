@@ -44,6 +44,15 @@ static lv_obj_t *s_weather_label;
 static lv_obj_t *s_status_dot;
 static lv_obj_t *s_drawers[PANEL_TAB_COUNT];
 static lv_obj_t *s_tabview;
+static lv_obj_t *s_date_label;
+static lv_obj_t *s_saver;         /* night dim / screensaver overlay */
+static lv_obj_t *s_saver_clock;
+static lv_obj_t *s_popup;         /* long-press per-light brightness popup */
+static lv_obj_t *s_popup_title;
+static lv_obj_t *s_popup_slider;
+static const panel_entity_t *s_popup_entity;
+
+#define SAVER_TIMEOUT_MS 60000
 static panel_ui_light_cb_t s_light_cb;
 static panel_ui_scene_cb_t s_scene_cb;
 static panel_ui_brightness_cb_t s_brightness_cb;
@@ -77,6 +86,20 @@ static void on_tile_clicked(lv_event_t *e)
     if (s_light_cb) {
         s_light_cb(tile->entity->entity_id);
     }
+}
+
+/* Long-press a tile -> open the per-light brightness popup. */
+static void on_tile_long_pressed(lv_event_t *e)
+{
+    const light_tile_t *tile = lv_event_get_user_data(e);
+    if (s_popup == NULL) {
+        return;
+    }
+    s_popup_entity = tile->entity;
+    lv_label_set_text(s_popup_title, tile->entity->label);
+    lv_slider_set_value(s_popup_slider, 50, LV_ANIM_OFF);
+    lv_obj_remove_flag(s_popup, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_popup);
 }
 
 static void on_scene_clicked(lv_event_t *e)
@@ -127,7 +150,14 @@ static void on_clock_timer(lv_timer_t *t)
     struct tm tm_now;
     localtime_r(&now, &tm_now);
     if (tm_now.tm_year > 100) { /* only once SNTP has synced */
+        static const char *const days[] = {"zo", "ma", "di", "wo", "do", "vr", "za"};
+        static const char *const mons[] = {"jan", "feb", "mrt", "apr", "mei", "jun",
+                                            "jul", "aug", "sep", "okt", "nov", "dec"};
         lv_label_set_text_fmt(s_clock_label, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
+        if (s_date_label) {
+            lv_label_set_text_fmt(s_date_label, "%s %d %s", days[tm_now.tm_wday],
+                                  tm_now.tm_mday, mons[tm_now.tm_mon]);
+        }
     }
 }
 
@@ -157,10 +187,22 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_style_text_color(s_weather_label, COLOR_TEXT_DIM, 0);
     lv_obj_set_flex_grow(s_weather_label, 1); /* pushes clock + dot to the right */
 
-    s_clock_label = lv_label_create(bar);
+    lv_obj_t *timebox = lv_obj_create(bar);
+    lv_obj_set_size(timebox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    make_plain(timebox);
+    lv_obj_set_flex_flow(timebox, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(timebox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END,
+                          LV_FLEX_ALIGN_END);
+
+    s_clock_label = lv_label_create(timebox);
     lv_label_set_text(s_clock_label, "--:--");
     lv_obj_set_style_text_font(s_clock_label, &lv_font_montserrat_32, 0);
     lv_obj_set_style_text_color(s_clock_label, COLOR_TEXT, 0);
+
+    s_date_label = lv_label_create(timebox);
+    lv_label_set_text(s_date_label, "");
+    lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(s_date_label, COLOR_TEXT_DIM, 0);
 
     s_status_dot = lv_obj_create(bar);
     lv_obj_set_size(s_status_dot, 14, 14);
@@ -201,7 +243,8 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
         lv_obj_set_flex_flow(t->tile, LV_FLEX_FLOW_COLUMN);
         lv_obj_set_flex_align(t->tile, LV_FLEX_ALIGN_START,
                               LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-        lv_obj_add_event_cb(t->tile, on_tile_clicked, LV_EVENT_CLICKED, t);
+        lv_obj_add_event_cb(t->tile, on_tile_clicked, LV_EVENT_SHORT_CLICKED, t);
+        lv_obj_add_event_cb(t->tile, on_tile_long_pressed, LV_EVENT_LONG_PRESSED, t);
 
         t->icon = lv_label_create(t->tile);
         lv_label_set_text(t->icon, LV_SYMBOL_POWER);
@@ -343,7 +386,8 @@ static void create_device_tile(lv_obj_t *parent, const panel_entity_t *dev)
     lv_obj_set_flex_flow(t->tile, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(t->tile, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_START);
-    lv_obj_add_event_cb(t->tile, on_tile_clicked, LV_EVENT_CLICKED, t);
+    lv_obj_add_event_cb(t->tile, on_tile_clicked, LV_EVENT_SHORT_CLICKED, t);
+    lv_obj_add_event_cb(t->tile, on_tile_long_pressed, LV_EVENT_LONG_PRESSED, t);
 
     t->icon = lv_label_create(t->tile);
     lv_label_set_text(t->icon, LV_SYMBOL_POWER);
@@ -478,6 +522,109 @@ static void on_tab_changed(lv_event_t *e)
     }
 }
 
+/* ---- Per-light brightness popup (opened by long-press) ------------------ */
+
+static void on_popup_slider(lv_event_t *e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED && s_popup_entity && s_brightness_cb) {
+        const int v = lv_slider_get_value(lv_event_get_target(e));
+        s_brightness_cb(s_popup_entity, 1, v);
+    }
+}
+
+static void on_popup_close(lv_event_t *e)
+{
+    (void)e;
+    lv_obj_add_flag(s_popup, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void create_popup(lv_obj_t *root)
+{
+    /* Dim backdrop; tapping it closes. */
+    s_popup = lv_obj_create(root);
+    lv_obj_set_size(s_popup, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(s_popup, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(s_popup, LV_OPA_50, 0);
+    lv_obj_set_style_border_width(s_popup, 0, 0);
+    lv_obj_set_style_radius(s_popup, 0, 0);
+    lv_obj_clear_flag(s_popup, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_popup, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_popup, on_popup_close, LV_EVENT_CLICKED, NULL);
+
+    /* Centered box (clicks here do not bubble to the backdrop). */
+    lv_obj_t *box = lv_obj_create(s_popup);
+    lv_obj_set_size(box, 460, 200);
+    lv_obj_center(box);
+    lv_obj_set_style_bg_color(box, COLOR_TILE, 0);
+    lv_obj_set_style_radius(box, 20, 0);
+    lv_obj_set_style_border_width(box, 0, 0);
+    lv_obj_set_style_pad_all(box, 24, 0);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(box, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+
+    s_popup_title = lv_label_create(box);
+    lv_label_set_text(s_popup_title, "");
+    lv_obj_set_style_text_font(s_popup_title, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(s_popup_title, COLOR_TEXT, 0);
+    lv_obj_set_style_pad_bottom(s_popup_title, 20, 0);
+
+    s_popup_slider = lv_slider_create(box);
+    lv_obj_set_size(s_popup_slider, LV_PCT(100), 40);
+    lv_slider_set_range(s_popup_slider, 0, 100);
+    lv_obj_set_style_bg_color(s_popup_slider, COLOR_TILE_OFF, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_popup_slider, COLOR_TILE_ON, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_popup_slider, COLOR_TEXT, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(s_popup_slider, 6, LV_PART_KNOB);
+    lv_obj_add_event_cb(s_popup_slider, on_popup_slider, LV_EVENT_RELEASED, NULL);
+}
+
+/* ---- Night dim / screensaver -------------------------------------------- */
+
+static void on_saver_click(lv_event_t *e)
+{
+    (void)e;
+    lv_obj_add_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void saver_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    time_t now = time(NULL);
+    struct tm tm_now;
+    localtime_r(&now, &tm_now);
+    if (tm_now.tm_year > 100) {
+        lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
+    }
+    if (lv_display_get_inactive_time(NULL) > SAVER_TIMEOUT_MS &&
+        lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) {
+        lv_obj_remove_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_saver);
+    }
+}
+
+static void create_screensaver(lv_obj_t *root)
+{
+    s_saver = lv_obj_create(root);
+    lv_obj_set_size(s_saver, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(s_saver, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(s_saver, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_saver, 0, 0);
+    lv_obj_set_style_radius(s_saver, 0, 0);
+    lv_obj_clear_flag(s_saver, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_saver, on_saver_click, LV_EVENT_CLICKED, NULL);
+
+    s_saver_clock = lv_label_create(s_saver);
+    lv_label_set_text(s_saver_clock, "--:--");
+    lv_obj_set_style_text_font(s_saver_clock, &lv_font_montserrat_46, 0);
+    lv_obj_set_style_text_color(s_saver_clock, lv_color_hex(0x2e3340), 0); /* dim */
+    lv_obj_center(s_saver_clock);
+
+    lv_timer_create(saver_timer_cb, 1000, NULL);
+}
+
 static void style_tab_bar(lv_obj_t *tabview)
 {
     lv_obj_t *bar = lv_tabview_get_tab_bar(tabview);
@@ -541,6 +688,10 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
         s_drawers[i] = create_drawer(&PANEL_TABS[i]);
     }
+
+    /* Overlays on the top layer so they cover everything, including drawers. */
+    create_popup(lv_layer_top());
+    create_screensaver(lv_layer_top());
 
     ESP_LOGI(TAG, "UI created (%d tabs, %d tiles)", (int)PANEL_TAB_COUNT, s_tile_count);
 }
