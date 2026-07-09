@@ -70,6 +70,8 @@ static bool s_drag_suppress_click;/* a drag happened -> swallow the tile click *
 static int s_drag_x0;             /* touch-down x */
 static int s_drag_from;
 static int s_drag_to;
+static int s_drag_last_dx;        /* previous poll's dx (for velocity) */
+static int s_drag_vel;            /* recent px/tick, smoothed */
 static lv_indev_t *s_drag_indev;
 static void mark_snapshots_dirty(void);
 static lv_obj_t *settings_label(lv_obj_t *parent, const char *txt,
@@ -106,6 +108,8 @@ static lv_obj_t *s_popup_color_slider;   /* colour or warmth, per light caps */
 static lv_obj_t *s_popup_color_label;
 static int s_popup_color_mode;           /* 0 none, 1 colour, 2 warmth */
 static int s_popup_min_k, s_popup_max_k;
+static lv_grad_dsc_t s_hue_grad;         /* rainbow track for the colour slider */
+static lv_grad_dsc_t s_warm_grad;        /* warm->cool track for the warmth slider */
 static const panel_entity_t *s_popup_entity;
 static panel_ui_color_cb_t s_color_cb;
 static panel_ui_warmth_cb_t s_warmth_cb;
@@ -190,13 +194,12 @@ static void open_light_popup(const light_tile_t *tile)
         lv_label_set_text(s_popup_color_label, "Kleur");
         lv_slider_set_range(s_popup_color_slider, 0, 359);
         lv_slider_set_value(s_popup_color_slider, 40, LV_ANIM_OFF);
-        /* Neutral track; the filled indicator + knob show the chosen hue. */
-        lv_obj_set_style_bg_grad_dir(s_popup_color_slider, LV_GRAD_DIR_NONE, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(s_popup_color_slider, COLOR_TILE_OFF, LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(s_popup_color_slider, LV_OPA_COVER, LV_PART_INDICATOR);
-        const lv_color_t c = lv_color_hsv_to_rgb(40, 100, 100);
-        lv_obj_set_style_bg_color(s_popup_color_slider, c, LV_PART_INDICATOR);
-        lv_obj_set_style_bg_color(s_popup_color_slider, c, LV_PART_KNOB);
+        /* Rainbow track; transparent fill so the whole spectrum shows; the knob
+         * marks (and is tinted to) the chosen hue. */
+        lv_obj_set_style_bg_grad(s_popup_color_slider, &s_hue_grad, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(s_popup_color_slider, LV_OPA_TRANSP, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(s_popup_color_slider, lv_color_hsv_to_rgb(40, 100, 100),
+                                  LV_PART_KNOB);
     } else if (tile->caps & TILE_CAP_WARMTH) {
         s_popup_color_mode = 2;
         s_popup_min_k = tile->min_k;
@@ -205,9 +208,7 @@ static void open_light_popup(const light_tile_t *tile)
         lv_slider_set_range(s_popup_color_slider, tile->min_k, tile->max_k);
         lv_slider_set_value(s_popup_color_slider, (tile->min_k + tile->max_k) / 2, LV_ANIM_OFF);
         /* Warm -> cool gradient track shows the range; knob marks the choice. */
-        lv_obj_set_style_bg_color(s_popup_color_slider, lv_color_hex(0xffb46b), LV_PART_MAIN);
-        lv_obj_set_style_bg_grad_color(s_popup_color_slider, lv_color_hex(0xcfe0ff), LV_PART_MAIN);
-        lv_obj_set_style_bg_grad_dir(s_popup_color_slider, LV_GRAD_DIR_HOR, LV_PART_MAIN);
+        lv_obj_set_style_bg_grad(s_popup_color_slider, &s_warm_grad, LV_PART_MAIN);
         lv_obj_set_style_bg_opa(s_popup_color_slider, LV_OPA_TRANSP, LV_PART_INDICATOR);
         lv_obj_set_style_bg_color(s_popup_color_slider, lv_color_hex(0xf2ede0), LV_PART_KNOB);
     } else {
@@ -807,8 +808,25 @@ static void on_popup_close(lv_event_t *e)
     lv_obj_add_flag(s_popup, LV_OBJ_FLAG_HIDDEN);
 }
 
+/* Build the rainbow (hue) and warm->cool gradient descriptors once. */
+static void init_slider_grads(void)
+{
+    lv_color_t hue[7];
+    for (int i = 0; i < 7; i++) {
+        hue[i] = lv_color_hsv_to_rgb((uint16_t)((i * 60) % 360), 100, 100);
+    }
+    lv_grad_init_stops(&s_hue_grad, hue, NULL, NULL, 7);
+    s_hue_grad.dir = LV_GRAD_DIR_HOR;
+
+    lv_color_t warm[2] = { lv_color_hex(0xffb46b), lv_color_hex(0xcfe0ff) };
+    lv_grad_init_stops(&s_warm_grad, warm, NULL, NULL, 2);
+    s_warm_grad.dir = LV_GRAD_DIR_HOR;
+}
+
 static void create_popup(lv_obj_t *root)
 {
+    init_slider_grads();
+
     /* Dim backdrop; tapping it closes. */
     s_popup = lv_obj_create(root);
     lv_obj_set_size(s_popup, LV_PCT(100), LV_PCT(100));
@@ -1525,8 +1543,17 @@ static void drag_poll_cb(lv_timer_t *t)
         s_drag_to = to;
         s_drag_on = true;
         s_drag_suppress_click = true; /* this touch is a drag, not a tap */
+        s_drag_last_dx = dx;
+        s_drag_vel = 0;
     }
+    /* Peak per-tick speed toward the target (px/~16ms) for flick detection;
+     * peak, not instantaneous, since a flick often decelerates before release. */
     const int dir = s_drag_to > s_drag_from ? 1 : -1;
+    const int toward = -dir * (dx - s_drag_last_dx);
+    if (toward > s_drag_vel) {
+        s_drag_vel = toward;
+    }
+    s_drag_last_dx = dx;
     lv_obj_set_x(s_drag_from_img, dx);
     lv_obj_set_x(s_drag_to_img, dx + dir * LV_HOR_RES);
 }
@@ -1542,7 +1569,12 @@ static void on_content_released(lv_event_t *e)
         return;
     }
     const int dx = lv_obj_get_x(s_drag_from_img); /* last dragged position */
-    drag_end((dx < 0 ? -dx : dx) > LV_HOR_RES / 4); /* commit past a quarter screen */
+    const int dir = s_drag_to > s_drag_from ? 1 : -1;
+    /* Commit if dragged far enough, OR flicked quickly toward the target, so a
+     * short fast swipe still advances (s_drag_vel is peak toward-target speed). */
+    const bool far = (dx < 0 ? -dx : dx) > LV_HOR_RES / 5;
+    const bool flick = s_drag_vel > 6 && (-dir * dx) > 24;
+    drag_end(far || flick);
 }
 
 
