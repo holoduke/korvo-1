@@ -18,6 +18,17 @@ typedef void (*ha_state_cb_t)(const char *entity_id, const char *state,
 /* Fires on auth success (true) and on disconnect (false). */
 typedef void (*ha_conn_cb_t)(bool connected);
 
+/* Light colour capabilities (bit flags), derived from supported_color_modes. */
+#define HA_LIGHT_COLOR  0x1  /* hs/rgb/xy: full colour */
+#define HA_LIGHT_WARMTH 0x2  /* color_temp: tunable white */
+/* Reports a light's capabilities + colour-temp range (kelvin) once known. */
+typedef void (*ha_caps_cb_t)(const char *entity_id, int caps, int min_kelvin, int max_kelvin);
+void ha_client_set_caps_cb(ha_caps_cb_t cb);
+
+/* Set a light's colour (hue 0-359, saturation 0-100) or warmth (kelvin). */
+esp_err_t ha_client_set_color_hs(const char *entity_id, int hue, int sat);
+esp_err_t ha_client_set_color_temp(const char *entity_id, int kelvin);
+
 /* One day of daily forecast. day[0] is today. */
 typedef struct {
     char condition[24];

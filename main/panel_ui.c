@@ -33,12 +33,18 @@ static const char *TAG = "panel_ui";
 #define HEADER_H        84
 #define TABBAR_H        46
 
+#define TILE_CAP_COLOR  0x1
+#define TILE_CAP_WARMTH 0x2
+
 typedef struct {
     const panel_entity_t *entity;
     lv_obj_t *tile;
     lv_obj_t *icon;
     lv_obj_t *name_label;
     lv_obj_t *state_label;
+    int caps;   /* TILE_CAP_* bit flags */
+    int min_k;  /* colour-temp range (kelvin) */
+    int max_k;
 } light_tile_t;
 
 static light_tile_t s_tiles[PANEL_MAX_LIGHTS];
@@ -66,6 +72,9 @@ static int s_drag_from;
 static int s_drag_to;
 static lv_indev_t *s_drag_indev;
 static void mark_snapshots_dirty(void);
+static lv_obj_t *settings_label(lv_obj_t *parent, const char *txt,
+                                const lv_font_t *font, lv_color_t color);
+static void open_light_popup(const light_tile_t *tile);
 static lv_obj_t *s_date_label;
 static lv_obj_t *s_dow_label;     /* weekday, right cluster */
 /* 5-day forecast columns in the header (index 0 = today). */
@@ -93,7 +102,13 @@ static lv_obj_t *s_saver_clock;
 static lv_obj_t *s_popup;         /* long-press per-light brightness popup */
 static lv_obj_t *s_popup_title;
 static lv_obj_t *s_popup_slider;
+static lv_obj_t *s_popup_color_slider;   /* colour or warmth, per light caps */
+static lv_obj_t *s_popup_color_label;
+static int s_popup_color_mode;           /* 0 none, 1 colour, 2 warmth */
+static int s_popup_min_k, s_popup_max_k;
 static const panel_entity_t *s_popup_entity;
+static panel_ui_color_cb_t s_color_cb;
+static panel_ui_warmth_cb_t s_warmth_cb;
 
 static uint32_t s_saver_timeout_ms = 60000; /* 0 = never; changed in settings */
 static lv_obj_t *s_saver_dd;
@@ -158,9 +173,54 @@ static void on_tile_long_pressed(lv_event_t *e)
             return;
         }
     }
+    open_light_popup(tile);
+}
+
+/* Populate + show the per-light popup with brightness and (if supported) a
+ * colour or warmth slider. */
+static void open_light_popup(const light_tile_t *tile)
+{
     s_popup_entity = tile->entity;
     lv_label_set_text(s_popup_title, tile->entity->label);
     lv_slider_set_value(s_popup_slider, 50, LV_ANIM_OFF);
+
+    /* Second slider: colour if the light supports it, else warmth, else none. */
+    if (tile->caps & TILE_CAP_COLOR) {
+        s_popup_color_mode = 1;
+        lv_label_set_text(s_popup_color_label, "Kleur");
+        lv_slider_set_range(s_popup_color_slider, 0, 359);
+        lv_slider_set_value(s_popup_color_slider, 40, LV_ANIM_OFF);
+        /* Neutral track; the filled indicator + knob show the chosen hue. */
+        lv_obj_set_style_bg_grad_dir(s_popup_color_slider, LV_GRAD_DIR_NONE, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(s_popup_color_slider, COLOR_TILE_OFF, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(s_popup_color_slider, LV_OPA_COVER, LV_PART_INDICATOR);
+        const lv_color_t c = lv_color_hsv_to_rgb(40, 100, 100);
+        lv_obj_set_style_bg_color(s_popup_color_slider, c, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(s_popup_color_slider, c, LV_PART_KNOB);
+    } else if (tile->caps & TILE_CAP_WARMTH) {
+        s_popup_color_mode = 2;
+        s_popup_min_k = tile->min_k;
+        s_popup_max_k = tile->max_k;
+        lv_label_set_text(s_popup_color_label, "Warmte");
+        lv_slider_set_range(s_popup_color_slider, tile->min_k, tile->max_k);
+        lv_slider_set_value(s_popup_color_slider, (tile->min_k + tile->max_k) / 2, LV_ANIM_OFF);
+        /* Warm -> cool gradient track shows the range; knob marks the choice. */
+        lv_obj_set_style_bg_color(s_popup_color_slider, lv_color_hex(0xffb46b), LV_PART_MAIN);
+        lv_obj_set_style_bg_grad_color(s_popup_color_slider, lv_color_hex(0xcfe0ff), LV_PART_MAIN);
+        lv_obj_set_style_bg_grad_dir(s_popup_color_slider, LV_GRAD_DIR_HOR, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(s_popup_color_slider, LV_OPA_TRANSP, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(s_popup_color_slider, lv_color_hex(0xf2ede0), LV_PART_KNOB);
+    } else {
+        s_popup_color_mode = 0;
+    }
+    if (s_popup_color_mode == 0) {
+        lv_obj_add_flag(s_popup_color_slider, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_popup_color_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_remove_flag(s_popup_color_slider, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(s_popup_color_label, LV_OBJ_FLAG_HIDDEN);
+    }
+
     lv_obj_remove_flag(s_popup, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(s_popup);
 }
@@ -714,6 +774,33 @@ static void on_popup_slider(lv_event_t *e)
     }
 }
 
+/* Colour/warmth slider: live knob feedback while dragging, applies on release. */
+static void on_popup_color_slider(lv_event_t *e)
+{
+    const lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *sl = lv_event_get_target(e);
+    const int v = lv_slider_get_value(sl);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        /* Tint the indicator + knob so the slider previews the chosen colour. */
+        lv_color_t c;
+        if (s_popup_color_mode == 1) {
+            c = lv_color_hsv_to_rgb((uint16_t)v, 100, 100);
+        } else {
+            const int span = s_popup_max_k > s_popup_min_k ? s_popup_max_k - s_popup_min_k : 1;
+            const int t = ((v - s_popup_min_k) * 255) / span; /* 0 warm .. 255 cool */
+            c = lv_color_make(255, 180 + t / 4, 110 + t / 2);
+        }
+        lv_obj_set_style_bg_color(sl, c, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(sl, c, LV_PART_KNOB);
+    } else if (code == LV_EVENT_RELEASED && s_popup_entity) {
+        if (s_popup_color_mode == 1 && s_color_cb) {
+            s_color_cb(s_popup_entity->entity_id, v, 100);
+        } else if (s_popup_color_mode == 2 && s_warmth_cb) {
+            s_warmth_cb(s_popup_entity->entity_id, v);
+        }
+    }
+}
+
 static void on_popup_close(lv_event_t *e)
 {
     (void)e;
@@ -735,23 +822,25 @@ static void create_popup(lv_obj_t *root)
 
     /* Centered box (clicks here do not bubble to the backdrop). */
     lv_obj_t *box = lv_obj_create(s_popup);
-    lv_obj_set_size(box, 460, 200);
+    lv_obj_set_size(box, 480, 300);
     lv_obj_center(box);
     lv_obj_set_style_bg_color(box, COLOR_TILE, 0);
     lv_obj_set_style_radius(box, 20, 0);
     lv_obj_set_style_border_width(box, 0, 0);
     lv_obj_set_style_pad_all(box, 24, 0);
+    lv_obj_set_style_pad_gap(box, 8, 0);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_flex_flow(box, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+    lv_obj_set_flex_align(box, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_CENTER);
 
     s_popup_title = lv_label_create(box);
     lv_label_set_text(s_popup_title, "");
     lv_obj_set_style_text_font(s_popup_title, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(s_popup_title, COLOR_TEXT, 0);
-    lv_obj_set_style_pad_bottom(s_popup_title, 20, 0);
+    lv_obj_set_style_pad_bottom(s_popup_title, 12, 0);
 
+    settings_label(box, "Helderheid", &lv_font_montserrat_18, COLOR_TEXT_DIM);
     s_popup_slider = lv_slider_create(box);
     lv_obj_set_size(s_popup_slider, LV_PCT(100), 40);
     lv_slider_set_range(s_popup_slider, 0, 100);
@@ -760,6 +849,19 @@ static void create_popup(lv_obj_t *root)
     lv_obj_set_style_bg_color(s_popup_slider, COLOR_TEXT, LV_PART_KNOB);
     lv_obj_set_style_pad_all(s_popup_slider, 6, LV_PART_KNOB);
     lv_obj_add_event_cb(s_popup_slider, on_popup_slider, LV_EVENT_RELEASED, NULL);
+
+    s_popup_color_label = settings_label(box, "Kleur", &lv_font_montserrat_18, COLOR_TEXT_DIM);
+    lv_obj_set_style_pad_top(s_popup_color_label, 6, 0);
+    s_popup_color_slider = lv_slider_create(box);
+    lv_obj_set_size(s_popup_color_slider, LV_PCT(100), 40);
+    lv_obj_set_style_bg_color(s_popup_color_slider, COLOR_TILE_OFF, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_popup_color_slider, LV_OPA_TRANSP, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_popup_color_slider, COLOR_TEXT, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(s_popup_color_slider, 6, LV_PART_KNOB);
+    lv_obj_add_event_cb(s_popup_color_slider, on_popup_color_slider, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(s_popup_color_slider, on_popup_color_slider, LV_EVENT_RELEASED, NULL);
+    lv_obj_add_flag(s_popup_color_slider, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_popup_color_label, LV_OBJ_FLAG_HIDDEN);
 }
 
 /* ---- Night dim / screensaver -------------------------------------------- */
@@ -1135,6 +1237,23 @@ void panel_ui_set_wifi_callback(panel_ui_wifi_cb_t cb, const char *current_ssid)
 void panel_ui_set_scan_callback(panel_ui_scan_cb_t cb)
 {
     s_scan_cb = cb;
+}
+
+void panel_ui_set_color_callbacks(panel_ui_color_cb_t color_cb, panel_ui_warmth_cb_t warmth_cb)
+{
+    s_color_cb = color_cb;
+    s_warmth_cb = warmth_cb;
+}
+
+void panel_ui_set_light_caps(const char *entity_id, int caps, int min_kelvin, int max_kelvin)
+{
+    for (int i = 0; i < s_tile_count; i++) {
+        if (strcmp(s_tiles[i].entity->entity_id, entity_id) == 0) {
+            s_tiles[i].caps = caps;
+            s_tiles[i].min_k = min_kelvin;
+            s_tiles[i].max_k = max_kelvin;
+        }
+    }
 }
 
 void panel_ui_set_networks(const char *const *ssids, const int8_t *rssi, int count)

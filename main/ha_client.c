@@ -34,6 +34,7 @@ static volatile int64_t s_last_rx_us; /* last time any frame arrived */
 static ha_forecast_cb_t s_forecast_cb;
 static int s_forecast_id;              /* msg id of the pending get_forecasts */
 static char s_weather_entity[48];      /* cached for periodic refresh */
+static ha_caps_cb_t s_caps_cb;
 
 static esp_err_t send_json(cJSON *root)
 {
@@ -88,6 +89,37 @@ static int read_brightness_attr(const cJSON *attrs)
     return (int)((bri->valuedouble * 100.0 / 255.0) + 0.5);
 }
 
+/* Derive colour/warmth capabilities from supported_color_modes and report them. */
+static void read_caps(const cJSON *attrs, const char *entity_id)
+{
+    if (!s_caps_cb) {
+        return;
+    }
+    const cJSON *scm = cJSON_GetObjectItem(attrs, "supported_color_modes");
+    if (!cJSON_IsArray(scm)) {
+        return;
+    }
+    int caps = 0;
+    const cJSON *m;
+    cJSON_ArrayForEach(m, scm) {
+        if (!cJSON_IsString(m)) {
+            continue;
+        }
+        const char *s = m->valuestring;
+        if (strcmp(s, "color_temp") == 0) {
+            caps |= HA_LIGHT_WARMTH;
+        } else if (strcmp(s, "hs") == 0 || strcmp(s, "rgb") == 0 || strcmp(s, "rgbw") == 0 ||
+                   strcmp(s, "rgbww") == 0 || strcmp(s, "xy") == 0) {
+            caps |= HA_LIGHT_COLOR;
+        }
+    }
+    const cJSON *mk = cJSON_GetObjectItem(attrs, "min_color_temp_kelvin");
+    const cJSON *xk = cJSON_GetObjectItem(attrs, "max_color_temp_kelvin");
+    const int min_k = cJSON_IsNumber(mk) ? (int)mk->valuedouble : 2200;
+    const int max_k = cJSON_IsNumber(xk) ? (int)xk->valuedouble : 6500;
+    s_caps_cb(entity_id, caps, min_k, max_k);
+}
+
 /* Entity payload shapes (subscribe_entities):
  *   added:   {"a": {"<entity>": {"s": "on", "a": {...attrs}}}}
  *   changed: {"c": {"<entity>": {"+": {"s": "off", "a": {...attrs}}}}}
@@ -104,6 +136,9 @@ static void handle_entity_object(const cJSON *entities, bool changed)
         const cJSON *attrs = cJSON_GetObjectItem(body, "a");
         const float temperature = attrs ? read_temperature_attr(attrs) : NAN;
         const int brightness = attrs ? read_brightness_attr(attrs) : -1;
+        if (attrs) {
+            read_caps(attrs, entity->string);
+        }
         if ((cJSON_IsString(state) || !isnan(temperature) || brightness >= 0) && s_state_cb) {
             s_state_cb(entity->string,
                        cJSON_IsString(state) ? state->valuestring : NULL,
@@ -229,6 +264,45 @@ static esp_err_t call_service(const char *domain, const char *service, const cha
 void ha_client_set_forecast_cb(ha_forecast_cb_t cb)
 {
     s_forecast_cb = cb;
+}
+
+void ha_client_set_caps_cb(ha_caps_cb_t cb)
+{
+    s_caps_cb = cb;
+}
+
+/* light.turn_on with a single service-data key holding an int, or an [a,b] pair. */
+static esp_err_t light_turn_on_num(const char *entity_id, const char *key, int a, int b, bool pair)
+{
+    ESP_RETURN_ON_FALSE(s_client != NULL && esp_websocket_client_is_connected(s_client),
+                        ESP_ERR_INVALID_STATE, TAG, "not connected");
+    ESP_RETURN_ON_FALSE(entity_id != NULL, ESP_ERR_INVALID_ARG, TAG, "no entity");
+    cJSON *msg = cJSON_CreateObject();
+    cJSON_AddNumberToObject(msg, "id", s_msg_id++);
+    cJSON_AddStringToObject(msg, "type", "call_service");
+    cJSON_AddStringToObject(msg, "domain", "light");
+    cJSON_AddStringToObject(msg, "service", "turn_on");
+    cJSON *data = cJSON_AddObjectToObject(msg, "service_data");
+    if (pair) {
+        cJSON *arr = cJSON_AddArrayToObject(data, key);
+        cJSON_AddItemToArray(arr, cJSON_CreateNumber(a));
+        cJSON_AddItemToArray(arr, cJSON_CreateNumber(b));
+    } else {
+        cJSON_AddNumberToObject(data, key, a);
+    }
+    cJSON *target = cJSON_AddObjectToObject(msg, "target");
+    cJSON_AddStringToObject(target, "entity_id", entity_id);
+    return send_json(msg);
+}
+
+esp_err_t ha_client_set_color_hs(const char *entity_id, int hue, int sat)
+{
+    return light_turn_on_num(entity_id, "hs_color", hue, sat, true);
+}
+
+esp_err_t ha_client_set_color_temp(const char *entity_id, int kelvin)
+{
+    return light_turn_on_num(entity_id, "color_temp_kelvin", kelvin, 0, false);
 }
 
 esp_err_t ha_client_request_forecast(const char *weather_entity_id)

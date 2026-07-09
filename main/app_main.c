@@ -120,6 +120,21 @@ static void on_ha_forecast(const ha_forecast_day_t *days, int count)
     }
 }
 
+static void on_light_caps(const char *entity_id, int caps, int min_k, int max_k)
+{
+    panel_ui_set_light_caps(entity_id, caps, min_k, max_k);
+}
+
+static void on_set_color(const char *entity_id, int hue, int sat)
+{
+    ha_client_set_color_hs(entity_id, hue, sat);
+}
+
+static void on_set_warmth(const char *entity_id, int kelvin)
+{
+    ha_client_set_color_temp(entity_id, kelvin);
+}
+
 static void on_ha_conn(bool connected)
 {
     s_ha_up = connected;
@@ -161,6 +176,7 @@ static void on_wifi_status(bool connected)
         }
 
         ha_client_set_forecast_cb(on_ha_forecast);
+        ha_client_set_caps_cb(on_light_caps);
         err = ha_client_start(HA_WEBSOCKET_URI, SECRET_HA_TOKEN,
                               s_subscribed, s_subscribed_count,
                               on_ha_state, on_ha_conn);
@@ -238,6 +254,7 @@ void app_main(void)
 
     if (bsp_display_lock(-1)) {
         panel_ui_create(on_light_tap, on_scene_tap, on_brightness);
+        panel_ui_set_color_callbacks(on_set_color, on_set_warmth);
         bsp_display_unlock();
     }
 
