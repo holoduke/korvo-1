@@ -14,6 +14,9 @@ typedef void (*panel_ui_brightness_cb_t)(const panel_entity_t *targets, int coun
 void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
                      panel_ui_brightness_cb_t brightness_cb);
 
+/* Bench helper: animate a tab switch (measures swipe rendering). */
+void panel_ui_toggle_tab(void);
+
 /* Thread-safe updates (they take the LVGL lock themselves). */
 void panel_ui_set_light_state(const char *entity_id, const char *state);
 /* Highlight the scene chip for entity_id (clears the others on its tab). */

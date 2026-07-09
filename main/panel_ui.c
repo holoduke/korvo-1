@@ -738,6 +738,16 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
     }
 }
 
+void panel_ui_toggle_tab(void)
+{
+    if (s_tabview == NULL || !bsp_display_lock(200)) {
+        return;
+    }
+    const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
+    lv_tabview_set_active(s_tabview, idx == 0 ? 1 : 0, LV_ANIM_ON);
+    bsp_display_unlock();
+}
+
 void panel_ui_set_scene_active(const char *entity_id)
 {
     if (entity_id == NULL) {

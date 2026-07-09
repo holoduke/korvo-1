@@ -8,6 +8,7 @@
 #include "nvs_flash.h"
 
 #include "ha_client.h"
+#include "ota.h"
 #include "panel_config.h"
 #include "panel_ui.h"
 #include "secrets.h"
@@ -141,6 +142,10 @@ static void on_wifi_status(bool connected)
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "HA client failed to start: %s", esp_err_to_name(err));
         }
+
+        if (ota_start_server() != ESP_OK) {
+            ESP_LOGW(TAG, "OTA server failed to start");
+        }
     }
 }
 
@@ -192,8 +197,6 @@ void app_main(void)
      * The panel refreshes at ~60 Hz and LVGL is capped at 15 ms, so this reaches
      * the refresh ceiling without the PPA queue hazard. */
     display_cfg.enable_ppa_accel = false;
-    /* Keep the BSP default buffer_height: larger stripes starve internal DMA RAM
-     * and break Wi-Fi init, and we already hit the 60 Hz panel ceiling anyway. */
     display_cfg.task_stack_size = 8192;
     lv_display_t *disp = bsp_display_start_with_config(&display_cfg);
     if (disp == NULL) {

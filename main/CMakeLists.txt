@@ -4,8 +4,9 @@ idf_component_register(
         "wifi_mgr.c"
         "ha_client.c"
         "panel_ui.c"
+        "ota.c"
     INCLUDE_DIRS "."
-    PRIV_REQUIRES nvs_flash esp_wifi esp_netif
+    PRIV_REQUIRES nvs_flash esp_wifi esp_netif esp_http_server app_update
 )
 
 # --- Embed secrets from the gitignored secrets/ directory -------------------

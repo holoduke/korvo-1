@@ -30,7 +30,7 @@ CONFIG_LV_DPI_DEF=130
 # PPA hardware acceleration is set at runtime (enable_ppa_accel).
 CONFIG_ESP_LVGL_ADAPTER_ENABLE_FPS_STATS=y
 CONFIG_LV_DRAW_SW_COMPLEX=y
-# Dual-core parallel software rendering (needs LVGL OS threading).
+# Dual-core parallel software rendering (fastest for this UI).
 CONFIG_LV_OS_FREERTOS=y
 CONFIG_LV_DRAW_SW_DRAW_UNIT_CNT=2
 CONFIG_LV_DRAW_THREAD_STACK_SIZE=8192
