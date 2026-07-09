@@ -1155,12 +1155,19 @@ void panel_ui_set_networks(const char *const *ssids, const int8_t *rssi, int cou
     const int max = sizeof(s_net_ssids) / sizeof(s_net_ssids[0]);
     for (int i = 0; i < count && s_net_count < max; i++) {
         strlcpy(s_net_ssids[s_net_count], ssids[i], sizeof(s_net_ssids[0]));
+        /* Lightweight row: transparent (no per-row fill/rounded-AA overdraw, so
+         * the list scrolls fast); a divider line + a press highlight instead. */
         lv_obj_t *btn = lv_button_create(s_wifi_list_box);
         lv_obj_set_width(btn, LV_PCT(100));
-        lv_obj_set_style_bg_color(btn, COLOR_TILE, 0);
-        lv_obj_set_style_radius(btn, 12, 0);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_bg_color(btn, COLOR_TILE, LV_STATE_PRESSED);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_STATE_PRESSED);
+        lv_obj_set_style_radius(btn, 0, 0);
         lv_obj_set_style_shadow_width(btn, 0, 0);
-        lv_obj_set_style_pad_ver(btn, 14, 0);
+        lv_obj_set_style_pad_ver(btn, 13, 0);
+        lv_obj_set_style_border_color(btn, COLOR_TILE, 0);
+        lv_obj_set_style_border_width(btn, 1, 0);
+        lv_obj_set_style_border_side(btn, LV_BORDER_SIDE_BOTTOM, 0);
         lv_obj_set_flex_flow(btn, LV_FLEX_FLOW_ROW);
         lv_obj_set_flex_align(btn, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
         lv_obj_add_event_cb(btn, on_wifi_net_clicked, LV_EVENT_CLICKED,
