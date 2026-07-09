@@ -97,7 +97,8 @@ static void handle_scene_state(const char *entity_id, const char *state)
     }
 }
 
-static void on_ha_state(const char *entity_id, const char *state, float temperature)
+static void on_ha_state(const char *entity_id, const char *state,
+                        float temperature, int brightness_pct)
 {
     if (strcmp(entity_id, PANEL_WEATHER_ENTITY) == 0) {
         panel_ui_set_weather(state, temperature);
@@ -105,6 +106,9 @@ static void on_ha_state(const char *entity_id, const char *state, float temperat
         handle_scene_state(entity_id, state);
     } else {
         panel_ui_set_light_state(entity_id, state);
+        if (brightness_pct >= 0) {
+            panel_ui_set_area_brightness(entity_id, brightness_pct);
+        }
     }
 }
 

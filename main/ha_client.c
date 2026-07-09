@@ -8,7 +8,11 @@
 #include "esp_check.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_system.h"
+#include "esp_timer.h"
 #include "esp_websocket_client.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 static const char *TAG = "ha_client";
 
@@ -25,6 +29,7 @@ static int s_msg_id = 1;
 
 static char *s_rx_buf;
 static size_t s_rx_len;
+static volatile int64_t s_last_rx_us; /* last time any frame arrived */
 
 static esp_err_t send_json(cJSON *root)
 {
@@ -69,6 +74,16 @@ static float read_temperature_attr(const cJSON *attrs)
     return cJSON_IsNumber(temp) ? (float)temp->valuedouble : NAN;
 }
 
+/* brightness attribute is 0-255; return 0-100 percent, or -1 if absent. */
+static int read_brightness_attr(const cJSON *attrs)
+{
+    const cJSON *bri = cJSON_GetObjectItem(attrs, "brightness");
+    if (!cJSON_IsNumber(bri)) {
+        return -1;
+    }
+    return (int)((bri->valuedouble * 100.0 / 255.0) + 0.5);
+}
+
 /* Entity payload shapes (subscribe_entities):
  *   added:   {"a": {"<entity>": {"s": "on", "a": {...attrs}}}}
  *   changed: {"c": {"<entity>": {"+": {"s": "off", "a": {...attrs}}}}}
@@ -84,10 +99,11 @@ static void handle_entity_object(const cJSON *entities, bool changed)
         const cJSON *state = cJSON_GetObjectItem(body, "s");
         const cJSON *attrs = cJSON_GetObjectItem(body, "a");
         const float temperature = attrs ? read_temperature_attr(attrs) : NAN;
-        if ((cJSON_IsString(state) || !isnan(temperature)) && s_state_cb) {
+        const int brightness = attrs ? read_brightness_attr(attrs) : -1;
+        if ((cJSON_IsString(state) || !isnan(temperature) || brightness >= 0) && s_state_cb) {
             s_state_cb(entity->string,
                        cJSON_IsString(state) ? state->valuestring : NULL,
-                       temperature);
+                       temperature, brightness);
         }
     }
 }
@@ -145,6 +161,7 @@ static void on_ws_event(void *arg, esp_event_base_t base, int32_t event_id, void
     case WEBSOCKET_EVENT_CONNECTED:
         ESP_LOGI(TAG, "WebSocket connected, waiting for auth_required");
         s_rx_len = 0;
+        s_last_rx_us = esp_timer_get_time();
         break;
 
     case WEBSOCKET_EVENT_DISCONNECTED:
@@ -160,6 +177,7 @@ static void on_ws_event(void *arg, esp_event_base_t base, int32_t event_id, void
         if (ev->op_code != 1 && ev->op_code != 0) {
             break;
         }
+        s_last_rx_us = esp_timer_get_time();
         if (ev->payload_offset == 0) {
             s_rx_len = 0;
         }
@@ -233,6 +251,44 @@ esp_err_t ha_client_set_brightness(const char *const *entity_ids, int count, int
     return send_json(msg);
 }
 
+/* Application-level ping to elicit a pong; keeps traffic flowing so a stale
+ * (half-open) connection is detectable. */
+static void send_ping(void)
+{
+    cJSON *msg = cJSON_CreateObject();
+    cJSON_AddNumberToObject(msg, "id", s_msg_id++);
+    cJSON_AddStringToObject(msg, "type", "ping");
+    if (send_json(msg) != ESP_OK) {
+        ESP_LOGD(TAG, "ping send failed");
+    }
+}
+
+/* Watchdog: if HA goes silent (even though TCP looks alive, e.g. after an HA
+ * restart), force a reconnect; reboot as a last resort. */
+static void heartbeat_task(void *arg)
+{
+    (void)arg;
+    const int64_t STALE_US = 45LL * 1000000;   /* force reconnect */
+    const int64_t REBOOT_US = 90LL * 1000000;  /* last resort */
+    while (true) {
+        vTaskDelay(pdMS_TO_TICKS(15000));
+        if (s_client == NULL || !esp_websocket_client_is_connected(s_client)) {
+            continue; /* not connected -> built-in auto-reconnect handles it */
+        }
+        send_ping();
+        const int64_t idle = esp_timer_get_time() - s_last_rx_us;
+        if (idle > REBOOT_US) {
+            ESP_LOGE(TAG, "HA silent %d s -> rebooting", (int)(idle / 1000000));
+            esp_restart();
+        } else if (idle > STALE_US) {
+            ESP_LOGW(TAG, "HA silent %d s -> forcing reconnect", (int)(idle / 1000000));
+            esp_websocket_client_close(s_client, pdMS_TO_TICKS(2000));
+            esp_websocket_client_start(s_client);
+            s_last_rx_us = esp_timer_get_time();
+        }
+    }
+}
+
 esp_err_t ha_client_start(const char *uri, const char *token,
                           const char *const *entity_ids, int entity_count,
                           ha_state_cb_t state_cb, ha_conn_cb_t conn_cb)
@@ -265,6 +321,8 @@ esp_err_t ha_client_start(const char *uri, const char *token,
                                                       on_ws_event, NULL),
                         TAG, "register events");
     ESP_RETURN_ON_ERROR(esp_websocket_client_start(s_client), TAG, "ws start");
+    s_last_rx_us = esp_timer_get_time();
+    xTaskCreate(heartbeat_task, "ha_hb", 4096, NULL, 4, NULL);
     ESP_LOGI(TAG, "Connecting to %s", uri);
     return ESP_OK;
 }

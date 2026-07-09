@@ -48,7 +48,10 @@ static panel_ui_light_cb_t s_light_cb;
 static panel_ui_scene_cb_t s_scene_cb;
 static panel_ui_brightness_cb_t s_brightness_cb;
 static lv_obj_t *s_bright_label;
+static lv_obj_t *s_bright_slider;
 static bool s_slider_moved;
+static bool s_slider_dragging;
+static int s_tab_brightness[PANEL_TAB_COUNT]; /* last known area brightness, -1 unknown */
 
 /* Scene chips per tab, so activating one can highlight it and clear the others. */
 #define MAX_SCENES 6
@@ -97,16 +100,22 @@ static void on_bright_slider_event(lv_event_t *e)
     const int val = lv_slider_get_value(slider);
     const lv_event_code_t code = lv_event_get_code(e);
 
-    if (code == LV_EVENT_VALUE_CHANGED) {
+    if (code == LV_EVENT_PRESSED) {
+        s_slider_dragging = true;
+    } else if (code == LV_EVENT_VALUE_CHANGED) {
         s_slider_moved = true;
         if (s_bright_label) {
             lv_label_set_text_fmt(s_bright_label, "%d%%", val);
         }
-    } else if (code == LV_EVENT_RELEASED && s_slider_moved) {
-        s_slider_moved = false;
-        const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
-        if (idx < PANEL_TAB_COUNT && s_brightness_cb) {
-            s_brightness_cb(PANEL_TABS[idx].lights, PANEL_TABS[idx].light_count, val);
+    } else if (code == LV_EVENT_RELEASED) {
+        s_slider_dragging = false;
+        if (s_slider_moved) {
+            s_slider_moved = false;
+            const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
+            if (idx < PANEL_TAB_COUNT && s_brightness_cb) {
+                s_tab_brightness[idx] = val;
+                s_brightness_cb(PANEL_TABS[idx].lights, PANEL_TABS[idx].light_count, val);
+            }
         }
     }
 }
@@ -442,8 +451,10 @@ static void create_bright_slider(lv_obj_t *screen)
     lv_obj_set_style_bg_color(slider, COLOR_TEXT, LV_PART_KNOB);
     lv_obj_set_style_pad_all(slider, 5, LV_PART_KNOB);
     lv_obj_set_style_radius(slider, LV_RADIUS_CIRCLE, LV_PART_KNOB);
+    lv_obj_add_event_cb(slider, on_bright_slider_event, LV_EVENT_PRESSED, NULL);
     lv_obj_add_event_cb(slider, on_bright_slider_event, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_add_event_cb(slider, on_bright_slider_event, LV_EVENT_RELEASED, NULL);
+    s_bright_slider = slider;
 
     /* % readout just above the slider */
     s_bright_label = lv_label_create(screen);
@@ -452,6 +463,19 @@ static void create_bright_slider(lv_obj_t *screen)
     lv_obj_set_style_text_font(s_bright_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(s_bright_label, COLOR_TEXT_DIM, 0);
     lv_obj_set_pos(s_bright_label, slider_x, HEADER_H + TABBAR_H + 2);
+}
+
+/* When the tab changes, show that tab's last-known area brightness. */
+static void on_tab_changed(lv_event_t *e)
+{
+    (void)e;
+    const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
+    if (idx < PANEL_TAB_COUNT && s_bright_slider && s_tab_brightness[idx] >= 0) {
+        lv_slider_set_value(s_bright_slider, s_tab_brightness[idx], LV_ANIM_OFF);
+        if (s_bright_label) {
+            lv_label_set_text_fmt(s_bright_label, "%d%%", s_tab_brightness[idx]);
+        }
+    }
 }
 
 static void style_tab_bar(lv_obj_t *tabview)
@@ -481,6 +505,9 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     s_scene_cb = scene_cb;
     s_brightness_cb = brightness_cb;
     s_tile_count = 0;
+    for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
+        s_tab_brightness[t] = -1;
+    }
 
     lv_obj_t *screen = lv_screen_active();
     lv_obj_set_style_bg_color(screen, COLOR_BG, 0);
@@ -494,6 +521,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     lv_tabview_set_tab_bar_position(s_tabview, LV_DIR_TOP);
     lv_tabview_set_tab_bar_size(s_tabview, TABBAR_H);
     lv_obj_set_style_bg_color(s_tabview, COLOR_BG, 0);
+    lv_obj_add_event_cb(s_tabview, on_tab_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
         const panel_tab_t *tab_cfg = &PANEL_TABS[i];
@@ -579,6 +607,33 @@ void panel_ui_set_scene_active(const char *entity_id)
             bsp_display_unlock();
             return;
         }
+    }
+}
+
+void panel_ui_set_area_brightness(const char *entity_id, int brightness_pct)
+{
+    if (entity_id == NULL || brightness_pct < 0) {
+        return;
+    }
+    /* Reflect only a tab's representative (first) light on the slider. */
+    for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
+        if (PANEL_TABS[t].light_count == 0 ||
+            strcmp(PANEL_TABS[t].lights[0].entity_id, entity_id) != 0) {
+            continue;
+        }
+        s_tab_brightness[t] = brightness_pct;
+        if (!bsp_display_lock(1000)) {
+            return;
+        }
+        const uint32_t active = lv_tabview_get_tab_active(s_tabview);
+        if ((int)active == t && !s_slider_dragging && s_bright_slider) {
+            lv_slider_set_value(s_bright_slider, brightness_pct, LV_ANIM_OFF);
+            if (s_bright_label) {
+                lv_label_set_text_fmt(s_bright_label, "%d%%", brightness_pct);
+            }
+        }
+        bsp_display_unlock();
+        return;
     }
 }
 

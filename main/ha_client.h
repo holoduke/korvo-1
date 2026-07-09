@@ -9,9 +9,11 @@
 #include <stdbool.h>
 #include "esp_err.h"
 
-/* State update for one entity. temperature is NAN unless the entity
- * carries a temperature attribute (e.g. weather). */
-typedef void (*ha_state_cb_t)(const char *entity_id, const char *state, float temperature);
+/* State update for one entity. temperature is NAN unless the entity carries a
+ * temperature attribute (e.g. weather); brightness_pct is -1 unless the entity
+ * carries a brightness attribute (lights). */
+typedef void (*ha_state_cb_t)(const char *entity_id, const char *state,
+                              float temperature, int brightness_pct);
 
 /* Fires on auth success (true) and on disconnect (false). */
 typedef void (*ha_conn_cb_t)(bool connected);
