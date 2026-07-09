@@ -6,6 +6,9 @@
 
 typedef void (*wifi_mgr_status_cb_t)(bool connected);
 
+/** Delivers scan results: parallel arrays of SSID strings and RSSI, deduped. */
+typedef void (*wifi_mgr_scan_cb_t)(const char *const *ssids, const int8_t *rssi, int count);
+
 /**
  * Connect to the configured network. Credentials saved in NVS (via the settings
  * screen) take precedence over the compiled defaults passed here. The callback
@@ -18,3 +21,13 @@ esp_err_t wifi_mgr_set_credentials(const char *ssid, const char *password);
 
 /** Copy the currently-configured SSID into out (out_len bytes). */
 void wifi_mgr_get_ssid(char *out, int out_len);
+
+/** True once the station has an IP (i.e. actually connected). */
+bool wifi_mgr_is_connected(void);
+
+/**
+ * Start an asynchronous scan for nearby access points. When it completes, cb is
+ * invoked once (from the Wi-Fi event task) with the deduped SSID list. Calling
+ * again while a scan is in flight just updates the callback.
+ */
+esp_err_t wifi_mgr_scan_start(wifi_mgr_scan_cb_t cb);

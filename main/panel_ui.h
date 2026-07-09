@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "panel_config.h"
 
@@ -11,9 +12,18 @@ typedef void (*panel_ui_scene_cb_t)(const char *entity_id);
 typedef void (*panel_ui_brightness_cb_t)(const panel_entity_t *targets, int count, int brightness_pct);
 /* User entered new Wi-Fi credentials in the settings screen. */
 typedef void (*panel_ui_wifi_cb_t)(const char *ssid, const char *password);
+/* User tapped "select network"; the app should kick off a Wi-Fi scan and later
+ * feed the results back via panel_ui_set_networks(). */
+typedef void (*panel_ui_scan_cb_t)(void);
 
 /* Register the Wi-Fi settings callback + prefill the current SSID. */
 void panel_ui_set_wifi_callback(panel_ui_wifi_cb_t cb, const char *current_ssid);
+/* Register the scan-request callback. */
+void panel_ui_set_scan_callback(panel_ui_scan_cb_t cb);
+/* Populate the network picker with scan results (thread-safe). */
+void panel_ui_set_networks(const char *const *ssids, const int8_t *rssi, int count);
+/* Update the Wi-Fi status shown in settings (thread-safe). */
+void panel_ui_set_wifi_connected(bool connected, const char *ssid);
 
 /* Build the UI. Call once, with the LVGL lock held. */
 void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,

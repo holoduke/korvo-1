@@ -12,9 +12,57 @@
 static const char *TAG = "wifi_mgr";
 #define WIFI_NVS_NS "wifi"
 
+#define WIFI_SCAN_MAX 20
+
 static wifi_mgr_status_cb_t s_status_cb;
 static char s_ssid[33];
 static char s_pass[65];
+static bool s_connected;
+
+static wifi_mgr_scan_cb_t s_scan_cb;
+static bool s_scanning;
+static char s_scan_ssids[WIFI_SCAN_MAX][33];
+static const char *s_scan_ptrs[WIFI_SCAN_MAX];
+static int8_t s_scan_rssi[WIFI_SCAN_MAX];
+
+static void handle_scan_done(void)
+{
+    uint16_t num = 0;
+    esp_wifi_scan_get_ap_num(&num);
+    static wifi_ap_record_t recs[24];
+    if (num > 24) {
+        num = 24;
+    }
+    if (esp_wifi_scan_get_ap_records(&num, recs) != ESP_OK) {
+        num = 0;
+    }
+    int out = 0;
+    for (int i = 0; i < num && out < WIFI_SCAN_MAX; i++) {
+        const char *ssid = (const char *)recs[i].ssid;
+        if (ssid[0] == '\0') {
+            continue;
+        }
+        bool dup = false;
+        for (int j = 0; j < out; j++) {
+            if (strcmp(s_scan_ssids[j], ssid) == 0) {
+                dup = true;
+                break;
+            }
+        }
+        if (dup) {
+            continue;
+        }
+        strlcpy(s_scan_ssids[out], ssid, sizeof(s_scan_ssids[out]));
+        s_scan_ptrs[out] = s_scan_ssids[out];
+        s_scan_rssi[out] = recs[i].rssi;
+        out++;
+    }
+    s_scanning = false;
+    ESP_LOGI(TAG, "Scan done: %d networks", out);
+    if (s_scan_cb) {
+        s_scan_cb(s_scan_ptrs, s_scan_rssi, out);
+    }
+}
 
 static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
@@ -22,13 +70,17 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
         esp_wifi_connect();
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGW(TAG, "Disconnected, retrying...");
+        s_connected = false;
         if (s_status_cb) {
             s_status_cb(false);
         }
         esp_wifi_connect();
+    } else if (base == WIFI_EVENT && id == WIFI_EVENT_SCAN_DONE) {
+        handle_scan_done();
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         const ip_event_got_ip_t *ev = data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&ev->ip_info.ip));
+        s_connected = true;
         if (s_status_cb) {
             s_status_cb(true);
         }
@@ -117,4 +169,25 @@ esp_err_t wifi_mgr_set_credentials(const char *ssid, const char *password)
 void wifi_mgr_get_ssid(char *out, int out_len)
 {
     strlcpy(out, s_ssid, out_len);
+}
+
+bool wifi_mgr_is_connected(void)
+{
+    return s_connected;
+}
+
+esp_err_t wifi_mgr_scan_start(wifi_mgr_scan_cb_t cb)
+{
+    s_scan_cb = cb;
+    if (s_scanning) {
+        return ESP_OK;
+    }
+    s_scanning = true;
+    wifi_scan_config_t sc = { .show_hidden = false };
+    esp_err_t err = esp_wifi_scan_start(&sc, false);
+    if (err != ESP_OK) {
+        s_scanning = false;
+        ESP_LOGW(TAG, "Scan start failed: %s", esp_err_to_name(err));
+    }
+    return err;
 }

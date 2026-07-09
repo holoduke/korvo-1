@@ -119,10 +119,24 @@ static void on_ha_conn(bool connected)
     panel_ui_set_link_status(s_wifi_up, s_ha_up);
 }
 
+static void on_scan_done(const char *const *ssids, const int8_t *rssi, int count)
+{
+    panel_ui_set_networks(ssids, rssi, count);
+}
+
+static void on_scan_request(void)
+{
+    wifi_mgr_scan_start(on_scan_done);
+}
+
 static void on_wifi_status(bool connected)
 {
     s_wifi_up = connected;
     panel_ui_set_link_status(s_wifi_up, s_ha_up);
+
+    char ssid[33] = {0};
+    wifi_mgr_get_ssid(ssid, sizeof(ssid));
+    panel_ui_set_wifi_connected(connected, ssid);
 
     static bool services_started;
     if (connected && !services_started) {
@@ -224,6 +238,7 @@ void app_main(void)
     char ssid[33] = {0};
     wifi_mgr_get_ssid(ssid, sizeof(ssid));
     panel_ui_set_wifi_callback(on_wifi_settings, ssid);
+    panel_ui_set_scan_callback(on_scan_request);
 
     ESP_LOGI(TAG, "Wall panel running");
 }
