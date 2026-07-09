@@ -54,9 +54,12 @@ static lv_obj_t *s_kb;
 static lv_obj_t *s_pass_ta;
 static panel_ui_wifi_cb_t s_wifi_cb;
 static panel_ui_scan_cb_t s_scan_cb;
-static lv_obj_t *s_wifi_sel_lbl;  /* "connected to X" / "select network" */
+static lv_obj_t *s_wifi_sel_lbl;  /* settings-row value: SSID / "Niet verbonden" */
+static lv_obj_t *s_wifi_btn_lbl;  /* settings-row button label: Verbinden / Wijzig */
 static lv_obj_t *s_wifi_list;     /* scanned-network picker overlay */
 static lv_obj_t *s_wifi_list_box; /* scrollable list inside the picker */
+static lv_obj_t *s_wifi_pw;       /* password-entry panel inside the picker */
+static lv_obj_t *s_wifi_pw_title;
 static char s_wifi_sel_ssid[33];  /* SSID chosen in the picker */
 static char s_net_ssids[20][33];  /* last scan results, indexed by button */
 static int s_net_count;
@@ -226,11 +229,13 @@ static void wx_cloud_color(lv_color_t c)
 static void create_weather_icon(lv_obj_t *parent)
 {
     lv_obj_t *box = lv_obj_create(parent);
-    lv_obj_set_size(box, 46, 42);
+    lv_obj_set_size(box, 46, 44);
     make_plain(box);
 
+    /* Sun vertically centered so the (common) sunny state lines up with the
+     * temperature/clock text; the cloud sits over its lower half. */
     s_wx_sun = wx_shape(box, 26, 26, LV_RADIUS_CIRCLE, lv_color_hex(0xffcf4d));
-    lv_obj_align(s_wx_sun, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_align(s_wx_sun, LV_ALIGN_LEFT_MID, 2, 0);
 
     s_wx_cloud = lv_obj_create(box);
     lv_obj_set_size(s_wx_cloud, 46, 24);
@@ -257,17 +262,12 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    /* spacer pushes everything to the right so temp sits in front of the time */
-    lv_obj_t *spacer = lv_obj_create(bar);
-    make_plain(spacer);
-    lv_obj_set_height(spacer, 1);
-    lv_obj_set_flex_grow(spacer, 1);
-
+    /* Left cluster: weather icon + temperature. */
     lv_obj_t *wx = lv_obj_create(bar);
     lv_obj_set_size(wx, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     make_plain(wx);
     lv_obj_set_style_pad_gap(wx, 10, 0);
-    lv_obj_set_style_margin_right(wx, 20, 0);
+    lv_obj_set_style_margin_right(wx, 26, 0);
     lv_obj_set_flex_flow(wx, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(wx, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     create_weather_icon(wx);
@@ -276,12 +276,13 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_style_text_font(s_temp_label, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(s_temp_label, COLOR_TEXT, 0);
 
+    /* Time + date, left-aligned right after the weather. */
     lv_obj_t *timebox = lv_obj_create(bar);
     lv_obj_set_size(timebox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     make_plain(timebox);
     lv_obj_set_flex_flow(timebox, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(timebox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END,
-                          LV_FLEX_ALIGN_END);
+    lv_obj_set_flex_align(timebox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
+                          LV_FLEX_ALIGN_START);
 
     s_clock_label = lv_label_create(timebox);
     lv_label_set_text(s_clock_label, "--:--");
@@ -293,6 +294,12 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(s_date_label, lv_color_hex(0xc6cbd6), 0);
 
+    /* Spacer pushes the status dot + gear to the right edge. */
+    lv_obj_t *spacer = lv_obj_create(bar);
+    make_plain(spacer);
+    lv_obj_set_height(spacer, 1);
+    lv_obj_set_flex_grow(spacer, 1);
+
     s_status_dot = lv_obj_create(bar);
     lv_obj_set_size(s_status_dot, 14, 14);
     lv_obj_set_style_radius(s_status_dot, LV_RADIUS_CIRCLE, 0);
@@ -301,17 +308,18 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_style_margin_left(s_status_dot, 16, 0);
 
     lv_obj_t *gear = lv_button_create(bar);
-    lv_obj_set_size(gear, 46, 46);
+    lv_obj_set_size(gear, 56, 56);
     lv_obj_set_style_bg_opa(gear, LV_OPA_TRANSP, 0);
     lv_obj_set_style_bg_opa(gear, LV_OPA_30, LV_STATE_PRESSED);
     lv_obj_set_style_bg_color(gear, COLOR_TILE, LV_STATE_PRESSED);
+    lv_obj_set_style_radius(gear, 12, 0);
     lv_obj_set_style_shadow_width(gear, 0, 0);
-    lv_obj_set_style_margin_left(gear, 8, 0);
+    lv_obj_set_style_margin_left(gear, 10, 0);
     lv_obj_add_event_cb(gear, on_settings_open, LV_EVENT_CLICKED, NULL);
     lv_obj_t *gl = lv_label_create(gear);
     lv_label_set_text(gl, LV_SYMBOL_SETTINGS);
-    lv_obj_set_style_text_font(gl, &lv_font_montserrat_24, 0);
-    lv_obj_set_style_text_color(gl, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_font(gl, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(gl, COLOR_TEXT, 0);
     lv_obj_center(gl);
 }
 
@@ -794,6 +802,8 @@ static void on_kb_done(lv_event_t *e)
     }
 }
 
+/* --- Scanned-network picker (list mode <-> password mode) --- */
+
 static void on_wifi_connect(lv_event_t *e)
 {
     (void)e;
@@ -801,17 +811,22 @@ static void on_wifi_connect(lv_event_t *e)
     if (s_wifi_cb && strlen(s_wifi_sel_ssid) > 0) {
         s_wifi_cb(s_wifi_sel_ssid, pass);
         lv_label_set_text_fmt(s_wifi_sel_lbl, "Verbinden met %s...", s_wifi_sel_ssid);
+        lv_obj_set_style_text_color(s_wifi_sel_lbl, COLOR_TEXT_DIM, 0);
     }
     if (s_kb) {
         lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
     }
+    if (s_wifi_list) {
+        lv_obj_add_flag(s_wifi_list, LV_OBJ_FLAG_HIDDEN);
+    }
 }
-
-/* --- Scanned-network picker --- */
 
 static void on_wifi_list_close(lv_event_t *e)
 {
     (void)e;
+    if (s_kb) {
+        lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    }
     if (s_wifi_list) {
         lv_obj_add_flag(s_wifi_list, LV_OBJ_FLAG_HIDDEN);
     }
@@ -824,13 +839,12 @@ static void on_wifi_net_clicked(lv_event_t *e)
         return;
     }
     strlcpy(s_wifi_sel_ssid, s_net_ssids[idx], sizeof(s_wifi_sel_ssid));
-    lv_label_set_text_fmt(s_wifi_sel_lbl, LV_SYMBOL_WIFI "  %s", s_wifi_sel_ssid);
-    if (s_wifi_list) {
-        lv_obj_add_flag(s_wifi_list, LV_OBJ_FLAG_HIDDEN);
-    }
-    /* Jump straight to the password field for the chosen network. */
-    if (s_kb && s_pass_ta) {
-        lv_textarea_set_text(s_pass_ta, "");
+    /* Switch the picker from the list to the password prompt. */
+    lv_obj_add_flag(s_wifi_list_box, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(s_wifi_pw, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text_fmt(s_wifi_pw_title, "Wachtwoord voor %s", s_wifi_sel_ssid);
+    lv_textarea_set_text(s_pass_ta, "");
+    if (s_kb) {
         lv_keyboard_set_textarea(s_kb, s_pass_ta);
         lv_obj_remove_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(s_kb);
@@ -843,7 +857,12 @@ static void on_wifi_select_open(lv_event_t *e)
     if (s_wifi_list == NULL) {
         return;
     }
-    /* Show the picker with a placeholder, then ask the app to scan. */
+    /* Reset to list mode: hide the password panel + keyboard, show a placeholder. */
+    lv_obj_add_flag(s_wifi_pw, LV_OBJ_FLAG_HIDDEN);
+    if (s_kb) {
+        lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    }
+    lv_obj_remove_flag(s_wifi_list_box, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clean(s_wifi_list_box);
     lv_obj_t *l = lv_label_create(s_wifi_list_box);
     lv_label_set_text(l, "Scannen...");
@@ -903,6 +922,27 @@ static lv_obj_t *settings_label(lv_obj_t *parent, const char *txt,
     return l;
 }
 
+/* A settings list row: title on the left, a growing spacer, and whatever
+ * value/control the caller appends afterwards pushed to the right. */
+static lv_obj_t *settings_row(lv_obj_t *parent, const char *title)
+{
+    lv_obj_t *row = lv_obj_create(parent);
+    lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+    make_plain(row);
+    lv_obj_set_style_pad_ver(row, 18, 0);
+    lv_obj_set_style_border_color(row, COLOR_TILE, 0);
+    lv_obj_set_style_border_width(row, 1, 0);
+    lv_obj_set_style_border_side(row, LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    settings_label(row, title, &lv_font_montserrat_24, COLOR_TEXT);
+    lv_obj_t *sp = lv_obj_create(row);
+    make_plain(sp);
+    lv_obj_set_height(sp, 1);
+    lv_obj_set_flex_grow(sp, 1);
+    return row;
+}
+
 static void create_settings(lv_obj_t *root)
 {
     s_settings = lv_obj_create(root);
@@ -931,48 +971,27 @@ static void create_settings(lv_obj_t *root)
     lv_obj_add_event_cb(close, on_settings_close, LV_EVENT_CLICKED, NULL);
     lv_obj_center(settings_label(close, LV_SYMBOL_CLOSE, &lv_font_montserrat_24, COLOR_TEXT));
 
-    settings_label(s_settings, LV_SYMBOL_WIFI "  Wi-Fi", &lv_font_montserrat_24, COLOR_ACCENT);
+    /* --- Wi-Fi row: title left, SSID/status + connect button right. --- */
+    lv_obj_t *wr = settings_row(s_settings, LV_SYMBOL_WIFI "  Wi-Fi");
+    s_wifi_sel_lbl = settings_label(wr, "Niet verbonden", &lv_font_montserrat_24, COLOR_TEXT_DIM);
+    lv_obj_set_style_margin_right(s_wifi_sel_lbl, 16, 0);
+    lv_obj_t *wbtn = lv_button_create(wr);
+    lv_obj_set_style_bg_color(wbtn, COLOR_TILE_ON, 0);
+    lv_obj_set_style_radius(wbtn, 12, 0);
+    lv_obj_set_style_shadow_width(wbtn, 0, 0);
+    lv_obj_add_event_cb(wbtn, on_wifi_select_open, LV_EVENT_CLICKED, NULL);
+    s_wifi_btn_lbl = settings_label(wbtn, "Verbinden", &lv_font_montserrat_24, COLOR_ON_TEXT);
+    lv_obj_center(s_wifi_btn_lbl);
 
-    settings_label(s_settings, "Netwerk", &lv_font_montserrat_18, COLOR_TEXT_DIM);
-    lv_obj_t *sel = lv_button_create(s_settings);
-    lv_obj_set_width(sel, LV_PCT(70));
-    lv_obj_set_style_bg_color(sel, COLOR_TILE, 0);
-    lv_obj_set_style_radius(sel, 12, 0);
-    lv_obj_set_style_shadow_width(sel, 0, 0);
-    lv_obj_add_event_cb(sel, on_wifi_select_open, LV_EVENT_CLICKED, NULL);
-    s_wifi_sel_lbl = settings_label(sel, LV_SYMBOL_WIFI "  Selecteer netwerk",
-                                    &lv_font_montserrat_18, COLOR_TEXT);
-
-    settings_label(s_settings, "Wachtwoord", &lv_font_montserrat_18, COLOR_TEXT_DIM);
-    s_pass_ta = lv_textarea_create(s_settings);
-    lv_textarea_set_one_line(s_pass_ta, true);
-    lv_textarea_set_password_mode(s_pass_ta, true);
-    lv_obj_set_width(s_pass_ta, LV_PCT(70));
-    lv_obj_add_event_cb(s_pass_ta, on_ta_event, LV_EVENT_ALL, NULL);
-
-    lv_obj_t *connect = lv_button_create(s_settings);
-    lv_obj_set_style_bg_color(connect, COLOR_TILE_ON, 0);
-    lv_obj_set_style_radius(connect, 12, 0);
-    lv_obj_set_style_shadow_width(connect, 0, 0);
-    lv_obj_set_style_margin_top(connect, 6, 0);
-    lv_obj_add_event_cb(connect, on_wifi_connect, LV_EVENT_CLICKED, NULL);
-    lv_obj_center(settings_label(connect, "Verbinden", &lv_font_montserrat_24,
-                                 lv_color_hex(0x241a05)));
-
-    settings_label(s_settings, LV_SYMBOL_EYE_OPEN "  Screensaver na",
-                   &lv_font_montserrat_24, COLOR_ACCENT);
-    s_saver_dd = lv_dropdown_create(s_settings);
+    /* --- Screensaver row: title left, timeout dropdown right. --- */
+    lv_obj_t *sr = settings_row(s_settings, LV_SYMBOL_EYE_OPEN "  Screensaver na");
+    s_saver_dd = lv_dropdown_create(sr);
     lv_dropdown_set_options(s_saver_dd, SAVER_OPTS_STR);
-    lv_obj_set_width(s_saver_dd, LV_PCT(45));
+    lv_obj_set_width(s_saver_dd, 170);
     lv_dropdown_set_selected(s_saver_dd, saver_load_idx());
     lv_obj_add_event_cb(s_saver_dd, on_saver_dd_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
-    s_kb = lv_keyboard_create(s_settings);
-    lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_event_cb(s_kb, on_kb_done, LV_EVENT_READY, NULL);
-    lv_obj_add_event_cb(s_kb, on_kb_done, LV_EVENT_CANCEL, NULL);
-
-    /* Network picker: a modal on the top layer, above the settings + keyboard. */
+    /* Network picker: a modal on the top layer, above the settings screen. */
     s_wifi_list = lv_obj_create(lv_layer_top());
     lv_obj_set_size(s_wifi_list, LV_PCT(100), LV_PCT(100));
     lv_obj_set_style_bg_color(s_wifi_list, COLOR_BG, 0);
@@ -1006,6 +1025,32 @@ static void create_settings(lv_obj_t *root)
     lv_obj_set_flex_flow(s_wifi_list_box, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_gap(s_wifi_list_box, 8, 0);
     lv_obj_add_flag(s_wifi_list_box, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Password-entry panel (shown after a network is picked). */
+    s_wifi_pw = lv_obj_create(s_wifi_list);
+    lv_obj_set_size(s_wifi_pw, LV_PCT(100), LV_SIZE_CONTENT);
+    make_plain(s_wifi_pw);
+    lv_obj_set_flex_flow(s_wifi_pw, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_gap(s_wifi_pw, 12, 0);
+    lv_obj_add_flag(s_wifi_pw, LV_OBJ_FLAG_HIDDEN);
+    s_wifi_pw_title = settings_label(s_wifi_pw, "Wachtwoord", &lv_font_montserrat_24, COLOR_TEXT);
+    s_pass_ta = lv_textarea_create(s_wifi_pw);
+    lv_textarea_set_one_line(s_pass_ta, true);
+    lv_textarea_set_password_mode(s_pass_ta, true);
+    lv_obj_set_width(s_pass_ta, LV_PCT(80));
+    lv_obj_add_event_cb(s_pass_ta, on_ta_event, LV_EVENT_ALL, NULL);
+    lv_obj_t *pwbtn = lv_button_create(s_wifi_pw);
+    lv_obj_set_style_bg_color(pwbtn, COLOR_TILE_ON, 0);
+    lv_obj_set_style_radius(pwbtn, 12, 0);
+    lv_obj_set_style_shadow_width(pwbtn, 0, 0);
+    lv_obj_add_event_cb(pwbtn, on_wifi_connect, LV_EVENT_CLICKED, NULL);
+    lv_obj_center(settings_label(pwbtn, "Verbinden", &lv_font_montserrat_24, COLOR_ON_TEXT));
+
+    /* Keyboard lives in the picker so it overlays the password panel. */
+    s_kb = lv_keyboard_create(s_wifi_list);
+    lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_kb, on_kb_done, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(s_kb, on_kb_done, LV_EVENT_CANCEL, NULL);
 }
 
 void panel_ui_set_wifi_callback(panel_ui_wifi_cb_t cb, const char *current_ssid)
@@ -1067,9 +1112,17 @@ void panel_ui_set_wifi_connected(bool connected, const char *ssid)
     }
     if (connected && ssid && strlen(ssid) > 0) {
         strlcpy(s_wifi_sel_ssid, ssid, sizeof(s_wifi_sel_ssid));
-        lv_label_set_text_fmt(s_wifi_sel_lbl, LV_SYMBOL_WIFI "  Verbonden met %s", ssid);
-    } else if (!connected && strlen(s_wifi_sel_ssid) == 0) {
-        lv_label_set_text(s_wifi_sel_lbl, LV_SYMBOL_WIFI "  Selecteer netwerk");
+        lv_label_set_text(s_wifi_sel_lbl, ssid);
+        lv_obj_set_style_text_color(s_wifi_sel_lbl, COLOR_OK, 0);
+        if (s_wifi_btn_lbl) {
+            lv_label_set_text(s_wifi_btn_lbl, "Wijzig");
+        }
+    } else if (!connected) {
+        lv_label_set_text(s_wifi_sel_lbl, "Niet verbonden");
+        lv_obj_set_style_text_color(s_wifi_sel_lbl, COLOR_TEXT_DIM, 0);
+        if (s_wifi_btn_lbl) {
+            lv_label_set_text(s_wifi_btn_lbl, "Verbinden");
+        }
     }
     bsp_display_unlock();
 }
@@ -1122,6 +1175,10 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     create_popup(lv_layer_top());
     create_settings(lv_layer_top());
     create_screensaver(lv_layer_top());
+
+    /* Drive the header clock/date (updates once SNTP has synced). */
+    lv_timer_create(on_clock_timer, 1000, NULL);
+    on_clock_timer(NULL);
 
     ESP_LOGI(TAG, "UI created (%d tabs, %d tiles)", (int)PANEL_TAB_COUNT, s_tile_count);
 }

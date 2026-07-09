@@ -22,14 +22,14 @@ typedef struct {
     int device_count;
 } panel_tab_t;
 
-/* ---- Tab: Thuis (ground floor) ------------------------------------------ */
+/* ---- Tab: Beneden (ground-floor zone) ----------------------------------- */
+/* Zone tab: the brightness slider targets exactly these lights, so keep it to
+ * ground-floor groups only (no upstairs groups leak in). */
 static const panel_entity_t TAB_THUIS_LIGHTS[] = {
     { "light.lampen_woonkamer",          "Woonkamer" },
     { "light.lampen_keuken_groep",       "Keuken" },
     { "light.lampen_gang_beneden",       "Gang" },
-    { "light.lampen_beneden_verdieping", "Beneden" },
-    { "light.lampen_kinderkamers",       "Kinderkamers" },
-    { "light.lampen_bovenverdieping",    "Boven" },
+    { "light.lamp_wc_beneden_1",         "WC" },
 };
 static const panel_entity_t TAB_THUIS_SCENES[] = {
     { "scene.woonkamer_avond",       "Avond sfeer" },
@@ -83,7 +83,7 @@ static const panel_entity_t TAB_BOVEN_DEVICES[] = {
       devices, sizeof(devices) / sizeof((devices)[0]) }
 
 static const panel_tab_t PANEL_TABS[] = {
-    TAB_ENTRY("Thuis", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_DEVICES),
+    TAB_ENTRY("Beneden", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_DEVICES),
     TAB_ENTRY("Boven", TAB_BOVEN_LIGHTS, TAB_BOVEN_SCENES, TAB_BOVEN_DEVICES),
 };
 #define PANEL_TAB_COUNT (sizeof(PANEL_TABS) / sizeof(PANEL_TABS[0]))
