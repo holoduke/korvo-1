@@ -119,7 +119,14 @@ void app_main(void)
      * tear-free rendering (the ESP32-S31 has a Pixel Processing Accelerator). */
     bsp_display_config_t display_cfg = BSP_DISPLAY_DEFAULT_CONFIG();
     display_cfg.tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_PARTIAL;
-    display_cfg.enable_ppa_accel = true;
+    /* PPA + dual-core SW rendering overflow the PPA fill queue under load, so
+     * rely on dual-core parallel software rendering instead (LV_DRAW_SW_DRAW_UNIT_CNT=2).
+     * The panel refreshes at ~60 Hz and LVGL is capped at 15 ms, so this reaches
+     * the refresh ceiling without the PPA queue hazard. */
+    display_cfg.enable_ppa_accel = false;
+    /* Keep the BSP default buffer_height: larger stripes starve internal DMA RAM
+     * and break Wi-Fi init, and we already hit the 60 Hz panel ceiling anyway. */
+    display_cfg.task_stack_size = 8192;
     lv_display_t *disp = bsp_display_start_with_config(&display_cfg);
     if (disp == NULL) {
         ESP_LOGE(TAG, "Display init failed");

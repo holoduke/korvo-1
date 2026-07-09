@@ -42,6 +42,7 @@ static lv_obj_t *s_clock_label;
 static lv_obj_t *s_weather_label;
 static lv_obj_t *s_status_dot;
 static lv_obj_t *s_drawers[PANEL_TAB_COUNT];
+static lv_obj_t *s_tabview;
 static panel_ui_light_cb_t s_light_cb;
 static panel_ui_scene_cb_t s_scene_cb;
 
@@ -233,7 +234,11 @@ static void drawer_close(lv_obj_t *drawer)
 
 static void on_handle_clicked(lv_event_t *e)
 {
-    drawer_open(lv_event_get_user_data(e));
+    (void)e;
+    const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
+    if (idx < PANEL_TAB_COUNT) {
+        drawer_open(s_drawers[idx]);
+    }
 }
 
 static void on_drawer_back(lv_event_t *e)
@@ -286,8 +291,10 @@ static void create_device_tile(lv_obj_t *parent, const panel_entity_t *dev)
 
 static lv_obj_t *create_drawer(const panel_tab_t *tab)
 {
-    /* Full-screen overlay, parked just off the right edge. */
+    /* Full-screen overlay, parked just off the right edge. FLOATING so the
+     * screen's flex layout doesn't reposition it. */
     lv_obj_t *drawer = lv_obj_create(lv_screen_active());
+    lv_obj_add_flag(drawer, LV_OBJ_FLAG_FLOATING);
     lv_obj_set_size(drawer, LV_HOR_RES, LV_VER_RES);
     lv_obj_set_pos(drawer, LV_HOR_RES, 0);
     lv_obj_set_style_bg_color(drawer, COLOR_BG, 0);
@@ -342,22 +349,27 @@ static lv_obj_t *create_drawer(const panel_tab_t *tab)
     return drawer;
 }
 
-/* Right-edge handle that pulls the drawer in. */
-static void create_handle(lv_obj_t *tab, lv_obj_t *drawer)
+/* Full-height handle on the far right edge that pulls in the active tab's drawer.
+ * A screen-level child (not inside the tabview) so the tab-swipe gesture can't
+ * swallow the press. */
+#define HANDLE_W 52
+
+static void create_handle(lv_obj_t *screen)
 {
-    lv_obj_t *handle = lv_button_create(tab);
+    lv_obj_t *handle = lv_button_create(screen);
     lv_obj_add_flag(handle, LV_OBJ_FLAG_FLOATING);
-    lv_obj_set_size(handle, 34, 132);
-    lv_obj_align(handle, LV_ALIGN_RIGHT_MID, 2, -30);
+    lv_obj_set_size(handle, HANDLE_W, LV_VER_RES - HEADER_H - TABBAR_H);
+    lv_obj_set_pos(handle, LV_HOR_RES - HANDLE_W, HEADER_H + TABBAR_H);
     lv_obj_set_style_bg_color(handle, COLOR_SCENE, 0);
-    lv_obj_set_style_radius(handle, 12, 0);
+    lv_obj_set_style_radius(handle, 0, 0);
+    lv_obj_set_style_border_width(handle, 0, 0);
     lv_obj_set_style_shadow_width(handle, 0, 0);
     lv_obj_set_style_bg_opa(handle, LV_OPA_70, LV_STATE_PRESSED);
-    lv_obj_add_event_cb(handle, on_handle_clicked, LV_EVENT_CLICKED, drawer);
+    lv_obj_add_event_cb(handle, on_handle_clicked, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *chev = lv_label_create(handle);
     lv_label_set_text(chev, LV_SYMBOL_LEFT);
-    lv_obj_set_style_text_font(chev, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_font(chev, &lv_font_montserrat_24, 0);
     lv_obj_set_style_text_color(chev, COLOR_TEXT, 0);
     lv_obj_center(chev);
 }
@@ -395,27 +407,31 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb)
 
     create_header(screen);
 
-    lv_obj_t *tabview = lv_tabview_create(screen);
-    lv_obj_set_size(tabview, LV_PCT(100), LV_VER_RES - HEADER_H);
-    lv_tabview_set_tab_bar_position(tabview, LV_DIR_TOP);
-    lv_tabview_set_tab_bar_size(tabview, TABBAR_H);
-    lv_obj_set_style_bg_color(tabview, COLOR_BG, 0);
+    s_tabview = lv_tabview_create(screen);
+    lv_obj_set_size(s_tabview, LV_PCT(100), LV_VER_RES - HEADER_H);
+    lv_tabview_set_tab_bar_position(s_tabview, LV_DIR_TOP);
+    lv_tabview_set_tab_bar_size(s_tabview, TABBAR_H);
+    lv_obj_set_style_bg_color(s_tabview, COLOR_BG, 0);
 
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
         const panel_tab_t *tab_cfg = &PANEL_TABS[i];
-        lv_obj_t *tab = lv_tabview_add_tab(tabview, tab_cfg->name);
+        lv_obj_t *tab = lv_tabview_add_tab(s_tabview, tab_cfg->name);
         lv_obj_set_style_bg_color(tab, COLOR_BG, 0);
         make_plain(tab);
-        lv_obj_set_style_pad_right(tab, 38, 0); /* lane for the drawer handle */
+        lv_obj_set_style_pad_right(tab, HANDLE_W + 4, 0); /* lane for the drawer handle */
         lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
 
         create_light_grid(tab, tab_cfg);
         create_scene_row(tab, tab_cfg);
-
-        s_drawers[i] = create_drawer(tab_cfg);
-        create_handle(tab, s_drawers[i]);
     }
-    style_tab_bar(tabview);
+    style_tab_bar(s_tabview);
+
+    /* Handle sits above the tabview (clickable); drawers are created afterwards
+     * so they render on top of the handle and cover it when open. */
+    create_handle(screen);
+    for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
+        s_drawers[i] = create_drawer(&PANEL_TABS[i]);
+    }
 
     ESP_LOGI(TAG, "UI created (%d tabs, %d tiles)", (int)PANEL_TAB_COUNT, s_tile_count);
 }
