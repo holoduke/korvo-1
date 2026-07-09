@@ -165,6 +165,12 @@ static void on_scene_tap(const char *entity_id)
     }
 }
 
+static void on_wifi_settings(const char *ssid, const char *password)
+{
+    ESP_LOGI(TAG, "Wi-Fi settings -> reconnecting to '%s'", ssid);
+    wifi_mgr_set_credentials(ssid, password);
+}
+
 static void on_brightness(const panel_entity_t *targets, int count, int brightness_pct)
 {
     const char *ids[PANEL_MAX_LIGHTS];
@@ -214,6 +220,10 @@ void app_main(void)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Wi-Fi failed to start: %s", esp_err_to_name(err));
     }
+
+    char ssid[33] = {0};
+    wifi_mgr_get_ssid(ssid, sizeof(ssid));
+    panel_ui_set_wifi_callback(on_wifi_settings, ssid);
 
     ESP_LOGI(TAG, "Wall panel running");
 }

@@ -7,10 +7,14 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "nvs.h"
 
 static const char *TAG = "wifi_mgr";
+#define WIFI_NVS_NS "wifi"
 
 static wifi_mgr_status_cb_t s_status_cb;
+static char s_ssid[33];
+static char s_pass[65];
 
 static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
@@ -31,14 +35,43 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
     }
 }
 
+/* Load saved credentials from NVS into s_ssid/s_pass; returns true if found. */
+static bool load_saved_credentials(void)
+{
+    nvs_handle_t h;
+    if (nvs_open(WIFI_NVS_NS, NVS_READONLY, &h) != ESP_OK) {
+        return false;
+    }
+    size_t sl = sizeof(s_ssid), pl = sizeof(s_pass);
+    bool ok = nvs_get_str(h, "ssid", s_ssid, &sl) == ESP_OK &&
+              nvs_get_str(h, "pass", s_pass, &pl) == ESP_OK && strlen(s_ssid) > 0;
+    nvs_close(h);
+    return ok;
+}
+
+static esp_err_t apply_and_connect(void)
+{
+    wifi_config_t cfg = { 0 };
+    strlcpy((char *)cfg.sta.ssid, s_ssid, sizeof(cfg.sta.ssid));
+    strlcpy((char *)cfg.sta.password, s_pass, sizeof(cfg.sta.password));
+    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &cfg), TAG, "set config");
+    ESP_LOGI(TAG, "Connecting to '%s'...", s_ssid);
+    return ESP_OK;
+}
+
 esp_err_t wifi_mgr_start(const char *ssid, const char *password, wifi_mgr_status_cb_t cb)
 {
-    if (ssid == NULL || password == NULL || strlen(ssid) == 0 ||
-        strcmp(ssid, "MISSING") == 0) {
-        ESP_LOGE(TAG, "Wi-Fi credentials missing; see secrets/README.md");
-        return ESP_ERR_INVALID_ARG;
-    }
     s_status_cb = cb;
+
+    if (!load_saved_credentials()) {
+        if (ssid == NULL || password == NULL || strlen(ssid) == 0 ||
+            strcmp(ssid, "MISSING") == 0) {
+            ESP_LOGE(TAG, "Wi-Fi credentials missing; set them in Settings");
+            return ESP_ERR_INVALID_ARG;
+        }
+        strlcpy(s_ssid, ssid, sizeof(s_ssid));
+        strlcpy(s_pass, password, sizeof(s_pass));
+    }
 
     ESP_RETURN_ON_ERROR(esp_netif_init(), TAG, "netif init");
     ESP_RETURN_ON_ERROR(esp_event_loop_create_default(), TAG, "event loop");
@@ -54,14 +87,34 @@ esp_err_t wifi_mgr_start(const char *ssid, const char *password, wifi_mgr_status
                             IP_EVENT, IP_EVENT_STA_GOT_IP, on_wifi_event, NULL, NULL),
                         TAG, "ip handler");
 
-    wifi_config_t wifi_cfg = { 0 };
-    strlcpy((char *)wifi_cfg.sta.ssid, ssid, sizeof(wifi_cfg.sta.ssid));
-    strlcpy((char *)wifi_cfg.sta.password, password, sizeof(wifi_cfg.sta.password));
-
     ESP_RETURN_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), TAG, "set mode");
-    ESP_RETURN_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &wifi_cfg), TAG, "set config");
+    ESP_RETURN_ON_ERROR(apply_and_connect(), TAG, "apply");
     ESP_RETURN_ON_ERROR(esp_wifi_start(), TAG, "wifi start");
-
-    ESP_LOGI(TAG, "Connecting to '%s'...", ssid);
     return ESP_OK;
+}
+
+esp_err_t wifi_mgr_set_credentials(const char *ssid, const char *password)
+{
+    ESP_RETURN_ON_FALSE(ssid && password && strlen(ssid) > 0, ESP_ERR_INVALID_ARG,
+                        TAG, "empty ssid");
+    strlcpy(s_ssid, ssid, sizeof(s_ssid));
+    strlcpy(s_pass, password, sizeof(s_pass));
+
+    nvs_handle_t h;
+    if (nvs_open(WIFI_NVS_NS, NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_str(h, "ssid", s_ssid);
+        nvs_set_str(h, "pass", s_pass);
+        nvs_commit(h);
+        nvs_close(h);
+    }
+
+    esp_wifi_disconnect();
+    ESP_RETURN_ON_ERROR(apply_and_connect(), TAG, "apply");
+    esp_wifi_connect();
+    return ESP_OK;
+}
+
+void wifi_mgr_get_ssid(char *out, int out_len)
+{
+    strlcpy(out, s_ssid, out_len);
 }

@@ -8,6 +8,7 @@
 #include "bsp/esp32_s31_korvo.h"
 #include "esp_log.h"
 #include "lvgl.h"
+#include "nvs.h"
 #include "panel_config.h"
 
 static const char *TAG = "panel_ui";
@@ -40,11 +41,18 @@ typedef struct {
 static light_tile_t s_tiles[PANEL_MAX_LIGHTS];
 static int s_tile_count;
 static lv_obj_t *s_clock_label;
-static lv_obj_t *s_weather_label;
 static lv_obj_t *s_status_dot;
 static lv_obj_t *s_drawers[PANEL_TAB_COUNT];
 static lv_obj_t *s_tabview;
 static lv_obj_t *s_date_label;
+static lv_obj_t *s_temp_label;
+static lv_obj_t *s_wx_sun;        /* drawn weather icon parts */
+static lv_obj_t *s_wx_cloud;
+static lv_obj_t *s_settings;      /* settings overlay */
+static lv_obj_t *s_kb;
+static lv_obj_t *s_ssid_ta;
+static lv_obj_t *s_pass_ta;
+static panel_ui_wifi_cb_t s_wifi_cb;
 static lv_obj_t *s_saver;         /* night dim / screensaver overlay */
 static lv_obj_t *s_saver_clock;
 static lv_obj_t *s_popup;         /* long-press per-light brightness popup */
@@ -52,7 +60,13 @@ static lv_obj_t *s_popup_title;
 static lv_obj_t *s_popup_slider;
 static const panel_entity_t *s_popup_entity;
 
-#define SAVER_TIMEOUT_MS 60000
+static uint32_t s_saver_timeout_ms = 60000; /* 0 = never; changed in settings */
+static lv_obj_t *s_saver_dd;
+
+/* Screensaver timeout options (index -> milliseconds). */
+static const uint32_t SAVER_OPTS_MS[] = {30000, 60000, 300000, 1800000,
+                                         7200000, 86400000, 0};
+#define SAVER_OPTS_STR "30 sec\n1 min\n5 min\n30 min\n2 uur\n24 uur\nnooit"
 static panel_ui_light_cb_t s_light_cb;
 static panel_ui_scene_cb_t s_scene_cb;
 static panel_ui_brightness_cb_t s_brightness_cb;
@@ -60,6 +74,7 @@ static lv_obj_t *s_bright_label;
 static lv_obj_t *s_bright_slider;
 static bool s_slider_moved;
 static bool s_slider_dragging;
+static uint32_t s_slider_release_tick;        /* suppress HA sync briefly after a user change */
 static int s_tab_brightness[PANEL_TAB_COUNT]; /* last known area brightness, -1 unknown */
 
 /* Scene chips per tab, so activating one can highlight it and clear the others. */
@@ -134,6 +149,7 @@ static void on_bright_slider_event(lv_event_t *e)
         s_slider_dragging = false;
         if (s_slider_moved) {
             s_slider_moved = false;
+            s_slider_release_tick = lv_tick_get();
             const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
             if (idx < PANEL_TAB_COUNT && s_brightness_cb) {
                 s_tab_brightness[idx] = val;
@@ -150,7 +166,8 @@ static void on_clock_timer(lv_timer_t *t)
     struct tm tm_now;
     localtime_r(&now, &tm_now);
     if (tm_now.tm_year > 100) { /* only once SNTP has synced */
-        static const char *const days[] = {"zo", "ma", "di", "wo", "do", "vr", "za"};
+        static const char *const days[] = {"zondag", "maandag", "dinsdag", "woensdag",
+                                            "donderdag", "vrijdag", "zaterdag"};
         static const char *const mons[] = {"jan", "feb", "mrt", "apr", "mei", "jun",
                                             "jul", "aug", "sep", "okt", "nov", "dec"};
         lv_label_set_text_fmt(s_clock_label, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
@@ -172,20 +189,74 @@ static void make_plain(lv_obj_t *o)
     lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
 }
 
+static void on_settings_open(lv_event_t *e); /* defined with the settings overlay */
+
+/* A tiny filled shape (circle/bar) used to compose the weather icon. */
+static lv_obj_t *wx_shape(lv_obj_t *parent, int w, int h, int radius, lv_color_t color)
+{
+    lv_obj_t *o = lv_obj_create(parent);
+    lv_obj_set_size(o, w, h);
+    lv_obj_set_style_radius(o, radius, 0);
+    lv_obj_set_style_bg_color(o, color, 0);
+    lv_obj_set_style_border_width(o, 0, 0);
+    lv_obj_set_style_pad_all(o, 0, 0);
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+    return o;
+}
+
+static void wx_cloud_color(lv_color_t c)
+{
+    if (!s_wx_cloud) {
+        return;
+    }
+    const uint32_t n = lv_obj_get_child_count(s_wx_cloud);
+    for (uint32_t i = 0; i < n; i++) {
+        lv_obj_set_style_bg_color(lv_obj_get_child(s_wx_cloud, i), c, 0);
+    }
+}
+
+/* Drawn sun + cloud; panel_ui_set_weather shows/tints them per condition. */
+static void create_weather_icon(lv_obj_t *parent)
+{
+    lv_obj_t *box = lv_obj_create(parent);
+    lv_obj_set_size(box, 46, 42);
+    make_plain(box);
+
+    s_wx_sun = wx_shape(box, 26, 26, LV_RADIUS_CIRCLE, lv_color_hex(0xffcf4d));
+    lv_obj_align(s_wx_sun, LV_ALIGN_TOP_LEFT, 0, 0);
+
+    s_wx_cloud = lv_obj_create(box);
+    lv_obj_set_size(s_wx_cloud, 46, 24);
+    make_plain(s_wx_cloud);
+    lv_obj_align(s_wx_cloud, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_align(wx_shape(s_wx_cloud, 44, 13, 7, COLOR_TEXT_DIM), LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_align(wx_shape(s_wx_cloud, 18, 18, LV_RADIUS_CIRCLE, COLOR_TEXT_DIM),
+                 LV_ALIGN_BOTTOM_LEFT, 5, -3);
+    lv_obj_align(wx_shape(s_wx_cloud, 22, 22, LV_RADIUS_CIRCLE, COLOR_TEXT_DIM),
+                 LV_ALIGN_BOTTOM_MID, 3, -2);
+}
+
 static void create_header(lv_obj_t *parent)
 {
     lv_obj_t *bar = lv_obj_create(parent);
     lv_obj_set_size(bar, LV_PCT(100), HEADER_H);
     make_plain(bar);
-    lv_obj_set_style_pad_hor(bar, 24, 0);
+    lv_obj_set_style_pad_hor(bar, 20, 0);
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    s_weather_label = lv_label_create(bar);
-    lv_label_set_text(s_weather_label, LV_SYMBOL_REFRESH "  --");
-    lv_obj_set_style_text_font(s_weather_label, &lv_font_montserrat_24, 0);
-    lv_obj_set_style_text_color(s_weather_label, COLOR_TEXT_DIM, 0);
-    lv_obj_set_flex_grow(s_weather_label, 1); /* pushes clock + dot to the right */
+    lv_obj_t *wx = lv_obj_create(bar);
+    lv_obj_set_size(wx, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    make_plain(wx);
+    lv_obj_set_style_pad_gap(wx, 10, 0);
+    lv_obj_set_flex_flow(wx, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(wx, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_grow(wx, 1); /* pushes clock + dot to the right */
+    create_weather_icon(wx);
+    s_temp_label = lv_label_create(wx);
+    lv_label_set_text(s_temp_label, "--");
+    lv_obj_set_style_text_font(s_temp_label, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(s_temp_label, COLOR_TEXT, 0);
 
     lv_obj_t *timebox = lv_obj_create(bar);
     lv_obj_set_size(timebox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -210,6 +281,20 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_style_bg_color(s_status_dot, COLOR_BAD, 0);
     lv_obj_set_style_border_width(s_status_dot, 0, 0);
     lv_obj_set_style_margin_left(s_status_dot, 16, 0);
+
+    lv_obj_t *gear = lv_button_create(bar);
+    lv_obj_set_size(gear, 46, 46);
+    lv_obj_set_style_bg_opa(gear, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_bg_opa(gear, LV_OPA_30, LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(gear, COLOR_TILE, LV_STATE_PRESSED);
+    lv_obj_set_style_shadow_width(gear, 0, 0);
+    lv_obj_set_style_margin_left(gear, 8, 0);
+    lv_obj_add_event_cb(gear, on_settings_open, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *gl = lv_label_create(gear);
+    lv_label_set_text(gl, LV_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_font(gl, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(gl, COLOR_TEXT_DIM, 0);
+    lv_obj_center(gl);
 }
 
 static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
@@ -597,7 +682,8 @@ static void saver_timer_cb(lv_timer_t *t)
     if (tm_now.tm_year > 100) {
         lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
     }
-    if (lv_display_get_inactive_time(NULL) > SAVER_TIMEOUT_MS &&
+    if (s_saver_timeout_ms > 0 &&
+        lv_display_get_inactive_time(NULL) > s_saver_timeout_ms &&
         lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) {
         lv_obj_remove_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(s_saver);
@@ -642,6 +728,186 @@ static void style_tab_bar(lv_obj_t *tabview)
         lv_obj_set_style_border_color(btn, COLOR_ACCENT, LV_STATE_CHECKED);
         lv_obj_set_style_border_side(btn, LV_BORDER_SIDE_BOTTOM, LV_STATE_CHECKED);
         lv_obj_set_style_border_width(btn, 3, LV_STATE_CHECKED);
+    }
+}
+
+/* ---- Settings screen (Wi-Fi) -------------------------------------------- */
+
+static void on_settings_open(lv_event_t *e)
+{
+    (void)e;
+    if (s_settings) {
+        lv_obj_remove_flag(s_settings, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_settings);
+    }
+}
+
+static void on_settings_close(lv_event_t *e)
+{
+    (void)e;
+    if (s_kb) {
+        lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_settings) {
+        lv_obj_add_flag(s_settings, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void on_ta_event(lv_event_t *e)
+{
+    if (s_kb == NULL) {
+        return;
+    }
+    const lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_FOCUSED) {
+        lv_keyboard_set_textarea(s_kb, lv_event_get_target(e));
+        lv_obj_remove_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(s_kb);
+    } else if (code == LV_EVENT_DEFOCUSED) {
+        lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void on_kb_done(lv_event_t *e)
+{
+    (void)e;
+    if (s_kb) {
+        lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void on_wifi_connect(lv_event_t *e)
+{
+    (void)e;
+    const char *ssid = lv_textarea_get_text(s_ssid_ta);
+    const char *pass = lv_textarea_get_text(s_pass_ta);
+    if (s_wifi_cb && ssid && strlen(ssid) > 0) {
+        s_wifi_cb(ssid, pass);
+    }
+    if (s_kb) {
+        lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void saver_apply_and_save(int idx)
+{
+    const int n = sizeof(SAVER_OPTS_MS) / sizeof(SAVER_OPTS_MS[0]);
+    if (idx < 0 || idx >= n) {
+        return;
+    }
+    s_saver_timeout_ms = SAVER_OPTS_MS[idx];
+    nvs_handle_t h;
+    if (nvs_open("panel", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_u8(h, "saver_idx", (uint8_t)idx);
+        nvs_commit(h);
+        nvs_close(h);
+    }
+}
+
+static void on_saver_dd_changed(lv_event_t *e)
+{
+    saver_apply_and_save(lv_dropdown_get_selected(lv_event_get_target(e)));
+}
+
+/* Load the saved screensaver-timeout index, apply it, and return it. */
+static int saver_load_idx(void)
+{
+    const int n = sizeof(SAVER_OPTS_MS) / sizeof(SAVER_OPTS_MS[0]);
+    uint8_t idx = 1; /* default: 1 min */
+    nvs_handle_t h;
+    if (nvs_open("panel", NVS_READONLY, &h) == ESP_OK) {
+        nvs_get_u8(h, "saver_idx", &idx);
+        nvs_close(h);
+    }
+    if (idx >= n) {
+        idx = 1;
+    }
+    s_saver_timeout_ms = SAVER_OPTS_MS[idx];
+    return idx;
+}
+
+static lv_obj_t *settings_label(lv_obj_t *parent, const char *txt,
+                                const lv_font_t *font, lv_color_t color)
+{
+    lv_obj_t *l = lv_label_create(parent);
+    lv_label_set_text(l, txt);
+    lv_obj_set_style_text_font(l, font, 0);
+    lv_obj_set_style_text_color(l, color, 0);
+    return l;
+}
+
+static void create_settings(lv_obj_t *root)
+{
+    s_settings = lv_obj_create(root);
+    lv_obj_set_size(s_settings, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(s_settings, COLOR_BG, 0);
+    lv_obj_set_style_bg_opa(s_settings, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_settings, 0, 0);
+    lv_obj_set_style_radius(s_settings, 0, 0);
+    lv_obj_set_style_pad_all(s_settings, 24, 0);
+    lv_obj_set_style_pad_gap(s_settings, 10, 0);
+    lv_obj_set_flex_flow(s_settings, LV_FLEX_FLOW_COLUMN);
+    lv_obj_clear_flag(s_settings, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_settings, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t *hdr = lv_obj_create(s_settings);
+    lv_obj_set_size(hdr, LV_PCT(100), LV_SIZE_CONTENT);
+    make_plain(hdr);
+    lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_grow(settings_label(hdr, "Instellingen", &lv_font_montserrat_32, COLOR_TEXT), 1);
+    lv_obj_t *close = lv_button_create(hdr);
+    lv_obj_set_size(close, 52, 52);
+    lv_obj_set_style_bg_color(close, COLOR_TILE, 0);
+    lv_obj_set_style_radius(close, 12, 0);
+    lv_obj_set_style_shadow_width(close, 0, 0);
+    lv_obj_add_event_cb(close, on_settings_close, LV_EVENT_CLICKED, NULL);
+    lv_obj_center(settings_label(close, LV_SYMBOL_CLOSE, &lv_font_montserrat_24, COLOR_TEXT));
+
+    settings_label(s_settings, LV_SYMBOL_WIFI "  Wi-Fi", &lv_font_montserrat_24, COLOR_ACCENT);
+
+    settings_label(s_settings, "Netwerk (SSID)", &lv_font_montserrat_18, COLOR_TEXT_DIM);
+    s_ssid_ta = lv_textarea_create(s_settings);
+    lv_textarea_set_one_line(s_ssid_ta, true);
+    lv_obj_set_width(s_ssid_ta, LV_PCT(70));
+    lv_obj_add_event_cb(s_ssid_ta, on_ta_event, LV_EVENT_ALL, NULL);
+
+    settings_label(s_settings, "Wachtwoord", &lv_font_montserrat_18, COLOR_TEXT_DIM);
+    s_pass_ta = lv_textarea_create(s_settings);
+    lv_textarea_set_one_line(s_pass_ta, true);
+    lv_textarea_set_password_mode(s_pass_ta, true);
+    lv_obj_set_width(s_pass_ta, LV_PCT(70));
+    lv_obj_add_event_cb(s_pass_ta, on_ta_event, LV_EVENT_ALL, NULL);
+
+    lv_obj_t *connect = lv_button_create(s_settings);
+    lv_obj_set_style_bg_color(connect, COLOR_TILE_ON, 0);
+    lv_obj_set_style_radius(connect, 12, 0);
+    lv_obj_set_style_shadow_width(connect, 0, 0);
+    lv_obj_set_style_margin_top(connect, 6, 0);
+    lv_obj_add_event_cb(connect, on_wifi_connect, LV_EVENT_CLICKED, NULL);
+    lv_obj_center(settings_label(connect, "Verbinden", &lv_font_montserrat_24,
+                                 lv_color_hex(0x241a05)));
+
+    settings_label(s_settings, LV_SYMBOL_EYE_OPEN "  Screensaver na",
+                   &lv_font_montserrat_24, COLOR_ACCENT);
+    s_saver_dd = lv_dropdown_create(s_settings);
+    lv_dropdown_set_options(s_saver_dd, SAVER_OPTS_STR);
+    lv_obj_set_width(s_saver_dd, LV_PCT(45));
+    lv_dropdown_set_selected(s_saver_dd, saver_load_idx());
+    lv_obj_add_event_cb(s_saver_dd, on_saver_dd_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    s_kb = lv_keyboard_create(s_settings);
+    lv_obj_add_flag(s_kb, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_kb, on_kb_done, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(s_kb, on_kb_done, LV_EVENT_CANCEL, NULL);
+}
+
+void panel_ui_set_wifi_callback(panel_ui_wifi_cb_t cb, const char *current_ssid)
+{
+    s_wifi_cb = cb;
+    if (s_ssid_ta && current_ssid && bsp_display_lock(500)) {
+        lv_textarea_set_text(s_ssid_ta, current_ssid);
+        bsp_display_unlock();
     }
 }
 
@@ -691,6 +957,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
 
     /* Overlays on the top layer so they cover everything, including drawers. */
     create_popup(lv_layer_top());
+    create_settings(lv_layer_top());
     create_screensaver(lv_layer_top());
 
     ESP_LOGI(TAG, "UI created (%d tabs, %d tiles)", (int)PANEL_TAB_COUNT, s_tile_count);
@@ -783,11 +1050,16 @@ void panel_ui_set_area_brightness(const char *entity_id, int brightness_pct)
             continue;
         }
         s_tab_brightness[t] = brightness_pct;
+        /* Don't fight the user: skip sync while dragging or just after a change. */
+        if (s_slider_dragging ||
+            (s_slider_release_tick && lv_tick_elaps(s_slider_release_tick) < 2500)) {
+            return;
+        }
         if (!bsp_display_lock(1000)) {
             return;
         }
         const uint32_t active = lv_tabview_get_tab_active(s_tabview);
-        if ((int)active == t && !s_slider_dragging && s_bright_slider) {
+        if ((int)active == t && s_bright_slider) {
             lv_slider_set_value(s_bright_slider, brightness_pct, LV_ANIM_OFF);
             if (s_bright_label) {
                 lv_label_set_text_fmt(s_bright_label, "%d%%", brightness_pct);
@@ -803,14 +1075,41 @@ void panel_ui_set_weather(const char *condition, float temperature)
     if (!bsp_display_lock(1000)) {
         return;
     }
-    if (!isnan(temperature) && condition != NULL) {
-        lv_label_set_text_fmt(s_weather_label, LV_SYMBOL_REFRESH "  %s  %.1f\xC2\xB0",
-                              condition, (double)temperature);
-    } else if (condition != NULL) {
-        lv_label_set_text_fmt(s_weather_label, LV_SYMBOL_REFRESH "  %s", condition);
-    } else if (!isnan(temperature)) {
-        lv_label_set_text_fmt(s_weather_label, LV_SYMBOL_REFRESH "  %.1f\xC2\xB0",
-                              (double)temperature);
+    if (!isnan(temperature) && s_temp_label) {
+        lv_label_set_text_fmt(s_temp_label, "%.0f\xC2\xB0", (double)temperature);
+    }
+    if (condition != NULL && s_wx_sun && s_wx_cloud) {
+        bool sun = false, cloud = false;
+        lv_color_t cc = COLOR_TEXT_DIM;
+        if (strstr(condition, "partlycloudy")) {
+            sun = true;
+            cloud = true;
+        } else if (strstr(condition, "sunny") || strstr(condition, "clear")) {
+            sun = true;
+        } else if (strstr(condition, "rain") || strstr(condition, "pour") ||
+                   strstr(condition, "lightning")) {
+            cloud = true;
+            cc = lv_color_hex(0x7fa8d0);
+        } else if (strstr(condition, "snow")) {
+            cloud = true;
+            cc = lv_color_hex(0xdfe6f0);
+        } else {
+            cloud = true; /* cloudy / fog / windy / exceptional */
+        }
+        lv_obj_set_style_bg_color(s_wx_sun,
+                                  strstr(condition, "night") ? lv_color_hex(0xc3c9d6)
+                                                             : lv_color_hex(0xffcf4d), 0);
+        wx_cloud_color(cc);
+        if (sun) {
+            lv_obj_remove_flag(s_wx_sun, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_wx_sun, LV_OBJ_FLAG_HIDDEN);
+        }
+        if (cloud) {
+            lv_obj_remove_flag(s_wx_cloud, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(s_wx_cloud, LV_OBJ_FLAG_HIDDEN);
+        }
     }
     bsp_display_unlock();
 }
