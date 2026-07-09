@@ -241,17 +241,28 @@ static void create_header(lv_obj_t *parent)
     lv_obj_t *bar = lv_obj_create(parent);
     lv_obj_set_size(bar, LV_PCT(100), HEADER_H);
     make_plain(bar);
+    lv_obj_set_style_bg_color(bar, lv_color_hex(0x0c0e12), 0);   /* solid dark toolbar */
+    lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(bar, lv_color_hex(0x232833), 0);
+    lv_obj_set_style_border_width(bar, 1, 0);
+    lv_obj_set_style_border_side(bar, LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_pad_hor(bar, 20, 0);
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    /* spacer pushes everything to the right so temp sits in front of the time */
+    lv_obj_t *spacer = lv_obj_create(bar);
+    make_plain(spacer);
+    lv_obj_set_height(spacer, 1);
+    lv_obj_set_flex_grow(spacer, 1);
 
     lv_obj_t *wx = lv_obj_create(bar);
     lv_obj_set_size(wx, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     make_plain(wx);
     lv_obj_set_style_pad_gap(wx, 10, 0);
+    lv_obj_set_style_margin_right(wx, 20, 0);
     lv_obj_set_flex_flow(wx, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(wx, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_flex_grow(wx, 1); /* pushes clock + dot to the right */
     create_weather_icon(wx);
     s_temp_label = lv_label_create(wx);
     lv_label_set_text(s_temp_label, "--");
@@ -273,7 +284,7 @@ static void create_header(lv_obj_t *parent)
     s_date_label = lv_label_create(timebox);
     lv_label_set_text(s_date_label, "");
     lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(s_date_label, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_date_label, lv_color_hex(0xc6cbd6), 0);
 
     s_status_dot = lv_obj_create(bar);
     lv_obj_set_size(s_status_dot, 14, 14);
