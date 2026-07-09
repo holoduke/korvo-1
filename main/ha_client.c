@@ -208,19 +208,23 @@ esp_err_t ha_client_activate_scene(const char *entity_id)
     return call_service("scene", "turn_on", entity_id);
 }
 
-esp_err_t ha_client_brightness_step(const char *const *entity_ids, int count, int step_pct)
+esp_err_t ha_client_set_brightness(const char *const *entity_ids, int count, int brightness_pct)
 {
     ESP_RETURN_ON_FALSE(s_client != NULL && esp_websocket_client_is_connected(s_client),
                         ESP_ERR_INVALID_STATE, TAG, "not connected");
     ESP_RETURN_ON_FALSE(entity_ids != NULL && count > 0, ESP_ERR_INVALID_ARG, TAG, "no targets");
 
+    /* brightness_pct 0 would just error on turn_on; route it to turn_off. */
+    const bool off = brightness_pct <= 0;
     cJSON *msg = cJSON_CreateObject();
     cJSON_AddNumberToObject(msg, "id", s_msg_id++);
     cJSON_AddStringToObject(msg, "type", "call_service");
     cJSON_AddStringToObject(msg, "domain", "light");
-    cJSON_AddStringToObject(msg, "service", "turn_on");
-    cJSON *data = cJSON_AddObjectToObject(msg, "service_data");
-    cJSON_AddNumberToObject(data, "brightness_step_pct", step_pct);
+    cJSON_AddStringToObject(msg, "service", off ? "turn_off" : "turn_on");
+    if (!off) {
+        cJSON *data = cJSON_AddObjectToObject(msg, "service_data");
+        cJSON_AddNumberToObject(data, "brightness_pct", brightness_pct);
+    }
     cJSON *target = cJSON_AddObjectToObject(msg, "target");
     cJSON *arr = cJSON_AddArrayToObject(target, "entity_id");
     for (int i = 0; i < count; i++) {

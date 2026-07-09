@@ -46,18 +46,11 @@ static lv_obj_t *s_tabview;
 static panel_ui_light_cb_t s_light_cb;
 static panel_ui_scene_cb_t s_scene_cb;
 static panel_ui_brightness_cb_t s_brightness_cb;
+static lv_obj_t *s_bright_label;
+static bool s_slider_moved;
 
-#define BRIGHT_STEP_PCT 20
-
-/* Per brightness button: which lights to step, and by how much. */
-typedef struct {
-    const panel_entity_t *targets;
-    int count;
-    int step_pct;
-} bright_ctx_t;
-
-static bright_ctx_t s_bright_dn[PANEL_TAB_COUNT];
-static bright_ctx_t s_bright_up[PANEL_TAB_COUNT];
+#define SLIDER_W 56
+#define SCENE_ROW_H 84
 
 /* Grid templates (LVGL keeps the pointer, so they must persist). */
 static int32_t s_col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
@@ -79,11 +72,24 @@ static void on_scene_clicked(lv_event_t *e)
     }
 }
 
-static void on_brightness_clicked(lv_event_t *e)
+/* Vertical brightness slider: live % readout while dragging, applies on release. */
+static void on_bright_slider_event(lv_event_t *e)
 {
-    const bright_ctx_t *c = lv_event_get_user_data(e);
-    if (s_brightness_cb && c) {
-        s_brightness_cb(c->targets, c->count, c->step_pct);
+    lv_obj_t *slider = lv_event_get_target(e);
+    const int val = lv_slider_get_value(slider);
+    const lv_event_code_t code = lv_event_get_code(e);
+
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        s_slider_moved = true;
+        if (s_bright_label) {
+            lv_label_set_text_fmt(s_bright_label, "%d%%", val);
+        }
+    } else if (code == LV_EVENT_RELEASED && s_slider_moved) {
+        s_slider_moved = false;
+        const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
+        if (idx < PANEL_TAB_COUNT && s_brightness_cb) {
+            s_brightness_cb(PANEL_TABS[idx].lights, PANEL_TABS[idx].light_count, val);
+        }
     }
 }
 
@@ -144,6 +150,7 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
     lv_obj_set_flex_grow(grid, 1);
     make_plain(grid);
     lv_obj_set_style_pad_all(grid, 16, 0);
+    lv_obj_set_style_pad_right(grid, SLIDER_W + 28, 0); /* lane for the brightness slider */
     lv_obj_set_style_pad_gap(grid, 14, 0);
     lv_obj_set_grid_dsc_array(grid, s_col_dsc, s_row_dsc);
     lv_obj_set_layout(grid, LV_LAYOUT_GRID);
@@ -191,29 +198,12 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
     }
 }
 
-/* Fixed-width brighten/dim button for the scene row. */
-static void create_bright_button(lv_obj_t *row, const char *symbol, bright_ctx_t *ctx)
-{
-    lv_obj_t *btn = lv_button_create(row);
-    lv_obj_set_width(btn, 74);
-    lv_obj_set_height(btn, LV_PCT(100));
-    lv_obj_set_style_bg_color(btn, COLOR_TILE, 0);
-    lv_obj_set_style_radius(btn, 14, 0);
-    lv_obj_set_style_shadow_width(btn, 0, 0);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_70, LV_STATE_PRESSED);
-    lv_obj_add_event_cb(btn, on_brightness_clicked, LV_EVENT_CLICKED, ctx);
+static void on_show_all_clicked(lv_event_t *e); /* opens the active tab's drawer */
 
-    lv_obj_t *label = lv_label_create(btn);
-    lv_label_set_text(label, symbol);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
-    lv_obj_set_style_text_color(label, COLOR_ACCENT, 0);
-    lv_obj_center(label);
-}
-
-static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_idx)
+static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab)
 {
     lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_set_size(row, LV_PCT(100), 84);
+    lv_obj_set_size(row, LV_PCT(100), SCENE_ROW_H);
     make_plain(row);
     lv_obj_set_style_pad_hor(row, 16, 0);
     lv_obj_set_style_pad_bottom(row, 14, 0);
@@ -240,11 +230,21 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_i
         lv_obj_center(label);
     }
 
-    /* Brighten / dim all lights on this tab's area. */
-    s_bright_dn[tab_idx] = (bright_ctx_t){ tab->lights, tab->light_count, -BRIGHT_STEP_PCT };
-    s_bright_up[tab_idx] = (bright_ctx_t){ tab->lights, tab->light_count, +BRIGHT_STEP_PCT };
-    create_bright_button(row, LV_SYMBOL_MINUS, &s_bright_dn[tab_idx]);
-    create_bright_button(row, LV_SYMBOL_PLUS, &s_bright_up[tab_idx]);
+    /* "Show all devices" button opens this tab's slide-out drawer. */
+    lv_obj_t *all = lv_button_create(row);
+    lv_obj_set_flex_grow(all, 1);
+    lv_obj_set_height(all, LV_PCT(100));
+    lv_obj_set_style_bg_color(all, COLOR_TILE, 0);
+    lv_obj_set_style_radius(all, 14, 0);
+    lv_obj_set_style_shadow_width(all, 0, 0);
+    lv_obj_set_style_bg_opa(all, LV_OPA_70, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(all, on_show_all_clicked, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *all_lbl = lv_label_create(all);
+    lv_label_set_text(all_lbl, LV_SYMBOL_LIST "  Alle lampen");
+    lv_obj_set_style_text_font(all_lbl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(all_lbl, COLOR_ACCENT, 0);
+    lv_obj_center(all_lbl);
 }
 
 /* ---- Slide-out drawer: all individual devices for one floor ------------- */
@@ -278,7 +278,7 @@ static void drawer_close(lv_obj_t *drawer)
     lv_anim_start(&a);
 }
 
-static void on_handle_clicked(lv_event_t *e)
+static void on_show_all_clicked(lv_event_t *e)
 {
     (void)e;
     const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
@@ -395,29 +395,41 @@ static lv_obj_t *create_drawer(const panel_tab_t *tab)
     return drawer;
 }
 
-/* Full-height handle on the far right edge that pulls in the active tab's drawer.
- * A screen-level child (not inside the tabview) so the tab-swipe gesture can't
- * swallow the press. */
-#define HANDLE_W 52
-
-static void create_handle(lv_obj_t *screen)
+/* Vertical brightness slider on the right edge, spanning only the tile-grid
+ * area (above the scene row, so it doesn't steal the bottom row's space).
+ * Sets the active tab's area brightness on release. */
+static void create_bright_slider(lv_obj_t *screen)
 {
-    lv_obj_t *handle = lv_button_create(screen);
-    lv_obj_add_flag(handle, LV_OBJ_FLAG_FLOATING);
-    lv_obj_set_size(handle, HANDLE_W, LV_VER_RES - HEADER_H - TABBAR_H);
-    lv_obj_set_pos(handle, LV_HOR_RES - HANDLE_W, HEADER_H + TABBAR_H);
-    lv_obj_set_style_bg_color(handle, COLOR_SCENE, 0);
-    lv_obj_set_style_radius(handle, 0, 0);
-    lv_obj_set_style_border_width(handle, 0, 0);
-    lv_obj_set_style_shadow_width(handle, 0, 0);
-    lv_obj_set_style_bg_opa(handle, LV_OPA_70, LV_STATE_PRESSED);
-    lv_obj_add_event_cb(handle, on_handle_clicked, LV_EVENT_CLICKED, NULL);
+    const int32_t top = HEADER_H + TABBAR_H + 26;             /* start a bit lower */
+    const int32_t bottom = LV_VER_RES - SCENE_ROW_H - 8;      /* stop above scene row */
+    const int32_t slider_x = LV_HOR_RES - SLIDER_W - 12;
 
-    lv_obj_t *chev = lv_label_create(handle);
-    lv_label_set_text(chev, LV_SYMBOL_LEFT);
-    lv_obj_set_style_text_font(chev, &lv_font_montserrat_24, 0);
-    lv_obj_set_style_text_color(chev, COLOR_TEXT, 0);
-    lv_obj_center(chev);
+    lv_obj_t *slider = lv_slider_create(screen);
+    lv_obj_add_flag(slider, LV_OBJ_FLAG_FLOATING);
+    lv_obj_set_size(slider, SLIDER_W, bottom - top);          /* taller than wide -> vertical */
+    lv_obj_set_pos(slider, slider_x, top);
+    lv_slider_set_range(slider, 0, 100);
+    lv_slider_set_value(slider, 50, LV_ANIM_OFF);
+    /* Track */
+    lv_obj_set_style_bg_color(slider, COLOR_TILE, LV_PART_MAIN);
+    lv_obj_set_style_radius(slider, 14, LV_PART_MAIN);
+    /* Filled indicator */
+    lv_obj_set_style_bg_color(slider, COLOR_TILE_ON, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(slider, 14, LV_PART_INDICATOR);
+    /* Knob */
+    lv_obj_set_style_bg_color(slider, COLOR_TEXT, LV_PART_KNOB);
+    lv_obj_set_style_pad_all(slider, 5, LV_PART_KNOB);
+    lv_obj_set_style_radius(slider, LV_RADIUS_CIRCLE, LV_PART_KNOB);
+    lv_obj_add_event_cb(slider, on_bright_slider_event, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(slider, on_bright_slider_event, LV_EVENT_RELEASED, NULL);
+
+    /* % readout just above the slider */
+    s_bright_label = lv_label_create(screen);
+    lv_obj_add_flag(s_bright_label, LV_OBJ_FLAG_FLOATING);
+    lv_label_set_text(s_bright_label, "");
+    lv_obj_set_style_text_font(s_bright_label, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(s_bright_label, COLOR_TEXT_DIM, 0);
+    lv_obj_set_pos(s_bright_label, slider_x, HEADER_H + TABBAR_H + 2);
 }
 
 static void style_tab_bar(lv_obj_t *tabview)
@@ -466,17 +478,16 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
         lv_obj_t *tab = lv_tabview_add_tab(s_tabview, tab_cfg->name);
         lv_obj_set_style_bg_color(tab, COLOR_BG, 0);
         make_plain(tab);
-        lv_obj_set_style_pad_right(tab, HANDLE_W + 4, 0); /* lane for the drawer handle */
         lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
 
         create_light_grid(tab, tab_cfg);
-        create_scene_row(tab, tab_cfg, i);
+        create_scene_row(tab, tab_cfg);
     }
     style_tab_bar(s_tabview);
 
-    /* Handle sits above the tabview (clickable); drawers are created afterwards
-     * so they render on top of the handle and cover it when open. */
-    create_handle(screen);
+    /* Slider sits above the tabview (draggable); drawers are created afterwards
+     * so they render on top and cover it when open. */
+    create_bright_slider(screen);
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
         s_drawers[i] = create_drawer(&PANEL_TABS[i]);
     }

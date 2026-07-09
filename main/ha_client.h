@@ -26,6 +26,6 @@ esp_err_t ha_client_toggle_light(const char *entity_id);
 /* Activate a scene. */
 esp_err_t ha_client_activate_scene(const char *entity_id);
 
-/* Step the brightness of several lights by a relative percentage
- * (positive brightens, negative dims). Applies to all given entities at once. */
-esp_err_t ha_client_brightness_step(const char *const *entity_ids, int count, int step_pct);
+/* Set the brightness of several lights to an absolute percentage (0-100).
+ * Applies to all given entities at once. */
+esp_err_t ha_client_set_brightness(const char *const *entity_ids, int count, int brightness_pct);

@@ -105,16 +105,16 @@ static void on_scene_tap(const char *entity_id)
     }
 }
 
-static void on_brightness(const panel_entity_t *targets, int count, int step_pct)
+static void on_brightness(const panel_entity_t *targets, int count, int brightness_pct)
 {
     const char *ids[PANEL_MAX_LIGHTS];
     int n = 0;
     for (int i = 0; i < count && n < PANEL_MAX_LIGHTS; i++) {
         ids[n++] = targets[i].entity_id;
     }
-    ESP_LOGI(TAG, "Brightness step %+d%% on %d lights", step_pct, n);
-    if (ha_client_brightness_step(ids, n, step_pct) != ESP_OK) {
-        ESP_LOGW(TAG, "Brightness step failed (not connected?)");
+    ESP_LOGI(TAG, "Set brightness %d%% on %d lights", brightness_pct, n);
+    if (ha_client_set_brightness(ids, n, brightness_pct) != ESP_OK) {
+        ESP_LOGW(TAG, "Set brightness failed (not connected?)");
     }
 }
 
