@@ -105,6 +105,19 @@ static void on_scene_tap(const char *entity_id)
     }
 }
 
+static void on_brightness(const panel_entity_t *targets, int count, int step_pct)
+{
+    const char *ids[PANEL_MAX_LIGHTS];
+    int n = 0;
+    for (int i = 0; i < count && n < PANEL_MAX_LIGHTS; i++) {
+        ids[n++] = targets[i].entity_id;
+    }
+    ESP_LOGI(TAG, "Brightness step %+d%% on %d lights", step_pct, n);
+    if (ha_client_brightness_step(ids, n, step_pct) != ESP_OK) {
+        ESP_LOGW(TAG, "Brightness step failed (not connected?)");
+    }
+}
+
 void app_main(void)
 {
     esp_err_t err = nvs_flash_init();
@@ -135,7 +148,7 @@ void app_main(void)
     bsp_display_backlight_on();
 
     if (bsp_display_lock(-1)) {
-        panel_ui_create(on_light_tap, on_scene_tap);
+        panel_ui_create(on_light_tap, on_scene_tap, on_brightness);
         bsp_display_unlock();
     }
 

@@ -45,6 +45,19 @@ static lv_obj_t *s_drawers[PANEL_TAB_COUNT];
 static lv_obj_t *s_tabview;
 static panel_ui_light_cb_t s_light_cb;
 static panel_ui_scene_cb_t s_scene_cb;
+static panel_ui_brightness_cb_t s_brightness_cb;
+
+#define BRIGHT_STEP_PCT 20
+
+/* Per brightness button: which lights to step, and by how much. */
+typedef struct {
+    const panel_entity_t *targets;
+    int count;
+    int step_pct;
+} bright_ctx_t;
+
+static bright_ctx_t s_bright_dn[PANEL_TAB_COUNT];
+static bright_ctx_t s_bright_up[PANEL_TAB_COUNT];
 
 /* Grid templates (LVGL keeps the pointer, so they must persist). */
 static int32_t s_col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
@@ -63,6 +76,14 @@ static void on_scene_clicked(lv_event_t *e)
     const panel_entity_t *scene = lv_event_get_user_data(e);
     if (s_scene_cb) {
         s_scene_cb(scene->entity_id);
+    }
+}
+
+static void on_brightness_clicked(lv_event_t *e)
+{
+    const bright_ctx_t *c = lv_event_get_user_data(e);
+    if (s_brightness_cb && c) {
+        s_brightness_cb(c->targets, c->count, c->step_pct);
     }
 }
 
@@ -170,7 +191,26 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
     }
 }
 
-static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab)
+/* Fixed-width brighten/dim button for the scene row. */
+static void create_bright_button(lv_obj_t *row, const char *symbol, bright_ctx_t *ctx)
+{
+    lv_obj_t *btn = lv_button_create(row);
+    lv_obj_set_width(btn, 74);
+    lv_obj_set_height(btn, LV_PCT(100));
+    lv_obj_set_style_bg_color(btn, COLOR_TILE, 0);
+    lv_obj_set_style_radius(btn, 14, 0);
+    lv_obj_set_style_shadow_width(btn, 0, 0);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_70, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(btn, on_brightness_clicked, LV_EVENT_CLICKED, ctx);
+
+    lv_obj_t *label = lv_label_create(btn);
+    lv_label_set_text(label, symbol);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(label, COLOR_ACCENT, 0);
+    lv_obj_center(label);
+}
+
+static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_idx)
 {
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_set_size(row, LV_PCT(100), 84);
@@ -199,6 +239,12 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab)
         lv_obj_set_style_text_color(label, COLOR_TEXT, 0);
         lv_obj_center(label);
     }
+
+    /* Brighten / dim all lights on this tab's area. */
+    s_bright_dn[tab_idx] = (bright_ctx_t){ tab->lights, tab->light_count, -BRIGHT_STEP_PCT };
+    s_bright_up[tab_idx] = (bright_ctx_t){ tab->lights, tab->light_count, +BRIGHT_STEP_PCT };
+    create_bright_button(row, LV_SYMBOL_MINUS, &s_bright_dn[tab_idx]);
+    create_bright_button(row, LV_SYMBOL_PLUS, &s_bright_up[tab_idx]);
 }
 
 /* ---- Slide-out drawer: all individual devices for one floor ------------- */
@@ -394,10 +440,12 @@ static void style_tab_bar(lv_obj_t *tabview)
     }
 }
 
-void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb)
+void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
+                     panel_ui_brightness_cb_t brightness_cb)
 {
     s_light_cb = light_cb;
     s_scene_cb = scene_cb;
+    s_brightness_cb = brightness_cb;
     s_tile_count = 0;
 
     lv_obj_t *screen = lv_screen_active();
@@ -422,7 +470,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb)
         lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
 
         create_light_grid(tab, tab_cfg);
-        create_scene_row(tab, tab_cfg);
+        create_scene_row(tab, tab_cfg, i);
     }
     style_tab_bar(s_tabview);
 
