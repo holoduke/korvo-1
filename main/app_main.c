@@ -18,9 +18,19 @@ static const char *TAG = "app_main";
 static bool s_wifi_up;
 static bool s_ha_up;
 
-/* Entities to subscribe to: every light tile on every tab + the weather header. */
+/* Entities to subscribe to: every light tile + device + scene + weather. */
 static const char *s_subscribed[PANEL_MAX_LIGHTS + 1];
 static int s_subscribed_count;
+
+/* Scene activation tracking: a scene's HA state is its last-activated timestamp,
+ * so a change (after the initial value) means it was just activated. */
+typedef struct {
+    const char *id;
+    char last[40];
+    bool seen;
+} scene_track_t;
+static scene_track_t s_scenes[16];
+static int s_scene_count;
 
 static void add_subscribed(const char *id)
 {
@@ -34,6 +44,20 @@ static void add_subscribed(const char *id)
     }
 }
 
+static void track_scene(const char *id)
+{
+    for (int k = 0; k < s_scene_count; k++) {
+        if (strcmp(s_scenes[k].id, id) == 0) {
+            return;
+        }
+    }
+    if (s_scene_count < (int)(sizeof(s_scenes) / sizeof(s_scenes[0]))) {
+        s_scenes[s_scene_count].id = id;
+        s_scenes[s_scene_count].seen = false;
+        s_scene_count++;
+    }
+}
+
 static void collect_subscribed_entities(void)
 {
     for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
@@ -44,14 +68,41 @@ static void collect_subscribed_entities(void)
         for (int i = 0; i < tab->device_count; i++) {
             add_subscribed(tab->devices[i].entity_id);
         }
+        for (int i = 0; i < tab->scene_count; i++) {
+            add_subscribed(tab->scenes[i].entity_id);
+            track_scene(tab->scenes[i].entity_id);
+        }
     }
     s_subscribed[s_subscribed_count++] = PANEL_WEATHER_ENTITY;
+}
+
+/* A scene's state is a timestamp; if it changes after we've seen it once, the
+ * scene was just activated (by a schedule, the app, a switch, or us). */
+static void handle_scene_state(const char *entity_id, const char *state)
+{
+    if (state == NULL) {
+        return;
+    }
+    for (int k = 0; k < s_scene_count; k++) {
+        if (strcmp(s_scenes[k].id, entity_id) != 0) {
+            continue;
+        }
+        if (!s_scenes[k].seen) {
+            s_scenes[k].seen = true;
+        } else if (strcmp(s_scenes[k].last, state) != 0) {
+            panel_ui_set_scene_active(entity_id);
+        }
+        strlcpy(s_scenes[k].last, state, sizeof(s_scenes[k].last));
+        return;
+    }
 }
 
 static void on_ha_state(const char *entity_id, const char *state, float temperature)
 {
     if (strcmp(entity_id, PANEL_WEATHER_ENTITY) == 0) {
         panel_ui_set_weather(state, temperature);
+    } else if (strncmp(entity_id, "scene.", 6) == 0) {
+        handle_scene_state(entity_id, state);
     } else {
         panel_ui_set_light_state(entity_id, state);
     }

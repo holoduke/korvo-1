@@ -559,6 +559,29 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
     }
 }
 
+void panel_ui_set_scene_active(const char *entity_id)
+{
+    if (entity_id == NULL) {
+        return;
+    }
+    for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
+        for (int i = 0; i < s_scene_counts[t]; i++) {
+            if (strcmp(s_scene_ctx[t][i].scene->entity_id, entity_id) != 0) {
+                continue;
+            }
+            if (!bsp_display_lock(1000)) {
+                return;
+            }
+            for (int j = 0; j < s_scene_counts[t]; j++) {
+                lv_obj_set_style_bg_color(s_scene_chips[t][j], COLOR_SCENE, 0);
+            }
+            lv_obj_set_style_bg_color(s_scene_chips[t][i], COLOR_SCENE_ON, 0);
+            bsp_display_unlock();
+            return;
+        }
+    }
+}
+
 void panel_ui_set_weather(const char *condition, float temperature)
 {
     if (!bsp_display_lock(1000)) {
