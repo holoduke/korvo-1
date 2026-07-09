@@ -7,8 +7,10 @@
 #include <time.h>
 
 #include "bsp/esp32_s31_korvo.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "lvgl.h"
+#include "mbedtls/base64.h"
 #include "nvs.h"
 #include "panel_config.h"
 
@@ -28,7 +30,7 @@ static const char *TAG = "panel_ui";
 #define COLOR_WARN      lv_color_hex(0xe0a555)
 #define COLOR_BAD       lv_color_hex(0xe05555)
 
-#define HEADER_H        56
+#define HEADER_H        84
 #define TABBAR_H        46
 
 typedef struct {
@@ -46,9 +48,12 @@ static lv_obj_t *s_status_dot;
 static lv_obj_t *s_drawers[PANEL_TAB_COUNT];
 static lv_obj_t *s_tabview;
 static lv_obj_t *s_date_label;
-static lv_obj_t *s_temp_label;
-static lv_obj_t *s_wx_sun;        /* drawn weather icon parts */
-static lv_obj_t *s_wx_cloud;
+static lv_obj_t *s_dow_label;     /* weekday, right cluster */
+/* 3-day forecast columns in the header (index 0 = today). */
+static lv_obj_t *s_fc_day[3];
+static lv_obj_t *s_fc_sun[3];
+static lv_obj_t *s_fc_cloud[3];
+static lv_obj_t *s_fc_temp[3];
 static lv_obj_t *s_settings;      /* settings overlay */
 static lv_obj_t *s_kb;
 static lv_obj_t *s_pass_ta;
@@ -180,10 +185,20 @@ static void on_clock_timer(lv_timer_t *t)
                                             "donderdag", "vrijdag", "zaterdag"};
         static const char *const mons[] = {"jan", "feb", "mrt", "apr", "mei", "jun",
                                             "jul", "aug", "sep", "okt", "nov", "dec"};
+        static const char *const sd[] = {"zo", "ma", "di", "wo", "do", "vr", "za"};
         lv_label_set_text_fmt(s_clock_label, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
+        if (s_dow_label) {
+            lv_label_set_text(s_dow_label, days[tm_now.tm_wday]);
+        }
         if (s_date_label) {
-            lv_label_set_text_fmt(s_date_label, "%s %d %s", days[tm_now.tm_wday],
-                                  tm_now.tm_mday, mons[tm_now.tm_mon]);
+            lv_label_set_text_fmt(s_date_label, "%d %s", tm_now.tm_mday, mons[tm_now.tm_mon]);
+        }
+        /* Forecast day labels only depend on the date; keep them fresh here so
+         * they appear as soon as SNTP syncs (the forecast may arrive first). */
+        for (int i = 0; i < 3; i++) {
+            if (s_fc_day[i]) {
+                lv_label_set_text(s_fc_day[i], sd[(tm_now.tm_wday + i) % 7]);
+            }
         }
     }
 }
@@ -214,38 +229,37 @@ static lv_obj_t *wx_shape(lv_obj_t *parent, int w, int h, int radius, lv_color_t
     return o;
 }
 
-static void wx_cloud_color(lv_color_t c)
+static void wx_cloud_color(lv_obj_t *cloud, lv_color_t c)
 {
-    if (!s_wx_cloud) {
+    if (!cloud) {
         return;
     }
-    const uint32_t n = lv_obj_get_child_count(s_wx_cloud);
+    const uint32_t n = lv_obj_get_child_count(cloud);
     for (uint32_t i = 0; i < n; i++) {
-        lv_obj_set_style_bg_color(lv_obj_get_child(s_wx_cloud, i), c, 0);
+        lv_obj_set_style_bg_color(lv_obj_get_child(cloud, i), c, 0);
     }
 }
 
-/* Drawn sun + cloud; panel_ui_set_weather shows/tints them per condition. */
-static void create_weather_icon(lv_obj_t *parent)
+/* Build a small drawn sun+cloud icon (36x34) into parent; returns the handles.
+ * The sun is vertically centered so a sun-only day lines up with the labels. */
+static void build_wx_icon(lv_obj_t *parent, lv_obj_t **sun, lv_obj_t **cloud)
 {
     lv_obj_t *box = lv_obj_create(parent);
-    lv_obj_set_size(box, 46, 44);
+    lv_obj_set_size(box, 36, 34);
     make_plain(box);
 
-    /* Sun vertically centered so the (common) sunny state lines up with the
-     * temperature/clock text; the cloud sits over its lower half. */
-    s_wx_sun = wx_shape(box, 26, 26, LV_RADIUS_CIRCLE, lv_color_hex(0xffcf4d));
-    lv_obj_align(s_wx_sun, LV_ALIGN_LEFT_MID, 2, 0);
+    *sun = wx_shape(box, 20, 20, LV_RADIUS_CIRCLE, lv_color_hex(0xffcf4d));
+    lv_obj_align(*sun, LV_ALIGN_LEFT_MID, 1, 0);
 
-    s_wx_cloud = lv_obj_create(box);
-    lv_obj_set_size(s_wx_cloud, 46, 24);
-    make_plain(s_wx_cloud);
-    lv_obj_align(s_wx_cloud, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_align(wx_shape(s_wx_cloud, 44, 13, 7, COLOR_TEXT_DIM), LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_obj_align(wx_shape(s_wx_cloud, 18, 18, LV_RADIUS_CIRCLE, COLOR_TEXT_DIM),
-                 LV_ALIGN_BOTTOM_LEFT, 5, -3);
-    lv_obj_align(wx_shape(s_wx_cloud, 22, 22, LV_RADIUS_CIRCLE, COLOR_TEXT_DIM),
-                 LV_ALIGN_BOTTOM_MID, 3, -2);
+    *cloud = lv_obj_create(box);
+    lv_obj_set_size(*cloud, 36, 19);
+    make_plain(*cloud);
+    lv_obj_align(*cloud, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_align(wx_shape(*cloud, 34, 10, 5, COLOR_TEXT_DIM), LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_align(wx_shape(*cloud, 14, 14, LV_RADIUS_CIRCLE, COLOR_TEXT_DIM),
+                 LV_ALIGN_BOTTOM_LEFT, 4, -2);
+    lv_obj_align(wx_shape(*cloud, 17, 17, LV_RADIUS_CIRCLE, COLOR_TEXT_DIM),
+                 LV_ALIGN_BOTTOM_MID, 2, -1);
 }
 
 static void create_header(lv_obj_t *parent)
@@ -262,43 +276,60 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    /* Left cluster: weather icon + temperature. */
-    lv_obj_t *wx = lv_obj_create(bar);
-    lv_obj_set_size(wx, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    make_plain(wx);
-    lv_obj_set_style_pad_gap(wx, 10, 0);
-    lv_obj_set_style_margin_right(wx, 26, 0);
-    lv_obj_set_flex_flow(wx, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(wx, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    create_weather_icon(wx);
-    s_temp_label = lv_label_create(wx);
-    lv_label_set_text(s_temp_label, "--");
-    lv_obj_set_style_text_font(s_temp_label, &lv_font_montserrat_24, 0);
-    lv_obj_set_style_text_color(s_temp_label, COLOR_TEXT, 0);
+    /* Left cluster: 3-day forecast, one column per day (index 0 = today). */
+    lv_obj_t *fc = lv_obj_create(bar);
+    lv_obj_set_size(fc, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    make_plain(fc);
+    lv_obj_set_style_pad_gap(fc, 26, 0);
+    lv_obj_set_flex_flow(fc, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(fc, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    for (int i = 0; i < 3; i++) {
+        lv_obj_t *col = lv_obj_create(fc);
+        lv_obj_set_size(col, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        make_plain(col);
+        lv_obj_set_style_pad_gap(col, 1, 0);
+        lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                              LV_FLEX_ALIGN_CENTER);
+        s_fc_day[i] = lv_label_create(col);
+        lv_label_set_text(s_fc_day[i], "--");
+        lv_obj_set_style_text_font(s_fc_day[i], &lv_font_montserrat_14, 0);
+        /* Today (index 0) stands out in the accent colour. */
+        lv_obj_set_style_text_color(s_fc_day[i], i == 0 ? COLOR_ACCENT : COLOR_TEXT_DIM, 0);
+        build_wx_icon(col, &s_fc_sun[i], &s_fc_cloud[i]);
+        s_fc_temp[i] = lv_label_create(col);
+        lv_label_set_text(s_fc_temp[i], "--");
+        lv_obj_set_style_text_font(s_fc_temp[i], &lv_font_montserrat_18, 0);
+        lv_obj_set_style_text_color(s_fc_temp[i], COLOR_TEXT, 0);
+    }
 
-    /* Time + date, left-aligned right after the weather. */
-    lv_obj_t *timebox = lv_obj_create(bar);
-    lv_obj_set_size(timebox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    make_plain(timebox);
-    lv_obj_set_flex_flow(timebox, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(timebox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START,
-                          LV_FLEX_ALIGN_START);
-
-    s_clock_label = lv_label_create(timebox);
-    lv_label_set_text(s_clock_label, "--:--");
-    lv_obj_set_style_text_font(s_clock_label, &lv_font_montserrat_32, 0);
-    lv_obj_set_style_text_color(s_clock_label, COLOR_TEXT, 0);
-
-    s_date_label = lv_label_create(timebox);
-    lv_label_set_text(s_date_label, "");
-    lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(s_date_label, lv_color_hex(0xc6cbd6), 0);
-
-    /* Spacer pushes the status dot + gear to the right edge. */
+    /* Spacer pushes the clock cluster + gear to the right edge. */
     lv_obj_t *spacer = lv_obj_create(bar);
     make_plain(spacer);
     lv_obj_set_height(spacer, 1);
     lv_obj_set_flex_grow(spacer, 1);
+
+    /* Right cluster: weekday + date (right-aligned), then the big time. */
+    lv_obj_t *datebox = lv_obj_create(bar);
+    lv_obj_set_size(datebox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    make_plain(datebox);
+    lv_obj_set_style_margin_right(datebox, 16, 0);
+    lv_obj_set_flex_flow(datebox, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(datebox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END,
+                          LV_FLEX_ALIGN_END);
+    s_dow_label = lv_label_create(datebox);
+    lv_label_set_text(s_dow_label, "");
+    lv_obj_set_style_text_font(s_dow_label, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(s_dow_label, lv_color_hex(0xc6cbd6), 0);
+    s_date_label = lv_label_create(datebox);
+    lv_label_set_text(s_date_label, "");
+    lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_date_label, COLOR_TEXT_DIM, 0);
+
+    s_clock_label = lv_label_create(bar);
+    lv_label_set_text(s_clock_label, "--:--");
+    lv_obj_set_style_text_font(s_clock_label, &lv_font_montserrat_32, 0);
+    lv_obj_set_style_text_color(s_clock_label, COLOR_TEXT, 0);
 
     s_status_dot = lv_obj_create(bar);
     lv_obj_set_size(s_status_dot, 14, 14);
@@ -1127,6 +1158,54 @@ void panel_ui_set_wifi_connected(bool connected, const char *ssid)
     bsp_display_unlock();
 }
 
+/* ---- Screen dump (verification helper) ---------------------------------- */
+/* Snapshots the active screen, downsamples 2x, and streams it over the serial
+ * console as base64 RGB565 so the host can rebuild a PNG. Framed with SNAPBEGIN
+ * / SNAPDATA / SNAPEND and each data line prefixed so interleaved logs filter
+ * out cleanly. */
+void panel_ui_dump_screen(void)
+{
+    if (!bsp_display_lock(2000)) {
+        return;
+    }
+    lv_draw_buf_t *snap = lv_snapshot_take(lv_screen_active(), LV_COLOR_FORMAT_RGB565);
+    bsp_display_unlock();
+    if (snap == NULL) {
+        ESP_LOGW(TAG, "snapshot failed");
+        return;
+    }
+    const int w = snap->header.w, h = snap->header.h;
+    const int stride = snap->header.stride;
+    const int w2 = w / 2, h2 = h / 2;
+    uint8_t *small = heap_caps_malloc(w2 * h2 * 2, MALLOC_CAP_SPIRAM);
+    if (small) {
+        for (int y = 0; y < h2; y++) {
+            const uint8_t *src = snap->data + (y * 2) * stride;
+            uint16_t *dst = (uint16_t *)(small + y * w2 * 2);
+            const uint16_t *s16 = (const uint16_t *)src;
+            for (int x = 0; x < w2; x++) {
+                dst[x] = s16[x * 2];
+            }
+        }
+        const int raw = w2 * h2 * 2;
+        size_t olen = 0;
+        mbedtls_base64_encode(NULL, 0, &olen, small, raw);
+        uint8_t *b64 = heap_caps_malloc(olen + 1, MALLOC_CAP_SPIRAM);
+        if (b64 && mbedtls_base64_encode(b64, olen + 1, &olen, small, raw) == 0) {
+            printf("\nSNAPBEGIN %d %d\n", w2, h2);
+            for (size_t i = 0; i < olen; i += 100) {
+                size_t n = (olen - i < 100) ? (olen - i) : 100;
+                printf("SNAPDATA %.*s\n", (int)n, b64 + i);
+            }
+            printf("SNAPEND\n");
+        }
+        heap_caps_free(b64);
+        heap_caps_free(small);
+    }
+    lv_draw_buf_destroy(snap);
+}
+
+
 void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
                      panel_ui_brightness_cb_t brightness_cb)
 {
@@ -1290,48 +1369,61 @@ void panel_ui_set_area_brightness(const char *entity_id, int brightness_pct)
     }
 }
 
-void panel_ui_set_weather(const char *condition, float temperature)
+/* Show/tint a drawn sun+cloud pair for a weather condition string. */
+static void apply_wx(lv_obj_t *sun, lv_obj_t *cloud, const char *condition)
 {
-    if (!bsp_display_lock(1000)) {
+    if (!sun || !cloud || !condition) {
         return;
     }
-    if (!isnan(temperature) && s_temp_label) {
-        lv_label_set_text_fmt(s_temp_label, "%.0f\xC2\xB0", (double)temperature);
+    bool show_sun = false, show_cloud = false;
+    lv_color_t cc = COLOR_TEXT_DIM;
+    if (strstr(condition, "partlycloudy")) {
+        show_sun = true;
+        show_cloud = true;
+    } else if (strstr(condition, "sunny") || strstr(condition, "clear")) {
+        show_sun = true;
+    } else if (strstr(condition, "rain") || strstr(condition, "pour") ||
+               strstr(condition, "lightning")) {
+        show_cloud = true;
+        cc = lv_color_hex(0x7fa8d0);
+    } else if (strstr(condition, "snow")) {
+        show_cloud = true;
+        cc = lv_color_hex(0xdfe6f0);
+    } else {
+        show_cloud = true; /* cloudy / fog / windy / exceptional */
     }
-    if (condition != NULL && s_wx_sun && s_wx_cloud) {
-        bool sun = false, cloud = false;
-        lv_color_t cc = COLOR_TEXT_DIM;
-        if (strstr(condition, "partlycloudy")) {
-            sun = true;
-            cloud = true;
-        } else if (strstr(condition, "sunny") || strstr(condition, "clear")) {
-            sun = true;
-        } else if (strstr(condition, "rain") || strstr(condition, "pour") ||
-                   strstr(condition, "lightning")) {
-            cloud = true;
-            cc = lv_color_hex(0x7fa8d0);
-        } else if (strstr(condition, "snow")) {
-            cloud = true;
-            cc = lv_color_hex(0xdfe6f0);
-        } else {
-            cloud = true; /* cloudy / fog / windy / exceptional */
-        }
-        lv_obj_set_style_bg_color(s_wx_sun,
-                                  strstr(condition, "night") ? lv_color_hex(0xc3c9d6)
-                                                             : lv_color_hex(0xffcf4d), 0);
-        wx_cloud_color(cc);
-        if (sun) {
-            lv_obj_remove_flag(s_wx_sun, LV_OBJ_FLAG_HIDDEN);
-        } else {
-            lv_obj_add_flag(s_wx_sun, LV_OBJ_FLAG_HIDDEN);
-        }
-        if (cloud) {
-            lv_obj_remove_flag(s_wx_cloud, LV_OBJ_FLAG_HIDDEN);
-        } else {
-            lv_obj_add_flag(s_wx_cloud, LV_OBJ_FLAG_HIDDEN);
-        }
+    lv_obj_set_style_bg_color(sun, strstr(condition, "night") ? lv_color_hex(0xc3c9d6)
+                                                              : lv_color_hex(0xffcf4d), 0);
+    wx_cloud_color(cloud, cc);
+    if (show_sun) {
+        lv_obj_remove_flag(sun, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(sun, LV_OBJ_FLAG_HIDDEN);
     }
+    if (show_cloud) {
+        lv_obj_remove_flag(cloud, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(cloud, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+void panel_ui_set_forecast_day(int idx, const char *condition, float temperature)
+{
+    if (idx < 0 || idx >= 3 || s_fc_temp[idx] == NULL || !bsp_display_lock(1000)) {
+        return;
+    }
+    /* Day labels are maintained by the clock timer (date-only). */
+    if (!isnan(temperature)) {
+        lv_label_set_text_fmt(s_fc_temp[idx], "%.0f\xC2\xB0", (double)temperature);
+    }
+    apply_wx(s_fc_sun[idx], s_fc_cloud[idx], condition);
     bsp_display_unlock();
+}
+
+/* Live current weather updates today's column until the daily forecast lands. */
+void panel_ui_set_weather(const char *condition, float temperature)
+{
+    panel_ui_set_forecast_day(0, condition, temperature);
 }
 
 void panel_ui_set_link_status(bool wifi_up, bool ha_up)

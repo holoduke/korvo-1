@@ -31,6 +31,10 @@ static char *s_rx_buf;
 static size_t s_rx_len;
 static volatile int64_t s_last_rx_us; /* last time any frame arrived */
 
+static ha_forecast_cb_t s_forecast_cb;
+static int s_forecast_id;              /* msg id of the pending get_forecasts */
+static char s_weather_entity[48];      /* cached for periodic refresh */
+
 static esp_err_t send_json(cJSON *root)
 {
     char *text = cJSON_PrintUnformatted(root);
@@ -108,6 +112,8 @@ static void handle_entity_object(const cJSON *entities, bool changed)
     }
 }
 
+static void handle_forecast_result(const cJSON *root);
+
 static void handle_message(const char *data, size_t len)
 {
     cJSON *root = cJSON_ParseWithLength(data, len);
@@ -144,10 +150,14 @@ static void handle_message(const char *data, size_t len)
         }
     } else if (strcmp(type->valuestring, "result") == 0) {
         const cJSON *ok = cJSON_GetObjectItem(root, "success");
+        const cJSON *id = cJSON_GetObjectItem(root, "id");
         if (!cJSON_IsTrue(ok)) {
             char *txt = cJSON_PrintUnformatted(root);
             ESP_LOGW(TAG, "Command failed: %s", txt ? txt : "?");
             free(txt);
+        } else if (cJSON_IsNumber(id) && (int)id->valuedouble == s_forecast_id &&
+                   s_forecast_id != 0) {
+            handle_forecast_result(root);
         }
     }
     cJSON_Delete(root);
@@ -216,6 +226,61 @@ static esp_err_t call_service(const char *domain, const char *service, const cha
     return send_json(msg);
 }
 
+void ha_client_set_forecast_cb(ha_forecast_cb_t cb)
+{
+    s_forecast_cb = cb;
+}
+
+esp_err_t ha_client_request_forecast(const char *weather_entity_id)
+{
+    ESP_RETURN_ON_FALSE(s_client != NULL && esp_websocket_client_is_connected(s_client),
+                        ESP_ERR_INVALID_STATE, TAG, "not connected");
+    ESP_RETURN_ON_FALSE(weather_entity_id != NULL, ESP_ERR_INVALID_ARG, TAG, "no entity");
+    strlcpy(s_weather_entity, weather_entity_id, sizeof(s_weather_entity));
+
+    s_forecast_id = s_msg_id++;
+    cJSON *msg = cJSON_CreateObject();
+    cJSON_AddNumberToObject(msg, "id", s_forecast_id);
+    cJSON_AddStringToObject(msg, "type", "call_service");
+    cJSON_AddStringToObject(msg, "domain", "weather");
+    cJSON_AddStringToObject(msg, "service", "get_forecasts");
+    cJSON *data = cJSON_AddObjectToObject(msg, "service_data");
+    cJSON_AddStringToObject(data, "type", "daily");
+    cJSON *target = cJSON_AddObjectToObject(msg, "target");
+    cJSON_AddStringToObject(target, "entity_id", weather_entity_id);
+    cJSON_AddBoolToObject(msg, "return_response", true);
+    return send_json(msg);
+}
+
+/* Parse a get_forecasts result: result.response.<entity>.forecast[]. */
+static void handle_forecast_result(const cJSON *root)
+{
+    const cJSON *result = cJSON_GetObjectItem(root, "result");
+    const cJSON *response = cJSON_GetObjectItem(result, "response");
+    const cJSON *entity = response ? response->child : NULL; /* first entity */
+    const cJSON *forecast = entity ? cJSON_GetObjectItem(entity, "forecast") : NULL;
+    if (!cJSON_IsArray(forecast)) {
+        return;
+    }
+    ha_forecast_day_t days[3];
+    int n = 0;
+    const cJSON *day;
+    cJSON_ArrayForEach(day, forecast) {
+        if (n >= 3) {
+            break;
+        }
+        const cJSON *cond = cJSON_GetObjectItem(day, "condition");
+        const cJSON *temp = cJSON_GetObjectItem(day, "temperature");
+        strlcpy(days[n].condition, cJSON_IsString(cond) ? cond->valuestring : "",
+                sizeof(days[n].condition));
+        days[n].temp = cJSON_IsNumber(temp) ? (float)temp->valuedouble : NAN;
+        n++;
+    }
+    if (n > 0 && s_forecast_cb) {
+        s_forecast_cb(days, n);
+    }
+}
+
 esp_err_t ha_client_toggle_light(const char *entity_id)
 {
     return call_service("light", "toggle", entity_id);
@@ -270,12 +335,18 @@ static void heartbeat_task(void *arg)
     (void)arg;
     const int64_t STALE_US = 45LL * 1000000;   /* force reconnect */
     const int64_t REBOOT_US = 90LL * 1000000;  /* last resort */
+    int cycles = 0;
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(15000));
         if (s_client == NULL || !esp_websocket_client_is_connected(s_client)) {
             continue; /* not connected -> built-in auto-reconnect handles it */
         }
         send_ping();
+        /* Refresh the forecast roughly every 30 min (120 * 15s). */
+        if (++cycles >= 120 && s_weather_entity[0]) {
+            cycles = 0;
+            ha_client_request_forecast(s_weather_entity);
+        }
         const int64_t idle = esp_timer_get_time() - s_last_rx_us;
         if (idle > REBOOT_US) {
             ESP_LOGE(TAG, "HA silent %d s -> rebooting", (int)(idle / 1000000));

@@ -18,6 +18,20 @@ typedef void (*ha_state_cb_t)(const char *entity_id, const char *state,
 /* Fires on auth success (true) and on disconnect (false). */
 typedef void (*ha_conn_cb_t)(bool connected);
 
+/* One day of daily forecast. day[0] is today. */
+typedef struct {
+    char condition[24];
+    float temp; /* daily high */
+} ha_forecast_day_t;
+typedef void (*ha_forecast_cb_t)(const ha_forecast_day_t *days, int count);
+
+/* Register a callback for daily-forecast results. */
+void ha_client_set_forecast_cb(ha_forecast_cb_t cb);
+
+/* Request a fresh daily forecast for the given weather entity (result arrives
+ * via the forecast callback). The entity is cached and re-fetched periodically. */
+esp_err_t ha_client_request_forecast(const char *weather_entity_id);
+
 esp_err_t ha_client_start(const char *uri, const char *token,
                           const char *const *entity_ids, int entity_count,
                           ha_state_cb_t state_cb, ha_conn_cb_t conn_cb);

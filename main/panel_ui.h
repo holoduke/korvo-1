@@ -32,6 +32,10 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
 /* Bench helper: animate a tab switch (measures swipe rendering). */
 void panel_ui_toggle_tab(void);
 
+/* Diagnostic: snapshot the active screen and stream it (base64 RGB565) over the
+ * serial console for host-side reconstruction. Call from a temporary trigger. */
+void panel_ui_dump_screen(void);
+
 /* Thread-safe updates (they take the LVGL lock themselves). */
 void panel_ui_set_light_state(const char *entity_id, const char *state);
 /* Highlight the scene chip for entity_id (clears the others on its tab). */
@@ -40,4 +44,6 @@ void panel_ui_set_scene_active(const char *entity_id);
  * representative light and the user isn't dragging). */
 void panel_ui_set_area_brightness(const char *entity_id, int brightness_pct);
 void panel_ui_set_weather(const char *condition, float temperature);
+/* Set one day of the 3-day header forecast (idx 0 = today). */
+void panel_ui_set_forecast_day(int idx, const char *condition, float temperature);
 void panel_ui_set_link_status(bool wifi_up, bool ha_up);

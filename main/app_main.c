@@ -113,10 +113,20 @@ static void on_ha_state(const char *entity_id, const char *state,
     }
 }
 
+static void on_ha_forecast(const ha_forecast_day_t *days, int count)
+{
+    for (int i = 0; i < count; i++) {
+        panel_ui_set_forecast_day(i, days[i].condition, days[i].temp);
+    }
+}
+
 static void on_ha_conn(bool connected)
 {
     s_ha_up = connected;
     panel_ui_set_link_status(s_wifi_up, s_ha_up);
+    if (connected) {
+        ha_client_request_forecast(PANEL_WEATHER_ENTITY);
+    }
 }
 
 static void on_scan_done(const char *const *ssids, const int8_t *rssi, int count)
@@ -150,6 +160,7 @@ static void on_wifi_status(bool connected)
             ESP_LOGW(TAG, "SNTP init failed: %s", esp_err_to_name(err));
         }
 
+        ha_client_set_forecast_cb(on_ha_forecast);
         err = ha_client_start(HA_WEBSOCKET_URI, SECRET_HA_TOKEN,
                               s_subscribed, s_subscribed_count,
                               on_ha_state, on_ha_conn);
