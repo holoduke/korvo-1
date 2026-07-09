@@ -20,6 +20,7 @@ static const char *TAG = "panel_ui";
 #define COLOR_TEXT      lv_color_hex(0xeef0f5)
 #define COLOR_TEXT_DIM  lv_color_hex(0x848b9c)
 #define COLOR_SCENE     lv_color_hex(0x2b3444)
+#define COLOR_SCENE_ON  lv_color_hex(0xa78bfa)   /* light purple, active scene */
 #define COLOR_ACCENT    lv_color_hex(0xffb84d)
 #define COLOR_OK        lv_color_hex(0x4dd06a)
 #define COLOR_WARN      lv_color_hex(0xe0a555)
@@ -49,6 +50,17 @@ static panel_ui_brightness_cb_t s_brightness_cb;
 static lv_obj_t *s_bright_label;
 static bool s_slider_moved;
 
+/* Scene chips per tab, so activating one can highlight it and clear the others. */
+#define MAX_SCENES 6
+static lv_obj_t *s_scene_chips[PANEL_TAB_COUNT][MAX_SCENES];
+static int s_scene_counts[PANEL_TAB_COUNT];
+
+typedef struct {
+    const panel_entity_t *scene;
+    int tab_idx;
+} scene_ctx_t;
+static scene_ctx_t s_scene_ctx[PANEL_TAB_COUNT][MAX_SCENES];
+
 #define SLIDER_W 56
 #define SCENE_ROW_H 84
 
@@ -66,10 +78,16 @@ static void on_tile_clicked(lv_event_t *e)
 
 static void on_scene_clicked(lv_event_t *e)
 {
-    const panel_entity_t *scene = lv_event_get_user_data(e);
+    const scene_ctx_t *ctx = lv_event_get_user_data(e);
+    lv_obj_t *chip = lv_event_get_target(e);
     if (s_scene_cb) {
-        s_scene_cb(scene->entity_id);
+        s_scene_cb(ctx->scene->entity_id);
     }
+    /* Radio-style highlight: this scene lit, the others on the tab cleared. */
+    for (int j = 0; j < s_scene_counts[ctx->tab_idx]; j++) {
+        lv_obj_set_style_bg_color(s_scene_chips[ctx->tab_idx][j], COLOR_SCENE, 0);
+    }
+    lv_obj_set_style_bg_color(chip, COLOR_SCENE_ON, 0);
 }
 
 /* Vertical brightness slider: live % readout while dragging, applies on release. */
@@ -200,7 +218,7 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
 
 static void on_show_all_clicked(lv_event_t *e); /* opens the active tab's drawer */
 
-static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab)
+static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_idx)
 {
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_set_size(row, LV_PCT(100), SCENE_ROW_H);
@@ -212,7 +230,9 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab)
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
 
-    for (int i = 0; i < tab->scene_count; i++) {
+    const int scene_n = tab->scene_count < MAX_SCENES ? tab->scene_count : MAX_SCENES;
+    s_scene_counts[tab_idx] = scene_n;
+    for (int i = 0; i < scene_n; i++) {
         lv_obj_t *chip = lv_button_create(row);
         lv_obj_set_flex_grow(chip, 1);
         lv_obj_set_height(chip, LV_PCT(100));
@@ -220,8 +240,10 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab)
         lv_obj_set_style_radius(chip, 14, 0);
         lv_obj_set_style_shadow_width(chip, 0, 0);
         lv_obj_set_style_bg_opa(chip, LV_OPA_70, LV_STATE_PRESSED);
+        s_scene_chips[tab_idx][i] = chip;
+        s_scene_ctx[tab_idx][i] = (scene_ctx_t){ &tab->scenes[i], tab_idx };
         lv_obj_add_event_cb(chip, on_scene_clicked, LV_EVENT_CLICKED,
-                            (void *)&tab->scenes[i]);
+                            &s_scene_ctx[tab_idx][i]);
 
         lv_obj_t *label = lv_label_create(chip);
         lv_label_set_text(label, tab->scenes[i].label);
@@ -481,7 +503,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
         lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
 
         create_light_grid(tab, tab_cfg);
-        create_scene_row(tab, tab_cfg);
+        create_scene_row(tab, tab_cfg, i);
     }
     style_tab_bar(s_tabview);
 
