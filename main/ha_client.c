@@ -262,11 +262,11 @@ static void handle_forecast_result(const cJSON *root)
     if (!cJSON_IsArray(forecast)) {
         return;
     }
-    ha_forecast_day_t days[3];
+    ha_forecast_day_t days[5];
     int n = 0;
     const cJSON *day;
     cJSON_ArrayForEach(day, forecast) {
-        if (n >= 3) {
+        if (n >= 5) {
             break;
         }
         const cJSON *cond = cJSON_GetObjectItem(day, "condition");

@@ -47,13 +47,23 @@ static lv_obj_t *s_clock_label;
 static lv_obj_t *s_status_dot;
 static lv_obj_t *s_drawers[PANEL_TAB_COUNT];
 static lv_obj_t *s_tabview;
+/* Cached tab bitmaps so a swipe blits a pre-rendered image instead of
+ * re-rasterizing every tile/glyph each frame. */
+static lv_obj_t *s_tab_content[PANEL_TAB_COUNT];
+static lv_draw_buf_t *s_tab_snap[PANEL_TAB_COUNT];
+static bool s_snap_dirty[PANEL_TAB_COUNT];
+static lv_obj_t *s_slide_ov;
+static int s_slide_target;
+static bool s_swiping;
+static void mark_snapshots_dirty(void);
 static lv_obj_t *s_date_label;
 static lv_obj_t *s_dow_label;     /* weekday, right cluster */
-/* 3-day forecast columns in the header (index 0 = today). */
-static lv_obj_t *s_fc_day[3];
-static lv_obj_t *s_fc_sun[3];
-static lv_obj_t *s_fc_cloud[3];
-static lv_obj_t *s_fc_temp[3];
+/* 5-day forecast columns in the header (index 0 = today). */
+#define FORECAST_DAYS 5
+static lv_obj_t *s_fc_day[FORECAST_DAYS];
+static lv_obj_t *s_fc_sun[FORECAST_DAYS];
+static lv_obj_t *s_fc_cloud[FORECAST_DAYS];
+static lv_obj_t *s_fc_temp[FORECAST_DAYS];
 static lv_obj_t *s_settings;      /* settings overlay */
 static lv_obj_t *s_kb;
 static lv_obj_t *s_pass_ta;
@@ -144,6 +154,7 @@ static void on_scene_clicked(lv_event_t *e)
         lv_obj_set_style_bg_color(s_scene_chips[ctx->tab_idx][j], COLOR_SCENE, 0);
     }
     lv_obj_set_style_bg_color(chip, COLOR_SCENE_ON, 0);
+    mark_snapshots_dirty();
 }
 
 /* Vertical brightness slider: live % readout while dragging, applies on release. */
@@ -195,7 +206,7 @@ static void on_clock_timer(lv_timer_t *t)
         }
         /* Forecast day labels only depend on the date; keep them fresh here so
          * they appear as soon as SNTP syncs (the forecast may arrive first). */
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < FORECAST_DAYS; i++) {
             if (s_fc_day[i]) {
                 lv_label_set_text(s_fc_day[i], sd[(tm_now.tm_wday + i) % 7]);
             }
@@ -276,14 +287,14 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    /* Left cluster: 3-day forecast, one column per day (index 0 = today). */
+    /* Left cluster: 5-day forecast, one column per day (index 0 = today). */
     lv_obj_t *fc = lv_obj_create(bar);
     lv_obj_set_size(fc, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     make_plain(fc);
-    lv_obj_set_style_pad_gap(fc, 26, 0);
+    lv_obj_set_style_pad_gap(fc, 16, 0);
     lv_obj_set_flex_flow(fc, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(fc, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < FORECAST_DAYS; i++) {
         lv_obj_t *col = lv_obj_create(fc);
         lv_obj_set_size(col, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         make_plain(col);
@@ -309,27 +320,33 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_height(spacer, 1);
     lv_obj_set_flex_grow(spacer, 1);
 
-    /* Right cluster: weekday + date (right-aligned), then the big time. */
-    lv_obj_t *datebox = lv_obj_create(bar);
-    lv_obj_set_size(datebox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    make_plain(datebox);
-    lv_obj_set_style_margin_right(datebox, 16, 0);
-    lv_obj_set_flex_flow(datebox, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(datebox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END,
+    /* Right cluster: the big time on top, weekday + date below it (right-aligned). */
+    lv_obj_t *timebox = lv_obj_create(bar);
+    lv_obj_set_size(timebox, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    make_plain(timebox);
+    lv_obj_set_style_pad_gap(timebox, 1, 0);
+    lv_obj_set_flex_flow(timebox, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(timebox, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END,
                           LV_FLEX_ALIGN_END);
-    s_dow_label = lv_label_create(datebox);
-    lv_label_set_text(s_dow_label, "");
-    lv_obj_set_style_text_font(s_dow_label, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(s_dow_label, lv_color_hex(0xc6cbd6), 0);
-    s_date_label = lv_label_create(datebox);
-    lv_label_set_text(s_date_label, "");
-    lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(s_date_label, COLOR_TEXT_DIM, 0);
-
-    s_clock_label = lv_label_create(bar);
+    s_clock_label = lv_label_create(timebox);
     lv_label_set_text(s_clock_label, "--:--");
     lv_obj_set_style_text_font(s_clock_label, &lv_font_montserrat_32, 0);
     lv_obj_set_style_text_color(s_clock_label, COLOR_TEXT, 0);
+
+    lv_obj_t *daterow = lv_obj_create(timebox);
+    lv_obj_set_size(daterow, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    make_plain(daterow);
+    lv_obj_set_style_pad_gap(daterow, 6, 0);
+    lv_obj_set_flex_flow(daterow, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(daterow, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    s_dow_label = lv_label_create(daterow);
+    lv_label_set_text(s_dow_label, "");
+    lv_obj_set_style_text_font(s_dow_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_dow_label, lv_color_hex(0xc6cbd6), 0);
+    s_date_label = lv_label_create(daterow);
+    lv_label_set_text(s_date_label, "");
+    lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_date_label, COLOR_TEXT_DIM, 0);
 
     s_status_dot = lv_obj_create(bar);
     lv_obj_set_size(s_status_dot, 14, 14);
@@ -1158,6 +1175,155 @@ void panel_ui_set_wifi_connected(bool connected, const char *ssid)
     bsp_display_unlock();
 }
 
+/* ---- Cached-bitmap tab swipe -------------------------------------------- */
+static void mark_snapshots_dirty(void)
+{
+    for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
+        s_snap_dirty[i] = true;
+    }
+}
+
+/* Re-snapshot a tab's content to a bitmap (only if marked dirty). This is a
+ * full render (~tens of ms) so it runs lazily off the swipe path. */
+static void refresh_snapshot(int i)
+{
+    if (i < 0 || i >= (int)PANEL_TAB_COUNT || s_tab_content[i] == NULL) {
+        return;
+    }
+    if (s_tab_snap[i] != NULL && !s_snap_dirty[i]) {
+        return;
+    }
+    lv_draw_buf_t *ns = lv_snapshot_take(s_tab_content[i], LV_COLOR_FORMAT_RGB565);
+    if (ns != NULL) {
+        lv_draw_buf_t *old = s_tab_snap[i];
+        s_tab_snap[i] = ns;
+        s_snap_dirty[i] = false;
+        if (old) {
+            lv_draw_buf_destroy(old);
+        }
+    }
+}
+
+/* Keep off-screen/dirty snapshots warm while idle so a swipe can start instantly.
+ * One snapshot per tick bounds the cost; skipped entirely while swiping. */
+static void snap_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    if (s_swiping || s_tabview == NULL) {
+        return;
+    }
+    const int active = (int)lv_tabview_get_tab_active(s_tabview);
+    for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
+        if (i != active && (s_tab_snap[i] == NULL || s_snap_dirty[i])) {
+            refresh_snapshot(i);
+            return;
+        }
+    }
+    if (s_tab_snap[active] == NULL || s_snap_dirty[active]) {
+        refresh_snapshot(active);
+    }
+}
+
+static void slide_anim_x(void *var, int32_t v)
+{
+    lv_obj_set_x((lv_obj_t *)var, v);
+}
+
+static void slide_done_cb(lv_anim_t *a)
+{
+    (void)a;
+    lv_tabview_set_active(s_tabview, s_slide_target, LV_ANIM_OFF);
+    if (s_slide_ov) {
+        lv_obj_delete(s_slide_ov);
+        s_slide_ov = NULL;
+    }
+    if (s_bright_slider) {
+        lv_obj_remove_flag(s_bright_slider, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_bright_label) {
+        lv_obj_remove_flag(s_bright_label, LV_OBJ_FLAG_HIDDEN);
+    }
+    s_swiping = false;
+}
+
+/* Slide from the current tab to `target` by animating two cached bitmaps. */
+static void do_tab_switch(int target)
+{
+    if (s_tabview == NULL || s_swiping) {
+        return;
+    }
+    const int cur = (int)lv_tabview_get_tab_active(s_tabview);
+    if (target == cur || target < 0 || target >= (int)PANEL_TAB_COUNT) {
+        return;
+    }
+    refresh_snapshot(cur);
+    refresh_snapshot(target);
+    if (s_tab_snap[cur] == NULL || s_tab_snap[target] == NULL) {
+        lv_tabview_set_active(s_tabview, target, LV_ANIM_OFF); /* fallback */
+        return;
+    }
+
+    s_swiping = true;
+    s_slide_target = target;
+    const int dir = target > cur ? 1 : -1;
+    const int W = LV_HOR_RES;
+    const int y = HEADER_H + TABBAR_H;
+    const int h = LV_VER_RES - y;
+
+    s_slide_ov = lv_obj_create(lv_screen_active());
+    lv_obj_add_flag(s_slide_ov, LV_OBJ_FLAG_FLOATING);
+    lv_obj_remove_flag(s_slide_ov, LV_OBJ_FLAG_SCROLLABLE);
+    make_plain(s_slide_ov);
+    lv_obj_set_style_bg_color(s_slide_ov, COLOR_BG, 0);
+    lv_obj_set_style_bg_opa(s_slide_ov, LV_OPA_COVER, 0);
+    lv_obj_set_pos(s_slide_ov, 0, y);
+    lv_obj_set_size(s_slide_ov, W, h);
+
+    /* Hide the live slider (it isn't in the snapshot); it returns after. */
+    if (s_bright_slider) {
+        lv_obj_add_flag(s_bright_slider, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (s_bright_label) {
+        lv_obj_add_flag(s_bright_label, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    lv_obj_t *img_from = lv_image_create(s_slide_ov);
+    lv_image_set_src(img_from, s_tab_snap[cur]);
+    lv_obj_set_pos(img_from, 0, 0);
+    lv_obj_t *img_to = lv_image_create(s_slide_ov);
+    lv_image_set_src(img_to, s_tab_snap[target]);
+    lv_obj_set_pos(img_to, dir * W, 0);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_duration(&a, 220);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, slide_anim_x);
+    lv_anim_set_var(&a, img_from);
+    lv_anim_set_values(&a, 0, -dir * W);
+    lv_anim_start(&a);
+    lv_anim_set_var(&a, img_to);
+    lv_anim_set_values(&a, dir * W, 0);
+    lv_anim_set_completed_cb(&a, slide_done_cb);
+    lv_anim_start(&a);
+}
+
+static void on_screen_gesture(lv_event_t *e)
+{
+    (void)e;
+    if (s_swiping) {
+        return;
+    }
+    const lv_dir_t d = lv_indev_get_gesture_dir(lv_indev_active());
+    const int cur = s_tabview ? (int)lv_tabview_get_tab_active(s_tabview) : 0;
+    if (d == LV_DIR_LEFT) {
+        do_tab_switch(cur + 1);
+    } else if (d == LV_DIR_RIGHT) {
+        do_tab_switch(cur - 1);
+    }
+}
+
+
 /* ---- Screen dump (verification helper) ---------------------------------- */
 /* Snapshots the active screen, downsamples 2x, and streams it over the serial
  * console as base64 RGB565 so the host can rebuild a PNG. Framed with SNAPBEGIN
@@ -1234,6 +1400,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
         const panel_tab_t *tab_cfg = &PANEL_TABS[i];
         lv_obj_t *tab = lv_tabview_add_tab(s_tabview, tab_cfg->name);
+        s_tab_content[i] = tab;
         lv_obj_set_style_bg_color(tab, COLOR_BG, 0);
         make_plain(tab);
         lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
@@ -1242,6 +1409,15 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
         create_scene_row(tab, tab_cfg, i);
     }
     style_tab_bar(s_tabview);
+
+    /* Take over swiping: disable the tabview's live finger-scroll (which
+     * re-rasterizes every frame) and slide cached bitmaps on a gesture instead.
+     * Instant programmatic scroll so tab-bar button clicks don't slow-scroll. */
+    lv_obj_t *tv_content = lv_tabview_get_content(s_tabview);
+    lv_obj_clear_flag(tv_content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_anim_duration(tv_content, 0, 0);
+    lv_obj_add_event_cb(screen, on_screen_gesture, LV_EVENT_GESTURE, NULL);
+    lv_timer_create(snap_timer_cb, 900, NULL);
 
     /* Slider sits above the tabview (draggable); drawers are created afterwards
      * so they render on top and cover it when open. */
@@ -1258,6 +1434,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     /* Drive the header clock/date (updates once SNTP has synced). */
     lv_timer_create(on_clock_timer, 1000, NULL);
     on_clock_timer(NULL);
+
 
     ESP_LOGI(TAG, "UI created (%d tabs, %d tiles)", (int)PANEL_TAB_COUNT, s_tile_count);
 }
@@ -1301,6 +1478,7 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
                                         on ? lv_color_hex(0x6b5518) : COLOR_TEXT_DIM, 0);
         }
         bsp_display_unlock();
+        mark_snapshots_dirty(); /* tile visuals changed -> refresh cache */
     }
 }
 
@@ -1332,6 +1510,7 @@ void panel_ui_set_scene_active(const char *entity_id)
             }
             lv_obj_set_style_bg_color(s_scene_chips[t][i], COLOR_SCENE_ON, 0);
             bsp_display_unlock();
+            mark_snapshots_dirty();
             return;
         }
     }
@@ -1409,7 +1588,7 @@ static void apply_wx(lv_obj_t *sun, lv_obj_t *cloud, const char *condition)
 
 void panel_ui_set_forecast_day(int idx, const char *condition, float temperature)
 {
-    if (idx < 0 || idx >= 3 || s_fc_temp[idx] == NULL || !bsp_display_lock(1000)) {
+    if (idx < 0 || idx >= FORECAST_DAYS || s_fc_temp[idx] == NULL || !bsp_display_lock(1000)) {
         return;
     }
     /* Day labels are maintained by the clock timer (date-only). */
