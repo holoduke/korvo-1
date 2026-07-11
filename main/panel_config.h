@@ -58,7 +58,6 @@ static const panel_entity_t TAB_BOVEN_LIGHTS[] = {
     { "light.lamp_valerie_kamer_1",         "Valerie" },
     { "light.lamp_jongens_kamer_1",         "Jongens" },
     { "light.lamp_badkamer_1",              "Badkamer" },
-    { "light.lamp_zolder_gang",             "Zolder gang" },
 };
 static const panel_entity_t TAB_BOVEN_SCENES[] = {
     { "scene.slaapkamer_aan",     "Slaapk. aan" },
@@ -71,10 +70,19 @@ static const panel_entity_t TAB_BOVEN_DEVICES[] = {
     { "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje", "Nachtkastje" },
     { "light.lamp_valerie_kamer_1",              "Valerie" },
     { "light.lamp_jongens_kamer_1",              "Jongens" },
-    { "light.lamp_zolder_baby_kamer_1",          "Baby 1" },
-    { "light.lamp_zolder_baby_kamer_2",          "Baby 2" },
-    { "light.lamp_zolder_gang",                  "Zolder gang" },
     { "light.lamp_badkamer_1",                   "Badkamer" },
+};
+
+/* ---- Tab: Zolder (attic) ------------------------------------------------ */
+static const panel_entity_t TAB_ZOLDER_LIGHTS[] = {
+    { "light.lamp_zolder_gang",         "Gang" },
+    { "light.lamp_zolder_baby_kamer_1", "Baby 1" },
+    { "light.lamp_zolder_baby_kamer_2", "Baby 2" },
+};
+static const panel_entity_t TAB_ZOLDER_DEVICES[] = {
+    { "light.lamp_zolder_gang",         "Gang" },
+    { "light.lamp_zolder_baby_kamer_1", "Baby 1" },
+    { "light.lamp_zolder_baby_kamer_2", "Baby 2" },
 };
 
 #define TAB_ENTRY(name, lights, scenes, devices) \
@@ -82,9 +90,34 @@ static const panel_entity_t TAB_BOVEN_DEVICES[] = {
       scenes, sizeof(scenes) / sizeof((scenes)[0]), \
       devices, sizeof(devices) / sizeof((devices)[0]) }
 
+/* ---- Tab: Tuin (garden) ------------------------------------------------- */
+/* PLACEHOLDER entities: HA has no named garden lights yet (only scene.twingly
+ * lives in the "Tuin achter" area). Replace these light IDs with the real
+ * garden lights once they exist (e.g. in the new house). */
+static const panel_entity_t TAB_TUIN_LIGHTS[] = {
+    { "light.tuin_terras",  "Terras" },
+    { "light.tuin_achter",  "Achtertuin" },
+    { "light.tuin_schuur",  "Schuur" },
+};
+static const panel_entity_t TAB_TUIN_SCENES[] = {
+    { "scene.twingly", "Twinkly" },
+};
+static const panel_entity_t TAB_TUIN_DEVICES[] = {
+    { "light.tuin_terras",  "Terras" },
+    { "light.tuin_achter",  "Achtertuin" },
+    { "light.tuin_schuur",  "Schuur" },
+};
+
+/* Tab with no scenes (just the tiles + "Alle lampen" drawer). */
+#define TAB_ENTRY_NS(name, lights, devices) \
+    { name, lights, sizeof(lights) / sizeof((lights)[0]), \
+      NULL, 0, devices, sizeof(devices) / sizeof((devices)[0]) }
+
 static const panel_tab_t PANEL_TABS[] = {
     TAB_ENTRY("Beneden", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_DEVICES),
     TAB_ENTRY("Boven", TAB_BOVEN_LIGHTS, TAB_BOVEN_SCENES, TAB_BOVEN_DEVICES),
+    TAB_ENTRY_NS("Zolder", TAB_ZOLDER_LIGHTS, TAB_ZOLDER_DEVICES),
+    TAB_ENTRY("Tuin", TAB_TUIN_LIGHTS, TAB_TUIN_SCENES, TAB_TUIN_DEVICES),
 };
 #define PANEL_TAB_COUNT (sizeof(PANEL_TABS) / sizeof(PANEL_TABS[0]))
 
