@@ -1328,6 +1328,11 @@ void panel_ui_set_color_callbacks(panel_ui_color_cb_t color_cb, panel_ui_warmth_
 
 void panel_ui_set_light_caps(const char *entity_id, int caps, int min_kelvin, int max_kelvin)
 {
+    /* Runs on the HA task; the LVGL thread reads these fields in the long-press
+     * popup, so mutate under the display lock to keep s_tiles single-writer. */
+    if (!bsp_display_lock(1000)) {
+        return;
+    }
     for (int i = 0; i < s_tile_count; i++) {
         if (strcmp(s_tiles[i].entity->entity_id, entity_id) == 0) {
             s_tiles[i].caps = caps;
@@ -1335,6 +1340,7 @@ void panel_ui_set_light_caps(const char *entity_id, int caps, int min_kelvin, in
             s_tiles[i].max_k = max_kelvin;
         }
     }
+    bsp_display_unlock();
 }
 
 void panel_ui_set_networks(const char *const *ssids, const int8_t *rssi, int count)
@@ -1405,6 +1411,8 @@ void panel_ui_set_wifi_connected(bool connected, const char *ssid)
     bsp_display_unlock();
 }
 
+
+
 /* ---- Cached-bitmap tab swipe -------------------------------------------- */
 static void mark_snapshots_dirty(void)
 {
@@ -1439,7 +1447,10 @@ static void refresh_snapshot(int i)
 static void snap_timer_cb(lv_timer_t *t)
 {
     (void)t;
-    if (s_swiping || s_tabview == NULL) {
+    /* Never re-snapshot (which frees the old draw-buf) while a swipe overlay is
+     * live: its two lv_images still point at s_tab_snap[from]/[to]. s_swiping
+     * covers the release animation; s_slide_ov covers the whole gesture. */
+    if (s_swiping || s_slide_ov || s_tabview == NULL) {
         return;
     }
     const int active = (int)lv_tabview_get_tab_active(s_tabview);

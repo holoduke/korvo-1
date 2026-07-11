@@ -27,6 +27,13 @@ static const char *const *s_entity_ids;
 static int s_entity_count;
 static int s_msg_id = 1;
 
+/* Message ids are drawn from the LVGL, websocket-event and heartbeat tasks;
+ * increment atomically so two commands never share an id. */
+static int next_msg_id(void)
+{
+    return __atomic_fetch_add(&s_msg_id, 1, __ATOMIC_SEQ_CST);
+}
+
 static char *s_rx_buf;
 static size_t s_rx_len;
 static volatile int64_t s_last_rx_us; /* last time any frame arrived */
@@ -62,7 +69,7 @@ static void send_auth(void)
 static void send_subscribe(void)
 {
     cJSON *msg = cJSON_CreateObject();
-    cJSON_AddNumberToObject(msg, "id", s_msg_id++);
+    cJSON_AddNumberToObject(msg, "id", next_msg_id());
     cJSON_AddStringToObject(msg, "type", "subscribe_entities");
     cJSON *ids = cJSON_AddArrayToObject(msg, "entity_ids");
     for (int i = 0; i < s_entity_count; i++) {
@@ -252,7 +259,7 @@ static esp_err_t call_service(const char *domain, const char *service, const cha
                         ESP_ERR_INVALID_STATE, TAG, "not connected");
 
     cJSON *msg = cJSON_CreateObject();
-    cJSON_AddNumberToObject(msg, "id", s_msg_id++);
+    cJSON_AddNumberToObject(msg, "id", next_msg_id());
     cJSON_AddStringToObject(msg, "type", "call_service");
     cJSON_AddStringToObject(msg, "domain", domain);
     cJSON_AddStringToObject(msg, "service", service);
@@ -278,7 +285,7 @@ static esp_err_t light_turn_on_num(const char *entity_id, const char *key, int a
                         ESP_ERR_INVALID_STATE, TAG, "not connected");
     ESP_RETURN_ON_FALSE(entity_id != NULL, ESP_ERR_INVALID_ARG, TAG, "no entity");
     cJSON *msg = cJSON_CreateObject();
-    cJSON_AddNumberToObject(msg, "id", s_msg_id++);
+    cJSON_AddNumberToObject(msg, "id", next_msg_id());
     cJSON_AddStringToObject(msg, "type", "call_service");
     cJSON_AddStringToObject(msg, "domain", "light");
     cJSON_AddStringToObject(msg, "service", "turn_on");
@@ -310,9 +317,11 @@ esp_err_t ha_client_request_forecast(const char *weather_entity_id)
     ESP_RETURN_ON_FALSE(s_client != NULL && esp_websocket_client_is_connected(s_client),
                         ESP_ERR_INVALID_STATE, TAG, "not connected");
     ESP_RETURN_ON_FALSE(weather_entity_id != NULL, ESP_ERR_INVALID_ARG, TAG, "no entity");
-    strlcpy(s_weather_entity, weather_entity_id, sizeof(s_weather_entity));
+    if (weather_entity_id != s_weather_entity) { /* heartbeat re-passes our own buffer */
+        strlcpy(s_weather_entity, weather_entity_id, sizeof(s_weather_entity));
+    }
 
-    s_forecast_id = s_msg_id++;
+    s_forecast_id = next_msg_id();
     cJSON *msg = cJSON_CreateObject();
     cJSON_AddNumberToObject(msg, "id", s_forecast_id);
     cJSON_AddStringToObject(msg, "type", "call_service");
@@ -374,7 +383,7 @@ esp_err_t ha_client_set_brightness(const char *const *entity_ids, int count, int
     /* brightness_pct 0 would just error on turn_on; route it to turn_off. */
     const bool off = brightness_pct <= 0;
     cJSON *msg = cJSON_CreateObject();
-    cJSON_AddNumberToObject(msg, "id", s_msg_id++);
+    cJSON_AddNumberToObject(msg, "id", next_msg_id());
     cJSON_AddStringToObject(msg, "type", "call_service");
     cJSON_AddStringToObject(msg, "domain", "light");
     cJSON_AddStringToObject(msg, "service", off ? "turn_off" : "turn_on");
@@ -395,7 +404,7 @@ esp_err_t ha_client_set_brightness(const char *const *entity_ids, int count, int
 static void send_ping(void)
 {
     cJSON *msg = cJSON_CreateObject();
-    cJSON_AddNumberToObject(msg, "id", s_msg_id++);
+    cJSON_AddNumberToObject(msg, "id", next_msg_id());
     cJSON_AddStringToObject(msg, "type", "ping");
     if (send_json(msg) != ESP_OK) {
         ESP_LOGD(TAG, "ping send failed");

@@ -1,5 +1,6 @@
 #include "ota.h"
 
+#include <string.h>
 #include <sys/param.h>
 
 #include "esp_http_server.h"
@@ -9,6 +10,26 @@
 #include "freertos/task.h"
 
 static const char *TAG = "ota";
+
+static const char *s_auth_token; /* required Bearer token for /update */
+
+/* Verify the request carries "Authorization: Bearer <s_auth_token>". */
+static bool ota_authorized(httpd_req_t *req)
+{
+    if (s_auth_token == NULL || strlen(s_auth_token) < 8) {
+        return false; /* no valid token configured -> refuse OTA */
+    }
+    char hdr[256];
+    if (httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr)) != ESP_OK) {
+        return false;
+    }
+    const char *p = hdr;
+    if (strncmp(p, "Bearer ", 7) == 0) {
+        p += 7;
+    }
+    /* Length-checked compare (not constant-time, but good enough on a LAN). */
+    return strcmp(p, s_auth_token) == 0;
+}
 
 /* GET / : tiny status page + how to update. */
 static esp_err_t root_get_handler(httpd_req_t *req)
@@ -27,6 +48,11 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 /* POST /update : stream the firmware body into the inactive OTA slot. */
 static esp_err_t update_post_handler(httpd_req_t *req)
 {
+    if (!ota_authorized(req)) {
+        ESP_LOGW(TAG, "OTA rejected: missing/invalid token");
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
+        return ESP_FAIL;
+    }
     const esp_partition_t *part = esp_ota_get_next_update_partition(NULL);
     if (part == NULL) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no OTA partition");
@@ -82,8 +108,9 @@ static esp_err_t update_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-esp_err_t ota_start_server(void)
+esp_err_t ota_start_server(const char *auth_token)
 {
+    s_auth_token = auth_token;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 8192;
     config.lru_purge_enable = true;

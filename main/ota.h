@@ -4,5 +4,6 @@
 
 #include "esp_err.h"
 
-/* Start the OTA HTTP server (call after Wi-Fi is up). */
-esp_err_t ota_start_server(void);
+/* Start the OTA HTTP server (call after Wi-Fi is up). Flashing via POST /update
+ * requires an "Authorization: Bearer <auth_token>" header matching auth_token. */
+esp_err_t ota_start_server(const char *auth_token);

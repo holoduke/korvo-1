@@ -184,7 +184,7 @@ static void on_wifi_status(bool connected)
             ESP_LOGE(TAG, "HA client failed to start: %s", esp_err_to_name(err));
         }
 
-        if (ota_start_server() != ESP_OK) {
+        if (ota_start_server(SECRET_HA_TOKEN) != ESP_OK) {
             ESP_LOGW(TAG, "OTA server failed to start");
         }
     }
