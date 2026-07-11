@@ -571,28 +571,91 @@ static void anim_x_cb(void *obj, int32_t v)
     lv_obj_set_x(obj, v);
 }
 
-static void drawer_open(lv_obj_t *drawer)
+/* The drawer is full-screen with many tiles, so animating it live re-rasterizes
+ * everything each frame. Instead snapshot it once and slide the bitmap (a blit),
+ * then swap to the live drawer at the end so it stays interactive. */
+static lv_obj_t *s_drawer_slide_img;
+static lv_draw_buf_t *s_drawer_slide_snap;
+static lv_obj_t *s_drawer_live;
+
+static void drawer_slide_cleanup(void)
+{
+    if (s_drawer_slide_img) {
+        lv_obj_delete(s_drawer_slide_img);
+        s_drawer_slide_img = NULL;
+    }
+    if (s_drawer_slide_snap) {
+        lv_draw_buf_destroy(s_drawer_slide_snap);
+        s_drawer_slide_snap = NULL;
+    }
+}
+
+static void drawer_open_done(lv_anim_t *a)
+{
+    (void)a;
+    if (s_drawer_live) {
+        lv_obj_set_x(s_drawer_live, 0); /* reveal the live (interactive) drawer */
+    }
+    drawer_slide_cleanup();
+}
+
+static void drawer_close_done(lv_anim_t *a)
+{
+    (void)a;
+    drawer_slide_cleanup(); /* live drawer is already parked off-screen */
+}
+
+static void drawer_live_anim(lv_obj_t *drawer, bool opening)
 {
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, drawer);
-    lv_anim_set_values(&a, LV_HOR_RES, 0);
-    lv_anim_set_duration(&a, 260);
+    lv_anim_set_values(&a, opening ? LV_HOR_RES : 0, opening ? 0 : LV_HOR_RES);
+    lv_anim_set_duration(&a, opening ? 260 : 240);
     lv_anim_set_exec_cb(&a, anim_x_cb);
-    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_path_cb(&a, opening ? lv_anim_path_ease_out : lv_anim_path_ease_in);
     lv_anim_start(&a);
+}
+
+static void drawer_slide(lv_obj_t *drawer, bool opening)
+{
+    if (drawer == NULL || s_drawer_slide_img) {
+        return; /* ignore if a slide is already animating */
+    }
+    lv_draw_buf_t *snap = lv_snapshot_take(drawer, LV_COLOR_FORMAT_RGB565);
+    if (snap == NULL) {
+        drawer_live_anim(drawer, opening); /* fallback: live animation */
+        return;
+    }
+    /* Park the live drawer off-screen; the bitmap does the visible sliding. */
+    lv_obj_set_x(drawer, LV_HOR_RES);
+    s_drawer_live = drawer;
+    s_drawer_slide_snap = snap;
+    s_drawer_slide_img = lv_image_create(lv_screen_active());
+    lv_obj_add_flag(s_drawer_slide_img, LV_OBJ_FLAG_FLOATING);
+    lv_image_set_src(s_drawer_slide_img, snap);
+    lv_obj_set_pos(s_drawer_slide_img, opening ? LV_HOR_RES : 0, 0);
+    lv_obj_move_foreground(s_drawer_slide_img);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_drawer_slide_img);
+    lv_anim_set_values(&a, opening ? LV_HOR_RES : 0, opening ? 0 : LV_HOR_RES);
+    lv_anim_set_duration(&a, opening ? 240 : 220);
+    lv_anim_set_exec_cb(&a, anim_x_cb);
+    lv_anim_set_path_cb(&a, opening ? lv_anim_path_ease_out : lv_anim_path_ease_in);
+    lv_anim_set_completed_cb(&a, opening ? drawer_open_done : drawer_close_done);
+    lv_anim_start(&a);
+}
+
+static void drawer_open(lv_obj_t *drawer)
+{
+    drawer_slide(drawer, true);
 }
 
 static void drawer_close(lv_obj_t *drawer)
 {
-    lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, drawer);
-    lv_anim_set_values(&a, 0, LV_HOR_RES);
-    lv_anim_set_duration(&a, 240);
-    lv_anim_set_exec_cb(&a, anim_x_cb);
-    lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
-    lv_anim_start(&a);
+    drawer_slide(drawer, false);
 }
 
 static void on_show_all_clicked(lv_event_t *e)
@@ -1483,6 +1546,9 @@ static bool overlays_open(void)
         if (ov[i] && !lv_obj_has_flag(ov[i], LV_OBJ_FLAG_HIDDEN)) {
             return true;
         }
+    }
+    if (s_drawer_slide_img) {
+        return true; /* a drawer is mid-slide */
     }
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
         if (s_drawers[i] && lv_obj_get_x(s_drawers[i]) < LV_HOR_RES) {
