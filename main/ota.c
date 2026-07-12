@@ -9,6 +9,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "web_ui.h"
+
 static const char *TAG = "ota";
 
 static const char *s_auth_token; /* required Bearer token for /update */
@@ -29,20 +31,6 @@ static bool ota_authorized(httpd_req_t *req)
     }
     /* Length-checked compare (not constant-time, but good enough on a LAN). */
     return strcmp(p, s_auth_token) == 0;
-}
-
-/* GET / : tiny status page + how to update. */
-static esp_err_t root_get_handler(httpd_req_t *req)
-{
-    const esp_partition_t *running = esp_ota_get_running_partition();
-    char buf[256];
-    const esp_app_desc_t *desc = esp_app_get_description();
-    snprintf(buf, sizeof(buf),
-             "Korvo wall panel\nrunning: %s\nversion: %s\ncompiled: %s %s\n"
-             "POST firmware to /update to flash OTA.\n",
-             running ? running->label : "?", desc->version, desc->date, desc->time);
-    httpd_resp_set_type(req, "text/plain");
-    return httpd_resp_sendstr(req, buf);
 }
 
 /* POST /update : stream the firmware body into the inactive OTA slot. */
@@ -123,11 +111,10 @@ esp_err_t ota_start_server(const char *auth_token)
         ESP_LOGE(TAG, "httpd_start failed: %s", esp_err_to_name(err));
         return err;
     }
-    const httpd_uri_t root = { .uri = "/", .method = HTTP_GET, .handler = root_get_handler };
     const httpd_uri_t update = { .uri = "/update", .method = HTTP_POST,
                                  .handler = update_post_handler };
-    httpd_register_uri_handler(server, &root);
     httpd_register_uri_handler(server, &update);
-    ESP_LOGI(TAG, "OTA server ready: POST firmware to /update");
+    web_ui_register(server); /* GET / dashboard + /api/status + /api/metrics */
+    ESP_LOGI(TAG, "HTTP server ready: dashboard at /, OTA at POST /update");
     return ESP_OK;
 }

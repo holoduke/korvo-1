@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Korvo Panel — Telemetry</title>
+<style>
+  :root{
+    --bg:#0d0f14; --panel:#161a22; --panel2:#1c2130; --line:#262d3b;
+    --text:#eef0f5; --dim:#8a92a6; --accent:#ffb84d;
+    --heap:#4dd06a; --psram:#5aa9ff; --rssi:#a78bfa; --temp:#ffb84d; --fps:#e06fae;
+    --radius:16px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  body{padding:22px clamp(14px,4vw,40px) 60px; max-width:1200px; margin:0 auto}
+  a{color:inherit}
+
+  header{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:22px}
+  header h1{font-size:22px; font-weight:650; margin:0; letter-spacing:.2px}
+  .live{display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:var(--dim);
+    background:var(--panel); border:1px solid var(--line); padding:5px 11px; border-radius:999px}
+  .dot{width:8px; height:8px; border-radius:50%; background:#3a4152; transition:background .3s}
+  .dot.on{background:var(--heap); box-shadow:0 0 0 0 rgba(77,208,106,.55); animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(77,208,106,.5)}70%{box-shadow:0 0 0 7px rgba(77,208,106,0)}100%{box-shadow:0 0 0 0 rgba(77,208,106,0)}}
+  .meta{margin-left:auto; text-align:right; font-size:12px; color:var(--dim); line-height:1.5}
+  .meta b{color:var(--text); font-weight:600}
+
+  /* stat cards */
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:22px}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px;
+    position:relative; overflow:hidden}
+  .card .k{font-size:12px; color:var(--dim); display:flex; align-items:center; gap:7px}
+  .card .k i{width:9px; height:9px; border-radius:3px; display:inline-block}
+  .card .v{font-size:26px; font-weight:650; margin-top:6px; font-variant-numeric:tabular-nums;
+    letter-spacing:.5px}
+  .card .v small{font-size:13px; color:var(--dim); font-weight:500; margin-left:3px}
+  .card .sub{font-size:11.5px; color:var(--dim); margin-top:3px; font-variant-numeric:tabular-nums}
+  .bar{height:4px; border-radius:3px; background:var(--panel2); margin-top:10px; overflow:hidden}
+  .bar>span{display:block; height:100%; border-radius:3px; transition:width .5s ease}
+
+  /* controls */
+  .toolbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px}
+  .toolbar .lbl{font-size:12px; color:var(--dim); margin-right:2px}
+  .seg{display:inline-flex; background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:3px}
+  .seg button{appearance:none; border:0; background:transparent; color:var(--dim); font:inherit; font-size:12.5px;
+    padding:6px 12px; border-radius:8px; cursor:pointer; transition:.15s}
+  .seg button:hover{color:var(--text)}
+  .seg button.sel{background:var(--panel2); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .spacer{flex:1}
+  .follow{display:inline-flex; align-items:center; gap:7px; font-size:12.5px; color:var(--dim); cursor:pointer;
+    background:var(--panel); border:1px solid var(--line); padding:6px 12px; border-radius:11px}
+  .follow.on{color:var(--accent); border-color:rgba(255,184,77,.4)}
+
+  /* charts */
+  .chart{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px 8px 6px 14px;
+    margin-bottom:12px; position:relative}
+  .chart .hd{display:flex; align-items:baseline; gap:10px; padding:0 6px 4px 2px}
+  .chart .hd .name{font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:8px}
+  .chart .hd .name i{width:10px; height:10px; border-radius:3px}
+  .chart .hd .cur{margin-left:auto; font-size:15px; font-weight:650; font-variant-numeric:tabular-nums}
+  .chart .hd .cur small{color:var(--dim); font-weight:500; font-size:12px}
+  .cwrap{position:relative; width:100%; height:150px; touch-action:none}
+  .cwrap canvas{position:absolute; inset:0; width:100%; height:100%}
+
+  /* overview / brush */
+  .overview{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px;
+    margin-top:6px}
+  .overview .oh{font-size:12px; color:var(--dim); margin-bottom:8px; display:flex; gap:8px; align-items:center}
+  .owrap{position:relative; width:100%; height:70px; touch-action:none; cursor:crosshair}
+  .owrap canvas{position:absolute; inset:0; width:100%; height:100%}
+
+  .tip{position:fixed; pointer-events:none; z-index:20; background:rgba(20,24,33,.96);
+    border:1px solid var(--line); border-radius:10px; padding:9px 11px; font-size:12px; min-width:150px;
+    box-shadow:0 8px 30px rgba(0,0,0,.5); opacity:0; transition:opacity .1s; backdrop-filter:blur(6px)}
+  .tip .tt{color:var(--dim); font-size:11px; margin-bottom:6px; font-variant-numeric:tabular-nums}
+  .tip .row{display:flex; align-items:center; gap:8px; margin:3px 0; font-variant-numeric:tabular-nums}
+  .tip .row i{width:8px; height:8px; border-radius:2px}
+  .tip .row .rv{margin-left:auto; font-weight:600}
+  .empty{color:var(--dim); text-align:center; padding:50px 0; font-size:14px}
+  .hint{font-size:11.5px; color:var(--dim); text-align:center; margin-top:16px}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Korvo Panel</h1>
+    <span class="live"><span class="dot" id="dot"></span><span id="liveTxt">connecting…</span></span>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="toolbar">
+    <span class="lbl">Window</span>
+    <div class="seg" id="ranges"></div>
+    <div class="spacer"></div>
+    <div class="follow on" id="follow"><span class="dot on"></span>Live</div>
+  </div>
+
+  <div id="charts"></div>
+
+  <div class="overview">
+    <div class="oh">Full history — drag the handles to narrow or widen the window, drag the middle to pan</div>
+    <div class="owrap" id="owrap">
+      <canvas id="oBase"></canvas>
+      <canvas id="oGrab"></canvas>
+    </div>
+  </div>
+
+  <div class="hint">On any graph: scroll / pinch to zoom · drag to pan · double-click to reset</div>
+  <div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+(function(){
+  const DPR = Math.max(1, window.devicePixelRatio || 1);
+  const $ = s => document.querySelector(s);
+
+  // Metric definitions (order = display order). fmt returns display string.
+  const METRICS = [
+    {key:'heap',     name:'Free internal RAM', color:'#4dd06a', unit:'KB',  k:1/1024,    dec:0, totalKey:'heap_total',  overlay:'heap_min', overlayName:'low-water'},
+    {key:'psram',    name:'Free PSRAM',        color:'#5aa9ff', unit:'MB',  k:1/1048576, dec:2, totalKey:'psram_total'},
+    {key:'rssi',     name:'Wi-Fi signal',      color:'#a78bfa', unit:'dBm', k:1,         dec:0},
+    {key:'temp',     name:'Chip temperature',  color:'#ffb84d', unit:'°C',  k:0.1,       dec:1},
+    {key:'fps',      name:'Render FPS',        color:'#e06fae', unit:'fps', k:1,         dec:0},
+  ];
+  const RANGES = [
+    {label:'10m', s:600}, {label:'30m', s:1800}, {label:'1h', s:3600},
+    {label:'3h', s:10800}, {label:'6h', s:21600}, {label:'All', s:0},
+  ];
+
+  let DATA = null;            // {t:[], heap:[], ..., meta}
+  let clockBase = 0;          // Date.now() at fetch, correlated to serverNow
+  let serverNow = 0;
+  let view = {x0:0, x1:1};    // visible t-window (seconds)
+  let follow = true;          // pin right edge to newest sample
+  let charts = [];            // per-metric render state
+
+  // ---- helpers ----
+  const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+  const fmtNum=(v,d)=>{ if(v==null)return '—'; if(d)return v.toFixed(d); const r=Math.round(v); return (r===0?0:r).toLocaleString(); };
+  function fmtDur(sec){ sec=Math.max(0,Math.round(sec)); const h=(sec/3600)|0, m=((sec%3600)/60)|0, s=sec%60;
+    return h? `${h}h ${m}m` : m? `${m}m ${s}s` : `${s}s`; }
+  function tToDate(t){ return new Date(clockBase - (serverNow - t)*1000); }
+  function pad(n){ return n<10?'0'+n:''+n; }
+  function timeLabel(t, sec){ const d=tToDate(t); return pad(d.getHours())+':'+pad(d.getMinutes()) + (sec?':'+pad(d.getSeconds()):''); }
+
+  function niceTicks(lo, hi, want){
+    if(!isFinite(lo)||!isFinite(hi)||lo===hi){ hi=lo+1; }
+    const span=hi-lo, raw=span/want, mag=Math.pow(10,Math.floor(Math.log10(raw)));
+    const norm=raw/mag, step=(norm<1.5?1:norm<3?2:norm<7?5:10)*mag;
+    const start=Math.ceil(lo/step)*step, out=[];
+    for(let v=start; v<=hi+step*1e-6; v+=step) out.push(+v.toFixed(6));
+    return {step, ticks:out};
+  }
+  // binary search: first index with t >= x
+  function lowerBound(arr, x){ let lo=0, hi=arr.length; while(lo<hi){ const m=(lo+hi)>>1; if(arr[m]<x) lo=m+1; else hi=m; } return lo; }
+
+  function setCanvas(cv){ const r=cv.getBoundingClientRect(); cv.width=Math.max(1,r.width*DPR|0); cv.height=Math.max(1,r.height*DPR|0);
+    const g=cv.getContext('2d'); g.setTransform(DPR,0,0,DPR,0,0); return {g, w:r.width, h:r.height}; }
+
+  // ---- build DOM ----
+  function buildCards(){
+    $('#cards').innerHTML = METRICS.map(m=>`
+      <div class="card" data-k="${m.key}">
+        <div class="k"><i style="background:${m.color}"></i>${m.name}</div>
+        <div class="v" id="cv_${m.key}">—<small>${m.unit}</small></div>
+        <div class="sub" id="cs_${m.key}"></div>
+        ${m.totalKey?`<div class="bar"><span id="cb_${m.key}" style="width:0;background:${m.color}"></span></div>`:''}
+      </div>`).join('');
+  }
+  function buildRanges(){
+    $('#ranges').innerHTML = RANGES.map((r,i)=>`<button data-i="${i}">${r.label}</button>`).join('');
+    $('#ranges').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      const r=RANGES[+b.dataset.i]; setRange(r.s); markRange(+b.dataset.i);
+    });
+  }
+  function markRange(i){ $('#ranges').querySelectorAll('button').forEach((b,j)=>b.classList.toggle('sel', j===i)); }
+  function buildCharts(){
+    const host=$('#charts'); host.innerHTML='';
+    charts = METRICS.map(m=>{
+      const el=document.createElement('div'); el.className='chart';
+      el.innerHTML=`<div class="hd"><div class="name"><i style="background:${m.color}"></i>${m.name}</div>
+        <div class="cur" id="hr_${m.key}">—<small> ${m.unit}</small></div></div>
+        <div class="cwrap"><canvas class="base"></canvas><canvas class="ov"></canvas></div>`;
+      host.appendChild(el);
+      const base=el.querySelector('.base'), ov=el.querySelector('.ov');
+      attachInteract(ov);
+      return {m, el, base, ov};
+    });
+  }
+
+  // ---- data fetch ----
+  async function fetchJSON(u){ const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json(); }
+
+  async function loadStatus(){
+    try{ const s=await fetchJSON('/api/status');
+      $('#meta').innerHTML = `fw <b>${s.version}</b> · ${s.partition} · up <b>${fmtDur(s.uptime)}</b><br>${s.compiled} · IDF ${s.idf}`;
+    }catch(e){}
+  }
+
+  async function loadMetrics(first){
+    let d;
+    try{ d = await fetchJSON('/api/metrics'); }
+    catch(e){ setLive(false); return; }
+    setLive(true);
+    clockBase = Date.now(); serverNow = d.now;
+    const prevMax = DATA ? DATA.t[DATA.t.length-1] : null;
+    DATA = d;
+    if(d.t.length<2){ $('#charts').innerHTML='<div class="empty">Collecting first samples…</div>'; charts=[]; return; }
+    if(!charts.length) buildCharts();
+    if(first){ setRange(0); markRange(RANGES.length-1); }   // default: All
+    else if(follow){ const span=view.x1-view.x0; view.x1=d.t[d.t.length-1]; view.x0=view.x1-span; }
+    clampView();
+    renderAll();
+  }
+
+  function setLive(on){ $('#dot').classList.toggle('on',on); $('#liveTxt').textContent = on?'live':'offline'; }
+
+  // ---- view / range ----
+  function dataExtent(){ return DATA&&DATA.t.length ? [DATA.t[0], DATA.t[DATA.t.length-1]] : [0,1]; }
+  function setRange(seconds){
+    const [lo,hi]=dataExtent();
+    if(!seconds || seconds>=hi-lo){ view.x0=lo; view.x1=hi; }
+    else { view.x1=hi; view.x0=hi-seconds; }
+    follow=true; updFollow(); clampView(); renderAll();
+  }
+  function clampView(){
+    const [lo,hi]=dataExtent(); const minSpan=15;
+    if(view.x1-view.x0<minSpan) view.x1=view.x0+minSpan;
+    if(view.x0<lo){ view.x1+=lo-view.x0; view.x0=lo; }
+    if(view.x1>hi){ view.x0-=view.x1-hi; view.x1=hi; }
+    view.x0=Math.max(lo,view.x0); view.x1=Math.min(hi,view.x1);
+    // following if right edge is at (or near) the newest point
+    follow = (hi-view.x1) < ( (view.x1-view.x0)*0.02 + 1 );
+    updFollow();
+  }
+  function updFollow(){ $('#follow').classList.toggle('on',follow); }
+  $('#follow').onclick=()=>{ if(!follow){ const span=view.x1-view.x0; const hi=dataExtent()[1]; view.x1=hi; view.x0=hi-span; clampView(); renderAll(); } };
+
+  // ---- interaction (pan / zoom / hover) on a chart overlay ----
+  function attachInteract(cv){
+    const pts=new Map(); let dragT=null, pinch=null;
+    const tAtX=(clientX)=>{ const r=cv.getBoundingClientRect(); const f=(clientX-r.left)/r.width; return view.x0+f*(view.x1-view.x0); };
+    cv.addEventListener('pointerdown',e=>{ cv.setPointerCapture(e.pointerId);
+      pts.set(e.pointerId,e.clientX);
+      if(pts.size===1){ dragT=tAtX(e.clientX); }
+      else if(pts.size===2){ const xs=[...pts.values()]; pinch={x0:Math.min(...xs),x1:Math.max(...xs),v0:view.x0,v1:view.x1}; dragT=null; }
+    });
+    cv.addEventListener('pointermove',e=>{
+      if(pts.has(e.pointerId)) pts.set(e.pointerId,e.clientX);
+      if(pinch&&pts.size>=2){ zoomPinch(cv,pinch,[...pts.values()]); }
+      else if(dragT!=null&&pts.size===1){ panTo(cv,e.clientX,dragT); showTip(e); }
+      else showTip(e);
+    });
+    const up=e=>{ pts.delete(e.pointerId); if(pts.size<2)pinch=null; if(pts.size===0)dragT=null; };
+    cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+    cv.addEventListener('pointerleave',()=>hideTip());
+    cv.addEventListener('wheel',e=>{ e.preventDefault(); const f=(e.clientX-cv.getBoundingClientRect().left)/cv.getBoundingClientRect().width;
+      zoomAt(view.x0+f*(view.x1-view.x0), e.deltaY<0?0.8:1.25); },{passive:false});
+    cv.addEventListener('dblclick',()=>{ setRange(0); markRange(RANGES.length-1); });
+  }
+  function panTo(cv, clientX, grabT){
+    const r=cv.getBoundingClientRect(); const span=view.x1-view.x0;
+    const f=(clientX-r.left)/r.width; const want=grabT-f*span;
+    view.x0=want; view.x1=want+span; clampView(); renderAll();
+  }
+  function zoomAt(centerT, factor){
+    const span=(view.x1-view.x0)*factor; const f=(centerT-view.x0)/(view.x1-view.x0);
+    view.x0=centerT-f*span; view.x1=view.x0+span; clampView(); renderAll();
+  }
+  function zoomPinch(cv,p,xs){
+    const r=cv.getBoundingClientRect(); const nx0=Math.min(...xs),nx1=Math.max(...xs);
+    const scale=(p.x1-p.x0)/Math.max(1,(nx1-nx0)); const span=(p.v1-p.v0)*scale;
+    const midF=(( (nx0+nx1)/2 )-r.left)/r.width;
+    const anchorT=p.v0+(((p.x0+p.x1)/2)-r.left)/r.width*(p.v1-p.v0);
+    view.x0=anchorT-midF*span; view.x1=view.x0+span; clampView(); renderAll();
+  }
+
+  // ---- rendering ----
+  function valAt(key,i){ const v=DATA[key][i]; if(v==null) return null; return v; }
+  function renderAll(){ if(!DATA||!DATA.t.length) return; charts.forEach(drawChart); drawOverview(); updateCards(); }
+
+  function windowIdx(){ const t=DATA.t; let i0=lowerBound(t,view.x0)-1, i1=lowerBound(t,view.x1);
+    i0=clamp(i0,0,t.length-1); i1=clamp(i1,0,t.length-1); if(i1<i0)i1=i0; return [i0,i1]; }
+
+  function seriesMinMax(key,i0,i1){ let lo=Infinity,hi=-Infinity; for(let i=i0;i<=i1;i++){ const v=DATA[key][i]; if(v==null)continue; if(v<lo)lo=v; if(v>hi)hi=v; }
+    if(!isFinite(lo)){ lo=0; hi=1; } return [lo,hi]; }
+
+  function drawChart(c){
+    const m=c.m, {g,w,h}=setCanvas(c.base); g.clearRect(0,0,w,h);
+    const padL=46, padR=10, padT=8, padB=18, cw=w-padL-padR, ch=h-padT-padB;
+    const [i0,i1]=windowIdx();
+    let [lo,hi]=seriesMinMax(m.key,i0,i1);
+    if(m.overlay){ const [a,b]=seriesMinMax(m.overlay,i0,i1); lo=Math.min(lo,a); hi=Math.max(hi,b); }
+    lo*=m.k; hi*=m.k;
+    let pad=(hi-lo)*0.12||Math.abs(hi)*0.05||1; lo-=pad; hi+=pad;
+    const {ticks}=niceTicks(lo,hi,4);
+    const X=t=> padL + (t-view.x0)/(view.x1-view.x0)*cw;
+    const Y=v=> padT + (1-(v-lo)/(hi-lo))*ch;
+
+    // grid + y labels
+    g.font='11px -apple-system,sans-serif'; g.textBaseline='middle';
+    const seen=new Set();
+    ticks.forEach(tk=>{ const y=Y(tk); if(y<padT-1||y>padT+ch+1)return;
+      const lbl=fmtNum(tk,m.dec); if(seen.has(lbl))return; seen.add(lbl);
+      g.strokeStyle='rgba(255,255,255,.05)'; g.beginPath(); g.moveTo(padL,y); g.lineTo(w-padR,y); g.stroke();
+      g.fillStyle='#6b7386'; g.textAlign='right'; g.fillText(lbl,padL-7,y); });
+    // x time labels
+    g.textAlign='center'; g.textBaseline='alphabetic';
+    const span=view.x1-view.x0, showSec=span<600, xt=niceTimeTicks(view.x0,view.x1,5);
+    xt.forEach(t=>{ const x=X(t); if(x<padL||x>w-padR)return;
+      g.strokeStyle='rgba(255,255,255,.04)'; g.beginPath(); g.moveTo(x,padT); g.lineTo(x,padT+ch); g.stroke();
+      g.fillStyle='#6b7386'; g.fillText(timeLabel(t,showSec),x,h-5); });
+
+    drawSeries(g,X,Y,m.key,m.k,i0,i1,m.color,true,false,lo);
+    if(m.overlay) drawSeries(g,X,Y,m.overlay,m.k,i0,i1,'rgba(255,255,255,.28)',false,true,lo);
+
+    // current value in header
+    const last=DATA[m.key][i1];
+    $('#hr_'+m.key).innerHTML = (last==null?'—':fmtNum(last*m.k,m.dec))+`<small> ${m.unit}</small>`;
+    c._geom={padL,padR,padT,padB,cw,ch,X,Y,lo,hi,i0,i1};
+  }
+
+  function drawSeries(g,X,Y,key,k,i0,i1,color,fill,thin,baseDisp){
+    const t=DATA.t, a=DATA[key];
+    g.lineWidth=thin?1:1.8; g.strokeStyle=color; g.lineJoin='round'; g.lineCap='round';
+    // downsample to ~pixel resolution using min/max envelope when dense
+    const cw=X(view.x1)-X(view.x0); const dense=(i1-i0)>cw*1.5;
+    g.beginPath(); let started=false, px=-1, colMin=Infinity, colMax=-Infinity, colMinT=0, colMaxT=0;
+    function flushCol(){ if(colMin===Infinity)return;
+      // draw as a short vertical to preserve spikes, ordered by time
+      const yA=Y(colMinT<=colMaxT?colMin:colMax), yB=Y(colMinT<=colMaxT?colMax:colMin);
+      if(!started){ g.moveTo(px,yA); started=true; } else g.lineTo(px,yA);
+      g.lineTo(px,yB);
+    }
+    if(dense){
+      for(let i=i0;i<=i1;i++){ const v=a[i]; if(v==null){ flushCol(); colMin=Infinity; started=false; continue; }
+        const x=Math.round(X(t[i])), val=v*k;
+        if(x!==px){ flushCol(); px=x; colMin=colMax=val; colMinT=colMaxT=t[i]; }
+        else { if(val<colMin){colMin=val;colMinT=t[i];} if(val>colMax){colMax=val;colMaxT=t[i];} }
+      }
+      flushCol();
+    } else {
+      for(let i=i0;i<=i1;i++){ const v=a[i]; if(v==null){ started=false; continue; }
+        const x=X(t[i]),y=Y(v*k); if(!started){ g.moveTo(x,y); started=true; } else g.lineTo(x,y); }
+    }
+    g.stroke();
+    if(fill && !thin){ // gradient area under the line (only for contiguous simple path)
+      const geom=g.canvas; const grad=g.createLinearGradient(0,0,0,geom.height/DPR);
+      grad.addColorStop(0,color+'40'); grad.addColorStop(1,color+'00');
+      // rebuild a filled path along the same points
+      const yBase=Y(baseDisp);
+      g.beginPath(); let s=false, lastX=0;
+      for(let i=i0;i<=i1;i++){ const v=a[i]; if(v==null){ s=false; continue; }
+        const x=X(t[i]),y=Y(v*k); if(!s){ g.moveTo(x,yBase); g.lineTo(x,y); s=true; } else g.lineTo(x,y); lastX=x; }
+      if(s){ g.lineTo(lastX,yBase); g.closePath(); g.fillStyle=grad; g.globalAlpha=.9; g.fill(); g.globalAlpha=1; }
+    }
+  }
+
+  function niceTimeTicks(t0,t1,want){
+    const span=t1-t0; const steps=[15,30,60,120,300,600,900,1800,3600,7200,14400,43200,86400];
+    let step=steps[steps.length-1]; for(const s of steps){ if(span/s<=want){ step=s; break; } }
+    const out=[]; const start=Math.ceil(t0/step)*step; for(let t=start;t<=t1;t+=step) out.push(t); return out;
+  }
+
+  // ---- overview / brush ----
+  const oBase=$('#oBase'), oGrab=$('#oGrab');
+  function drawOverview(){
+    const {g,w,h}=setCanvas(oBase); g.clearRect(0,0,w,h);
+    const [lo,hi]=dataExtent(); const t=DATA.t; const key='heap';
+    const [vlo,vhi]=seriesMinMax(key,0,t.length-1); const k=METRICS[0].k;
+    const X=x=> (x-lo)/(hi-lo||1)*w, Y=v=> h-4-((v*k-vlo*k)/((vhi-vlo)*k||1))*(h-8);
+    // area
+    g.beginPath(); g.moveTo(0,h);
+    for(let i=0;i<t.length;i++){ const v=DATA[key][i]; if(v==null)continue; g.lineTo(X(t[i]),Y(v)); }
+    g.lineTo(w,h); g.closePath(); const grad=g.createLinearGradient(0,0,0,h);
+    grad.addColorStop(0,'#4dd06a55'); grad.addColorStop(1,'#4dd06a08'); g.fillStyle=grad; g.fill();
+    g.strokeStyle='#4dd06a'; g.lineWidth=1; g.beginPath(); let s=false;
+    for(let i=0;i<t.length;i++){ const v=DATA[key][i]; if(v==null){s=false;continue;} const x=X(t[i]),y=Y(v); if(!s){g.moveTo(x,y);s=true;}else g.lineTo(x,y);} g.stroke();
+    // selection window
+    const gs=setCanvas(oGrab); const G=gs.g; G.clearRect(0,0,gs.w,gs.h);
+    const a=X(view.x0), b=X(view.x1);
+    G.fillStyle='rgba(0,0,0,.5)'; G.fillRect(0,0,a,gs.h); G.fillRect(b,0,gs.w-b,gs.h);
+    G.strokeStyle='rgba(255,184,77,.9)'; G.lineWidth=1.5; G.strokeRect(a,1,Math.max(2,b-a),gs.h-2);
+    G.fillStyle='rgba(255,184,77,.9)'; [a,b].forEach(x=>{ G.fillRect(x-2,gs.h/2-9,4,18); });
+    oGrab._sel={a,b,lo,hi,w:gs.w};
+  }
+  (function brush(){
+    let mode=null, grab=0;
+    const tAt=cx=>{ const r=oGrab.getBoundingClientRect(); const [lo,hi]=dataExtent(); return lo+clamp((cx-r.left)/r.width,0,1)*(hi-lo); };
+    oGrab.addEventListener('pointerdown',e=>{ oGrab.setPointerCapture(e.pointerId);
+      const r=oGrab.getBoundingClientRect(), x=e.clientX-r.left, sel=oGrab._sel;
+      if(Math.abs(x-sel.a)<10) mode='l'; else if(Math.abs(x-sel.b)<10) mode='r';
+      else if(x>sel.a&&x<sel.b){ mode='m'; grab=tAt(e.clientX)-view.x0; }
+      else { mode='m'; const span=view.x1-view.x0; const c=tAt(e.clientX); view.x0=c-span/2; view.x1=c+span/2; grab=span/2; clampView(); renderAll(); }
+    });
+    oGrab.addEventListener('pointermove',e=>{ if(!mode)return; const c=tAt(e.clientX);
+      if(mode==='l'){ view.x0=Math.min(c,view.x1-15); }
+      else if(mode==='r'){ view.x1=Math.max(c,view.x0+15); }
+      else { const span=view.x1-view.x0; view.x0=c-grab; view.x1=view.x0+span; }
+      clampView(); renderAll();
+    });
+    const end=e=>{ mode=null; };
+    oGrab.addEventListener('pointerup',end); oGrab.addEventListener('pointercancel',end);
+  })();
+
+  // ---- tooltip / crosshair ----
+  const tip=$('#tip');
+  function showTip(e){
+    if(!DATA||!DATA.t.length){ return; }
+    const src=charts[0]; // shared X mapping is per-chart identical
+    const r=e.currentTarget.getBoundingClientRect(); const f=clamp((e.clientX-r.left)/r.width,0,1);
+    const tt=view.x0+f*(view.x1-view.x0); const idx=nearestIdx(tt);
+    // draw crosshair on every chart overlay
+    charts.forEach(c=>{ const gs=setCanvas(c.ov); const {g,w,h}=gs; g.clearRect(0,0,w,h);
+      const geom=c._geom; if(!geom)return; const x=geom.X(DATA.t[idx]);
+      g.strokeStyle='rgba(255,255,255,.25)'; g.lineWidth=1; g.beginPath(); g.moveTo(x,geom.padT); g.lineTo(x,geom.padT+geom.ch); g.stroke();
+      const v=DATA[c.m.key][idx]; if(v!=null){ const y=geom.Y(v*c.m.k);
+        g.fillStyle=c.m.color; g.beginPath(); g.arc(x,y,3.5,0,7); g.fill();
+        g.fillStyle='#0d0f14'; g.beginPath(); g.arc(x,y,1.5,0,7); g.fill(); }
+    });
+    tip.style.opacity=1;
+    tip.innerHTML=`<div class="tt">${timeLabel(DATA.t[idx],view.x1-view.x0<600)} · ${fmtDur(serverNow-DATA.t[idx])} ago</div>`+
+      METRICS.map(m=>{ const v=DATA[m.key][idx]; return `<div class="row"><i style="background:${m.color}"></i>${m.name}
+        <span class="rv">${v==null?'—':fmtNum(v*m.k,m.dec)+' '+m.unit}</span></div>`; }).join('');
+    const tw=tip.offsetWidth, th=tip.offsetHeight; let px=e.clientX+14, py=e.clientY+14;
+    if(px+tw>innerWidth-8) px=e.clientX-tw-14; if(py+th>innerHeight-8) py=e.clientY-th-14;
+    tip.style.left=px+'px'; tip.style.top=py+'px';
+  }
+  function hideTip(){ tip.style.opacity=0; charts.forEach(c=>{ const gs=setCanvas(c.ov); gs.g.clearRect(0,0,gs.w,gs.h); }); }
+  function nearestIdx(t){ const i=lowerBound(DATA.t,t); if(i<=0)return 0; if(i>=DATA.t.length)return DATA.t.length-1;
+    return (t-DATA.t[i-1] < DATA.t[i]-t)? i-1 : i; }
+
+  // ---- cards ----
+  function updateCards(){
+    const n=DATA.t.length-1;
+    METRICS.forEach(m=>{ const v=DATA[m.key][n];
+      $('#cv_'+m.key).innerHTML = (v==null?'—':fmtNum(v*m.k,m.dec))+`<small>${m.unit}</small>`;
+      if(m.totalKey){ const tot=DATA[m.totalKey]*m.k; const pct=v==null?0:clamp(v*m.k/tot*100,0,100);
+        $('#cb_'+m.key).style.width=pct+'%';
+        $('#cs_'+m.key).textContent = `${fmtNum(pct,0)}% of ${fmtNum(tot,m.dec)} ${m.unit}`;
+      } else if(m.key==='rssi'){ $('#cs_'+m.key).textContent = v==null?'disconnected':rssiWord(v); }
+      else if(m.key==='temp'){ $('#cs_'+m.key).textContent = v==null?'n/a':'chip core'; }
+      else if(m.key==='fps'){ $('#cs_'+m.key).textContent = 'render throughput'; }
+    });
+  }
+  function rssiWord(dbm){ return dbm>=-55?'excellent':dbm>=-67?'good':dbm>=-75?'fair':'weak'; }
+
+  // ---- resize ----
+  let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(DATA) renderAll(); },120); });
+
+  // ---- boot ----
+  buildCards(); buildRanges(); buildCharts();
+  loadStatus(); loadMetrics(true);
+  setInterval(()=>loadMetrics(false), 5000);
+  setInterval(loadStatus, 30000);
+})();
+</script>
+</body>
+</html>

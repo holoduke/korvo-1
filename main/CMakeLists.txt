@@ -5,8 +5,12 @@ idf_component_register(
         "ha_client.c"
         "panel_ui.c"
         "ota.c"
+        "metrics.c"
+        "web_ui.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES nvs_flash esp_wifi esp_netif esp_http_server app_update
+                  esp_driver_tsens esp_timer
+    EMBED_TXTFILES "dashboard.html"
 )
 
 # --- Embed secrets from the gitignored secrets/ directory -------------------

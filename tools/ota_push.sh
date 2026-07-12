@@ -21,8 +21,8 @@ TOKEN="$(tr -d '\n\r ' < "$TOKEN_FILE")"
 SIZE=$(wc -c < "$BIN" | tr -d ' ')
 echo "Pushing $BIN ($SIZE bytes) to http://$IP/update ..."
 
-# Show the running version first (unauthenticated status page).
-curl -s -m 5 "http://$IP/" | sed 's/^/  /' || true
+# Show the running version first (unauthenticated status JSON).
+curl -s -m 5 "http://$IP/api/status" | sed 's/^/  /' || true; echo
 
 code=$(curl -s -m 120 -o /tmp/ota_resp.txt -w '%{http_code}' \
   -X POST \

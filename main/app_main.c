@@ -8,6 +8,7 @@
 #include "nvs_flash.h"
 
 #include "ha_client.h"
+#include "metrics.h"
 #include "ota.h"
 #include "panel_config.h"
 #include "panel_ui.h"
@@ -257,6 +258,10 @@ void app_main(void)
         panel_ui_set_color_callbacks(on_set_color, on_set_warmth);
         bsp_display_unlock();
     }
+
+    /* Start telemetry sampling into the PSRAM ring buffer (served by the web
+     * dashboard once Wi-Fi + the HTTP server are up). */
+    metrics_start(disp);
 
     err = wifi_mgr_start(SECRET_WIFI_SSID, SECRET_WIFI_PASS, on_wifi_status);
     if (err != ESP_OK) {

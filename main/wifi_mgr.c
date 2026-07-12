@@ -168,6 +168,15 @@ void wifi_mgr_get_ssid(char *out, int out_len)
     strlcpy(out, s_ssid, out_len);
 }
 
+int wifi_mgr_get_rssi(void)
+{
+    wifi_ap_record_t ap;
+    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
+        return ap.rssi;
+    }
+    return 0; /* not associated */
+}
+
 esp_err_t wifi_mgr_scan_start(wifi_mgr_scan_cb_t cb)
 {
     s_scan_cb = cb;
