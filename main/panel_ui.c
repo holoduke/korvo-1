@@ -594,8 +594,24 @@ static void anim_x_cb(void *obj, int32_t v)
  * uncovered strip doesn't re-rasterize the live tabview during the slide. */
 static lv_obj_t *s_drawer_slide_img;
 static lv_draw_buf_t *s_drawer_slide_snap;
+static bool s_drawer_slide_owned;   /* free s_drawer_slide_snap (on-demand) vs keep (warm) */
 static lv_obj_t *s_drawer_back;     /* opaque backdrop so nothing live re-renders */
 static lv_obj_t *s_drawer_live;
+/* Pre-rendered snapshot of the active tab's drawer, kept warm so opening it is
+ * instant (no ~68ms snapshot on tap). Only the active tab's drawer can open. */
+static lv_draw_buf_t *s_drawer_warm;
+static int s_drawer_warm_tab = -1;
+static bool s_drawer_warm_dirty;
+
+static int drawer_tab_index(lv_obj_t *d)
+{
+    for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
+        if (s_drawers[i] == d) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 static void drawer_slide_cleanup(void)
 {
@@ -608,7 +624,9 @@ static void drawer_slide_cleanup(void)
         s_drawer_back = NULL;
     }
     if (s_drawer_slide_snap) {
-        lv_draw_buf_destroy(s_drawer_slide_snap);
+        if (s_drawer_slide_owned) { /* warm cache is kept; only free on-demand snaps */
+            lv_draw_buf_destroy(s_drawer_slide_snap);
+        }
         s_drawer_slide_snap = NULL;
     }
 }
@@ -655,14 +673,24 @@ static void drawer_slide(lv_obj_t *drawer, bool opening)
     if (drawer == NULL || s_drawer_slide_img) {
         return; /* ignore if a slide is already animating */
     }
-    lv_draw_buf_t *dsnap = lv_snapshot_take(drawer, LV_COLOR_FORMAT_RGB565);
-    if (dsnap == NULL) {
-        drawer_live_anim(drawer, opening); /* fallback: live animation */
-        return;
+    const int tab = drawer_tab_index(drawer);
+    lv_draw_buf_t *dsnap;
+    bool owned;
+    if (s_drawer_warm != NULL && s_drawer_warm_tab == tab && !s_drawer_warm_dirty) {
+        dsnap = s_drawer_warm; /* pre-rendered: instant open/close, keep the cache */
+        owned = false;
+    } else {
+        dsnap = lv_snapshot_take(drawer, LV_COLOR_FORMAT_RGB565);
+        owned = true;
+        if (dsnap == NULL) {
+            drawer_live_anim(drawer, opening); /* fallback: live animation */
+            return;
+        }
     }
     lv_obj_set_x(drawer, LV_HOR_RES); /* park the live drawer off-screen */
     s_drawer_live = drawer;
     s_drawer_slide_snap = dsnap;
+    s_drawer_slide_owned = owned;
 
     /* Opaque full-screen backdrop so the moving (full-screen) bitmap never
      * exposes the live header/tabview to per-frame re-rasterization; the
@@ -1466,6 +1494,8 @@ void panel_ui_set_wifi_connected(bool connected, const char *ssid)
 
 
 
+
+
 /* ---- Cached-bitmap tab swipe -------------------------------------------- */
 /* Invalidate one tab's cached bitmap (so its next snapshot is re-rendered).
  * Marking only the affected tab avoids re-rasterizing all four on every update. */
@@ -1473,6 +1503,27 @@ static void mark_snapshot_dirty(int tab)
 {
     if (tab >= 0 && tab < (int)PANEL_TAB_COUNT) {
         s_snap_dirty[tab] = true;
+        if (tab == s_drawer_warm_tab) {
+            s_drawer_warm_dirty = true; /* the warm drawer for this tab is stale too */
+        }
+    }
+}
+
+/* Pre-render the active tab's drawer into s_drawer_warm so opening is instant. */
+static void refresh_drawer_warm(int tab)
+{
+    if (tab < 0 || tab >= (int)PANEL_TAB_COUNT || s_drawers[tab] == NULL) {
+        return;
+    }
+    lv_draw_buf_t *ns = lv_snapshot_take(s_drawers[tab], LV_COLOR_FORMAT_RGB565);
+    if (ns != NULL) {
+        lv_draw_buf_t *old = s_drawer_warm;
+        s_drawer_warm = ns;
+        s_drawer_warm_tab = tab;
+        s_drawer_warm_dirty = false;
+        if (old) {
+            lv_draw_buf_destroy(old);
+        }
     }
 }
 
@@ -1505,7 +1556,7 @@ static void snap_timer_cb(lv_timer_t *t)
     /* Never re-snapshot (which frees the old draw-buf) while a swipe overlay is
      * live: its two lv_images still point at s_tab_snap[from]/[to]. s_swiping
      * covers the release animation; s_slide_ov covers the whole gesture. */
-    if (s_swiping || s_slide_ov || s_tabview == NULL) {
+    if (s_swiping || s_slide_ov || s_drawer_slide_img || s_tabview == NULL) {
         return;
     }
     const int active = (int)lv_tabview_get_tab_active(s_tabview);
@@ -1517,6 +1568,13 @@ static void snap_timer_cb(lv_timer_t *t)
     }
     if (s_tab_snap[active] == NULL || s_snap_dirty[active]) {
         refresh_snapshot(active);
+        return;
+    }
+    /* Then keep the active tab's drawer bitmap warm (only while it's closed, so
+     * snapshotting it is invisible and doesn't hitch the open drawer). */
+    if ((s_drawer_warm == NULL || s_drawer_warm_tab != active || s_drawer_warm_dirty) &&
+        s_drawers[active] && lv_obj_get_x(s_drawers[active]) >= LV_HOR_RES) {
+        refresh_drawer_warm(active);
     }
 }
 
