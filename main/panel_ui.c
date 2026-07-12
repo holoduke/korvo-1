@@ -162,7 +162,11 @@ static int32_t s_row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LA
 #define DRAWER_Y HEADER_H
 #define DRAWER_H (LV_VER_RES - HEADER_H - SCENE_ROW_H)
 static lv_obj_t *s_show_all_btn[PANEL_TAB_COUNT]; /* the "Alle lampen" toggle per tab */
+static lv_obj_t *s_show_all_lbl[PANEL_TAB_COUNT]; /* its label (text + chevron) */
 static bool s_drawer_open;                        /* is a drawer open/opening */
+
+#define SHOW_ALL_CLOSED_TXT LV_SYMBOL_LIST "  Alle lampen   " LV_SYMBOL_DOWN
+#define SHOW_ALL_OPEN_TXT   LV_SYMBOL_LIST "  Alle lampen   " LV_SYMBOL_UP
 
 static void on_tile_clicked(lv_event_t *e)
 {
@@ -575,7 +579,7 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_i
     }
 
     /* "Alle lampen" button toggles this tab's slide-out drawer (and lights up
-     * while it's open). */
+     * amber while it's open). The chevron flips between expand/collapse. */
     lv_obj_t *all = lv_button_create(row);
     lv_obj_set_flex_grow(all, 1);
     lv_obj_set_height(all, LV_PCT(100));
@@ -585,16 +589,16 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_i
     lv_obj_set_style_shadow_width(all, 0, 0);
     lv_obj_set_style_bg_opa(all, LV_OPA_70, LV_STATE_PRESSED);
     lv_obj_add_event_cb(all, on_show_all_clicked, LV_EVENT_CLICKED, NULL);
-    if (tab_idx >= 0 && tab_idx < (int)PANEL_TAB_COUNT) {
-        s_show_all_btn[tab_idx] = all;
-    }
 
     lv_obj_t *all_lbl = lv_label_create(all);
-    lv_label_set_text(all_lbl, LV_SYMBOL_LIST "  Alle lampen");
+    lv_label_set_text(all_lbl, SHOW_ALL_CLOSED_TXT);
     lv_obj_set_style_text_font(all_lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(all_lbl, COLOR_ACCENT, 0);
-    lv_obj_set_style_text_color(all_lbl, COLOR_ON_TEXT, LV_STATE_CHECKED);
     lv_obj_center(all_lbl);
+    if (tab_idx >= 0 && tab_idx < (int)PANEL_TAB_COUNT) {
+        s_show_all_btn[tab_idx] = all;
+        s_show_all_lbl[tab_idx] = all_lbl;
+    }
 }
 
 /* ---- Slide-out drawer: all individual devices for one floor ------------- */
@@ -761,12 +765,20 @@ static void on_show_all_clicked(lv_event_t *e)
     } else {
         drawer_close(s_drawers[idx]);
     }
-    if (s_show_all_btn[idx]) { /* light up the button while the drawer is open */
+    /* Reflect state on the button: amber bg + dark, readable label + a chevron
+     * that flips between expand (closed) and collapse (open). */
+    if (s_show_all_btn[idx]) {
         if (s_drawer_open) {
             lv_obj_add_state(s_show_all_btn[idx], LV_STATE_CHECKED);
         } else {
             lv_obj_remove_state(s_show_all_btn[idx], LV_STATE_CHECKED);
         }
+    }
+    if (s_show_all_lbl[idx]) {
+        lv_label_set_text(s_show_all_lbl[idx],
+                          s_drawer_open ? SHOW_ALL_OPEN_TXT : SHOW_ALL_CLOSED_TXT);
+        lv_obj_set_style_text_color(s_show_all_lbl[idx],
+                                    s_drawer_open ? COLOR_ON_TEXT : COLOR_ACCENT, 0);
     }
 }
 
