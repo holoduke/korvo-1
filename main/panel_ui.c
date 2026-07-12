@@ -1869,8 +1869,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
         lv_indev_add_event_cb(touch, on_content_pressed, LV_EVENT_PRESSED, NULL);
         lv_indev_add_event_cb(touch, on_content_released, LV_EVENT_RELEASED, NULL);
     }
-    lv_timer_create(drag_poll_cb, 8, NULL); /* poll faster than the ~15ms touch read
-                                             * so the drag picks up fresh points ASAP */
+    lv_timer_create(drag_poll_cb, 16, NULL); /* ~60Hz finger tracking during a drag */
     lv_timer_create(snap_timer_cb, 900, NULL);
 
     /* Slider sits above the tabview (draggable); drawers are created afterwards

@@ -238,7 +238,7 @@ void app_main(void)
     /* Triple-buffer tear avoidance + PPA hardware acceleration for smooth,
      * tear-free rendering (the ESP32-S31 has a Pixel Processing Accelerator). */
     bsp_display_config_t display_cfg = BSP_DISPLAY_DEFAULT_CONFIG();
-    display_cfg.tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_DOUBLE_PARTIAL;
+    display_cfg.tear_avoid_mode = ESP_LV_ADAPTER_TEAR_AVOID_MODE_TRIPLE_PARTIAL;
     /* PPA + dual-core SW rendering overflow the PPA fill queue under load, so
      * rely on dual-core parallel software rendering instead (LV_DRAW_SW_DRAW_UNIT_CNT=2).
      * The panel refreshes at ~60 Hz and LVGL is capped at 15 ms, so this reaches
