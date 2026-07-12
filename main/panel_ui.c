@@ -589,10 +589,12 @@ static void anim_x_cb(void *obj, int32_t v)
 }
 
 /* The drawer is full-screen with many tiles, so animating it live re-rasterizes
- * everything each frame. Instead snapshot it once and slide the bitmap (a blit),
- * then swap to the live drawer at the end so it stays interactive. */
+ * everything each frame. Instead snapshot it once and slide the bitmap (a blit).
+ * A static snapshot of the screen behind it is shown as a frozen backdrop so the
+ * uncovered strip doesn't re-rasterize the live tabview during the slide. */
 static lv_obj_t *s_drawer_slide_img;
 static lv_draw_buf_t *s_drawer_slide_snap;
+static lv_obj_t *s_drawer_back;     /* opaque backdrop so nothing live re-renders */
 static lv_obj_t *s_drawer_live;
 
 static void drawer_slide_cleanup(void)
@@ -600,6 +602,10 @@ static void drawer_slide_cleanup(void)
     if (s_drawer_slide_img) {
         lv_obj_delete(s_drawer_slide_img);
         s_drawer_slide_img = NULL;
+    }
+    if (s_drawer_back) {
+        lv_obj_delete(s_drawer_back);
+        s_drawer_back = NULL;
     }
     if (s_drawer_slide_snap) {
         lv_draw_buf_destroy(s_drawer_slide_snap);
@@ -634,25 +640,44 @@ static void drawer_live_anim(lv_obj_t *drawer, bool opening)
     lv_anim_start(&a);
 }
 
+static lv_obj_t *make_slide_image(lv_draw_buf_t *snap, int x)
+{
+    lv_obj_t *img = lv_image_create(lv_screen_active());
+    lv_obj_add_flag(img, LV_OBJ_FLAG_FLOATING);
+    lv_image_set_src(img, snap);
+    lv_obj_set_pos(img, x, 0);
+    lv_obj_move_foreground(img);
+    return img;
+}
+
 static void drawer_slide(lv_obj_t *drawer, bool opening)
 {
     if (drawer == NULL || s_drawer_slide_img) {
         return; /* ignore if a slide is already animating */
     }
-    lv_draw_buf_t *snap = lv_snapshot_take(drawer, LV_COLOR_FORMAT_RGB565);
-    if (snap == NULL) {
+    lv_draw_buf_t *dsnap = lv_snapshot_take(drawer, LV_COLOR_FORMAT_RGB565);
+    if (dsnap == NULL) {
         drawer_live_anim(drawer, opening); /* fallback: live animation */
         return;
     }
-    /* Park the live drawer off-screen; the bitmap does the visible sliding. */
-    lv_obj_set_x(drawer, LV_HOR_RES);
+    lv_obj_set_x(drawer, LV_HOR_RES); /* park the live drawer off-screen */
     s_drawer_live = drawer;
-    s_drawer_slide_snap = snap;
-    s_drawer_slide_img = lv_image_create(lv_screen_active());
-    lv_obj_add_flag(s_drawer_slide_img, LV_OBJ_FLAG_FLOATING);
-    lv_image_set_src(s_drawer_slide_img, snap);
-    lv_obj_set_pos(s_drawer_slide_img, opening ? LV_HOR_RES : 0, 0);
-    lv_obj_move_foreground(s_drawer_slide_img);
+    s_drawer_slide_snap = dsnap;
+
+    /* Opaque full-screen backdrop so the moving (full-screen) bitmap never
+     * exposes the live header/tabview to per-frame re-rasterization; the
+     * uncovered strip is then just a cheap solid fill, not glyph/circle redraws. */
+    s_drawer_back = lv_obj_create(lv_screen_active());
+    lv_obj_add_flag(s_drawer_back, LV_OBJ_FLAG_FLOATING);
+    lv_obj_remove_flag(s_drawer_back, LV_OBJ_FLAG_SCROLLABLE);
+    make_plain(s_drawer_back);
+    lv_obj_set_style_bg_color(s_drawer_back, COLOR_BG, 0);
+    lv_obj_set_style_bg_opa(s_drawer_back, LV_OPA_COVER, 0);
+    lv_obj_set_pos(s_drawer_back, 0, 0);
+    lv_obj_set_size(s_drawer_back, LV_HOR_RES, LV_VER_RES);
+    lv_obj_move_foreground(s_drawer_back);
+
+    s_drawer_slide_img = make_slide_image(dsnap, opening ? LV_HOR_RES : 0); /* on top */
 
     lv_anim_t a;
     lv_anim_init(&a);
@@ -1436,6 +1461,8 @@ void panel_ui_set_wifi_connected(bool connected, const char *ssid)
     }
     bsp_display_unlock();
 }
+
+
 
 
 
