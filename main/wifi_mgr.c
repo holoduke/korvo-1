@@ -17,7 +17,6 @@ static const char *TAG = "wifi_mgr";
 static wifi_mgr_status_cb_t s_status_cb;
 static char s_ssid[33];
 static char s_pass[65];
-static bool s_connected;
 
 static wifi_mgr_scan_cb_t s_scan_cb;
 static bool s_scanning;
@@ -70,7 +69,6 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
         esp_wifi_connect();
     } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGW(TAG, "Disconnected, retrying...");
-        s_connected = false;
         if (s_status_cb) {
             s_status_cb(false);
         }
@@ -80,7 +78,6 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         const ip_event_got_ip_t *ev = data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&ev->ip_info.ip));
-        s_connected = true;
         if (s_status_cb) {
             s_status_cb(true);
         }
@@ -169,11 +166,6 @@ esp_err_t wifi_mgr_set_credentials(const char *ssid, const char *password)
 void wifi_mgr_get_ssid(char *out, int out_len)
 {
     strlcpy(out, s_ssid, out_len);
-}
-
-bool wifi_mgr_is_connected(void)
-{
-    return s_connected;
 }
 
 esp_err_t wifi_mgr_scan_start(wifi_mgr_scan_cb_t cb)

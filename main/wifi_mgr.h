@@ -22,8 +22,6 @@ esp_err_t wifi_mgr_set_credentials(const char *ssid, const char *password);
 /** Copy the currently-configured SSID into out (out_len bytes). */
 void wifi_mgr_get_ssid(char *out, int out_len);
 
-/** True once the station has an IP (i.e. actually connected). */
-bool wifi_mgr_is_connected(void);
 
 /**
  * Start an asynchronous scan for nearby access points. When it completes, cb is

@@ -7,16 +7,19 @@
 #include <time.h>
 
 #include "bsp/esp32_s31_korvo.h"
-#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "lvgl.h"
-#include "mbedtls/base64.h"
 #include "nvs.h"
 #include "panel_config.h"
+#ifdef PANEL_ENABLE_SCREEN_DUMP /* on-device screenshot helper (off by default) */
+#include "esp_heap_caps.h"
+#include "mbedtls/base64.h"
+#endif
 
 static const char *TAG = "panel_ui";
 
 #define COLOR_BG        lv_color_hex(0x111318)
+#define COLOR_TOOLBAR   lv_color_hex(0x0c0e12)   /* solid dark top toolbar */
 #define COLOR_TILE      lv_color_hex(0x232833)
 #define COLOR_TILE_OFF  lv_color_hex(0x1a1d24)
 #define COLOR_TILE_ON   lv_color_hex(0xffb84d)
@@ -150,8 +153,11 @@ typedef struct {
 } scene_ctx_t;
 static scene_ctx_t s_scene_ctx[PANEL_TAB_COUNT][MAX_SCENES];
 
-#define SLIDER_W 56
-#define SCENE_ROW_H 84
+#define SLIDER_W       56
+#define SLIDER_MARGIN  12                                      /* slider gap from right edge */
+#define SLIDER_LANE_X  (LV_HOR_RES - SLIDER_W - SLIDER_MARGIN) /* slider's left edge */
+#define SLIDER_LANE_W  (SLIDER_W + SLIDER_MARGIN + 16)         /* reserved right lane width */
+#define SCENE_ROW_H    84
 
 /* Grid templates (LVGL keeps the pointer, so they must persist). */
 static int32_t s_col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
@@ -159,6 +165,7 @@ static int32_t s_row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LA
 
 /* The drawer occupies only the middle band, keeping the header + scene row
  * (bottom buttons) visible; it's toggled by the "Alle lampen" button. */
+#define CONTENT_Y (HEADER_H + TABBAR_H) /* top of the tab content (below header + tab bar) */
 #define DRAWER_Y HEADER_H
 #define DRAWER_H (LV_VER_RES - HEADER_H - SCENE_ROW_H)
 static lv_obj_t *s_show_all_btn[PANEL_TAB_COUNT]; /* the "Alle lampen" toggle per tab */
@@ -392,9 +399,9 @@ static void create_header(lv_obj_t *parent)
     lv_obj_t *bar = lv_obj_create(parent);
     lv_obj_set_size(bar, LV_PCT(100), HEADER_H);
     make_plain(bar);
-    lv_obj_set_style_bg_color(bar, lv_color_hex(0x0c0e12), 0);   /* solid dark toolbar */
+    lv_obj_set_style_bg_color(bar, COLOR_TOOLBAR, 0);
     lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(bar, lv_color_hex(0x232833), 0);
+    lv_obj_set_style_border_color(bar, COLOR_TILE, 0);
     lv_obj_set_style_border_width(bar, 1, 0);
     lv_obj_set_style_border_side(bar, LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_pad_hor(bar, 20, 0);
@@ -492,7 +499,7 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab, int tab_
     lv_obj_set_flex_grow(grid, 1);
     make_plain(grid);
     lv_obj_set_style_pad_all(grid, 16, 0);
-    lv_obj_set_style_pad_right(grid, SLIDER_W + 28, 0); /* lane for the brightness slider */
+    lv_obj_set_style_pad_right(grid, SLIDER_LANE_W, 0); /* lane for the brightness slider */
     lv_obj_set_style_pad_gap(grid, 14, 0);
     lv_obj_set_grid_dsc_array(grid, s_col_dsc, s_row_dsc);
     lv_obj_set_layout(grid, LV_LAYOUT_GRID);
@@ -857,9 +864,9 @@ static lv_obj_t *create_drawer(const panel_tab_t *tab, int tab_idx)
  * Sets the active tab's area brightness on release. */
 static void create_bright_slider(lv_obj_t *screen)
 {
-    const int32_t top = HEADER_H + TABBAR_H + 26;             /* start a bit lower */
-    const int32_t bottom = LV_VER_RES - SCENE_ROW_H - 8;      /* stop above scene row */
-    const int32_t slider_x = LV_HOR_RES - SLIDER_W - 12;
+    const int32_t top = CONTENT_Y + 26;                      /* start a bit lower */
+    const int32_t bottom = LV_VER_RES - SCENE_ROW_H - 8;     /* stop above scene row */
+    const int32_t slider_x = SLIDER_LANE_X;
 
     lv_obj_t *slider = lv_slider_create(screen);
     lv_obj_add_flag(slider, LV_OBJ_FLAG_FLOATING);
@@ -888,7 +895,7 @@ static void create_bright_slider(lv_obj_t *screen)
     lv_label_set_text(s_bright_label, "");
     lv_obj_set_style_text_font(s_bright_label, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(s_bright_label, COLOR_TEXT_DIM, 0);
-    lv_obj_set_pos(s_bright_label, slider_x, HEADER_H + TABBAR_H + 2);
+    lv_obj_set_pos(s_bright_label, slider_x, CONTENT_Y + 2);
 }
 
 /* When the tab changes, show that tab's last-known area brightness. */
@@ -1514,22 +1521,32 @@ static void mark_snapshot_dirty(int tab)
     }
 }
 
-/* Pre-render the active tab's drawer into s_drawer_warm so opening is instant. */
-static void refresh_drawer_warm(int tab)
+/* Snapshot src into *slot, freeing the previous buffer only after the new one is
+ * installed (order matters: a live image may still reference the old one). */
+static void swap_snapshot(lv_draw_buf_t **slot, lv_obj_t *src)
 {
-    if (tab < 0 || tab >= (int)PANEL_TAB_COUNT || s_drawers[tab] == NULL) {
+    if (src == NULL) {
         return;
     }
-    lv_draw_buf_t *ns = lv_snapshot_take(s_drawers[tab], LV_COLOR_FORMAT_RGB565);
+    lv_draw_buf_t *ns = lv_snapshot_take(src, LV_COLOR_FORMAT_RGB565);
     if (ns != NULL) {
-        lv_draw_buf_t *old = s_drawer_warm;
-        s_drawer_warm = ns;
-        s_drawer_warm_tab = tab;
-        s_drawer_warm_dirty = false;
+        lv_draw_buf_t *old = *slot;
+        *slot = ns;
         if (old) {
             lv_draw_buf_destroy(old);
         }
     }
+}
+
+/* Pre-render the active tab's drawer into s_drawer_warm so opening is instant. */
+static void refresh_drawer_warm(int tab)
+{
+    if (tab < 0 || tab >= (int)PANEL_TAB_COUNT) {
+        return;
+    }
+    swap_snapshot(&s_drawer_warm, s_drawers[tab]);
+    s_drawer_warm_tab = tab;
+    s_drawer_warm_dirty = false;
 }
 
 /* Re-snapshot a tab's content to a bitmap (only if marked dirty). This is a
@@ -1542,15 +1559,8 @@ static void refresh_snapshot(int i)
     if (s_tab_snap[i] != NULL && !s_snap_dirty[i]) {
         return;
     }
-    lv_draw_buf_t *ns = lv_snapshot_take(s_tab_content[i], LV_COLOR_FORMAT_RGB565);
-    if (ns != NULL) {
-        lv_draw_buf_t *old = s_tab_snap[i];
-        s_tab_snap[i] = ns;
-        s_snap_dirty[i] = false;
-        if (old) {
-            lv_draw_buf_destroy(old);
-        }
-    }
+    swap_snapshot(&s_tab_snap[i], s_tab_content[i]);
+    s_snap_dirty[i] = false;
 }
 
 /* Keep off-screen/dirty snapshots warm while idle so a swipe can start instantly.
@@ -1640,7 +1650,7 @@ static bool drag_begin(int from, int to)
     }
     const int dir = to > from ? 1 : -1;
     const int W = LV_HOR_RES;
-    const int y = HEADER_H + TABBAR_H;
+    const int y = CONTENT_Y;
 
     s_slide_ov = lv_obj_create(lv_screen_active());
     lv_obj_add_flag(s_slide_ov, LV_OBJ_FLAG_FLOATING);
@@ -1712,7 +1722,7 @@ static void on_content_pressed(lv_event_t *e)
     }
     /* Only start tracking for touches that begin inside the tile area, clear of
      * the header/tab bar, the right-edge brightness slider, and any overlay. */
-    if (p.y < HEADER_H + TABBAR_H || p.x > LV_HOR_RES - SLIDER_W - 24 || overlays_open()) {
+    if (p.y < CONTENT_Y || p.x > SLIDER_LANE_X - SLIDER_MARGIN || overlays_open()) {
         return;
     }
     s_drag_press = true;
@@ -1810,11 +1820,11 @@ static void on_content_released(lv_event_t *e)
 
 
 
-/* ---- Screen dump (verification helper) ---------------------------------- */
-/* Snapshots the active screen, downsamples 2x, and streams it over the serial
- * console as base64 RGB565 so the host can rebuild a PNG. Framed with SNAPBEGIN
- * / SNAPDATA / SNAPEND and each data line prefixed so interleaved logs filter
- * out cleanly. */
+#ifdef PANEL_ENABLE_SCREEN_DUMP
+/* ---- Screen dump (verification helper, build with -DPANEL_ENABLE_SCREEN_DUMP)
+ * Snapshots the active screen, downsamples 2x, and streams it over the serial
+ * console as base64 RGB565 so the host (tools/snapcap.py) can rebuild a PNG.
+ * Call from a temporary trigger. */
 void panel_ui_dump_screen(void)
 {
     if (!bsp_display_lock(2000)) {
@@ -1856,7 +1866,7 @@ void panel_ui_dump_screen(void)
     }
     lv_draw_buf_destroy(snap);
 }
-
+#endif /* PANEL_ENABLE_SCREEN_DUMP */
 
 void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
                      panel_ui_brightness_cb_t brightness_cb)
@@ -1985,16 +1995,6 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
     if (locked) {
         bsp_display_unlock();
     }
-}
-
-void panel_ui_toggle_tab(void)
-{
-    if (s_tabview == NULL || !bsp_display_lock(200)) {
-        return;
-    }
-    const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
-    lv_tabview_set_active(s_tabview, idx == 0 ? 1 : 0, LV_ANIM_ON);
-    bsp_display_unlock();
 }
 
 void panel_ui_set_scene_active(const char *entity_id)
