@@ -157,6 +157,13 @@ static scene_ctx_t s_scene_ctx[PANEL_TAB_COUNT][MAX_SCENES];
 static int32_t s_col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
 static int32_t s_row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
 
+/* The drawer occupies only the middle band, keeping the header + scene row
+ * (bottom buttons) visible; it's toggled by the "Alle lampen" button. */
+#define DRAWER_Y HEADER_H
+#define DRAWER_H (LV_VER_RES - HEADER_H - SCENE_ROW_H)
+static lv_obj_t *s_show_all_btn[PANEL_TAB_COUNT]; /* the "Alle lampen" toggle per tab */
+static bool s_drawer_open;                        /* is a drawer open/opening */
+
 static void on_tile_clicked(lv_event_t *e)
 {
     if (s_drag_suppress_click) {
@@ -567,20 +574,26 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_i
         lv_obj_center(label);
     }
 
-    /* "Show all devices" button opens this tab's slide-out drawer. */
+    /* "Alle lampen" button toggles this tab's slide-out drawer (and lights up
+     * while it's open). */
     lv_obj_t *all = lv_button_create(row);
     lv_obj_set_flex_grow(all, 1);
     lv_obj_set_height(all, LV_PCT(100));
     lv_obj_set_style_bg_color(all, COLOR_TILE, 0);
+    lv_obj_set_style_bg_color(all, COLOR_ACCENT, LV_STATE_CHECKED); /* active = drawer open */
     lv_obj_set_style_radius(all, 14, 0);
     lv_obj_set_style_shadow_width(all, 0, 0);
     lv_obj_set_style_bg_opa(all, LV_OPA_70, LV_STATE_PRESSED);
     lv_obj_add_event_cb(all, on_show_all_clicked, LV_EVENT_CLICKED, NULL);
+    if (tab_idx >= 0 && tab_idx < (int)PANEL_TAB_COUNT) {
+        s_show_all_btn[tab_idx] = all;
+    }
 
     lv_obj_t *all_lbl = lv_label_create(all);
     lv_label_set_text(all_lbl, LV_SYMBOL_LIST "  Alle lampen");
     lv_obj_set_style_text_font(all_lbl, &lv_font_montserrat_18, 0);
     lv_obj_set_style_text_color(all_lbl, COLOR_ACCENT, 0);
+    lv_obj_set_style_text_color(all_lbl, COLOR_ON_TEXT, LV_STATE_CHECKED);
     lv_obj_center(all_lbl);
 }
 
@@ -666,7 +679,7 @@ static lv_obj_t *make_slide_image(lv_draw_buf_t *snap, int x)
     lv_obj_t *img = lv_image_create(lv_screen_active());
     lv_obj_add_flag(img, LV_OBJ_FLAG_FLOATING);
     lv_image_set_src(img, snap);
-    lv_obj_set_pos(img, x, 0);
+    lv_obj_set_pos(img, x, DRAWER_Y);
     lv_obj_move_foreground(img);
     return img;
 }
@@ -695,17 +708,18 @@ static void drawer_slide(lv_obj_t *drawer, bool opening)
     s_drawer_slide_snap = dsnap;
     s_drawer_slide_owned = owned;
 
-    /* Opaque full-screen backdrop so the moving (full-screen) bitmap never
-     * exposes the live header/tabview to per-frame re-rasterization; the
-     * uncovered strip is then just a cheap solid fill, not glyph/circle redraws. */
+    /* Opaque backdrop over the drawer band so the moving bitmap never exposes
+     * the live grid tiles to per-frame re-rasterization; the uncovered strip is
+     * then just a cheap solid fill. Sized to the band, so the header + scene row
+     * stay untouched. */
     s_drawer_back = lv_obj_create(lv_screen_active());
     lv_obj_add_flag(s_drawer_back, LV_OBJ_FLAG_FLOATING);
     lv_obj_remove_flag(s_drawer_back, LV_OBJ_FLAG_SCROLLABLE);
     make_plain(s_drawer_back);
     lv_obj_set_style_bg_color(s_drawer_back, COLOR_BG, 0);
     lv_obj_set_style_bg_opa(s_drawer_back, LV_OPA_COVER, 0);
-    lv_obj_set_pos(s_drawer_back, 0, 0);
-    lv_obj_set_size(s_drawer_back, LV_HOR_RES, LV_VER_RES);
+    lv_obj_set_pos(s_drawer_back, 0, DRAWER_Y);
+    lv_obj_set_size(s_drawer_back, LV_HOR_RES, DRAWER_H);
     lv_obj_move_foreground(s_drawer_back);
 
     s_drawer_slide_img = make_slide_image(dsnap, opening ? LV_HOR_RES : 0); /* on top */
@@ -734,15 +748,26 @@ static void drawer_close(lv_obj_t *drawer)
 static void on_show_all_clicked(lv_event_t *e)
 {
     (void)e;
-    const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
-    if (idx < PANEL_TAB_COUNT) {
-        drawer_open(s_drawers[idx]);
+    if (s_drawer_slide_img) {
+        return; /* mid-slide: ignore */
     }
-}
-
-static void on_drawer_back(lv_event_t *e)
-{
-    drawer_close(lv_event_get_user_data(e));
+    const uint32_t idx = lv_tabview_get_tab_active(s_tabview);
+    if (idx >= PANEL_TAB_COUNT) {
+        return;
+    }
+    s_drawer_open = !s_drawer_open;
+    if (s_drawer_open) {
+        drawer_open(s_drawers[idx]);
+    } else {
+        drawer_close(s_drawers[idx]);
+    }
+    if (s_show_all_btn[idx]) { /* light up the button while the drawer is open */
+        if (s_drawer_open) {
+            lv_obj_add_state(s_show_all_btn[idx], LV_STATE_CHECKED);
+        } else {
+            lv_obj_remove_state(s_show_all_btn[idx], LV_STATE_CHECKED);
+        }
+    }
 }
 
 /* Compact device tile registered in s_tiles so state updates reach it too. */
@@ -792,60 +817,25 @@ static void create_device_tile(lv_obj_t *parent, const panel_entity_t *dev, int 
 
 static lv_obj_t *create_drawer(const panel_tab_t *tab, int tab_idx)
 {
-    /* Full-screen overlay, parked just off the right edge. FLOATING so the
-     * screen's flex layout doesn't reposition it. */
+    /* Overlay covering only the middle band (below the header, above the scene
+     * row), parked off the right edge. FLOATING so the screen flex doesn't move
+     * it. Scrollable wrap of compact device tiles; no header/back button -- the
+     * "Alle lampen" button toggles it closed. */
     lv_obj_t *drawer = lv_obj_create(lv_screen_active());
     lv_obj_add_flag(drawer, LV_OBJ_FLAG_FLOATING);
-    lv_obj_set_size(drawer, LV_HOR_RES, LV_VER_RES);
-    lv_obj_set_pos(drawer, LV_HOR_RES, 0);
+    lv_obj_set_size(drawer, LV_HOR_RES, DRAWER_H);
+    lv_obj_set_pos(drawer, LV_HOR_RES, DRAWER_Y);
     lv_obj_set_style_bg_color(drawer, COLOR_BG, 0);
     lv_obj_set_style_border_width(drawer, 0, 0);
     lv_obj_set_style_radius(drawer, 0, 0);
-    lv_obj_set_style_pad_all(drawer, 0, 0);
-    lv_obj_set_flex_flow(drawer, LV_FLEX_FLOW_COLUMN);
-    lv_obj_clear_flag(drawer, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* Header: back button + title */
-    lv_obj_t *hdr = lv_obj_create(drawer);
-    lv_obj_set_size(hdr, LV_PCT(100), HEADER_H);
-    make_plain(hdr);
-    lv_obj_set_style_pad_hor(hdr, 16, 0);
-    lv_obj_set_flex_flow(hdr, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
-                          LV_FLEX_ALIGN_CENTER);
-
-    lv_obj_t *back = lv_button_create(hdr);
-    lv_obj_set_height(back, 40);
-    lv_obj_set_style_bg_color(back, COLOR_SCENE, 0);
-    lv_obj_set_style_radius(back, 10, 0);
-    lv_obj_set_style_shadow_width(back, 0, 0);
-    lv_obj_add_event_cb(back, on_drawer_back, LV_EVENT_CLICKED, drawer);
-    lv_obj_t *back_lbl = lv_label_create(back);
-    lv_label_set_text(back_lbl, LV_SYMBOL_LEFT "  Terug");
-    lv_obj_set_style_text_font(back_lbl, &lv_font_montserrat_18, 0);
-    lv_obj_set_style_text_color(back_lbl, COLOR_TEXT, 0);
-    lv_obj_center(back_lbl);
-
-    lv_obj_t *title = lv_label_create(hdr);
-    lv_label_set_text_fmt(title, "%s  \xE2\x80\x94  alle lampen", tab->name);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
-    lv_obj_set_style_text_color(title, COLOR_TEXT, 0);
-    lv_obj_set_style_margin_left(title, 16, 0);
-
-    /* Scrollable wrap of compact device tiles */
-    lv_obj_t *list = lv_obj_create(drawer);
-    lv_obj_set_width(list, LV_PCT(100));
-    lv_obj_set_flex_grow(list, 1);
-    lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(list, 0, 0);
-    lv_obj_set_style_pad_all(list, 16, 0);
-    lv_obj_set_style_pad_gap(list, 12, 0);
-    lv_obj_set_flex_flow(list, LV_FLEX_FLOW_ROW_WRAP);
-    lv_obj_set_flex_align(list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
+    lv_obj_set_style_pad_all(drawer, 16, 0);
+    lv_obj_set_style_pad_gap(drawer, 12, 0);
+    lv_obj_set_flex_flow(drawer, LV_FLEX_FLOW_ROW_WRAP);
+    lv_obj_set_flex_align(drawer, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START,
                           LV_FLEX_ALIGN_START);
 
     for (int i = 0; i < tab->device_count; i++) {
-        create_device_tile(list, &tab->devices[i], tab_idx);
+        create_device_tile(drawer, &tab->devices[i], tab_idx);
     }
     return drawer;
 }
@@ -1802,6 +1792,8 @@ static void on_content_released(lv_event_t *e)
     s_drag_release_pending = true;
     s_drag_release_tick = lv_tick_get();
 }
+
+
 
 
 
