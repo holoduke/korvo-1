@@ -36,15 +36,20 @@ static const char *TAG = "panel_ui";
 #define TILE_CAP_COLOR  0x1
 #define TILE_CAP_WARMTH 0x2
 
+/* Rendered state category, to skip redundant re-styling of a tile. */
+enum { TILE_STATE_UNKNOWN = 0, TILE_STATE_ON, TILE_STATE_OFF, TILE_STATE_UNAVAIL };
+
 typedef struct {
     const panel_entity_t *entity;
     lv_obj_t *tile;
     lv_obj_t *icon;
     lv_obj_t *name_label;
     lv_obj_t *state_label;
-    int caps;   /* TILE_CAP_* bit flags */
-    int min_k;  /* colour-temp range (kelvin) */
+    int caps;        /* TILE_CAP_* bit flags */
+    int min_k;       /* colour-temp range (kelvin) */
     int max_k;
+    int tab_idx;     /* which tab this tile belongs to (for snapshot invalidation) */
+    int last_render; /* TILE_STATE_* last applied, to skip no-op updates */
 } light_tile_t;
 
 static light_tile_t s_tiles[PANEL_MAX_LIGHTS];
@@ -73,7 +78,7 @@ static int s_drag_to;
 static int s_drag_last_dx;        /* previous poll's dx (for velocity) */
 static int s_drag_vel;            /* recent px/tick, smoothed */
 static lv_indev_t *s_drag_indev;
-static void mark_snapshots_dirty(void);
+static void mark_snapshot_dirty(int tab);
 static lv_obj_t *settings_label(lv_obj_t *parent, const char *txt,
                                 const lv_font_t *font, lv_color_t color);
 static void open_light_popup(const light_tile_t *tile);
@@ -238,7 +243,7 @@ static void on_scene_clicked(lv_event_t *e)
         lv_obj_set_style_bg_color(s_scene_chips[ctx->tab_idx][j], COLOR_SCENE, 0);
     }
     lv_obj_set_style_bg_color(chip, COLOR_SCENE_ON, 0);
-    mark_snapshots_dirty();
+    mark_snapshot_dirty(ctx->tab_idx);
 }
 
 /* Vertical brightness slider: live % readout while dragging, applies on release. */
@@ -275,21 +280,32 @@ static void on_clock_timer(lv_timer_t *t)
     time_t now = time(NULL);
     struct tm tm_now;
     localtime_r(&now, &tm_now);
-    if (tm_now.tm_year > 100) { /* only once SNTP has synced */
-        static const char *const days[] = {"zondag", "maandag", "dinsdag", "woensdag",
-                                            "donderdag", "vrijdag", "zaterdag"};
-        static const char *const mons[] = {"jan", "feb", "mrt", "apr", "mei", "jun",
-                                            "jul", "aug", "sep", "okt", "nov", "dec"};
-        static const char *const sd[] = {"zo", "ma", "di", "wo", "do", "vr", "za"};
+    if (tm_now.tm_year <= 100) {
+        return; /* wait for SNTP */
+    }
+    static const char *const days[] = {"zondag", "maandag", "dinsdag", "woensdag",
+                                        "donderdag", "vrijdag", "zaterdag"};
+    static const char *const mons[] = {"jan", "feb", "mrt", "apr", "mei", "jun",
+                                        "jul", "aug", "sep", "okt", "nov", "dec"};
+    static const char *const sd[] = {"zo", "ma", "di", "wo", "do", "vr", "za"};
+
+    /* Only touch the labels when the value actually changes: lv_label_set_text
+     * has no identical-text early-out, so an unconditional 1 Hz rewrite forces a
+     * heap realloc + partial flush every second, 24/7. */
+    static int last_min = -1, last_yday = -1;
+    const int mins = tm_now.tm_hour * 60 + tm_now.tm_min;
+    if (mins != last_min) {
+        last_min = mins;
         lv_label_set_text_fmt(s_clock_label, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
+    }
+    if (tm_now.tm_yday != last_yday) {
+        last_yday = tm_now.tm_yday;
         if (s_dow_label) {
             lv_label_set_text(s_dow_label, days[tm_now.tm_wday]);
         }
         if (s_date_label) {
             lv_label_set_text_fmt(s_date_label, "%d %s", tm_now.tm_mday, mons[tm_now.tm_mon]);
         }
-        /* Forecast day labels only depend on the date; keep them fresh here so
-         * they appear as soon as SNTP syncs (the forecast may arrive first). */
         for (int i = 0; i < FORECAST_DAYS; i++) {
             if (s_fc_day[i]) {
                 lv_label_set_text(s_fc_day[i], sd[(tm_now.tm_wday + i) % 7]);
@@ -455,7 +471,7 @@ static void create_header(lv_obj_t *parent)
     lv_obj_center(gl);
 }
 
-static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
+static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab, int tab_idx)
 {
     lv_obj_t *grid = lv_obj_create(parent);
     lv_obj_set_width(grid, LV_PCT(100));
@@ -470,6 +486,7 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab)
     for (int i = 0; i < tab->light_count && s_tile_count < PANEL_MAX_LIGHTS; i++) {
         light_tile_t *t = &s_tiles[s_tile_count++];
         t->entity = &tab->lights[i];
+        t->tab_idx = tab_idx;
         const int col = i % 3;
         const int row = i / 3;
 
@@ -673,13 +690,14 @@ static void on_drawer_back(lv_event_t *e)
 }
 
 /* Compact device tile registered in s_tiles so state updates reach it too. */
-static void create_device_tile(lv_obj_t *parent, const panel_entity_t *dev)
+static void create_device_tile(lv_obj_t *parent, const panel_entity_t *dev, int tab_idx)
 {
     if (s_tile_count >= PANEL_MAX_LIGHTS) {
         return;
     }
     light_tile_t *t = &s_tiles[s_tile_count++];
     t->entity = dev;
+    t->tab_idx = tab_idx;
 
     t->tile = lv_button_create(parent);
     lv_obj_set_size(t->tile, 178, 84);
@@ -716,7 +734,7 @@ static void create_device_tile(lv_obj_t *parent, const panel_entity_t *dev)
     lv_obj_set_style_text_color(t->state_label, COLOR_TEXT_DIM, 0);
 }
 
-static lv_obj_t *create_drawer(const panel_tab_t *tab)
+static lv_obj_t *create_drawer(const panel_tab_t *tab, int tab_idx)
 {
     /* Full-screen overlay, parked just off the right edge. FLOATING so the
      * screen's flex layout doesn't reposition it. */
@@ -771,7 +789,7 @@ static lv_obj_t *create_drawer(const panel_tab_t *tab)
                           LV_FLEX_ALIGN_START);
 
     for (int i = 0; i < tab->device_count; i++) {
-        create_device_tile(list, &tab->devices[i]);
+        create_device_tile(list, &tab->devices[i], tab_idx);
     }
     return drawer;
 }
@@ -959,12 +977,20 @@ static void saver_timer_cb(lv_timer_t *t)
     time_t now = time(NULL);
     struct tm tm_now;
     localtime_r(&now, &tm_now);
-    if (tm_now.tm_year > 100) {
+    /* Only refresh the saver clock while it's visible, and only on a real
+     * minute change (avoids a needless 1 Hz realloc while parked/hidden). */
+    static int last_min = -1;
+    const int mins = tm_now.tm_hour * 60 + tm_now.tm_min;
+    if (tm_now.tm_year > 100 && mins != last_min &&
+        !lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) {
+        last_min = mins;
         lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
     }
     if (s_saver_timeout_ms > 0 &&
         lv_display_get_inactive_time(NULL) > s_saver_timeout_ms &&
         lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) {
+        last_min = -1; /* force a clock refresh now that it's visible */
+        lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
         lv_obj_remove_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(s_saver);
     }
@@ -1414,10 +1440,12 @@ void panel_ui_set_wifi_connected(bool connected, const char *ssid)
 
 
 /* ---- Cached-bitmap tab swipe -------------------------------------------- */
-static void mark_snapshots_dirty(void)
+/* Invalidate one tab's cached bitmap (so its next snapshot is re-rendered).
+ * Marking only the affected tab avoids re-rasterizing all four on every update. */
+static void mark_snapshot_dirty(int tab)
 {
-    for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
-        s_snap_dirty[i] = true;
+    if (tab >= 0 && tab < (int)PANEL_TAB_COUNT) {
+        s_snap_dirty[tab] = true;
     }
 }
 
@@ -1736,7 +1764,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
         make_plain(tab);
         lv_obj_set_flex_flow(tab, LV_FLEX_FLOW_COLUMN);
 
-        create_light_grid(tab, tab_cfg);
+        create_light_grid(tab, tab_cfg, i);
         create_scene_row(tab, tab_cfg, i);
     }
     style_tab_bar(s_tabview);
@@ -1761,7 +1789,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
      * so they render on top and cover it when open. */
     create_bright_slider(screen);
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
-        s_drawers[i] = create_drawer(&PANEL_TABS[i]);
+        s_drawers[i] = create_drawer(&PANEL_TABS[i], i);
     }
 
     /* Overlays on the top layer so they cover everything, including drawers. */
@@ -1782,19 +1810,29 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
     if (state == NULL) {
         return;
     }
+    const bool on = strcmp(state, "on") == 0;
+    const bool unavailable = strcmp(state, "unavailable") == 0 ||
+                             strcmp(state, "unknown") == 0 ||
+                             strcmp(state, "none") == 0;
+    const int cat = unavailable ? TILE_STATE_UNAVAIL : (on ? TILE_STATE_ON : TILE_STATE_OFF);
+
+    bool locked = false;
     for (int i = 0; i < s_tile_count; i++) {
         light_tile_t *t = &s_tiles[i];
         if (strcmp(t->entity->entity_id, entity_id) != 0) {
             continue; /* same entity may appear on several tabs: keep looking */
         }
-        const bool on = strcmp(state, "on") == 0;
-        const bool unavailable = strcmp(state, "unavailable") == 0 ||
-                                 strcmp(state, "unknown") == 0 ||
-                                 strcmp(state, "none") == 0;
-        if (!bsp_display_lock(1000)) {
-            ESP_LOGW(TAG, "LVGL lock timeout");
-            return;
+        if (t->last_render == cat) {
+            continue; /* already showing this state: no re-style, no cache dirty */
         }
+        if (!locked) { /* lock once for the whole update, not per tile */
+            if (!bsp_display_lock(1000)) {
+                ESP_LOGW(TAG, "LVGL lock timeout");
+                return;
+            }
+            locked = true;
+        }
+        t->last_render = cat;
         if (unavailable) {
             /* Physically unreachable (e.g. wall switch off): dim the whole tile,
              * show a warning glyph and greyed text so it reads as disabled. */
@@ -1815,8 +1853,10 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
             lv_obj_set_style_text_color(t->state_label,
                                         on ? lv_color_hex(0x6b5518) : COLOR_TEXT_DIM, 0);
         }
+        mark_snapshot_dirty(t->tab_idx); /* only this tile's tab needs re-caching */
+    }
+    if (locked) {
         bsp_display_unlock();
-        mark_snapshots_dirty(); /* tile visuals changed -> refresh cache */
     }
 }
 
@@ -1848,7 +1888,7 @@ void panel_ui_set_scene_active(const char *entity_id)
             }
             lv_obj_set_style_bg_color(s_scene_chips[t][i], COLOR_SCENE_ON, 0);
             bsp_display_unlock();
-            mark_snapshots_dirty();
+            mark_snapshot_dirty(t);
             return;
         }
     }
