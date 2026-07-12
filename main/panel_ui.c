@@ -78,6 +78,9 @@ static int s_drag_to;
 static int s_drag_last_dx;        /* previous poll's dx (for velocity) */
 static int s_drag_vel;            /* recent px/tick, smoothed */
 static lv_indev_t *s_drag_indev;
+static bool s_drag_release_pending; /* RELEASED fired; waiting to rule out a glitch */
+static uint32_t s_drag_release_tick;
+#define DRAG_RELEASE_DEBOUNCE_MS 55 /* a fast drag can briefly drop the touch */
 static void mark_snapshot_dirty(int tab);
 static lv_obj_t *settings_label(lv_obj_t *parent, const char *txt,
                                 const lv_font_t *font, lv_color_t color);
@@ -1696,6 +1699,15 @@ static void on_content_pressed(lv_event_t *e)
     }
     lv_point_t p;
     lv_indev_get_point(indev, &p);
+    /* A press during the release-debounce window is the finger coming back after
+     * a momentary touch drop mid-drag (not a real lift): resume the same drag,
+     * re-anchoring x0 so the images don't jump. */
+    if (s_drag_release_pending && s_drag_on) {
+        s_drag_release_pending = false;
+        s_drag_press = true;
+        s_drag_x0 = p.x - lv_obj_get_x(s_drag_from_img);
+        return;
+    }
     /* Only start tracking for touches that begin inside the tile area, clear of
      * the header/tab bar, the right-edge brightness slider, and any overlay. */
     if (p.y < HEADER_H + TABBAR_H || p.x > LV_HOR_RES - SLIDER_W - 24 || overlays_open()) {
@@ -1704,6 +1716,7 @@ static void on_content_pressed(lv_event_t *e)
     s_drag_press = true;
     s_drag_on = false;
     s_drag_suppress_click = false;
+    s_drag_release_pending = false;
     s_drag_x0 = p.x;
     s_drag_indev = indev;
     s_drag_from = (int)lv_tabview_get_tab_active(s_tabview);
@@ -1711,9 +1724,34 @@ static void on_content_pressed(lv_event_t *e)
 
 /* Polls the touch point ~60Hz while a press is active (LVGL doesn't deliver
  * PRESSING at the indev level, so we can't get continuous move events there). */
+static void do_drag_commit(void)
+{
+    const int dx = lv_obj_get_x(s_drag_from_img); /* last dragged position */
+    const int dir = s_drag_to > s_drag_from ? 1 : -1;
+    const bool far = (dx < 0 ? -dx : dx) > LV_HOR_RES / 5;
+    const bool flick = s_drag_vel > 6 && (-dir * dx) > 24;
+    drag_end(far || flick);
+}
+
 static void drag_poll_cb(lv_timer_t *t)
 {
     (void)t;
+    /* A release is pending. If the touch is actually still down (LVGL fired a
+     * spurious RELEASED mid-drag), resume the drag. Only commit once the finger
+     * has really been up for the whole debounce window. */
+    if (s_drag_release_pending && !s_swiping) {
+        if (s_drag_indev && lv_indev_get_state(s_drag_indev) == LV_INDEV_STATE_PRESSED) {
+            lv_point_t p;
+            lv_indev_get_point(s_drag_indev, &p);
+            s_drag_release_pending = false;
+            s_drag_press = true;
+            s_drag_x0 = p.x - lv_obj_get_x(s_drag_from_img); /* re-anchor, no jump */
+        } else if (lv_tick_elaps(s_drag_release_tick) >= DRAG_RELEASE_DEBOUNCE_MS) {
+            s_drag_release_pending = false;
+            do_drag_commit();
+        }
+        return;
+    }
     if (!s_drag_press || s_swiping || s_drag_indev == NULL) {
         return;
     }
@@ -1756,15 +1794,13 @@ static void on_content_released(lv_event_t *e)
     }
     s_drag_press = false;
     if (!s_drag_on) {
-        return;
+        return; /* was a tap, not a drag */
     }
-    const int dx = lv_obj_get_x(s_drag_from_img); /* last dragged position */
-    const int dir = s_drag_to > s_drag_from ? 1 : -1;
-    /* Commit if dragged far enough, OR flicked quickly toward the target, so a
-     * short fast swipe still advances (s_drag_vel is peak toward-target speed). */
-    const bool far = (dx < 0 ? -dx : dx) > LV_HOR_RES / 5;
-    const bool flick = s_drag_vel > 6 && (-dir * dx) > 24;
-    drag_end(far || flick);
+    /* Don't commit yet: a fast drag can briefly drop the touch, firing a
+     * spurious RELEASED. Defer; drag_poll_cb commits after the debounce window
+     * unless the finger comes back (handled in on_content_pressed). */
+    s_drag_release_pending = true;
+    s_drag_release_tick = lv_tick_get();
 }
 
 
