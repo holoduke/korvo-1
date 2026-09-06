@@ -68,6 +68,9 @@ void panel_ui_set_link_status(bool wifi_up, bool ha_up);
 /* Drive the UI remotely: select a tab, open/close the active tab's drawer,
  * open/close settings. -1 leaves that aspect untouched. Thread-safe. */
 void panel_ui_debug_select(int tab, int drawer_open, int settings_open);
+/* Now-playing update for a PANEL_MEDIA_PLAYERS entity (NULL = unchanged). */
+void panel_ui_set_media(const char *entity_id, const char *state, const char *title,
+                        const char *artist);
 /* Screen-off state for diagnostics: 1 = screensaver shown / backlight off. Also
  * reports the configured timeout in seconds (0 = never) and idle seconds. */
 void panel_ui_get_screen_state(int *screen_off, int *timeout_s, int *idle_s);

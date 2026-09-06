@@ -35,7 +35,7 @@ static portMUX_TYPE s_svc_mux = portMUX_INITIALIZER_UNLOCKED;
 
 /* Entities to subscribe to: every light tile + device + scene + weather +
  * the header temperature sensors. */
-static const char *s_subscribed[PANEL_MAX_LIGHTS + 1 + 2 * PANEL_TEMP_SENSOR_COUNT];
+static const char *s_subscribed[PANEL_MAX_LIGHTS + 1 + 2 * PANEL_TEMP_SENSOR_COUNT + PANEL_MEDIA_COUNT];
 static int s_subscribed_count;
 
 /* Scene activation tracking: a scene's HA state is its last-activated timestamp,
@@ -90,6 +90,9 @@ static void collect_subscribed_entities(void)
         }
     }
     s_subscribed[s_subscribed_count++] = PANEL_WEATHER_ENTITY;
+    for (int i = 0; i < (int)PANEL_MEDIA_COUNT; i++) {
+        s_subscribed[s_subscribed_count++] = PANEL_MEDIA_PLAYERS[i].entity_id;
+    }
     for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
         s_subscribed[s_subscribed_count++] = PANEL_TEMP_SENSORS[i].temp_id;
         if (PANEL_TEMP_SENSORS[i].humidity_id) {
@@ -343,6 +346,7 @@ static void services_task(void *arg)
 
     ha_client_set_forecast_cb(on_ha_forecast);
     ha_client_set_history_cb(on_ha_history);
+    ha_client_set_media_cb(panel_ui_set_media);
     ha_client_set_caps_cb(on_light_caps);
     err = ha_client_start(HA_WEBSOCKET_URI, SECRET_HA_TOKEN,
                           s_subscribed, s_subscribed_count,

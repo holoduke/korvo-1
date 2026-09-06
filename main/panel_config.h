@@ -223,6 +223,15 @@ static const panel_tab_t PANEL_TABS[] = {
  * devices + scene-tab power toggles) */
 #define PANEL_MAX_LIGHTS 96
 
+/* Media players (WiiM) whose "now playing" shows in the screensaver while one
+ * of them is playing. First playing one wins. */
+static const panel_entity_t PANEL_MEDIA_PLAYERS[] = {
+    { "media_player.living_room", "Woonkamer" },
+    { "media_player.kitchen",     "Keuken" },
+    { "media_player.media_room",  "Media room" },
+};
+#define PANEL_MEDIA_COUNT (sizeof(PANEL_MEDIA_PLAYERS) / sizeof(PANEL_MEDIA_PLAYERS[0]))
+
 /* Weather entity shown in the header */
 #define PANEL_WEATHER_ENTITY "weather.buienradar"
 

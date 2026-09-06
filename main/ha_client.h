@@ -16,6 +16,13 @@
 typedef void (*ha_state_cb_t)(const char *entity_id, const char *state,
                               float temperature, int brightness_pct);
 
+/* Media player update: state ("playing"/"paused"/...) and media_title /
+ * media_artist. Any argument may be NULL when the update did not carry it
+ * (HA sends only changed attributes); keep the previous value then. */
+typedef void (*ha_media_cb_t)(const char *entity_id, const char *state, const char *title,
+                              const char *artist);
+void ha_client_set_media_cb(ha_media_cb_t cb);
+
 /* Fires on auth success (true) and on disconnect (false). */
 typedef void (*ha_conn_cb_t)(bool connected);
 

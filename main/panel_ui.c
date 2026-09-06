@@ -188,6 +188,15 @@ static lv_obj_t *s_eye_glow;      /* radial gradient over the pupil */
 static lv_obj_t *s_eye_ring;      /* thin rotating arc around the rim */
 static lv_grad_dsc_t s_eye_glow_grad;
 static lv_obj_t *s_eye_temps[PANEL_TEMP_SENSOR_COUNT]; /* room temperatures, top-left column */
+/* Now playing (WiiM): shown bottom-left of the eye saver while a player plays. */
+typedef struct {
+    char state[16];
+    char title[64];
+    char artist[64];
+} media_state_t;
+static media_state_t s_media[PANEL_MEDIA_COUNT];
+static lv_obj_t *s_eye_media_where; /* "♪ Woonkamer" */
+static lv_obj_t *s_eye_media_what;  /* "Artist - Title" */
 static lv_timer_t *s_eye_flicker_timer;
 static int s_saver_mode;          /* 0 = scherm uit (backlight off), 1 = AI oog */
 static lv_obj_t *s_saver_mode_dd;
@@ -1589,6 +1598,73 @@ static void saver_refresh_temps(void)
     }
 }
 
+/* Bottom-left "now playing" line: first player in the playing state, or
+ * nothing at all. Caller holds the LVGL lock. */
+static void saver_refresh_media(void)
+{
+    if (s_eye_media_where == NULL) {
+        return;
+    }
+    for (int i = 0; i < (int)PANEL_MEDIA_COUNT; i++) {
+        if (strcmp(s_media[i].state, "playing") != 0) {
+            continue;
+        }
+        lv_label_set_text_fmt(s_eye_media_where, LV_SYMBOL_AUDIO "  %s", PANEL_MEDIA_PLAYERS[i].label);
+        if (s_media[i].artist[0] && s_media[i].title[0]) {
+            lv_label_set_text_fmt(s_eye_media_what, "%s  -  %s", s_media[i].artist, s_media[i].title);
+        } else {
+            lv_label_set_text(s_eye_media_what, s_media[i].title[0] ? s_media[i].title : "");
+        }
+        lv_obj_remove_flag(s_eye_media_where, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(s_eye_media_what, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_add_flag(s_eye_media_where, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_eye_media_what, LV_OBJ_FLAG_HIDDEN);
+}
+
+/* Copy an attribute, dropping the " \xE2\x80\xA2 ..." suffix some sources
+ * append (e.g. "The Paper Kites \xE2\x80\xA2 Video beschikbaar"). */
+static void media_copy(char *dst, size_t n, const char *src)
+{
+    strlcpy(dst, src, n);
+    char *cut = strstr(dst, " \xE2\x80\xA2");
+    if (cut) {
+        *cut = '\0';
+    }
+}
+
+void panel_ui_set_media(const char *entity_id, const char *state, const char *title,
+                        const char *artist)
+{
+    int idx = -1;
+    for (int i = 0; i < (int)PANEL_MEDIA_COUNT; i++) {
+        if (strcmp(PANEL_MEDIA_PLAYERS[i].entity_id, entity_id) == 0) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0) {
+        return;
+    }
+    if (state) {
+        strlcpy(s_media[idx].state, state, sizeof(s_media[idx].state));
+    }
+    if (title) {
+        media_copy(s_media[idx].title, sizeof(s_media[idx].title), title);
+    }
+    if (artist) {
+        media_copy(s_media[idx].artist, sizeof(s_media[idx].artist), artist);
+    }
+    /* Only touch LVGL while the eye saver is on screen. */
+    if (s_saver == NULL || lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN) ||
+        s_saver_mode != SAVER_MODE_EYE || !bsp_display_lock(500)) {
+        return;
+    }
+    saver_refresh_media();
+    bsp_display_unlock();
+}
+
 /* Show the saver in the configured mode. Caller holds the LVGL lock. */
 static void saver_show(void)
 {
@@ -1606,6 +1682,7 @@ static void saver_show(void)
     lv_obj_move_foreground(s_saver);
     if (s_saver_mode == SAVER_MODE_EYE && s_eye_group) {
         saver_refresh_temps();
+        saver_refresh_media();
         lv_obj_remove_flag(s_eye_group, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(s_saver_clock, lv_color_hex(0x5a3028), 0); /* ember, fits the eye */
         eye_anims_start();
@@ -1730,6 +1807,22 @@ static void create_screensaver(lv_obj_t *root)
         lv_obj_set_style_text_color(s_eye_temps[i], lv_color_hex(0x7a3d30), 0); /* ember */
         lv_obj_align(s_eye_temps[i], LV_ALIGN_TOP_LEFT, 28, 24 + i * 40);
     }
+
+    /* Now playing, bottom-left (eye mode only, hidden unless playing). */
+    s_eye_media_where = lv_label_create(s_eye_group);
+    lv_label_set_text(s_eye_media_where, "");
+    lv_obj_set_style_text_font(s_eye_media_where, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(s_eye_media_where, lv_color_hex(0x7a3d30), 0);
+    lv_obj_align(s_eye_media_where, LV_ALIGN_BOTTOM_LEFT, 28, -58);
+    lv_obj_add_flag(s_eye_media_where, LV_OBJ_FLAG_HIDDEN);
+    s_eye_media_what = lv_label_create(s_eye_group);
+    lv_label_set_text(s_eye_media_what, "");
+    lv_label_set_long_mode(s_eye_media_what, LV_LABEL_LONG_DOT);
+    lv_obj_set_size(s_eye_media_what, 470, 30); /* one line; DOT truncates with "..." */
+    lv_obj_set_style_text_font(s_eye_media_what, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(s_eye_media_what, lv_color_hex(0xa8543f), 0);
+    lv_obj_align(s_eye_media_what, LV_ALIGN_BOTTOM_LEFT, 28, -22);
+    lv_obj_add_flag(s_eye_media_what, LV_OBJ_FLAG_HIDDEN);
 
     s_saver_clock = lv_label_create(s_saver);
     lv_label_set_text(s_saver_clock, "--:--");

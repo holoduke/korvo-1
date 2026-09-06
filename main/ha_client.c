@@ -59,6 +59,7 @@ static struct { int id; const char *entity; } s_hist_pending[HA_HISTORY_PENDING]
 static int s_forecast_id;              /* msg id of the pending get_forecasts */
 static char s_weather_entity[48];      /* cached for periodic refresh */
 static ha_caps_cb_t s_caps_cb;
+static ha_media_cb_t s_media_cb;
 
 static esp_err_t send_json(cJSON *root)
 {
@@ -159,6 +160,16 @@ static void handle_entity_object(const cJSON *entities, bool changed)
         }
         const cJSON *state = cJSON_GetObjectItem(body, "s");
         const cJSON *attrs = cJSON_GetObjectItem(body, "a");
+        if (strncmp(entity->string, "media_player.", 13) == 0) {
+            if (s_media_cb) {
+                const cJSON *title = cJSON_GetObjectItem(attrs, "media_title");
+                const cJSON *artist = cJSON_GetObjectItem(attrs, "media_artist");
+                s_media_cb(entity->string, cJSON_IsString(state) ? state->valuestring : NULL,
+                           cJSON_IsString(title) ? title->valuestring : NULL,
+                           cJSON_IsString(artist) ? artist->valuestring : NULL);
+            }
+            continue;
+        }
         const float temperature = attrs ? read_temperature_attr(attrs) : NAN;
         const int brightness = attrs ? read_brightness_attr(attrs) : -1;
         if (attrs) {
@@ -371,6 +382,11 @@ void ha_client_set_forecast_cb(ha_forecast_cb_t cb)
 void ha_client_set_history_cb(ha_history_cb_t cb)
 {
     s_history_cb = cb;
+}
+
+void ha_client_set_media_cb(ha_media_cb_t cb)
+{
+    s_media_cb = cb;
 }
 
 esp_err_t ha_client_request_history(const char *entity_id, int hours)
