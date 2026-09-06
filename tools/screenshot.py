@@ -5,7 +5,7 @@ Usage: tools/screenshot.py out.png [--ip 192.168.2.160] [--tab N] [--drawer 0|1]
                            [--settings 0|1] [--scale 2]
 The firmware serves GET /api/screen (see main/web_ui.c).
 """
-import argparse, struct, sys, urllib.request, zlib
+import argparse, os, struct, sys, urllib.request, zlib
 
 def png(w, h, rgb565):
     raw = bytearray()
@@ -30,7 +30,10 @@ a = ap.parse_args()
 q = [f'scale={a.scale}'] + [f'{k}={v}' for k, v in (('tab', a.tab), ('drawer', a.drawer),
                                                    ('settings', a.settings)) if v is not None]
 url = f'http://{a.ip}/api/screen?' + '&'.join(q)
-data = urllib.request.urlopen(url, timeout=60).read()
+tok_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'secrets', 'ha_token.txt')
+token = open(tok_path).read().strip()
+req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
+data = urllib.request.urlopen(req, timeout=60).read()
 nl = data.index(b'\n')
 tag, w, h = data[:nl].decode().split()
 w, h = int(w), int(h)

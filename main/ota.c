@@ -40,6 +40,11 @@ static bool ota_authorized(httpd_req_t *req)
     return strcmp(p, s_auth_token) == 0;
 }
 
+bool ota_request_authorized(httpd_req_t *req)
+{
+    return ota_authorized(req);
+}
+
 /* POST /update : stream the firmware body into the inactive OTA slot. */
 static esp_err_t update_post_handler(httpd_req_t *req)
 {

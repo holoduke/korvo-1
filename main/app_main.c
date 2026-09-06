@@ -444,7 +444,7 @@ void app_main(void)
      * The panel refreshes at ~60 Hz and LVGL is capped at 15 ms, so this reaches
      * the refresh ceiling without the PPA queue hazard. */
     display_cfg.enable_ppa_accel = false;
-    display_cfg.task_stack_size = 8192;
+    display_cfg.task_stack_size = 12288; /* 8 KB left only ~2.3 KB headroom (see /api/tasks) */
     ESP_LOGI(TAG, "before display: internal heap free %u, low-water %u bytes",
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
              (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));

@@ -15,6 +15,7 @@
 #include "freertos/task.h"
 #include "bsp/display.h"
 #include "metrics.h"
+#include "ota.h"
 #include "panel_ui.h"
 
 static const char *TAG = "web_ui";
@@ -255,6 +256,10 @@ static int query_int(httpd_req_t *req, const char *key, int dflt)
 
 static esp_err_t screen_get(httpd_req_t *req)
 {
+    if (!ota_request_authorized(req)) { /* it can drive the UI: same token as OTA */
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
+        return ESP_FAIL;
+    }
     const int tab = query_int(req, "tab", -1);
     const int drawer = query_int(req, "drawer", -1);
     const int settings = query_int(req, "settings", -1);
