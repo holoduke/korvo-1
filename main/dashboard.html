@@ -200,17 +200,38 @@
     }catch(e){}
   }
 
+  let inflight=false, inited=false;
   async function loadMetrics(first){
+    if(inflight) return;                      // never overlap polls (panel has few sockets)
+    inflight=true;
+    try{ await loadMetricsInner(first); } finally{ inflight=false; }
+  }
+  const COLS=['t','heap','heap_min','psram','rssi','temp','fps'];
+  async function loadMetricsInner(first){
     let d;
-    try{ d = await fetchJSON('/api/metrics'); }
+    // After the first full load, poll only the samples newer than what we have
+    // (a full 12 h history is ~340 KB; the panel serves it over a weak link).
+    const lastT = (DATA && DATA.t && DATA.t.length) ? DATA.t[DATA.t.length-1] : null;
+    try{ d = await fetchJSON(lastT===null ? '/api/metrics' : '/api/metrics?since='+lastT); }
     catch(e){ setLive(false); return; }
     setLive(true);
     clockBase = Date.now(); serverNow = d.now;
     const prevMax = DATA ? DATA.t[DATA.t.length-1] : null;
+    if(lastT!==null && d.t.length && d.t[0] > lastT){
+      // append + keep at most the device's own history length
+      const cap = Math.round(12*3600/(d.interval||5));
+      for(const k of COLS){ DATA[k].push(...d[k]); if(DATA[k].length>cap) DATA[k].splice(0, DATA[k].length-cap); }
+      DATA.now = d.now; d = DATA;
+    } else if(lastT!==null && !d.t.length){
+      DATA.now = d.now; d = DATA;           // nothing new yet
+    } else if(lastT!==null && d.t[0] <= lastT){
+      // panel rebooted (uptime reset): start over with the fresh full history
+      try{ d = await fetchJSON('/api/metrics'); } catch(e){ setLive(false); return; }
+    }
     DATA = d;
     if(d.t.length<2){ $('#charts').innerHTML='<div class="empty">Collecting first samples…</div>'; charts=[]; return; }
     if(!charts.length) buildCharts();
-    if(first){ setRange(0); markRange(RANGES.length-1); }   // default: All
+    if(!inited){ setRange(0); markRange(RANGES.length-1); inited=true; }   // default: All
     else if(follow){ const span=view.x1-view.x0; view.x1=d.t[d.t.length-1]; view.x0=view.x1-span; }
     clampView();
     renderAll();
@@ -392,6 +413,7 @@
     const tAt=cx=>{ const r=oGrab.getBoundingClientRect(); const [lo,hi]=dataExtent(); return lo+clamp((cx-r.left)/r.width,0,1)*(hi-lo); };
     oGrab.addEventListener('pointerdown',e=>{ oGrab.setPointerCapture(e.pointerId);
       const r=oGrab.getBoundingClientRect(), x=e.clientX-r.left, sel=oGrab._sel;
+      if(!sel) return;
       if(Math.abs(x-sel.a)<10) mode='l'; else if(Math.abs(x-sel.b)<10) mode='r';
       else if(x>sel.a&&x<sel.b){ mode='m'; grab=tAt(e.clientX)-view.x0; }
       else { mode='m'; const span=view.x1-view.x0; const c=tAt(e.clientX); view.x0=c-span/2; view.x1=c+span/2; grab=span/2; clampView(); renderAll(); }

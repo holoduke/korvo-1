@@ -4,9 +4,14 @@
 #include <string.h>
 
 #include "bsp/esp32_s31_korvo.h"
+#include "esp_core_dump.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
+#include "esp_netif.h"
 #include "esp_netif_sntp.h"
+#include "esp_ota_ops.h"
+#include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "nvs_flash.h"
 
@@ -212,6 +217,7 @@ static void on_ha_state(const char *entity_id, const char *state,
     } else {
         panel_ui_set_light_state(entity_id, state);
         if (brightness_pct >= 0) {
+            panel_ui_set_light_brightness(entity_id, brightness_pct);
             panel_ui_set_area_brightness(entity_id, brightness_pct);
         }
     }
@@ -258,24 +264,11 @@ static void on_scan_request(void)
     wifi_mgr_scan_start(on_scan_done);
 }
 
-/* The network services need both Wi-Fi (obviously) and the finished UI (so
- * HA's initial state dump lands on real tiles instead of being lost). Wi-Fi is
- * started before the UI is built, so whichever of the two comes second kicks
- * this off; the spinlock makes the start-once decision race-free between the
- * main task and the Wi-Fi event task. */
-static void start_services_if_ready(void)
+/* Runs once in its own task: starting SNTP, the HA client and the HTTP server
+ * is too heavy for the system event task. */
+static void services_task(void *arg)
 {
-    bool go = false;
-    portENTER_CRITICAL(&s_svc_mux);
-    if (s_wifi_up && s_ui_ready && !s_services_started) {
-        s_services_started = true;
-        go = true;
-    }
-    portEXIT_CRITICAL(&s_svc_mux);
-    if (!go) {
-        return;
-    }
-
+    (void)arg;
     setenv("TZ", PANEL_TIMEZONE, 1);
     tzset();
     esp_sntp_config_t sntp_cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG(PANEL_SNTP_SERVER);
@@ -295,6 +288,56 @@ static void start_services_if_ready(void)
 
     if (ota_start_server(SECRET_HA_TOKEN) != ESP_OK) {
         ESP_LOGW(TAG, "OTA server failed to start");
+    }
+    vTaskDelete(NULL);
+}
+
+/* The network services need both Wi-Fi (obviously) and the finished UI (so
+ * HA's initial state dump lands on real tiles instead of being lost). Wi-Fi is
+ * started before the UI is built, so whichever of the two comes second kicks
+ * this off; the spinlock makes the start-once decision race-free between the
+ * main task and the Wi-Fi event task. */
+static void start_services_if_ready(void)
+{
+    bool go = false;
+    portENTER_CRITICAL(&s_svc_mux);
+    if (s_wifi_up && s_ui_ready && !s_services_started) {
+        s_services_started = true;
+        go = true;
+    }
+    portEXIT_CRITICAL(&s_svc_mux);
+    if (go) {
+        xTaskCreate(services_task, "services", 6144, NULL, 5, NULL);
+    }
+}
+
+/* Settings-screen diagnostics: IP, RSSI, HA link. Cheap; runs every 5 s. */
+static void net_details_cb(void *arg)
+{
+    (void)arg;
+    char ip[16] = "";
+    if (s_wifi_up) {
+        esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        esp_netif_ip_info_t info;
+        if (sta && esp_netif_get_ip_info(sta, &info) == ESP_OK) {
+            snprintf(ip, sizeof(ip), IPSTR, IP2STR(&info.ip));
+        }
+    }
+    panel_ui_set_net_details(s_wifi_up ? ip : NULL, wifi_mgr_get_rssi(), s_ha_up);
+}
+
+/* Rollback safety net: a new image that never brings up the HTTP server (which
+ * is what confirms it, see ota.c) is rolled back by rebooting into the
+ * previous one instead of sitting there unreachable forever. */
+static void rollback_deadline_cb(void *arg)
+{
+    (void)arg;
+    const esp_partition_t *run = esp_ota_get_running_partition();
+    esp_ota_img_states_t st;
+    if (run && esp_ota_get_state_partition(run, &st) == ESP_OK &&
+        st == ESP_OTA_IMG_PENDING_VERIFY) {
+        ESP_LOGE(TAG, "New firmware never came online -> rolling back");
+        esp_ota_mark_app_invalid_rollback_and_reboot();
     }
 }
 
@@ -350,6 +393,30 @@ static void on_brightness(const panel_entity_t *targets, int count, int brightne
 
 void app_main(void)
 {
+    ESP_LOGW(TAG, "boot: reset reason %d, running %s", (int)esp_reset_reason(),
+             esp_ota_get_running_partition() ? esp_ota_get_running_partition()->label : "?");
+    {
+        const esp_partition_t *run = esp_ota_get_running_partition();
+        esp_ota_img_states_t st;
+        if (run && esp_ota_get_state_partition(run, &st) == ESP_OK &&
+            st == ESP_OTA_IMG_PENDING_VERIFY) {
+            ESP_LOGW(TAG, "boot: image pending verification, rollback armed (5 min)");
+            const esp_timer_create_args_t a = { .callback = rollback_deadline_cb,
+                                                .name = "rollback" };
+            esp_timer_handle_t t;
+            if (esp_timer_create(&a, &t) == ESP_OK) {
+                esp_timer_start_once(t, 5ULL * 60 * 1000000);
+            }
+        }
+    }
+
+    /* A never-written coredump partition holds random flash contents, which the
+     * core dump component reports as a corrupt image at every boot. Erase it
+     * once so a real crash dump is unambiguous. */
+    if (esp_core_dump_image_check() != ESP_OK) {
+        esp_core_dump_image_erase();
+    }
+
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -378,11 +445,17 @@ void app_main(void)
      * the refresh ceiling without the PPA queue hazard. */
     display_cfg.enable_ppa_accel = false;
     display_cfg.task_stack_size = 8192;
+    ESP_LOGI(TAG, "before display: internal heap free %u, low-water %u bytes",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     lv_display_t *disp = bsp_display_start_with_config(&display_cfg);
     if (disp == NULL) {
         ESP_LOGE(TAG, "Display init failed");
         return;
     }
+    ESP_LOGI(TAG, "display up: internal heap free %u, low-water %u bytes",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
     bsp_display_backlight_on();
 
     if (bsp_display_lock(-1)) {
@@ -390,8 +463,9 @@ void app_main(void)
         panel_ui_set_color_callbacks(on_set_color, on_set_warmth);
         bsp_display_unlock();
     }
-    ESP_LOGI(TAG, "UI built; free internal heap %u bytes",
-             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
+    ESP_LOGI(TAG, "UI built; internal heap free %u, low-water %u bytes",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+             (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
 
     char ssid[33] = {0};
     wifi_mgr_get_ssid(ssid, sizeof(ssid));
@@ -403,6 +477,12 @@ void app_main(void)
 
     s_ui_ready = true;
     start_services_if_ready();
+
+    const esp_timer_create_args_t nargs = { .callback = net_details_cb, .name = "netinfo" };
+    esp_timer_handle_t ntimer;
+    if (esp_timer_create(&nargs, &ntimer) == ESP_OK) {
+        esp_timer_start_periodic(ntimer, 5ULL * 1000000);
+    }
 
     /* Start telemetry sampling into the PSRAM ring buffer (served by the web
      * dashboard once Wi-Fi + the HTTP server are up). */

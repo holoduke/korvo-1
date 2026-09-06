@@ -11,6 +11,10 @@
 #include "lvgl.h"
 #include "nvs.h"
 #include "panel_config.h"
+#include "esp_app_desc.h"
+#include "esp_heap_caps.h"
+#include "esp_ota_ops.h"
+#include "esp_timer.h"
 #ifdef PANEL_ENABLE_SCREEN_DUMP /* on-device screenshot helper (off by default) */
 #include "esp_heap_caps.h"
 #include "mbedtls/base64.h"
@@ -54,6 +58,7 @@ typedef struct {
     int max_k;
     int tab_idx;     /* which tab this tile belongs to (for snapshot invalidation) */
     int last_render; /* TILE_STATE_* last applied, to skip no-op updates */
+    int brightness;  /* last known 0-100 from HA, 0 = unknown/off */
 } light_tile_t;
 
 static light_tile_t s_tiles[PANEL_MAX_LIGHTS];
@@ -106,6 +111,12 @@ static lv_obj_t *s_pass_ta;
 static panel_ui_wifi_cb_t s_wifi_cb;
 static panel_ui_scan_cb_t s_scan_cb;
 static lv_obj_t *s_wifi_sel_lbl;  /* settings-row value: SSID / "Niet verbonden" */
+static lv_obj_t *s_net_lbl;       /* settings-row value: ip / rssi / HA state */
+static lv_obj_t *s_fw_lbl;        /* settings-row value: version / partition / uptime */
+static char s_net_ip[16];         /* last reported connection details */
+static int s_net_rssi;
+static bool s_net_ha_up;
+static void render_net_details(void);
 static lv_obj_t *s_wifi_btn_lbl;  /* settings-row button label: Verbinden / Wijzig */
 static lv_obj_t *s_wifi_list;     /* scanned-network picker overlay */
 static lv_obj_t *s_wifi_list_box; /* scrollable list inside the picker */
@@ -229,7 +240,8 @@ static void open_light_popup(const light_tile_t *tile)
 {
     s_popup_entity = tile->entity;
     lv_label_set_text(s_popup_title, tile->entity->label);
-    lv_slider_set_value(s_popup_slider, 50, LV_ANIM_OFF);
+    lv_slider_set_value(s_popup_slider, tile->brightness > 0 ? tile->brightness : 50,
+                        LV_ANIM_OFF);
 
     /* Second slider: colour if the light supports it, else warmth, else none. */
     if (tile->caps & TILE_CAP_COLOR) {
@@ -1252,6 +1264,7 @@ static void on_saver_click(lv_event_t *e)
 {
     (void)e;
     lv_obj_add_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
+    bsp_display_backlight_on();
 }
 
 static void saver_timer_cb(lv_timer_t *t)
@@ -1276,6 +1289,10 @@ static void saver_timer_cb(lv_timer_t *t)
         lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
         lv_obj_remove_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(s_saver);
+        /* The backlight GPIO is on/off only (no PWM), so "dim" means off: a
+         * black overlay with the backlight lit still burns the full panel
+         * power. Any touch wakes it (on_saver_click). */
+        bsp_display_backlight_off();
     }
 }
 
@@ -1326,6 +1343,7 @@ static void on_settings_open(lv_event_t *e)
 {
     (void)e;
     if (s_settings) {
+        render_net_details(); /* show current diagnostics immediately */
         lv_obj_remove_flag(s_settings, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(s_settings);
     }
@@ -1547,12 +1565,18 @@ static void create_settings(lv_obj_t *root)
     lv_obj_center(s_wifi_btn_lbl);
 
     /* --- Screensaver row: title left, timeout dropdown right. --- */
-    lv_obj_t *sr = settings_row(s_settings, LV_SYMBOL_EYE_OPEN "  Screensaver na");
+    lv_obj_t *sr = settings_row(s_settings, LV_SYMBOL_EYE_OPEN "  Scherm uit na");
     s_saver_dd = lv_dropdown_create(sr);
     lv_dropdown_set_options(s_saver_dd, SAVER_OPTS_STR);
     lv_obj_set_width(s_saver_dd, 170);
     lv_dropdown_set_selected(s_saver_dd, saver_load_idx());
     lv_obj_add_event_cb(s_saver_dd, on_saver_dd_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    /* --- Diagnostics: connection + firmware (updated by panel_ui_set_net_details). --- */
+    lv_obj_t *nr = settings_row(s_settings, LV_SYMBOL_LOOP "  Verbinding");
+    s_net_lbl = settings_label(nr, "--", &lv_font_montserrat_18, COLOR_TEXT_DIM);
+    lv_obj_t *fr = settings_row(s_settings, LV_SYMBOL_DRIVE "  Firmware");
+    s_fw_lbl = settings_label(fr, "--", &lv_font_montserrat_18, COLOR_TEXT_DIM);
 
     /* Network picker: a modal on the top layer, above the settings screen. */
     s_wifi_list = lv_obj_create(lv_layer_top());
@@ -1700,7 +1724,8 @@ void panel_ui_set_networks(const char *const *ssids, const int8_t *rssi, int cou
 
 void panel_ui_set_wifi_connected(bool connected, const char *ssid)
 {
-    if (s_wifi_sel_lbl == NULL || !bsp_display_lock(500)) {
+    /* Generous timeout: the first full render can hold the LVGL lock > 500 ms. */
+    if (s_wifi_sel_lbl == NULL || !bsp_display_lock(3000)) {
         return;
     }
     if (connected && ssid && strlen(ssid) > 0) {
@@ -2038,6 +2063,91 @@ static void on_content_released(lv_event_t *e)
 
 
 
+/* ---- Remote verification: drive the UI + capture the composited screen -- */
+void panel_ui_debug_select(int tab, int drawer_open, int settings_open)
+{
+    if (s_tabview == NULL || !bsp_display_lock(1000)) {
+        return;
+    }
+    if (tab >= 0 && tab < (int)PANEL_TAB_COUNT &&
+        (int)lv_tabview_get_tab_active(s_tabview) != tab) {
+        if (s_drawer_open) { /* drawers are per tab: close before switching */
+            on_show_all_clicked(NULL);
+        }
+        lv_tabview_set_active(s_tabview, (uint32_t)tab, LV_ANIM_OFF);
+    }
+    if (drawer_open >= 0 && (drawer_open != 0) != s_drawer_open) {
+        on_show_all_clicked(NULL);
+    }
+    if (settings_open >= 0 && s_settings) {
+        if (settings_open) {
+            render_net_details();
+            lv_obj_remove_flag(s_settings, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(s_settings);
+        } else {
+            lv_obj_add_flag(s_settings, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    bsp_display_unlock();
+}
+
+/* True if any direct child of the layer is visible (cheap overlay test). */
+static bool layer_has_visible(lv_obj_t *layer)
+{
+    const uint32_t n = lv_obj_get_child_count(layer);
+    for (uint32_t i = 0; i < n; i++) {
+        if (!lv_obj_has_flag(lv_obj_get_child(layer, i), LV_OBJ_FLAG_HIDDEN)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+lv_draw_buf_t *panel_ui_capture(void)
+{
+    if (!bsp_display_lock(2000)) {
+        return NULL;
+    }
+    lv_draw_buf_t *snap = lv_snapshot_take(lv_screen_active(), LV_COLOR_FORMAT_RGB565);
+    lv_draw_buf_t *top = NULL;
+    if (snap && layer_has_visible(lv_layer_top())) {
+        top = lv_snapshot_take(lv_layer_top(), LV_COLOR_FORMAT_ARGB8888);
+    }
+    bsp_display_unlock();
+    if (snap == NULL) {
+        ESP_LOGW(TAG, "screen snapshot failed");
+        return NULL;
+    }
+    if (top == NULL) {
+        return snap;
+    }
+    /* Alpha-blend the overlay (BGRA bytes) onto the RGB565 screen. */
+    const int w = LV_MIN(snap->header.w, top->header.w);
+    const int h = LV_MIN(snap->header.h, top->header.h);
+    for (int y = 0; y < h; y++) {
+        uint16_t *dst = (uint16_t *)(snap->data + y * snap->header.stride);
+        const uint8_t *src = top->data + y * top->header.stride;
+        for (int x = 0; x < w; x++, src += 4) {
+            const int a = src[3];
+            if (a == 0) {
+                continue;
+            }
+            int r = src[2], g = src[1], b = src[0];
+            if (a < 255) {
+                const uint16_t d = dst[x];
+                const int dr = ((d >> 11) & 0x1f) << 3, dg = ((d >> 5) & 0x3f) << 2,
+                          db = (d & 0x1f) << 3;
+                r = (r * a + dr * (255 - a)) / 255;
+                g = (g * a + dg * (255 - a)) / 255;
+                b = (b * a + db * (255 - a)) / 255;
+            }
+            dst[x] = (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+        }
+    }
+    lv_draw_buf_destroy(top);
+    return snap;
+}
+
 #ifdef PANEL_ENABLE_SCREEN_DUMP
 /* ---- Screen dump (verification helper, build with -DPANEL_ENABLE_SCREEN_DUMP)
  * Snapshots the active screen, downsamples 2x, and streams it over the serial
@@ -2246,6 +2356,59 @@ void panel_ui_set_scene_active(const char *entity_id)
     }
 }
 
+void panel_ui_set_light_brightness(const char *entity_id, int brightness_pct)
+{
+    if (entity_id == NULL || brightness_pct < 0) {
+        return;
+    }
+    /* Plain data update: no LVGL objects touched, so no lock needed. */
+    for (int i = 0; i < s_tile_count; i++) {
+        if (strcmp(s_tiles[i].entity->entity_id, entity_id) == 0) {
+            s_tiles[i].brightness = brightness_pct;
+        }
+    }
+}
+
+/* Render the stored connection/firmware details into the settings rows.
+ * Caller holds the LVGL lock. */
+static void render_net_details(void)
+{
+    if (s_net_lbl == NULL || s_fw_lbl == NULL) {
+        return;
+    }
+    const char *bullet = "  \xE2\x80\xA2  ";
+    if (s_net_ip[0]) {
+        const int r = s_net_rssi;
+        const char *q = r >= -67 ? "goed" : r >= -75 ? "matig" : "zwak";
+        lv_label_set_text_fmt(s_net_lbl, "%s%s%d dBm (%s)%sHA %s", s_net_ip, bullet, r, q,
+                              bullet, s_net_ha_up ? "verbonden" : "niet verbonden");
+        lv_obj_set_style_text_color(s_net_lbl, s_net_ha_up ? COLOR_OK : COLOR_WARN, 0);
+    } else {
+        lv_label_set_text(s_net_lbl, "Geen netwerk");
+        lv_obj_set_style_text_color(s_net_lbl, COLOR_BAD, 0);
+    }
+    const esp_app_desc_t *d = esp_app_get_description();
+    const esp_partition_t *run = esp_ota_get_running_partition();
+    const uint32_t up = (uint32_t)(esp_timer_get_time() / 1000000ULL);
+    lv_label_set_text_fmt(s_fw_lbl, "%s%s%s%s%lu:%02lu uur aan", d->version, bullet,
+                          run ? run->label : "?", bullet,
+                          (unsigned long)(up / 3600), (unsigned long)((up / 60) % 60));
+}
+
+void panel_ui_set_net_details(const char *ip, int rssi_dbm, bool ha_up)
+{
+    strlcpy(s_net_ip, ip ? ip : "", sizeof(s_net_ip));
+    s_net_rssi = rssi_dbm;
+    s_net_ha_up = ha_up;
+    /* Only touch LVGL while the settings screen is actually visible. */
+    if (s_settings == NULL || lv_obj_has_flag(s_settings, LV_OBJ_FLAG_HIDDEN) ||
+        !bsp_display_lock(500)) {
+        return;
+    }
+    render_net_details();
+    bsp_display_unlock();
+}
+
 void panel_ui_set_area_brightness(const char *entity_id, int brightness_pct)
 {
     if (entity_id == NULL || brightness_pct < 0 || s_tabview == NULL) {
@@ -2378,7 +2541,7 @@ void panel_ui_set_humidity(const char *entity_id, float percent)
 
 void panel_ui_set_link_status(bool wifi_up, bool ha_up)
 {
-    if (s_status_dot == NULL || !bsp_display_lock(1000)) {
+    if (s_status_dot == NULL || !bsp_display_lock(3000)) {
         return; /* Wi-Fi can come up before the UI exists */
     }
     lv_color_t color = COLOR_BAD;

@@ -41,6 +41,10 @@ void panel_ui_set_scene_active(const char *entity_id);
 /* Reflect a light's brightness on the area slider (if entity_id is a tab's
  * representative light and the user isn't dragging). */
 void panel_ui_set_area_brightness(const char *entity_id, int brightness_pct);
+/* Remember a light's brightness so the long-press popup opens at its real level. */
+void panel_ui_set_light_brightness(const char *entity_id, int brightness_pct);
+/* Connection details for the settings screen (ip may be NULL when down). */
+void panel_ui_set_net_details(const char *ip, int rssi_dbm, bool ha_up);
 /* Register colour/warmth callbacks for the long-press popup. */
 void panel_ui_set_color_callbacks(panel_ui_color_cb_t color_cb, panel_ui_warmth_cb_t warmth_cb);
 /* Report a light's colour capabilities (HA_LIGHT_* flags) + colour-temp range. */
@@ -55,3 +59,12 @@ void panel_ui_set_temp_sensor(const char *entity_id, float temperature);
 /* Update a header humidity reading (PANEL_TEMP_SENSORS humidity entity). */
 void panel_ui_set_humidity(const char *entity_id, float percent);
 void panel_ui_set_link_status(bool wifi_up, bool ha_up);
+
+/* ---- Verification helpers (used by GET /api/screen) --------------------- */
+/* Drive the UI remotely: select a tab, open/close the active tab's drawer,
+ * open/close settings. -1 leaves that aspect untouched. Thread-safe. */
+void panel_ui_debug_select(int tab, int drawer_open, int settings_open);
+/* Composite the live screen plus any visible top-layer overlay (popup,
+ * settings, screensaver) into a new RGB565 draw buffer. Caller destroys it
+ * with lv_draw_buf_destroy(). NULL on failure. Thread-safe. */
+lv_draw_buf_t *panel_ui_capture(void);

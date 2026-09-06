@@ -11,13 +11,19 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_websocket_client.h"
+#include "ota.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 static const char *TAG = "ha_client";
 
 #define HA_RX_BUFFER_SIZE (64 * 1024) /* initial subscribe payload can be large */
-#define HA_WS_BUFFER_SIZE (16 * 1024)
+/* Transport buffer (allocated twice, internal RAM). Big messages are reassembled
+ * into s_rx_buf anyway, so this only bounds per-event chunk size. */
+#define HA_WS_BUFFER_SIZE (8 * 1024)
+#define HA_SEND_TIMEOUT_MS 2000       /* UI-originated sends must not stall the LVGL task */
+#define HA_RECONNECT_MS 5000
+#define HA_RECONNECT_AUTH_FAIL_MS 60000 /* don't hammer HA (and its login-attempt ban) */
 
 static esp_websocket_client_handle_t s_client;
 static ha_state_cb_t s_state_cb;
@@ -36,7 +42,10 @@ static int next_msg_id(void)
 
 static char *s_rx_buf;
 static size_t s_rx_len;
-static volatile int64_t s_last_rx_us; /* last time any frame arrived */
+static bool s_rx_drop;                    /* current message overflowed: skip its tail */
+static volatile uint32_t s_last_rx_tick;  /* last time any frame arrived (32-bit: atomic) */
+static volatile bool s_ws_stopped;        /* client task exited -> heartbeat restarts it */
+static int s_forced_reconnects;           /* consecutive stale-link reconnects */
 
 static ha_forecast_cb_t s_forecast_cb;
 static int s_forecast_id;              /* msg id of the pending get_forecasts */
@@ -50,7 +59,7 @@ static esp_err_t send_json(cJSON *root)
     ESP_RETURN_ON_FALSE(text != NULL, ESP_ERR_NO_MEM, TAG, "print json");
 
     const int sent = esp_websocket_client_send_text(s_client, text, strlen(text),
-                                                    pdMS_TO_TICKS(5000));
+                                                    pdMS_TO_TICKS(HA_SEND_TIMEOUT_MS));
     free(text);
     ESP_RETURN_ON_FALSE(sent >= 0, ESP_FAIL, TAG, "ws send failed");
     return ESP_OK;
@@ -93,7 +102,8 @@ static int read_brightness_attr(const cJSON *attrs)
     if (!cJSON_IsNumber(bri)) {
         return -1;
     }
-    return (int)((bri->valuedouble * 100.0 / 255.0) + 0.5);
+    const int pct = (int)((bri->valuedouble * 100.0 / 255.0) + 0.5);
+    return (pct == 0 && bri->valuedouble > 0) ? 1 : pct; /* 1-2/255 is still "on" */
 }
 
 /* Derive colour/warmth capabilities from supported_color_modes and report them. */
@@ -158,6 +168,11 @@ static void handle_forecast_result(const cJSON *root);
 
 static void handle_message(const char *data, size_t len)
 {
+    if (len > 16 * 1024) { /* the initial state dump: show what it costs */
+        ESP_LOGI(TAG, "large message %u bytes; internal heap free %u, low-water %u",
+                 (unsigned)len, (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                 (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+    }
     cJSON *root = cJSON_ParseWithLength(data, len);
     if (root == NULL) {
         ESP_LOGW(TAG, "Unparseable message (%u bytes)", (unsigned)len);
@@ -174,12 +189,16 @@ static void handle_message(const char *data, size_t len)
         send_auth();
     } else if (strcmp(type->valuestring, "auth_ok") == 0) {
         ESP_LOGI(TAG, "Authenticated with Home Assistant");
+        s_forced_reconnects = 0;
+        esp_websocket_client_set_reconnect_timeout(s_client, HA_RECONNECT_MS);
         send_subscribe();
         if (s_conn_cb) {
             s_conn_cb(true);
         }
     } else if (strcmp(type->valuestring, "auth_invalid") == 0) {
         ESP_LOGE(TAG, "Auth REJECTED - check secrets/ha_token.txt");
+        /* HA closes the socket next; retry slowly so we don't trip its login ban. */
+        esp_websocket_client_set_reconnect_timeout(s_client, HA_RECONNECT_AUTH_FAIL_MS);
     } else if (strcmp(type->valuestring, "event") == 0) {
         const cJSON *event = cJSON_GetObjectItem(root, "event");
         const cJSON *added = cJSON_GetObjectItem(event, "a");
@@ -213,7 +232,8 @@ static void on_ws_event(void *arg, esp_event_base_t base, int32_t event_id, void
     case WEBSOCKET_EVENT_CONNECTED:
         ESP_LOGI(TAG, "WebSocket connected, waiting for auth_required");
         s_rx_len = 0;
-        s_last_rx_us = esp_timer_get_time();
+        s_rx_drop = false;
+        s_last_rx_tick = xTaskGetTickCount();
         break;
 
     case WEBSOCKET_EVENT_DISCONNECTED:
@@ -224,25 +244,40 @@ static void on_ws_event(void *arg, esp_event_base_t base, int32_t event_id, void
         }
         break;
 
+    case WEBSOCKET_EVENT_FINISH:
+        /* The client task exited (it does so after some close paths). The
+         * heartbeat restarts it; the built-in reconnect only covers aborts. */
+        ESP_LOGW(TAG, "WebSocket task finished");
+        s_ws_stopped = true;
+        break;
+
     case WEBSOCKET_EVENT_DATA:
-        /* Only text frames (opcode 1) and their continuations (opcode 0). */
+        /* Only text frames (opcode 1) and their continuations (opcode 0). The
+         * client chunks big frames (payload_offset advances) and a message may
+         * also span several WS frames (fin=false); both are reassembled here. */
         if (ev->op_code != 1 && ev->op_code != 0) {
             break;
         }
-        s_last_rx_us = esp_timer_get_time();
-        if (ev->payload_offset == 0) {
-            s_rx_len = 0;
+        s_last_rx_tick = xTaskGetTickCount();
+        if (ev->payload_offset == 0 && ev->op_code == 1) {
+            s_rx_len = 0; /* first chunk of a new message */
+            s_rx_drop = false;
+        }
+        if (s_rx_drop) {
+            break; /* tail of a message we already gave up on */
         }
         if (ev->data_len > 0) {
             if (s_rx_len + ev->data_len > HA_RX_BUFFER_SIZE) {
-                ESP_LOGE(TAG, "Message exceeds %d bytes, dropping", HA_RX_BUFFER_SIZE);
+                ESP_LOGE(TAG, "Message exceeds %d bytes, dropping (states will be stale)",
+                         HA_RX_BUFFER_SIZE);
                 s_rx_len = 0;
+                s_rx_drop = true;
                 break;
             }
             memcpy(s_rx_buf + s_rx_len, ev->data_ptr, ev->data_len);
             s_rx_len += ev->data_len;
         }
-        if (ev->payload_offset + ev->data_len >= ev->payload_len && s_rx_len > 0) {
+        if (ev->payload_offset + ev->data_len >= ev->payload_len && ev->fin && s_rx_len > 0) {
             handle_message(s_rx_buf, s_rx_len);
             s_rx_len = 0;
         }
@@ -412,17 +447,27 @@ static void send_ping(void)
 }
 
 /* Watchdog: if HA goes silent (even though TCP looks alive, e.g. after an HA
- * restart), force a reconnect; reboot as a last resort. */
+ * restart), force a reconnect; after three fruitless reconnects in a row,
+ * reboot as a last resort. Also restarts the client task if it exited. */
 static void heartbeat_task(void *arg)
 {
     (void)arg;
-    const int64_t STALE_US = 45LL * 1000000;   /* force reconnect */
-    const int64_t REBOOT_US = 90LL * 1000000;  /* last resort */
+    const uint32_t STALE_MS = 45 * 1000;
+    const int MAX_FORCED = 3;
     int cycles = 0;
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(15000));
-        if (s_client == NULL || !esp_websocket_client_is_connected(s_client)) {
-            continue; /* not connected -> built-in auto-reconnect handles it */
+        if (s_client == NULL) {
+            continue;
+        }
+        if (s_ws_stopped) {
+            s_ws_stopped = false;
+            ESP_LOGW(TAG, "Restarting WebSocket client");
+            esp_websocket_client_start(s_client);
+            continue;
+        }
+        if (!esp_websocket_client_is_connected(s_client)) {
+            continue; /* built-in auto-reconnect is working on it */
         }
         send_ping();
         /* Refresh the forecast roughly every 30 min (120 * 15s). */
@@ -430,17 +475,28 @@ static void heartbeat_task(void *arg)
             cycles = 0;
             ha_client_request_forecast(s_weather_entity);
         }
-        const int64_t idle = esp_timer_get_time() - s_last_rx_us;
-        if (idle > REBOOT_US) {
-            ESP_LOGE(TAG, "HA silent %d s -> rebooting", (int)(idle / 1000000));
-            esp_restart();
-        } else if (idle > STALE_US) {
-            ESP_LOGW(TAG, "HA silent %d s -> forcing reconnect", (int)(idle / 1000000));
-            esp_websocket_client_close(s_client, pdMS_TO_TICKS(2000));
+        const uint32_t idle_ms = (xTaskGetTickCount() - s_last_rx_tick) * portTICK_PERIOD_MS;
+        if (idle_ms > STALE_MS) {
+            if (++s_forced_reconnects >= MAX_FORCED && !ota_in_progress()) {
+                ESP_LOGE(TAG, "HA silent through %d reconnects -> rebooting", MAX_FORCED);
+                esp_restart();
+            }
+            ESP_LOGW(TAG, "HA silent %u s -> forcing reconnect (%d/%d)",
+                     (unsigned)(idle_ms / 1000), s_forced_reconnects, MAX_FORCED);
+            /* The peer is presumed dead: stop (no close handshake) and restart. */
+            esp_websocket_client_stop(s_client);
+            s_ws_stopped = false;
             esp_websocket_client_start(s_client);
-            s_last_rx_us = esp_timer_get_time();
+            s_last_rx_tick = xTaskGetTickCount();
         }
     }
+}
+
+/* cJSON allocations go to PSRAM: the initial state dump parses into thousands
+ * of small nodes that would otherwise churn the internal heap Wi-Fi lives in. */
+static void *json_alloc(size_t n)
+{
+    return heap_caps_malloc(n, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 }
 
 esp_err_t ha_client_start(const char *uri, const char *token,
@@ -460,22 +516,35 @@ esp_err_t ha_client_start(const char *uri, const char *token,
 
     s_rx_buf = heap_caps_malloc(HA_RX_BUFFER_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     ESP_RETURN_ON_FALSE(s_rx_buf != NULL, ESP_ERR_NO_MEM, TAG, "rx buffer alloc");
+    static const cJSON_Hooks hooks = { .malloc_fn = json_alloc, .free_fn = heap_caps_free };
+    cJSON_InitHooks((cJSON_Hooks *)&hooks);
 
     const esp_websocket_client_config_t cfg = {
         .uri = uri,
         .buffer_size = HA_WS_BUFFER_SIZE,
-        .reconnect_timeout_ms = 5000,
+        .reconnect_timeout_ms = HA_RECONNECT_MS,
         .network_timeout_ms = 10000,
         .task_stack = 6144,
+        /* HA sends a clean Close (1001) when it restarts; without this the
+         * client task exits for good and the panel never reconnects. */
+        .enable_close_reconnect = true,
     };
     s_client = esp_websocket_client_init(&cfg);
     ESP_RETURN_ON_FALSE(s_client != NULL, ESP_FAIL, TAG, "ws client init");
 
-    ESP_RETURN_ON_ERROR(esp_websocket_register_events(s_client, WEBSOCKET_EVENT_ANY,
-                                                      on_ws_event, NULL),
-                        TAG, "register events");
-    ESP_RETURN_ON_ERROR(esp_websocket_client_start(s_client), TAG, "ws start");
-    s_last_rx_us = esp_timer_get_time();
+    esp_err_t err = esp_websocket_register_events(s_client, WEBSOCKET_EVENT_ANY, on_ws_event, NULL);
+    if (err == ESP_OK) {
+        err = esp_websocket_client_start(s_client);
+    }
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "ws start failed: %s", esp_err_to_name(err));
+        esp_websocket_client_destroy(s_client);
+        s_client = NULL;
+        heap_caps_free(s_rx_buf);
+        s_rx_buf = NULL;
+        return err;
+    }
+    s_last_rx_tick = xTaskGetTickCount();
     xTaskCreate(heartbeat_task, "ha_hb", 4096, NULL, 4, NULL);
     ESP_LOGI(TAG, "Connecting to %s", uri);
     return ESP_OK;

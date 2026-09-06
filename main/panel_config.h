@@ -88,12 +88,14 @@ static const panel_entity_t TAB_THUIS_DEVICES[] = {
 };
 
 /* ---- Tab: Boven (upper floors) ------------------------------------------ */
+/* HA's light.lampen_bovenverdieping group is broken (no members) and
+ * light.lamp_badkamer_1 no longer exists; the bathroom is badkamer_2_plafond_*. */
 static const panel_entity_t TAB_BOVEN_LIGHTS[] = {
-    { "light.lampen_bovenverdieping",       "Alles boven" },
     { "light.lamp_slaapkamer_gillis_ilse",  "Slaapkamer" },
     { "light.lamp_valerie_kamer_1",         "Valerie" },
     { "light.lamp_jongens_kamer_1",         "Jongens" },
-    { "light.lamp_badkamer_1",              "Badkamer" },
+    { "light.lamp_badkamer_2_plafond_2",    "Badkamer 2" },
+    { "light.lamp_badkamer_2_plafond_3",    "Badkamer 3" },
 };
 static const panel_entity_t TAB_BOVEN_SCENES[] = {
     { "scene.slaapkamer_aan",     "Slaapk. aan" },
@@ -106,7 +108,9 @@ static const panel_entity_t TAB_BOVEN_DEVICES[] = {
     { "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje", "Nachtkastje" },
     { "light.lamp_valerie_kamer_1",              "Valerie" },
     { "light.lamp_jongens_kamer_1",              "Jongens" },
-    { "light.lamp_badkamer_1",                   "Badkamer" },
+    { "light.lamp_badkamer_2_plafond_1",         "Badkamer 1" },
+    { "light.lamp_badkamer_2_plafond_2",         "Badkamer 2" },
+    { "light.lamp_badkamer_2_plafond_3",         "Badkamer 3" },
 };
 
 /* ---- Tab: Zolder (attic) ------------------------------------------------ */
@@ -179,23 +183,10 @@ static const panel_entity_t TAB_GARAGE_DEVICES[] = {
     { "light.lamp_garage_17", "Lamp 17" },
 };
 
-/* ---- Tab: Tuin (garden) ------------------------------------------------- */
-/* PLACEHOLDER entities: HA has no named garden lights yet (only scene.twingly
- * lives in the "Tuin achter" area). Replace these light IDs with the real
- * garden lights once they exist (e.g. in the new house). */
-static const panel_entity_t TAB_TUIN_LIGHTS[] = {
-    { "light.tuin_terras",  "Terras" },
-    { "light.tuin_achter",  "Achtertuin" },
-    { "light.tuin_schuur",  "Schuur" },
-};
-static const panel_entity_t TAB_TUIN_SCENES[] = {
-    { "scene.twingly", "Twinkly" },
-};
-static const panel_entity_t TAB_TUIN_DEVICES[] = {
-    { "light.tuin_terras",  "Terras" },
-    { "light.tuin_achter",  "Achtertuin" },
-    { "light.tuin_schuur",  "Schuur" },
-};
+/* ---- Tab: Tuin (garden) --- not shown yet ------------------------------- */
+/* HA has no garden lights (scene.twingly points at a dead light.ilse), so a
+ * Tuin tab would only show placeholder tiles. Add a TAB_ENTRY once real garden
+ * entities exist. */
 
 /* Tab with no scenes (just the tiles + "Alle lampen" drawer). */
 #define TAB_ENTRY_NS(name, lights, devices) \
@@ -209,7 +200,6 @@ static const panel_tab_t PANEL_TABS[] = {
     TAB_ENTRY_NS("Zolder", TAB_ZOLDER_LIGHTS, TAB_ZOLDER_DEVICES),
     TAB_ENTRY_SCENES("Garage", TAB_GARAGE_LIGHTS, TAB_GARAGE_SCENES, NULL, TAB_GARAGE_SWATCHES,
                      TAB_GARAGE_DEVICES),
-    TAB_ENTRY("Tuin", TAB_TUIN_LIGHTS, TAB_TUIN_SCENES, TAB_TUIN_DEVICES),
 };
 #define PANEL_TAB_COUNT (sizeof(PANEL_TABS) / sizeof(PANEL_TABS[0]))
 
@@ -235,10 +225,9 @@ static const panel_sensor_t PANEL_TEMP_SENSORS[] = {
       "sensor.sensor_zitkamer_achter_1_humidity",       "Zitkamer" },
     { "sensor.sensor_keuken_1_temperature",
       "sensor.sensor_keuken_1_humidity",                "Keuken" },
-    /* Gameroom (beneden): unnamed in Zigbee2MQTT, so the entity id is the
-     * IEEE address. Renaming the device in Z2M changes this id. */
-    { "sensor.0xa4c138c1a5a2f0aa_temperature",
-      "sensor.0xa4c138c1a5a2f0aa_humidity",             "Gameroom" },
-    /* Also available: sensor.sensor_voorkamer_1_temperature / _humidity. */
+    /* Zigbee 0xa4c138c1a5a2f0aa, named "sensor voorkamer 1" in Zigbee2MQTT
+     * (the gameroom). Renaming the device in Z2M changes these ids. */
+    { "sensor.sensor_voorkamer_1_temperature",
+      "sensor.sensor_voorkamer_1_humidity",             "Voorkamer" },
 };
 #define PANEL_TEMP_SENSOR_COUNT (sizeof(PANEL_TEMP_SENSORS) / sizeof(PANEL_TEMP_SENSORS[0]))

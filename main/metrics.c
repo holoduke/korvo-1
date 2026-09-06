@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 
 #include "wifi_mgr.h"
 
@@ -24,7 +25,6 @@ static int s_count;                /* valid samples (<= METRICS_CAP) */
 static SemaphoreHandle_t s_lock;
 static temperature_sensor_handle_t s_tsens;
 static lv_display_t *s_disp;
-static esp_timer_handle_t s_timer;
 
 static uint32_t uptime_s(void)
 {
@@ -57,7 +57,7 @@ static void take_sample(void)
         esp_lv_adapter_fps_stats_reset(s_disp); /* average over the next window */
     }
 
-    if (xSemaphoreTake(s_lock, portMAX_DELAY) == pdTRUE) {
+    if (xSemaphoreTake(s_lock, pdMS_TO_TICKS(1000)) == pdTRUE) {
         s_ring[s_head] = s;
         s_head = (s_head + 1) % METRICS_CAP;
         if (s_count < METRICS_CAP) {
@@ -67,10 +67,16 @@ static void take_sample(void)
     }
 }
 
-static void sample_timer_cb(void *arg)
+/* Own low-priority task rather than an esp_timer callback: reading the FPS
+ * counter takes the LVGL mutex, and blocking the shared esp_timer task on it
+ * would stall the LVGL tick and Wi-Fi driver timers. */
+static void sample_task(void *arg)
 {
     (void)arg;
-    take_sample();
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(METRICS_INTERVAL_S * 1000));
+        take_sample();
+    }
 }
 
 void metrics_start(void *display)
@@ -110,13 +116,7 @@ void metrics_start(void *display)
 
     take_sample(); /* seed so the graph isn't empty at first fetch */
 
-    const esp_timer_create_args_t targs = {
-        .callback = sample_timer_cb,
-        .name = "metrics",
-    };
-    if (esp_timer_create(&targs, &s_timer) == ESP_OK) {
-        esp_timer_start_periodic(s_timer, (uint64_t)METRICS_INTERVAL_S * 1000000);
-    }
+    xTaskCreatePinnedToCore(sample_task, "metrics", 3072, NULL, 2, NULL, 1);
     ESP_LOGI(TAG, "telemetry sampling every %ds, %d-sample history in PSRAM",
              METRICS_INTERVAL_S, METRICS_CAP);
 }
