@@ -233,6 +233,7 @@ typedef struct {
     const char *temp_id;
     const char *humidity_id; /* NULL = no humidity line */
     const char *label;
+    const char *abbr;        /* 3-letter tag for compact views (screensaver) */
     bool indoor;             /* colour the readings against the comfort bands below */
 } panel_sensor_t;
 
@@ -247,16 +248,16 @@ typedef struct {
 #define COMFORT_HUM_MARGIN   10.0f
 static const panel_sensor_t PANEL_TEMP_SENSORS[] = {
     { "sensor.sensor_buiten_voor_1_temperature",
-      "sensor.sensor_buiten_voor_1_humidity",           "Buiten",    false },
+      "sensor.sensor_buiten_voor_1_humidity",           "Buiten",    "BUI", false },
     /* Z2M "sensor voorkamer 1" (0xa4c138c1a5a2f0aa) sits in the zitkamer. */
     { "sensor.sensor_voorkamer_1_temperature",
-      "sensor.sensor_voorkamer_1_humidity",             "Zitkamer",  true },
+      "sensor.sensor_voorkamer_1_humidity",             "Zitkamer",  "ZIT", true },
     { "sensor.sensor_keuken_1_temperature",
-      "sensor.sensor_keuken_1_humidity",                "Keuken",    true },
+      "sensor.sensor_keuken_1_humidity",                "Keuken",    "KEU", true },
     /* Z2M "sensor zitkamer achter 1" is the gameroom (playroom). */
     { "sensor.sensor_zitkamer_achter_1_temperature",
-      "sensor.sensor_zitkamer_achter_1_humidity",       "Gameroom",  true },
+      "sensor.sensor_zitkamer_achter_1_humidity",       "Gameroom",  "GAM", true },
     { "sensor.sensor_zolder_1_temperature",
-      "sensor.sensor_zolder_1_humidity",                "Zolder",    true },
+      "sensor.sensor_zolder_1_humidity",                "Zolder",    "ZOL", true },
 };
 #define PANEL_TEMP_SENSOR_COUNT (sizeof(PANEL_TEMP_SENSORS) / sizeof(PANEL_TEMP_SENSORS[0]))

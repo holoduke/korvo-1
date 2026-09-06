@@ -1581,9 +1581,9 @@ static void saver_refresh_temps(void)
             continue;
         }
         if (isnan(s_temp_now[i])) {
-            lv_label_set_text_fmt(s_eye_temps[i], "%s   --", PANEL_TEMP_SENSORS[i].label);
+            lv_label_set_text_fmt(s_eye_temps[i], "%s   --", PANEL_TEMP_SENSORS[i].abbr);
         } else {
-            lv_label_set_text_fmt(s_eye_temps[i], "%s   %.1f\xC2\xB0", PANEL_TEMP_SENSORS[i].label,
+            lv_label_set_text_fmt(s_eye_temps[i], "%s   %.1f\xC2\xB0", PANEL_TEMP_SENSORS[i].abbr,
                                   (double)s_temp_now[i]);
         }
     }
