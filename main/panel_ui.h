@@ -30,6 +30,10 @@ void panel_ui_set_networks(const char *const *ssids, const int8_t *rssi, int cou
 /* Update the Wi-Fi status shown in settings (thread-safe). */
 void panel_ui_set_wifi_connected(bool connected, const char *ssid);
 
+/* Splash progress: 0-100 with a status line; the splash stays at least 4 s and
+ * fades out once progress reaches 100 (thread-safe). */
+void panel_ui_splash_progress(int percent, const char *status);
+
 /* Build the UI. Call once, with the LVGL lock held. */
 void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
                      panel_ui_brightness_cb_t brightness_cb);
@@ -64,6 +68,11 @@ void panel_ui_set_link_status(bool wifi_up, bool ha_up);
 /* Drive the UI remotely: select a tab, open/close the active tab's drawer,
  * open/close settings. -1 leaves that aspect untouched. Thread-safe. */
 void panel_ui_debug_select(int tab, int drawer_open, int settings_open);
+/* Screen-off state for diagnostics: 1 = screensaver shown / backlight off. Also
+ * reports the configured timeout in seconds (0 = never) and idle seconds. */
+void panel_ui_get_screen_state(int *screen_off, int *timeout_s, int *idle_s);
+/* Select theme idx (themes.h), persist it and restart to apply. Thread-safe. */
+void panel_ui_set_theme(int idx);
 /* Open (idx >= 0) or close (-1) the Klimaat popup for PANEL_TEMP_SENSORS[idx]. */
 void panel_ui_debug_climate(int idx);
 /* Composite the live screen plus any visible top-layer overlay (popup,

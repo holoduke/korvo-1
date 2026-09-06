@@ -10,11 +10,13 @@ idf_component_register(
         "lv_mem_psram.c"
         "climate_hist.c"
         "lv_pipeline_guard.c"
+        "sys_reset.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES nvs_flash esp_wifi esp_netif esp_http_server app_update espcoredump
-                  esp32_s31_korvo
+                  esp32_s31_korvo esp_hal_wdt
                   esp_driver_tsens esp_timer
     EMBED_TXTFILES "dashboard.html"
+    EMBED_FILES "assets/splash_800x480.rgb565"
 )
 
 # --- Embed secrets from the gitignored secrets/ directory -------------------
@@ -49,7 +51,11 @@ target_link_libraries(${COMPONENT_LIB} INTERFACE
     "-u __wrap_lv_malloc_core" "-u __wrap_lv_realloc_core" "-u __wrap_lv_free_core"
     # Bounded, self-healing frame-buffer wait (see lv_pipeline_guard.c)
     "-Wl,--wrap=display_bridge_pipeline_wait_free_buf" "-u __wrap_display_bridge_pipeline_wait_free_buf"
-    "-Wl,--wrap=display_bridge_vsync_on_isr" "-u __wrap_display_bridge_vsync_on_isr")
+    "-Wl,--wrap=display_bridge_vsync_on_isr" "-u __wrap_display_bridge_vsync_on_isr"
+    "-Wl,--wrap=gdma_request_link_switch_event" "-u __wrap_gdma_request_link_switch_event"
+    "-Wl,--wrap=esp_lcd_rgb_panel_register_event_callbacks" "-u __wrap_esp_lcd_rgb_panel_register_event_callbacks"
+    # Every esp_restart() becomes a full-chip reset (see sys_reset.c)
+    "-Wl,--wrap=esp_restart" "-u __wrap_esp_restart")
 # The guard reads the adapter's private pipeline structs for its diagnostics.
 idf_component_get_property(_lv_adapter_dir espressif__esp_lvgl_adapter COMPONENT_DIR)
 target_include_directories(${COMPONENT_LIB} PRIVATE

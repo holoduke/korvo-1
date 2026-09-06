@@ -21,8 +21,11 @@ TOKEN="$(tr -d '\n\r ' < "$TOKEN_FILE")"
 SIZE=$(wc -c < "$BIN" | tr -d ' ')
 echo "Pushing $BIN ($SIZE bytes) to http://$IP/update ..."
 
-# Show the running version first (unauthenticated status JSON).
-curl -s -m 5 "http://$IP/api/status" | sed 's/^/  /' || true; echo
+# Show the running version first (unauthenticated status JSON) and remember its
+# compile stamp so a bootloader rollback to it is detected afterwards.
+before=$(curl -s -m 5 "http://$IP/api/status" || true)
+echo "  $before"
+before_stamp=$(printf '%s' "$before" | sed -n 's/.*"build":"\([^"]*\)".*/\1/p')
 
 code=$(curl -s -m 120 -o /tmp/ota_resp.txt -w '%{http_code}' \
   -X POST \
@@ -44,9 +47,15 @@ for i in $(seq 1 40); do
   sleep 3
   if st=$(curl -s -m 3 "http://$IP/api/status"); then
     echo; echo "  $st"
+    stamp=$(printf '%s' "$st" | sed -n 's/.*"build":"\([^"]*\)".*/\1/p')
+    if [ -n "$before_stamp" ] && [ "$stamp" = "$before_stamp" ]; then
+      echo "ROLLED BACK: the panel is running the previous image again ($stamp)."
+      echo "The new image crashed or hung before its HTTP server came up; read the coredump."
+      exit 2
+    fi
     case "$st" in
-      *'"pending_verify":false'*) echo "Confirmed: new firmware is running and validated."; exit 0 ;;
-      *) echo "Up, but still pending verification (it confirms itself within seconds)."; exit 0 ;;
+      *'"pending_verify":false'*) echo "Confirmed: new firmware ($stamp) is running and validated."; exit 0 ;;
+      *) echo "Up ($stamp), still pending verification (it confirms itself within seconds)."; exit 0 ;;
     esac
   fi
   echo -n "."

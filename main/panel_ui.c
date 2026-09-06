@@ -12,6 +12,7 @@
 #include "nvs.h"
 #include "panel_config.h"
 #include "climate_hist.h"
+#include "themes.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_task_wdt.h"
@@ -24,18 +25,46 @@
 
 static const char *TAG = "panel_ui";
 
-#define COLOR_BG        lv_color_hex(0x111318)
-#define COLOR_TOOLBAR   lv_color_hex(0x0c0e12)   /* solid dark top toolbar */
-#define COLOR_TILE      lv_color_hex(0x232833)
-#define COLOR_TILE_OFF  lv_color_hex(0x1a1d24)
-#define COLOR_TILE_ON   lv_color_hex(0xffb84d)
-#define COLOR_ON_TEXT   lv_color_hex(0x241a05)
-#define COLOR_TEXT      lv_color_hex(0xeef0f5)
-#define COLOR_TEXT_DIM  lv_color_hex(0x848b9c)
-#define COLOR_SCENE     lv_color_hex(0x2b3444)
-#define COLOR_SCENE_ON  lv_color_hex(0xa78bfa)   /* light purple, active scene */
-#define COLOR_SCENE_TEXT lv_color_hex(0x1a1030)  /* dark text on an active scene tile */
-#define COLOR_ACCENT    lv_color_hex(0xffb84d)
+/* Boot splash: artwork embedded from main/assets (800x480 RGB565, 768 KB in
+ * flash, drawn straight from the mapped image), a loader bar and a status
+ * line. Shown on the top layer while the real UI is built underneath. */
+extern const uint8_t splash_rgb565_start[] asm("_binary_splash_800x480_rgb565_start");
+static const lv_image_dsc_t s_splash_img = {
+    .header = { .magic = LV_IMAGE_HEADER_MAGIC, .cf = LV_COLOR_FORMAT_RGB565, .flags = 0,
+                .w = 800, .h = 480, .stride = 800 * 2 },
+    .data_size = 800 * 480 * 2,
+    .data = NULL, /* set at create (points into the mapped flash image) */
+};
+static lv_image_dsc_t s_splash_dsc;
+static lv_obj_t *s_splash;
+static lv_obj_t *s_splash_bar;
+static lv_obj_t *s_splash_status;
+static uint32_t s_splash_shown_tick;
+static int s_splash_target;       /* requested progress */
+static bool s_splash_done;
+#define SPLASH_MIN_MS 4000
+
+/* Active theme: loaded from NVS in panel_ui_create() before any object is styled. */
+static const panel_theme_t *s_theme = &PANEL_THEMES[0];
+static int s_theme_idx;
+
+/* Look colours come from the selected theme (themes.h); see s_theme below. */
+#define COLOR_BG        lv_color_hex(s_theme->bg)
+#define COLOR_TOOLBAR   lv_color_hex(s_theme->toolbar)
+#define COLOR_TILE      lv_color_hex(s_theme->tile)
+#define COLOR_TILE_OFF  lv_color_hex(s_theme->tile_off)
+#define COLOR_TILE_ON   lv_color_hex(s_theme->tile_on)
+#define COLOR_ON_TEXT   lv_color_hex(s_theme->on_text)
+#define COLOR_ON_SUB    lv_color_hex(s_theme->on_sub)
+#define COLOR_TEXT      lv_color_hex(s_theme->text)
+#define COLOR_TEXT_DIM  lv_color_hex(s_theme->text_dim)
+#define COLOR_TEXT_SOFT lv_color_hex(s_theme->text_soft)
+#define COLOR_SCENE     lv_color_hex(s_theme->scene)
+#define COLOR_SCENE_ON  lv_color_hex(s_theme->scene_on)
+#define COLOR_SCENE_TEXT lv_color_hex(s_theme->scene_text)
+#define COLOR_SCENE_SUB lv_color_hex(s_theme->scene_sub)
+#define COLOR_ACCENT    lv_color_hex(s_theme->accent)
+#define COLOR_GRID      lv_color_hex(s_theme->grid)
 #define COLOR_OK        lv_color_hex(0x4dd06a)
 #define COLOR_WARN      lv_color_hex(0xe0a555)
 #define COLOR_BAD       lv_color_hex(0xe05555)
@@ -102,7 +131,7 @@ static lv_obj_t *s_date_label;
 static lv_obj_t *s_dow_label;     /* weekday, right cluster */
 /* Forecast columns in the header (index 0 = today); 4 days leaves room for
  * five climate-sensor columns. */
-#define FORECAST_DAYS 4
+#define FORECAST_DAYS 3
 static lv_obj_t *s_fc_day[FORECAST_DAYS];
 static lv_obj_t *s_fc_sun[FORECAST_DAYS];
 static lv_obj_t *s_fc_cloud[FORECAST_DAYS];
@@ -164,6 +193,8 @@ static panel_ui_warmth_cb_t s_warmth_cb;
 
 static uint32_t s_saver_timeout_ms = 60000; /* 0 = never; changed in settings */
 static lv_obj_t *s_saver_dd;
+static lv_obj_t *s_theme_dd;
+static lv_obj_t *s_theme_lbl;     /* "wordt toegepast..." feedback */
 
 /* Screensaver timeout options (index -> milliseconds). */
 static const uint32_t SAVER_OPTS_MS[] = {30000, 60000, 300000, 1800000,
@@ -333,7 +364,7 @@ static void scene_highlight(int tab, int idx)
         if (s_scene_state_lbl[tab][j]) {
             lv_label_set_text(s_scene_state_lbl[tab][j], on ? "actief" : "scene");
             lv_obj_set_style_text_color(s_scene_state_lbl[tab][j],
-                                        on ? lv_color_hex(0x3b2d66) : COLOR_TEXT_DIM, 0);
+                                        on ? COLOR_SCENE_SUB : COLOR_TEXT_DIM, 0);
         }
     }
     if (s_active_scene_lbl[tab]) {
@@ -619,7 +650,7 @@ static void create_header(lv_obj_t *parent)
     s_dow_label = lv_label_create(daterow);
     lv_label_set_text(s_dow_label, "");
     lv_obj_set_style_text_font(s_dow_label, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(s_dow_label, lv_color_hex(0xc6cbd6), 0);
+    lv_obj_set_style_text_color(s_dow_label, COLOR_TEXT_SOFT, 0);
     s_date_label = lv_label_create(daterow);
     lv_label_set_text(s_date_label, "");
     lv_obj_set_style_text_font(s_date_label, &lv_font_montserrat_14, 0);
@@ -1341,6 +1372,107 @@ static void create_popup(lv_obj_t *root)
     lv_obj_add_flag(s_popup_color_label, LV_OBJ_FLAG_HIDDEN);
 }
 
+/* ---- Boot splash -------------------------------------------------------- */
+
+static void splash_fade_done(lv_anim_t *a)
+{
+    (void)a;
+    if (s_splash) {
+        lv_obj_delete(s_splash); /* frees the bar/labels; the artwork stays in flash */
+        s_splash = NULL;
+    }
+}
+
+static void splash_fade_cb(void *obj, int32_t v)
+{
+    lv_obj_set_style_opa(obj, (lv_opa_t)v, 0);
+}
+
+/* Creep the bar towards the requested progress so it always looks alive, and
+ * fade the splash out once 100 % is requested and the minimum time has passed. */
+static void splash_timer_cb(lv_timer_t *t)
+{
+    if (s_splash == NULL || s_splash_done) {
+        lv_timer_delete(t);
+        return;
+    }
+    const int cur = lv_bar_get_value(s_splash_bar);
+    const uint32_t shown = lv_tick_elaps(s_splash_shown_tick);
+    /* Time-based floor: 0 -> 85 % over the minimum display time even with no
+     * events, so a slow network still shows movement. */
+    const int floor_pct = (int)LV_MIN(85U, shown * 85U / SPLASH_MIN_MS);
+    const int target = LV_MAX(s_splash_target, floor_pct);
+    if (cur < target) {
+        lv_bar_set_value(s_splash_bar, LV_MIN(cur + 2, target), LV_ANIM_OFF);
+    }
+    if (s_splash_target >= 100 && shown >= SPLASH_MIN_MS && cur >= 100) {
+        s_splash_done = true;
+        lv_anim_t a;
+        lv_anim_init(&a);
+        lv_anim_set_var(&a, s_splash);
+        lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+        lv_anim_set_duration(&a, 500);
+        lv_anim_set_exec_cb(&a, splash_fade_cb);
+        lv_anim_set_completed_cb(&a, splash_fade_done);
+        lv_anim_start(&a);
+        lv_timer_delete(t);
+    }
+}
+
+static void create_splash(lv_obj_t *root)
+{
+    s_splash_dsc = s_splash_img;
+    s_splash_dsc.data = splash_rgb565_start;
+
+    s_splash = lv_obj_create(root);
+    lv_obj_set_size(s_splash, LV_PCT(100), LV_PCT(100));
+    make_plain(s_splash);
+    lv_obj_set_style_bg_color(s_splash, lv_color_hex(0x050b16), 0);
+    lv_obj_set_style_bg_opa(s_splash, LV_OPA_COVER, 0);
+
+    lv_obj_t *img = lv_image_create(s_splash);
+    lv_image_set_src(img, &s_splash_dsc);
+    lv_obj_center(img);
+
+    /* Loader in the artwork's empty lower third: thin amber-to-cyan bar. */
+    s_splash_bar = lv_bar_create(s_splash);
+    lv_obj_set_size(s_splash_bar, 360, 6);
+    lv_obj_align(s_splash_bar, LV_ALIGN_BOTTOM_MID, 0, -74);
+    lv_bar_set_range(s_splash_bar, 0, 100);
+    lv_bar_set_value(s_splash_bar, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(s_splash_bar, lv_color_hex(0x16213a), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_splash_bar, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_splash_bar, 3, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_splash_bar, lv_color_hex(0xffb84d), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_grad_color(s_splash_bar, lv_color_hex(0x3ee0ff), LV_PART_INDICATOR);
+    lv_obj_set_style_bg_grad_dir(s_splash_bar, LV_GRAD_DIR_HOR, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(s_splash_bar, 3, LV_PART_INDICATOR);
+
+    s_splash_status = lv_label_create(s_splash);
+    lv_label_set_text(s_splash_status, "Opstarten...");
+    lv_obj_set_style_text_font(s_splash_status, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(s_splash_status, lv_color_hex(0x9fb3d1), 0);
+    lv_obj_align(s_splash_status, LV_ALIGN_BOTTOM_MID, 0, -42);
+
+    s_splash_shown_tick = lv_tick_get();
+    s_splash_target = 5;
+    lv_timer_create(splash_timer_cb, 40, NULL);
+}
+
+void panel_ui_splash_progress(int percent, const char *status)
+{
+    if (s_splash == NULL || s_splash_done || !bsp_display_lock(500)) {
+        return;
+    }
+    if (percent > s_splash_target) {
+        s_splash_target = LV_MIN(percent, 100);
+    }
+    if (status && s_splash_status) {
+        lv_label_set_text(s_splash_status, status);
+    }
+    bsp_display_unlock();
+}
+
 /* ---- Night dim / screensaver -------------------------------------------- */
 
 static void on_saver_click(lv_event_t *e)
@@ -1539,6 +1671,73 @@ static void on_wifi_select_open(lv_event_t *e)
     }
 }
 
+/* ---- Themes ------------------------------------------------------------- */
+static void theme_load(void)
+{
+    uint8_t idx = 0;
+    nvs_handle_t h;
+    if (nvs_open("panel", NVS_READONLY, &h) == ESP_OK) {
+        nvs_get_u8(h, "theme", &idx);
+        nvs_close(h);
+    }
+    if (idx >= PANEL_THEME_COUNT) {
+        idx = 0;
+    }
+    s_theme_idx = idx;
+    s_theme = &PANEL_THEMES[idx];
+    ESP_LOGI(TAG, "theme: %s", s_theme->name);
+}
+
+static void theme_restart_cb(lv_timer_t *t)
+{
+    (void)t;
+    esp_restart();
+}
+
+/* Save the choice and restart: every object was styled at creation with the
+ * old palette, and a clean start (about three seconds) is the honest way to
+ * apply a new one everywhere at once. */
+static void theme_apply_and_restart(int idx)
+{
+    if (idx < 0 || idx >= (int)PANEL_THEME_COUNT || idx == s_theme_idx) {
+        return;
+    }
+    nvs_handle_t h;
+    if (nvs_open("panel", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_u8(h, "theme", (uint8_t)idx);
+        nvs_commit(h);
+        nvs_close(h);
+    }
+    ESP_LOGI(TAG, "theme -> %s, restarting", PANEL_THEMES[idx].name);
+    if (s_theme_lbl) {
+        lv_label_set_text_fmt(s_theme_lbl, "%s wordt toegepast...", PANEL_THEMES[idx].name);
+    }
+    lv_timer_t *t = lv_timer_create(theme_restart_cb, 600, NULL);
+    lv_timer_set_repeat_count(t, 1);
+}
+
+static void on_theme_dd_changed(lv_event_t *e)
+{
+    theme_apply_and_restart((int)lv_dropdown_get_selected(lv_event_get_target(e)));
+}
+
+void panel_ui_get_screen_state(int *screen_off, int *timeout_s, int *idle_s)
+{
+    /* Plain reads; no LVGL mutation, so no lock needed. */
+    *screen_off = (s_saver && !lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) ? 1 : 0;
+    *timeout_s = (int)(s_saver_timeout_ms / 1000);
+    *idle_s = (int)(lv_display_get_inactive_time(NULL) / 1000);
+}
+
+void panel_ui_set_theme(int idx)
+{
+    if (!bsp_display_lock(1000)) {
+        return;
+    }
+    theme_apply_and_restart(idx);
+    bsp_display_unlock();
+}
+
 static void saver_apply_and_save(int idx)
 {
     const int n = sizeof(SAVER_OPTS_MS) / sizeof(SAVER_OPTS_MS[0]);
@@ -1654,6 +1853,25 @@ static void create_settings(lv_obj_t *root)
     lv_obj_set_width(s_saver_dd, 170);
     lv_dropdown_set_selected(s_saver_dd, saver_load_idx());
     lv_obj_add_event_cb(s_saver_dd, on_saver_dd_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
+    /* --- Theme row: dropdown with every palette; applies with a restart. --- */
+    lv_obj_t *tr = settings_row(s_settings, LV_SYMBOL_IMAGE "  Thema");
+    s_theme_lbl = settings_label(tr, "", &lv_font_montserrat_18, COLOR_TEXT_DIM);
+    lv_obj_set_style_margin_right(s_theme_lbl, 12, 0);
+    s_theme_dd = lv_dropdown_create(tr);
+    {
+        char opts[128] = "";
+        for (int i = 0; i < (int)PANEL_THEME_COUNT; i++) {
+            strlcat(opts, PANEL_THEMES[i].name, sizeof(opts));
+            if (i + 1 < (int)PANEL_THEME_COUNT) {
+                strlcat(opts, "\n", sizeof(opts));
+            }
+        }
+        lv_dropdown_set_options(s_theme_dd, opts);
+    }
+    lv_obj_set_width(s_theme_dd, 170);
+    lv_dropdown_set_selected(s_theme_dd, (uint32_t)s_theme_idx);
+    lv_obj_add_event_cb(s_theme_dd, on_theme_dd_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
     /* --- Diagnostics: connection + firmware (updated by panel_ui_set_net_details). --- */
     lv_obj_t *nr = settings_row(s_settings, LV_SYMBOL_LOOP "  Verbinding");
@@ -2239,7 +2457,7 @@ static void create_climate_popup(lv_obj_t *root)
     lv_obj_set_style_border_width(s_clim_chart, 0, 0);
     lv_obj_set_style_radius(s_clim_chart, 12, 0);
     lv_obj_set_style_pad_all(s_clim_chart, 8, 0);
-    lv_obj_set_style_line_color(s_clim_chart, lv_color_hex(0x2b3140), 0);
+    lv_obj_set_style_line_color(s_clim_chart, COLOR_GRID, 0);
     lv_obj_set_style_line_width(s_clim_chart, 1, 0);
     lv_obj_set_style_size(s_clim_chart, 0, 0, LV_PART_INDICATOR); /* no point dots */
     lv_obj_set_style_line_width(s_clim_chart, 3, LV_PART_ITEMS);
@@ -2260,7 +2478,7 @@ static void create_climate_popup(lv_obj_t *root)
     lv_obj_align_to(s_clim_hmin, s_clim_chart, LV_ALIGN_OUT_RIGHT_BOTTOM, 4, -2);
 
     /* Time axis: 24 h ago .. now. */
-    static const char *const marks[] = { "-24u", "-18u", "-12u", "-6u", "nu" };
+    static const char *const marks[] = { "-24u", "-18u", "-12u", "-6u", "nu" }; /* chart x axis */
     for (int i = 0; i < 5; i++) {
         lv_obj_t *m = clim_label(box, &lv_font_montserrat_14, COLOR_TEXT_DIM);
         lv_label_set_text(m, marks[i]);
@@ -2553,6 +2771,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
         s_active_scene[t] = -1;
     }
 
+    theme_load();        /* colours must be known before the first object is styled */
     init_slider_grads(); /* swatches + popup sliders share these gradient descriptors */
 
     lv_obj_t *screen = lv_screen_active();
@@ -2604,6 +2823,9 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     for (int i = 0; i < (int)PANEL_TAB_COUNT; i++) {
         s_drawers[i] = create_drawer(&PANEL_TABS[i], i);
     }
+
+    /* Splash first so the very first frame is the artwork, not a half-built UI. */
+    create_splash(lv_layer_top());
 
     /* Overlays on the top layer so they cover everything, including drawers. */
     create_popup(lv_layer_top());
@@ -2678,7 +2900,7 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
             if (t->state_label) {
                 lv_label_set_text(t->state_label, on ? "aan" : "uit");
                 lv_obj_set_style_text_color(t->state_label,
-                                            on ? lv_color_hex(0x6b5518) : COLOR_TEXT_DIM, 0);
+                                            on ? COLOR_ON_SUB : COLOR_TEXT_DIM, 0);
             }
         }
         mark_snapshot_dirty(t->tab_idx); /* only this tile's tab needs re-caching */

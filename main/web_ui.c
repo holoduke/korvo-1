@@ -6,6 +6,8 @@
 
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
+#include "esp_intr_alloc.h"
+#include "sys_reset.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_system.h"
@@ -18,6 +20,9 @@
 uint32_t lv_pipeline_guard_recoveries(void);
 uint32_t lv_pipeline_guard_lost(void);
 uint32_t lv_pipeline_guard_vsyncs(void);
+uint32_t lv_pipeline_guard_link_switch_requests(esp_err_t *last_err);
+int lv_pipeline_guard_registration(esp_err_t *err);
+uint32_t lv_pipeline_guard_lcd_vsyncs(void);
 #include "ota.h"
 #include "panel_ui.h"
 
@@ -88,14 +93,22 @@ static esp_err_t status_get(httpd_req_t *req)
     if (running) {
         esp_ota_get_state_partition(running, &st);
     }
-    char buf[480];
+    esp_err_t ls_err = ESP_OK, reg_err = ESP_OK;
+    int scr_off = 0, scr_to = 0, scr_idle = 0;
+    panel_ui_get_screen_state(&scr_off, &scr_to, &scr_idle);
+    char sha[65];
+    esp_app_get_elf_sha256(sha, sizeof(sha));
+    sha[8] = '\0'; /* enough to tell builds apart */
+    char buf[640];
     int n = snprintf(buf, sizeof(buf),
-                     "{\"version\":\"%s\",\"partition\":\"%s\",\"compiled\":\"%s %s\","
+                     "{\"version\":\"%s\",\"build\":\"%s\",\"partition\":\"%s\",\"compiled\":\"%s %s\","
                      "\"idf\":\"%s\",\"uptime\":%llu,\"reset_reason\":%d,"
                      "\"pending_verify\":%s,\"heap_free\":%u,\"heap_min\":%u,"
                      "\"touch_recoveries\":%lu,\"fb_recoveries\":%lu,\"fb_lost\":%lu,"
-                     "\"vsyncs\":%lu}",
-                     desc->version, running ? running->label : "?",
+                     "\"vsyncs\":%lu,\"link_switch_requests\":%lu,\"link_switch_err\":%d,"
+                     "\"cb_registered\":%d,\"cb_reg_err\":%d,\"lcd_vsyncs\":%lu,"
+                     "\"screen_off\":%d,\"screen_timeout_s\":%d,\"idle_s\":%d}",
+                     desc->version, sha, running ? running->label : "?",
                      desc->date, desc->time, desc->idf_ver,
                      esp_timer_get_time() / 1000000ULL, (int)esp_reset_reason(),
                      st == ESP_OTA_IMG_PENDING_VERIFY ? "true" : "false",
@@ -104,7 +117,10 @@ static esp_err_t status_get(httpd_req_t *req)
                      (unsigned long)bsp_touch_get_recoveries(),
                      (unsigned long)lv_pipeline_guard_recoveries(),
                      (unsigned long)lv_pipeline_guard_lost(),
-                     (unsigned long)lv_pipeline_guard_vsyncs());
+                     (unsigned long)lv_pipeline_guard_vsyncs(),
+                     (unsigned long)lv_pipeline_guard_link_switch_requests(&ls_err), (int)ls_err,
+                     lv_pipeline_guard_registration(&reg_err), (int)reg_err,
+                     (unsigned long)lv_pipeline_guard_lcd_vsyncs(), scr_off, scr_to, scr_idle);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, buf, n);
 }
@@ -263,6 +279,53 @@ static esp_err_t panic_post(httpd_req_t *req)
     return ESP_OK;
 }
 
+/* ---- GET /api/intr ------------------------------------------------------- */
+/* esp_intr_dump(): every allocated interrupt with source, core, flags and
+ * enabled state. Compare a healthy boot against a dead-vsync boot. */
+static esp_err_t intr_get(httpd_req_t *req)
+{
+    const size_t cap = 8192;
+    char *buf = heap_caps_malloc(cap, MALLOC_CAP_SPIRAM);
+    if (buf == NULL) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no mem");
+        return ESP_FAIL;
+    }
+    FILE *f = fmemopen(buf, cap - 1, "w");
+    if (f == NULL) {
+        heap_caps_free(buf);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "fmemopen");
+        return ESP_FAIL;
+    }
+    esp_intr_dump(f);
+    fclose(f);
+    buf[cap - 1] = '\0';
+    httpd_resp_set_type(req, "text/plain");
+    esp_err_t err = httpd_resp_sendstr(req, buf);
+    heap_caps_free(buf);
+    return err;
+}
+
+/* ---- POST /api/reboot ---------------------------------------------------- */
+/* Clean restart (token required). Used for boot-cycle verification without
+ * touching the serial lines (toggling RTS on the CP2102N can drop the USB
+ * device, and with it the panel's power). */
+static esp_err_t reboot_post(httpd_req_t *req)
+{
+    if (!ota_request_authorized(req)) {
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
+        return ESP_FAIL;
+    }
+    const bool hard = query_int(req, "hard", 0) != 0;
+    httpd_resp_sendstr(req, hard ? "hard reset (RTC watchdog)\n" : "rebooting\n");
+    vTaskDelay(pdMS_TO_TICKS(200));
+    ESP_LOGW(TAG, "%s requested via /api/reboot", hard ? "hard reset" : "reboot");
+    if (hard) {
+        sys_hard_reset();
+    }
+    esp_restart();
+    return ESP_OK;
+}
+
 /* ---- GET /api/screen ----------------------------------------------------- */
 /* Verification aid: returns the composited screen as raw little-endian RGB565
  * behind a one-line text header "RGB565 <w> <h>\n". Query options drive the UI
@@ -288,6 +351,12 @@ static esp_err_t screen_get(httpd_req_t *req)
     const int drawer = query_int(req, "drawer", -1);
     const int settings = query_int(req, "settings", -1);
     const int climate = query_int(req, "climate", -2); /* -1 closes, N opens sensor N */
+    const int theme = query_int(req, "theme", -1);      /* N: persist theme N and restart */
+    if (theme >= 0) {
+        httpd_resp_sendstr(req, "applying theme, restarting\n");
+        panel_ui_set_theme(theme);
+        return ESP_OK;
+    }
     const int scale = query_int(req, "scale", 1) == 2 ? 2 : 1;
     if (tab >= 0 || drawer >= 0 || settings >= 0) {
         panel_ui_debug_select(tab, drawer, settings);
@@ -340,6 +409,8 @@ void web_ui_register(httpd_handle_t server)
         { .uri = "/api/screen", .method = HTTP_GET, .handler = screen_get },
         { .uri = "/api/tasks", .method = HTTP_GET, .handler = tasks_get },
         { .uri = "/api/panic", .method = HTTP_POST, .handler = panic_post },
+        { .uri = "/api/reboot", .method = HTTP_POST, .handler = reboot_post },
+        { .uri = "/api/intr", .method = HTTP_GET, .handler = intr_get },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         httpd_register_uri_handler(server, &routes[i]);

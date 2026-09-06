@@ -26,16 +26,20 @@ ap = argparse.ArgumentParser()
 ap.add_argument('out'); ap.add_argument('--ip', default='192.168.2.160')
 ap.add_argument('--tab', type=int); ap.add_argument('--drawer', type=int)
 ap.add_argument('--settings', type=int); ap.add_argument('--climate', type=int)
+ap.add_argument('--theme', type=int, help='persist theme N and restart the panel (no image returned)')
 ap.add_argument('--scale', type=int, default=1)
 a = ap.parse_args()
 q = [f'scale={a.scale}'] + [f'{k}={v}' for k, v in (('tab', a.tab), ('drawer', a.drawer),
-                                                   ('settings', a.settings), ('climate', a.climate))
+                                                   ('settings', a.settings), ('climate', a.climate),
+                                                   ('theme', a.theme))
                             if v is not None]
 url = f'http://{a.ip}/api/screen?' + '&'.join(q)
 tok_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'secrets', 'ha_token.txt')
 token = open(tok_path).read().strip()
 req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
 data = urllib.request.urlopen(req, timeout=60).read()
+if a.theme is not None:
+    print(data.decode().strip()); sys.exit(0)
 nl = data.index(b'\n')
 tag, w, h = data[:nl].decode().split()
 w, h = int(w), int(h)

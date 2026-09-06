@@ -48,6 +48,82 @@ uint32_t lv_pipeline_guard_vsyncs(void)
     return s_vsync_count;
 }
 
+/* The RGB driver asks the DMA for a "link switch done" indication on every
+ * frame-buffer switch; the adapter's frame-complete callback rides on that
+ * interrupt. Count the requests and remember the last result so a dead
+ * callback can be attributed: no requests / failed requests (driver) versus
+ * requests without events (DMA hardware). */
+#include "esp_err.h"
+typedef struct gdma_channel_t *gdma_channel_handle_t;
+esp_err_t __real_gdma_request_link_switch_event(gdma_channel_handle_t chan);
+static uint32_t s_ls_requests;
+static esp_err_t s_ls_last_err;
+esp_err_t __wrap_gdma_request_link_switch_event(gdma_channel_handle_t chan)
+{
+    const esp_err_t err = __real_gdma_request_link_switch_event(chan);
+    s_ls_requests++;
+    s_ls_last_err = err;
+    return err;
+}
+
+/* Record whether the adapter managed to register its frame callbacks with the
+ * RGB panel driver (a failed registration = no frame events, silently). */
+#include "esp_lcd_panel_rgb.h"
+esp_err_t __real_esp_lcd_rgb_panel_register_event_callbacks(esp_lcd_panel_handle_t panel,
+                                                            const esp_lcd_rgb_panel_event_callbacks_t *cbs,
+                                                            void *user_ctx);
+static esp_err_t s_reg_err = ESP_ERR_NOT_FOUND; /* never called */
+static int s_reg_has_frame_cb = -1, s_reg_has_vsync_cb = -1, s_reg_has_bounce_cb = -1;
+static volatile uint32_t s_lcd_vsyncs; /* LCD controller VSYNC_END interrupts (separate from the DMA) */
+
+static bool IRAM_ATTR lcd_vsync_probe(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata,
+                                      void *user_ctx)
+{
+    (void)panel; (void)edata; (void)user_ctx;
+    s_lcd_vsyncs++;
+    return false;
+}
+
+uint32_t lv_pipeline_guard_lcd_vsyncs(void)
+{
+    return s_lcd_vsyncs;
+}
+
+esp_err_t __wrap_esp_lcd_rgb_panel_register_event_callbacks(esp_lcd_panel_handle_t panel,
+                                                            const esp_lcd_rgb_panel_event_callbacks_t *cbs,
+                                                            void *user_ctx)
+{
+    /* Probe: also ask for the controller's VSYNC interrupt if nobody else does. */
+    esp_lcd_rgb_panel_event_callbacks_t mine = *cbs;
+    if (mine.on_vsync == NULL) {
+        mine.on_vsync = lcd_vsync_probe;
+    }
+    cbs = &mine;
+    s_reg_err = __real_esp_lcd_rgb_panel_register_event_callbacks(panel, cbs, user_ctx);
+    s_reg_has_frame_cb = cbs && cbs->on_frame_buf_complete != NULL;
+    s_reg_has_vsync_cb = cbs && cbs->on_vsync != NULL;
+    s_reg_has_bounce_cb = cbs && cbs->on_bounce_empty != NULL;
+    ESP_LOGI(TAG, "rgb panel callbacks registered: %s (frame_complete=%d vsync=%d bounce=%d)",
+             esp_err_to_name(s_reg_err), s_reg_has_frame_cb, s_reg_has_vsync_cb, s_reg_has_bounce_cb);
+    return s_reg_err;
+}
+
+int lv_pipeline_guard_registration(esp_err_t *err)
+{
+    if (err) {
+        *err = s_reg_err;
+    }
+    return s_reg_has_frame_cb;
+}
+
+uint32_t lv_pipeline_guard_link_switch_requests(esp_err_t *last_err)
+{
+    if (last_err) {
+        *last_err = s_ls_last_err;
+    }
+    return s_ls_requests;
+}
+
 /* Every LCD vsync passes through here (wrapped); count it and note whether
  * the adapter's jitter shield told the ISR to skip the buffer release. */
 bool __real_display_bridge_vsync_on_isr(esp_lv_adapter_vsync_timing_t *t);

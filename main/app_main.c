@@ -22,6 +22,7 @@
 #include "panel_config.h"
 #include "panel_ui.h"
 #include "secrets.h"
+#include "sys_reset.h"
 #include "wifi_mgr.h"
 
 static const char *TAG = "app_main";
@@ -308,6 +309,9 @@ static void on_set_warmth(const char *entity_id, int kelvin)
 static void on_ha_conn(bool connected)
 {
     s_ha_up = connected;
+    if (connected) {
+        panel_ui_splash_progress(100, "Home Assistant verbonden");
+    }
     panel_ui_set_link_status(s_wifi_up, s_ha_up);
     if (connected) {
         ha_client_request_forecast(PANEL_WEATHER_ENTITY);
@@ -416,6 +420,9 @@ static void rollback_deadline_cb(void *arg)
 static void on_wifi_status(bool connected)
 {
     s_wifi_up = connected;
+    if (connected) {
+        panel_ui_splash_progress(60, "Verbonden met Wi-Fi");
+    }
     /* Both UI setters are no-ops until the UI exists. */
     panel_ui_set_link_status(s_wifi_up, s_ha_up);
 
@@ -465,6 +472,7 @@ static void on_brightness(const panel_entity_t *targets, int count, int brightne
 
 void app_main(void)
 {
+    sys_reset_ensure_clean_boot(); /* may not return: forces a full-chip reset */
     ESP_LOGW(TAG, "boot: reset reason %d, running %s", (int)esp_reset_reason(),
              esp_ota_get_running_partition() ? esp_ota_get_running_partition()->label : "?");
     {
@@ -549,6 +557,7 @@ void app_main(void)
     panel_ui_set_wifi_connected(s_wifi_up, ssid);
 
     s_ui_ready = true;
+    panel_ui_splash_progress(30, s_wifi_up ? "Verbonden met Wi-Fi" : "Verbinden met Wi-Fi...");
     start_services_if_ready();
 
     const esp_timer_create_args_t nargs = { .callback = net_details_cb, .name = "netinfo" };

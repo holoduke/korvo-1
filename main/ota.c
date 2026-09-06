@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "sys_reset.h"
 #include "web_ui.h"
 
 static const char *TAG = "ota";
@@ -159,6 +160,7 @@ static void confirm_running_image(void)
         st == ESP_OTA_IMG_PENDING_VERIFY) {
         if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
             ESP_LOGI(TAG, "New firmware confirmed on %s (rollback cancelled)", run->label);
+            sys_reset_after_confirm(); /* may not return */
         }
     }
 }
