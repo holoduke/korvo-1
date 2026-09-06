@@ -187,7 +187,13 @@ static lv_obj_t *s_eye_img;
 static lv_obj_t *s_eye_glow;      /* radial gradient over the pupil */
 static lv_obj_t *s_eye_ring;      /* thin rotating arc around the rim */
 static lv_grad_dsc_t s_eye_glow_grad;
-static lv_obj_t *s_eye_temps[PANEL_TEMP_SENSOR_COUNT]; /* room temperatures, top-left column */
+/* Room temperatures top-left: 3-letter tag, then the value as one label per
+ * character in fixed-width cells (sign, tens, ones, '.', tenths, degree) so
+ * every digit and decimal point sits exactly under the one above, regardless
+ * of the font's proportional digit widths. */
+#define EYE_TEMP_CELLS 6
+static lv_obj_t *s_eye_temps[PANEL_TEMP_SENSOR_COUNT][EYE_TEMP_CELLS];
+static lv_obj_t *s_eye_tags[PANEL_TEMP_SENSOR_COUNT];
 /* Now playing (WiiM): shown bottom-left of the eye saver while a player plays. */
 typedef struct {
     char state[16];
@@ -1586,14 +1592,30 @@ static void eye_anims_stop(void)
 static void saver_refresh_temps(void)
 {
     for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
-        if (s_eye_temps[i] == NULL) {
-            continue;
-        }
-        if (isnan(s_temp_now[i])) {
-            lv_label_set_text_fmt(s_eye_temps[i], "%s   --", PANEL_TEMP_SENSORS[i].abbr);
+        char cells[EYE_TEMP_CELLS][4] = { "", "", "", "", "", "" };
+        if (!isnan(s_temp_now[i])) {
+            const float v = s_temp_now[i];
+            const int tenths = (int)lroundf(fabsf(v) * 10.0f);
+            const int whole = (tenths / 10) % 100, frac = tenths % 10;
+            if (v < 0) {
+                cells[0][0] = '-';
+            }
+            if (whole >= 10) {
+                cells[1][0] = (char)('0' + whole / 10);
+            }
+            cells[2][0] = (char)('0' + whole % 10);
+            cells[3][0] = '.';
+            cells[4][0] = (char)('0' + frac);
+            cells[5][0] = '\xC2';
+            cells[5][1] = '\xB0';
         } else {
-            lv_label_set_text_fmt(s_eye_temps[i], "%s   %.1f\xC2\xB0", PANEL_TEMP_SENSORS[i].abbr,
-                                  (double)s_temp_now[i]);
+            cells[2][0] = '-';
+            cells[4][0] = '-';
+        }
+        for (int c = 0; c < EYE_TEMP_CELLS; c++) {
+            if (s_eye_temps[i][c]) {
+                lv_label_set_text(s_eye_temps[i][c], cells[c]);
+            }
         }
     }
 }
@@ -1799,13 +1821,28 @@ static void create_screensaver(lv_obj_t *root)
     lv_obj_set_style_arc_rounded(s_eye_ring, true, LV_PART_MAIN);
     lv_obj_remove_flag(s_eye_ring, LV_OBJ_FLAG_CLICKABLE);
 
-    /* Temperature column, top-left, top to bottom (eye mode only). */
+    /* Temperature column, top-left, top to bottom (eye mode only): tags in a
+     * left column, values right-aligned in a fixed-width column so the
+     * decimal points and degree signs line up exactly. */
     for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
-        s_eye_temps[i] = lv_label_create(s_eye_group);
-        lv_label_set_text(s_eye_temps[i], "");
-        lv_obj_set_style_text_font(s_eye_temps[i], &lv_font_montserrat_24, 0);
-        lv_obj_set_style_text_color(s_eye_temps[i], lv_color_hex(0x7a3d30), 0); /* ember */
-        lv_obj_align(s_eye_temps[i], LV_ALIGN_TOP_LEFT, 28, 24 + i * 40);
+        s_eye_tags[i] = lv_label_create(s_eye_group);
+        lv_label_set_text(s_eye_tags[i], PANEL_TEMP_SENSORS[i].abbr);
+        lv_obj_set_style_text_font(s_eye_tags[i], &lv_font_montserrat_24, 0);
+        lv_obj_set_style_text_color(s_eye_tags[i], lv_color_hex(0x7a3d30), 0); /* ember */
+        lv_obj_align(s_eye_tags[i], LV_ALIGN_TOP_LEFT, 28, 24 + i * 40);
+        /* Cell x offsets (px): sign, tens, ones, '.', tenths, degree. */
+        static const int16_t cell_x[EYE_TEMP_CELLS] = { 96, 108, 124, 140, 148, 164 };
+        static const int16_t cell_w[EYE_TEMP_CELLS] = { 12, 16, 16, 8, 16, 14 };
+        for (int c = 0; c < EYE_TEMP_CELLS; c++) {
+            lv_obj_t *l = lv_label_create(s_eye_group);
+            lv_label_set_text(l, "");
+            lv_obj_set_width(l, cell_w[c]);
+            lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_font(l, &lv_font_montserrat_24, 0);
+            lv_obj_set_style_text_color(l, lv_color_hex(0x7a3d30), 0);
+            lv_obj_align(l, LV_ALIGN_TOP_LEFT, cell_x[c], 24 + i * 40);
+            s_eye_temps[i][c] = l;
+        }
     }
 
     /* Now playing, bottom-left (eye mode only, hidden unless playing). */
