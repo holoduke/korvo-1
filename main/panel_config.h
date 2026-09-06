@@ -56,6 +56,9 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
     { "scene.woonkamer_avond_licht", "Avond licht" },
     { "scene.woonkamer_paars_rood",  "Paars rood" },
     { "scene.woonkamer_alles_uit",   "Alles uit" },
+    /* Cuba: the garage's cyan/orange/yellow/pink rotation on the ground floor
+     * (scene created in HA 2026-09-06). Shown with a colour swatch. */
+    { "scene.woonkamer_cuba",        "Cuba" },
     /* Quick buttons (bottom row): every ground-floor light on at minimum /
      * full brightness. Scenes created in HA's scene editor on 2026-09-06. */
     { "scene.woonkamer_min",         "Min" },
@@ -64,7 +67,13 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
 /* Tile icons, same order as TAB_THUIS_SCENES. */
 static const char *const TAB_THUIS_ICONS[] = {
     LV_SYMBOL_CHARGE, LV_SYMBOL_EYE_CLOSE, LV_SYMBOL_EYE_OPEN, LV_SYMBOL_TINT, LV_SYMBOL_POWER,
-    LV_SYMBOL_MINUS, LV_SYMBOL_PLUS,
+    NULL, LV_SYMBOL_MINUS, LV_SYMBOL_PLUS,
+};
+/* Swatches, same order; 0 = use the icon instead. */
+static const panel_swatch_t TAB_THUIS_SWATCHES[] = {
+    { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 },
+    { 0x1fb8a6, 0xffc857 }, /* Cuba: teal -> gold */
+    { 0, 0 }, { 0, 0 },
 };
 /* Drawer: every individual ground-floor light, grouped by room, taken from the
  * members of HA's light.lampen_beneden_verdieping and the scenes above. */
@@ -201,8 +210,8 @@ static const panel_entity_t TAB_GARAGE_DEVICES[] = {
       NULL, 0, devices, sizeof(devices) / sizeof((devices)[0]), NULL, NULL, 0, false }
 
 static const panel_tab_t PANEL_TABS[] = {
-    TAB_ENTRY_SCENES("Beneden", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_ICONS, NULL, 2,
-                     TAB_THUIS_DEVICES),
+    TAB_ENTRY_SCENES("Beneden", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_ICONS,
+                     TAB_THUIS_SWATCHES, 2, TAB_THUIS_DEVICES),
     TAB_ENTRY("Boven", TAB_BOVEN_LIGHTS, TAB_BOVEN_SCENES, TAB_BOVEN_DEVICES),
     TAB_ENTRY_NS("Zolder", TAB_ZOLDER_LIGHTS, TAB_ZOLDER_DEVICES),
     TAB_ENTRY_SCENES("Garage", TAB_GARAGE_LIGHTS, TAB_GARAGE_SCENES, NULL, TAB_GARAGE_SWATCHES, 0,
