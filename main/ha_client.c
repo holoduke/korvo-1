@@ -2,7 +2,9 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "cJSON.h"
 #include "esp_check.h"
@@ -50,6 +52,10 @@ static volatile bool s_states_seen;       /* at least one entity event since aut
 static int s_forced_reconnects;           /* consecutive stale-link reconnects */
 
 static ha_forecast_cb_t s_forecast_cb;
+static ha_history_cb_t s_history_cb;
+/* Pending history requests: msg id -> entity (small, boot-time only). */
+#define HA_HISTORY_PENDING 12
+static struct { int id; const char *entity; } s_hist_pending[HA_HISTORY_PENDING];
 static int s_forecast_id;              /* msg id of the pending get_forecasts */
 static char s_weather_entity[48];      /* cached for periodic refresh */
 static ha_caps_cb_t s_caps_cb;
@@ -168,6 +174,47 @@ static void handle_entity_object(const cJSON *entities, bool changed)
 
 static void handle_forecast_result(const cJSON *root);
 
+/* history/history_during_period result (minimal_response, no_attributes):
+ *   {"result": {"<entity>": [{"s": "23.1", "lu": 1725600000.5}, ...]}} */
+static void handle_history_result(const cJSON *root, const char *entity_id)
+{
+    const cJSON *result = cJSON_GetObjectItem(root, "result");
+    const cJSON *list = cJSON_GetObjectItem(result, entity_id);
+    int n = 0;
+    const cJSON *pt;
+    cJSON_ArrayForEach(pt, list) {
+        const cJSON *s = cJSON_GetObjectItem(pt, "s");
+        const cJSON *lu = cJSON_GetObjectItem(pt, "lu");
+        if (!cJSON_IsString(s) || !cJSON_IsNumber(lu)) {
+            continue;
+        }
+        char *end = NULL;
+        const float v = strtof(s->valuestring, &end);
+        if (end == s->valuestring) {
+            continue; /* "unavailable" / "unknown" */
+        }
+        if (s_history_cb) {
+            s_history_cb(entity_id, v, (time_t)lu->valuedouble);
+        }
+        n++;
+    }
+    ESP_LOGI(TAG, "history %s: %d points", entity_id, n);
+}
+
+/* Look up (and release) the entity a pending history msg id belongs to. */
+static const char *take_history_pending(int id)
+{
+    for (int i = 0; i < HA_HISTORY_PENDING; i++) {
+        if (s_hist_pending[i].id == id && s_hist_pending[i].entity) {
+            const char *e = s_hist_pending[i].entity;
+            s_hist_pending[i].id = 0;
+            s_hist_pending[i].entity = NULL;
+            return e;
+        }
+    }
+    return NULL;
+}
+
 static void handle_message(const char *data, size_t len)
 {
     if (len > 16 * 1024) { /* the initial state dump: show what it costs */
@@ -226,6 +273,11 @@ static void handle_message(const char *data, size_t len)
         } else if (cJSON_IsNumber(id) && (int)id->valuedouble == s_forecast_id &&
                    s_forecast_id != 0) {
             handle_forecast_result(root);
+        } else if (cJSON_IsNumber(id)) {
+            const char *entity = take_history_pending((int)id->valuedouble);
+            if (entity) {
+                handle_history_result(root, entity);
+            }
         }
     }
     cJSON_Delete(root);
@@ -314,6 +366,53 @@ static esp_err_t call_service(const char *domain, const char *service, const cha
 void ha_client_set_forecast_cb(ha_forecast_cb_t cb)
 {
     s_forecast_cb = cb;
+}
+
+void ha_client_set_history_cb(ha_history_cb_t cb)
+{
+    s_history_cb = cb;
+}
+
+esp_err_t ha_client_request_history(const char *entity_id, int hours)
+{
+    ESP_RETURN_ON_FALSE(s_client != NULL && esp_websocket_client_is_connected(s_client),
+                        ESP_ERR_INVALID_STATE, TAG, "not connected");
+    ESP_RETURN_ON_FALSE(entity_id != NULL, ESP_ERR_INVALID_ARG, TAG, "no entity");
+    int slot = -1;
+    for (int i = 0; i < HA_HISTORY_PENDING; i++) {
+        if (s_hist_pending[i].entity == NULL) {
+            slot = i;
+            break;
+        }
+    }
+    ESP_RETURN_ON_FALSE(slot >= 0, ESP_ERR_NO_MEM, TAG, "too many pending history requests");
+
+    time_t now = time(NULL);
+    ESP_RETURN_ON_FALSE(now > 1700000000, ESP_ERR_INVALID_STATE, TAG, "clock not set");
+    const time_t start = now - (time_t)hours * 3600;
+    struct tm tm_start;
+    gmtime_r(&start, &tm_start);
+    char iso[32];
+    strftime(iso, sizeof(iso), "%Y-%m-%dT%H:%M:%SZ", &tm_start);
+
+    const int id = next_msg_id();
+    cJSON *msg = cJSON_CreateObject();
+    cJSON_AddNumberToObject(msg, "id", id);
+    cJSON_AddStringToObject(msg, "type", "history/history_during_period");
+    cJSON_AddStringToObject(msg, "start_time", iso);
+    cJSON *ids = cJSON_AddArrayToObject(msg, "entity_ids");
+    cJSON_AddItemToArray(ids, cJSON_CreateString(entity_id));
+    cJSON_AddBoolToObject(msg, "minimal_response", true);
+    cJSON_AddBoolToObject(msg, "no_attributes", true);
+    cJSON_AddBoolToObject(msg, "significant_changes_only", false);
+    s_hist_pending[slot].id = id;
+    s_hist_pending[slot].entity = entity_id;
+    esp_err_t err = send_json(msg);
+    if (err != ESP_OK) {
+        s_hist_pending[slot].id = 0;
+        s_hist_pending[slot].entity = NULL;
+    }
+    return err;
 }
 
 void ha_client_set_caps_cb(ha_caps_cb_t cb)

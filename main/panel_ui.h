@@ -64,6 +64,8 @@ void panel_ui_set_link_status(bool wifi_up, bool ha_up);
 /* Drive the UI remotely: select a tab, open/close the active tab's drawer,
  * open/close settings. -1 leaves that aspect untouched. Thread-safe. */
 void panel_ui_debug_select(int tab, int drawer_open, int settings_open);
+/* Open (idx >= 0) or close (-1) the Klimaat popup for PANEL_TEMP_SENSORS[idx]. */
+void panel_ui_debug_climate(int idx);
 /* Composite the live screen plus any visible top-layer overlay (popup,
  * settings, screensaver) into a new RGB565 draw buffer. Caller destroys it
  * with lv_draw_buf_destroy(). NULL on failure. Thread-safe. */

@@ -11,6 +11,7 @@
 #include "lvgl.h"
 #include "nvs.h"
 #include "panel_config.h"
+#include "climate_hist.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
 #include "esp_task_wdt.h"
@@ -109,6 +110,23 @@ static lv_obj_t *s_fc_temp[FORECAST_DAYS];
 /* Climate readings in the header (index = PANEL_TEMP_SENSORS order). */
 static lv_obj_t *s_temp_val[PANEL_TEMP_SENSOR_COUNT];
 static lv_obj_t *s_hum_val[PANEL_TEMP_SENSOR_COUNT];
+static lv_obj_t *s_sensor_name[PANEL_TEMP_SENSOR_COUNT]; /* name + trend arrow */
+static float s_temp_now[PANEL_TEMP_SENSOR_COUNT];        /* latest readings (NAN = none) */
+static float s_hum_now[PANEL_TEMP_SENSOR_COUNT];
+/* Klimaat popup (24 h chart for one sensor). */
+static lv_obj_t *s_clim;          /* backdrop */
+static lv_obj_t *s_clim_title;
+static lv_obj_t *s_clim_now;
+static lv_obj_t *s_clim_chart;
+static lv_chart_series_t *s_clim_ser_t;
+static lv_chart_series_t *s_clim_ser_h;
+static lv_obj_t *s_clim_range;
+static lv_obj_t *s_clim_advice;
+static lv_obj_t *s_clim_ymax, *s_clim_ymin, *s_clim_hmax, *s_clim_hmin;
+static int32_t *s_clim_t_arr;     /* CLIMATE_SLOTS each, PSRAM */
+static int32_t *s_clim_h_arr;
+static int s_clim_idx = -1;
+static void open_climate_popup(int idx);
 static lv_obj_t *s_settings;      /* settings overlay */
 static lv_obj_t *s_kb;
 static lv_obj_t *s_pass_ta;
@@ -478,6 +496,14 @@ static void build_wx_icon(lv_obj_t *parent, lv_obj_t **sun, lv_obj_t **cloud)
                  LV_ALIGN_BOTTOM_MID, 2, -1);
 }
 
+static void on_sensor_clicked(lv_event_t *e)
+{
+    if (s_drag_suppress_click) {
+        return;
+    }
+    open_climate_popup((int)(intptr_t)lv_event_get_user_data(e));
+}
+
 static void create_header(lv_obj_t *parent)
 {
     lv_obj_t *bar = lv_obj_create(parent);
@@ -543,10 +569,17 @@ static void create_header(lv_obj_t *parent)
         lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
         lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                               LV_FLEX_ALIGN_CENTER);
+        /* Tap a column for its 24 h chart (Klimaat popup). */
+        lv_obj_add_flag(col, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(col, on_sensor_clicked, LV_EVENT_SHORT_CLICKED, (void *)(intptr_t)i);
+        lv_obj_set_style_pad_hor(col, 4, 0);
         lv_obj_t *name = lv_label_create(col);
         lv_label_set_text(name, PANEL_TEMP_SENSORS[i].label);
         lv_obj_set_style_text_font(name, &lv_font_montserrat_14, 0);
         lv_obj_set_style_text_color(name, COLOR_TEXT_DIM, 0);
+        s_sensor_name[i] = name;
+        s_temp_now[i] = NAN;
+        s_hum_now[i] = NAN;
         s_temp_val[i] = lv_label_create(col);
         lv_label_set_text(s_temp_val[i], "--");
         lv_obj_set_style_text_font(s_temp_val[i], &lv_font_montserrat_24, 0);
@@ -2113,6 +2146,268 @@ static void on_content_released(lv_event_t *e)
 
 
 
+/* ---- Klimaat: 24 h chart + ventilation advice per sensor ----------------- */
+
+/* Trend arrows in the header: compare with the reading an hour ago. */
+static void climate_trend_timer(lv_timer_t *t)
+{
+    (void)t;
+    const time_t now = time(NULL);
+    if (!climate_time_valid(now)) {
+        return;
+    }
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (s_sensor_name[i] == NULL) {
+            continue;
+        }
+        const int16_t cur = climate_hist_latest(i, CLIMATE_KIND_TEMP, now, 0);
+        const int16_t old = climate_hist_latest(i, CLIMATE_KIND_TEMP, now, 3600);
+        const char *arrow = "";
+        if (cur != CLIMATE_NONE && old != CLIMATE_NONE) {
+            const int d = cur - old; /* tenths */
+            arrow = d >= 3 ? " " LV_SYMBOL_UP : d <= -3 ? " " LV_SYMBOL_DOWN : "";
+        }
+        lv_label_set_text_fmt(s_sensor_name[i], "%s%s", PANEL_TEMP_SENSORS[i].label, arrow);
+    }
+}
+
+static void on_climate_close(lv_event_t *e)
+{
+    (void)e;
+    if (s_clim) {
+        lv_obj_add_flag(s_clim, LV_OBJ_FLAG_HIDDEN);
+    }
+    s_clim_idx = -1;
+}
+
+static lv_obj_t *clim_label(lv_obj_t *parent, const lv_font_t *font, lv_color_t color)
+{
+    lv_obj_t *l = lv_label_create(parent);
+    lv_label_set_text(l, "");
+    lv_obj_set_style_text_font(l, font, 0);
+    lv_obj_set_style_text_color(l, color, 0);
+    return l;
+}
+
+static void create_climate_popup(lv_obj_t *root)
+{
+    s_clim_t_arr = heap_caps_malloc(sizeof(int32_t) * CLIMATE_SLOTS, MALLOC_CAP_SPIRAM);
+    s_clim_h_arr = heap_caps_malloc(sizeof(int32_t) * CLIMATE_SLOTS, MALLOC_CAP_SPIRAM);
+    if (!s_clim_t_arr || !s_clim_h_arr) {
+        return;
+    }
+    s_clim = lv_obj_create(root);
+    lv_obj_set_size(s_clim, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(s_clim, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(s_clim, LV_OPA_60, 0);
+    lv_obj_set_style_border_width(s_clim, 0, 0);
+    lv_obj_set_style_radius(s_clim, 0, 0);
+    lv_obj_clear_flag(s_clim, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_clim, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_clim, on_climate_close, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *box = lv_obj_create(s_clim);
+    lv_obj_set_size(box, 740, 440);
+    lv_obj_center(box);
+    lv_obj_set_style_bg_color(box, COLOR_TILE, 0);
+    lv_obj_set_style_radius(box, 20, 0);
+    lv_obj_set_style_border_width(box, 0, 0);
+    lv_obj_set_style_pad_all(box, 20, 0);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Title row: room name left, current readings right. */
+    s_clim_title = clim_label(box, &lv_font_montserrat_24, COLOR_TEXT);
+    lv_obj_align(s_clim_title, LV_ALIGN_TOP_LEFT, 0, 0);
+    s_clim_now = clim_label(box, &lv_font_montserrat_24, COLOR_TEXT);
+    lv_obj_align(s_clim_now, LV_ALIGN_TOP_RIGHT, 0, 0);
+
+    /* Axis labels flank the chart: temperature left (accent), humidity right. */
+    s_clim_ymax = clim_label(box, &lv_font_montserrat_14, COLOR_ACCENT);
+    s_clim_ymin = clim_label(box, &lv_font_montserrat_14, COLOR_ACCENT);
+    s_clim_hmax = clim_label(box, &lv_font_montserrat_14, COLOR_HUM);
+    s_clim_hmin = clim_label(box, &lv_font_montserrat_14, COLOR_HUM);
+
+    s_clim_chart = lv_chart_create(box);
+    lv_obj_set_size(s_clim_chart, 600, 230);
+    lv_obj_align(s_clim_chart, LV_ALIGN_TOP_MID, 0, 44);
+    lv_chart_set_type(s_clim_chart, LV_CHART_TYPE_LINE);
+    lv_chart_set_point_count(s_clim_chart, CLIMATE_SLOTS);
+    lv_chart_set_update_mode(s_clim_chart, LV_CHART_UPDATE_MODE_SHIFT);
+    lv_chart_set_div_line_count(s_clim_chart, 3, 5);
+    lv_obj_set_style_bg_color(s_clim_chart, COLOR_TILE_OFF, 0);
+    lv_obj_set_style_bg_opa(s_clim_chart, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_clim_chart, 0, 0);
+    lv_obj_set_style_radius(s_clim_chart, 12, 0);
+    lv_obj_set_style_pad_all(s_clim_chart, 8, 0);
+    lv_obj_set_style_line_color(s_clim_chart, lv_color_hex(0x2b3140), 0);
+    lv_obj_set_style_line_width(s_clim_chart, 1, 0);
+    lv_obj_set_style_size(s_clim_chart, 0, 0, LV_PART_INDICATOR); /* no point dots */
+    lv_obj_set_style_line_width(s_clim_chart, 3, LV_PART_ITEMS);
+    lv_obj_clear_flag(s_clim_chart, LV_OBJ_FLAG_SCROLLABLE);
+    s_clim_ser_h = lv_chart_add_series(s_clim_chart, COLOR_HUM, LV_CHART_AXIS_SECONDARY_Y);
+    s_clim_ser_t = lv_chart_add_series(s_clim_chart, COLOR_ACCENT, LV_CHART_AXIS_PRIMARY_Y);
+    lv_chart_set_ext_y_array(s_clim_chart, s_clim_ser_h, s_clim_h_arr);
+    lv_chart_set_ext_y_array(s_clim_chart, s_clim_ser_t, s_clim_t_arr);
+
+    /* Fixed-width axis labels in the 50 px margins beside the chart. */
+    lv_obj_set_width(s_clim_ymax, 44);
+    lv_obj_set_width(s_clim_ymin, 44);
+    lv_obj_set_style_text_align(s_clim_ymax, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_set_style_text_align(s_clim_ymin, LV_TEXT_ALIGN_RIGHT, 0);
+    lv_obj_align_to(s_clim_ymax, s_clim_chart, LV_ALIGN_OUT_LEFT_TOP, -4, 2);
+    lv_obj_align_to(s_clim_ymin, s_clim_chart, LV_ALIGN_OUT_LEFT_BOTTOM, -4, -2);
+    lv_obj_align_to(s_clim_hmax, s_clim_chart, LV_ALIGN_OUT_RIGHT_TOP, 4, 2);
+    lv_obj_align_to(s_clim_hmin, s_clim_chart, LV_ALIGN_OUT_RIGHT_BOTTOM, 4, -2);
+
+    /* Time axis: 24 h ago .. now. */
+    static const char *const marks[] = { "-24u", "-18u", "-12u", "-6u", "nu" };
+    for (int i = 0; i < 5; i++) {
+        lv_obj_t *m = clim_label(box, &lv_font_montserrat_14, COLOR_TEXT_DIM);
+        lv_label_set_text(m, marks[i]);
+        lv_obj_align_to(m, s_clim_chart, LV_ALIGN_OUT_BOTTOM_LEFT, (600 - 30) * i / 4, 4);
+    }
+
+    s_clim_range = clim_label(box, &lv_font_montserrat_18, COLOR_TEXT_DIM);
+    lv_obj_align(s_clim_range, LV_ALIGN_BOTTOM_LEFT, 0, -26);
+    s_clim_advice = clim_label(box, &lv_font_montserrat_18, COLOR_TEXT);
+    lv_label_set_long_mode(s_clim_advice, LV_LABEL_LONG_DOT);
+    lv_obj_set_width(s_clim_advice, 700);
+    lv_obj_align(s_clim_advice, LV_ALIGN_BOTTOM_LEFT, 0, 0);
+
+    lv_timer_create(climate_trend_timer, 60 * 1000, NULL);
+}
+
+/* Fill the popup for sensor idx from the history ring. Caller holds the lock. */
+static void climate_popup_fill(int idx)
+{
+    const time_t now = time(NULL);
+    int16_t t[CLIMATE_SLOTS], h[CLIMATE_SLOTS];
+    const int nt = climate_hist_get(idx, CLIMATE_KIND_TEMP, now, t);
+    const int nh = climate_hist_get(idx, CLIMATE_KIND_HUM, now, h);
+    /* Sensors report on change only, so a quiet slot means "still the same":
+     * carry the last value forward across gaps of up to two hours. */
+    int16_t *series[2] = { t, h };
+    for (int k = 0; k < 2; k++) {
+        int16_t last = CLIMATE_NONE;
+        int age = 0;
+        for (int i = 0; i < CLIMATE_SLOTS; i++) {
+            if (series[k][i] != CLIMATE_NONE) {
+                last = series[k][i];
+                age = 0;
+            } else if (last != CLIMATE_NONE && ++age <= 24) {
+                series[k][i] = last;
+            }
+        }
+    }
+    int tmin = 32767, tmax = -32768, hmin = 32767, hmax = -32768;
+    for (int i = 0; i < CLIMATE_SLOTS; i++) {
+        s_clim_t_arr[i] = t[i] == CLIMATE_NONE ? LV_CHART_POINT_NONE : t[i];
+        s_clim_h_arr[i] = h[i] == CLIMATE_NONE ? LV_CHART_POINT_NONE : h[i];
+        if (t[i] != CLIMATE_NONE) { tmin = LV_MIN(tmin, t[i]); tmax = LV_MAX(tmax, t[i]); }
+        if (h[i] != CLIMATE_NONE) { hmin = LV_MIN(hmin, h[i]); hmax = LV_MAX(hmax, h[i]); }
+    }
+    /* Axis ranges: temperature padded to whole degrees with 1° margin,
+     * humidity to whole tens with 10 % margin. */
+    int ylo = nt ? (tmin / 10 - 1) * 10 : 150, yhi = nt ? (tmax / 10 + 2) * 10 : 300;
+    if (yhi - ylo < 40) { yhi = ylo + 40; }
+    int hlo = nh ? ((hmin / 100) - 1) * 100 : 300, hhi = nh ? ((hmax / 100) + 2) * 100 : 700;
+    if (hlo < 0) { hlo = 0; }
+    if (hhi > 1000) { hhi = 1000; }
+    lv_chart_set_axis_range(s_clim_chart, LV_CHART_AXIS_PRIMARY_Y, ylo, yhi);
+    lv_chart_set_axis_range(s_clim_chart, LV_CHART_AXIS_SECONDARY_Y, hlo, hhi);
+    lv_chart_refresh(s_clim_chart);
+    lv_label_set_text_fmt(s_clim_ymax, "%d\xC2\xB0", yhi / 10);
+    lv_label_set_text_fmt(s_clim_ymin, "%d\xC2\xB0", ylo / 10);
+    lv_label_set_text_fmt(s_clim_hmax, "%d%%", hhi / 10);
+    lv_label_set_text_fmt(s_clim_hmin, "%d%%", hlo / 10);
+
+    const panel_sensor_t *sn = &PANEL_TEMP_SENSORS[idx];
+    lv_label_set_text_fmt(s_clim_title, "%s  \xE2\x80\xA2  laatste 24 uur", sn->label);
+    if (!isnan(s_temp_now[idx]) && !isnan(s_hum_now[idx])) {
+        lv_label_set_text_fmt(s_clim_now, "%.1f\xC2\xB0   " LV_SYMBOL_TINT " %.0f%%",
+                              (double)s_temp_now[idx], (double)s_hum_now[idx]);
+    } else if (!isnan(s_temp_now[idx])) {
+        lv_label_set_text_fmt(s_clim_now, "%.1f\xC2\xB0", (double)s_temp_now[idx]);
+    } else {
+        lv_label_set_text(s_clim_now, "--");
+    }
+    if (nt && nh) {
+        lv_label_set_text_fmt(s_clim_range, "Min %.1f\xC2\xB0  Max %.1f\xC2\xB0      "
+                              LV_SYMBOL_TINT " %d%% - %d%%", tmin / 10.0, tmax / 10.0,
+                              hmin / 10, hmax / 10);
+    } else if (nt) {
+        lv_label_set_text_fmt(s_clim_range, "Min %.1f\xC2\xB0  Max %.1f\xC2\xB0", tmin / 10.0,
+                              tmax / 10.0);
+    } else {
+        lv_label_set_text(s_clim_range, "Nog geen geschiedenis (wordt opgehaald)");
+    }
+
+    /* Ventilation advice: compare absolute humidity with the outdoor sensor. */
+    int out = -1;
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (!PANEL_TEMP_SENSORS[i].indoor) {
+            out = i;
+            break;
+        }
+    }
+    if (!sn->indoor) {
+        if (!isnan(s_temp_now[idx]) && !isnan(s_hum_now[idx])) {
+            lv_label_set_text_fmt(s_clim_advice, "Buitenlucht bevat %.1f g/m3 vocht",
+                                  (double)climate_abs_humidity(s_temp_now[idx], s_hum_now[idx]));
+        } else {
+            lv_label_set_text(s_clim_advice, "");
+        }
+        lv_obj_set_style_text_color(s_clim_advice, COLOR_TEXT_DIM, 0);
+    } else if (out >= 0 && !isnan(s_temp_now[idx]) && !isnan(s_hum_now[idx]) &&
+               !isnan(s_temp_now[out]) && !isnan(s_hum_now[out])) {
+        const float ah_in = climate_abs_humidity(s_temp_now[idx], s_hum_now[idx]);
+        const float ah_out = climate_abs_humidity(s_temp_now[out], s_hum_now[out]);
+        const float d = ah_in - ah_out;
+        if (s_hum_now[idx] <= COMFORT_HUM_MAX && s_hum_now[idx] >= COMFORT_HUM_MIN && d < 1.0f) {
+            lv_label_set_text_fmt(s_clim_advice, "Vochtigheid is goed (%.1f g/m3 binnen, "
+                                  "%.1f buiten)", (double)ah_in, (double)ah_out);
+            lv_obj_set_style_text_color(s_clim_advice, COLOR_OK, 0);
+        } else if (d >= 1.0f) {
+            lv_label_set_text_fmt(s_clim_advice, LV_SYMBOL_OK " Ventileren helpt: buitenlucht is "
+                                  "droger (%.1f vs %.1f g/m3)", (double)ah_out, (double)ah_in);
+            lv_obj_set_style_text_color(s_clim_advice, COLOR_OK, 0);
+        } else if (d <= -1.0f) {
+            lv_label_set_text_fmt(s_clim_advice, LV_SYMBOL_WARNING " Niet ventileren: buitenlucht is "
+                                  "vochtiger (%.1f vs %.1f g/m3)", (double)ah_out, (double)ah_in);
+            lv_obj_set_style_text_color(s_clim_advice, COLOR_WARN, 0);
+        } else {
+            lv_label_set_text(s_clim_advice, "Ventileren maakt nu weinig verschil");
+            lv_obj_set_style_text_color(s_clim_advice, COLOR_TEXT_DIM, 0);
+        }
+    } else {
+        lv_label_set_text(s_clim_advice, "");
+    }
+}
+
+static void open_climate_popup(int idx)
+{
+    if (s_clim == NULL || idx < 0 || idx >= (int)PANEL_TEMP_SENSOR_COUNT) {
+        return;
+    }
+    s_clim_idx = idx;
+    climate_popup_fill(idx);
+    lv_obj_remove_flag(s_clim, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_clim);
+}
+
+void panel_ui_debug_climate(int idx)
+{
+    if (!bsp_display_lock(1000)) {
+        return;
+    }
+    if (idx < 0) {
+        on_climate_close(NULL);
+    } else {
+        open_climate_popup(idx);
+    }
+    bsp_display_unlock();
+}
+
 /* ---- Remote verification: drive the UI + capture the composited screen -- */
 void panel_ui_debug_select(int tab, int drawer_open, int settings_open)
 {
@@ -2312,6 +2607,7 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
 
     /* Overlays on the top layer so they cover everything, including drawers. */
     create_popup(lv_layer_top());
+    create_climate_popup(lv_layer_top());
     create_settings(lv_layer_top());
     create_screensaver(lv_layer_top());
 
@@ -2571,6 +2867,7 @@ void panel_ui_set_temp_sensor(const char *entity_id, float temperature)
         lv_obj_set_style_text_color(s_temp_val[idx], COLOR_TEXT, 0);
     } else {
         lv_label_set_text_fmt(s_temp_val[idx], "%.1f\xC2\xB0", (double)temperature);
+        s_temp_now[idx] = temperature;
         lv_color_t c = COLOR_TEXT;
         if (PANEL_TEMP_SENSORS[idx].indoor) {
             c = temperature < COMFORT_TEMP_MIN ? COLOR_COLD
@@ -2600,6 +2897,7 @@ void panel_ui_set_humidity(const char *entity_id, float percent)
         lv_obj_set_style_text_color(s_hum_val[idx], COLOR_HUM, 0);
     } else {
         lv_label_set_text_fmt(s_hum_val[idx], LV_SYMBOL_TINT " %.0f%%", (double)percent);
+        s_hum_now[idx] = percent;
         lv_color_t c = COLOR_HUM;
         if (PANEL_TEMP_SENSORS[idx].indoor) {
             const float off = percent < COMFORT_HUM_MIN ? COMFORT_HUM_MIN - percent

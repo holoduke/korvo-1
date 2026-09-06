@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <time.h>
 #include "esp_err.h"
 
 /* State update for one entity. temperature is NAN unless the entity carries a
@@ -38,6 +39,14 @@ typedef void (*ha_forecast_cb_t)(const ha_forecast_day_t *days, int count);
 
 /* Register a callback for daily-forecast results. */
 void ha_client_set_forecast_cb(ha_forecast_cb_t cb);
+
+/* One historical numeric state: value at unix time t (from history/history_during_period). */
+typedef void (*ha_history_cb_t)(const char *entity_id, float value, time_t t);
+void ha_client_set_history_cb(ha_history_cb_t cb);
+/* Ask HA for the last `hours` of a numeric sensor; points arrive via the
+ * history callback (unparseable states such as "unavailable" are skipped).
+ * entity_id must stay valid until the result arrives (config strings do). */
+esp_err_t ha_client_request_history(const char *entity_id, int hours);
 
 /* Request a fresh daily forecast for the given weather entity (result arrives
  * via the forecast callback). The entity is cached and re-fetched periodically. */

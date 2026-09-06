@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "nvs_flash.h"
 
+#include "climate_hist.h"
 #include "ha_client.h"
 #include "metrics.h"
 #include "ota.h"
@@ -104,6 +105,61 @@ static bool is_temp_sensor(const char *entity_id)
         }
     }
     return false;
+}
+
+/* Index into PANEL_TEMP_SENSORS + kind for a climate entity id, or -1. */
+static int climate_index(const char *entity_id, int *kind)
+{
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (strcmp(PANEL_TEMP_SENSORS[i].temp_id, entity_id) == 0) {
+            *kind = CLIMATE_KIND_TEMP;
+            return i;
+        }
+        if (PANEL_TEMP_SENSORS[i].humidity_id &&
+            strcmp(PANEL_TEMP_SENSORS[i].humidity_id, entity_id) == 0) {
+            *kind = CLIMATE_KIND_HUM;
+            return i;
+        }
+    }
+    *kind = -1;
+    return -1;
+}
+
+static void on_ha_history(const char *entity_id, float value, time_t t)
+{
+    int kind;
+    const int idx = climate_index(entity_id, &kind);
+    if (idx >= 0) {
+        climate_hist_put(idx, kind, value, t);
+    }
+}
+
+/* Backfill the 24 h climate history once HA is up and the clock is set. The
+ * requests are sent from a throwaway task (socket sends can block briefly;
+ * the esp_timer task must not). */
+static bool s_history_backfilled;
+static void history_task(void *arg)
+{
+    (void)arg;
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        ha_client_request_history(PANEL_TEMP_SENSORS[i].temp_id, 24);
+        if (PANEL_TEMP_SENSORS[i].humidity_id) {
+            ha_client_request_history(PANEL_TEMP_SENSORS[i].humidity_id, 24);
+        }
+        vTaskDelay(pdMS_TO_TICKS(150)); /* let HA answer one before the next */
+    }
+    ESP_LOGI(TAG, "requested 24 h climate history");
+    vTaskDelete(NULL);
+}
+
+static void history_backfill_cb(void *arg)
+{
+    (void)arg;
+    if (s_history_backfilled || !s_ha_up || !climate_time_valid(time(NULL))) {
+        return;
+    }
+    s_history_backfilled = true;
+    xTaskCreate(history_task, "history", 4096, NULL, 4, NULL);
 }
 
 static bool is_humidity_sensor(const char *entity_id)
@@ -204,13 +260,17 @@ static void on_ha_state(const char *entity_id, const char *state,
 {
     if (strcmp(entity_id, PANEL_WEATHER_ENTITY) == 0) {
         panel_ui_set_weather(state, temperature);
-    } else if (is_temp_sensor(entity_id)) {
+    } else if (is_temp_sensor(entity_id) || is_humidity_sensor(entity_id)) {
         if (state != NULL) { /* attribute-only updates carry no reading */
-            panel_ui_set_temp_sensor(entity_id, parse_sensor_value(state));
-        }
-    } else if (is_humidity_sensor(entity_id)) {
-        if (state != NULL) {
-            panel_ui_set_humidity(entity_id, parse_sensor_value(state));
+            const float v = parse_sensor_value(state);
+            int kind;
+            const int idx = climate_index(entity_id, &kind);
+            if (kind == CLIMATE_KIND_TEMP) {
+                panel_ui_set_temp_sensor(entity_id, v);
+            } else {
+                panel_ui_set_humidity(entity_id, v);
+            }
+            climate_hist_put(idx, kind, v, time(NULL));
         }
     } else if (strncmp(entity_id, "scene.", 6) == 0) {
         handle_scene_state(entity_id, state);
@@ -278,6 +338,7 @@ static void services_task(void *arg)
     }
 
     ha_client_set_forecast_cb(on_ha_forecast);
+    ha_client_set_history_cb(on_ha_history);
     ha_client_set_caps_cb(on_light_caps);
     err = ha_client_start(HA_WEBSOCKET_URI, SECRET_HA_TOKEN,
                           s_subscribed, s_subscribed_count,
@@ -311,10 +372,21 @@ static void start_services_if_ready(void)
     }
 }
 
-/* Settings-screen diagnostics: IP, RSSI, HA link. Cheap; runs every 5 s. */
+/* Settings-screen diagnostics: IP, RSSI, HA link. Cheap; runs every 5 s.
+ * Doubles as the UI-lock watchdog: if the LVGL lock cannot be taken for 30 s
+ * in a row the UI is dead while everything else runs; abort() then writes a
+ * coredump of every task (the evidence) and the reboot restores the panel. */
 static void net_details_cb(void *arg)
 {
     (void)arg;
+    static int lock_fails;
+    if (bsp_display_lock(200)) {
+        bsp_display_unlock();
+        lock_fails = 0;
+    } else if (++lock_fails >= 6) {
+        ESP_LOGE(TAG, "LVGL lock stuck for 30 s -> coredump + reboot");
+        abort();
+    }
     char ip[16] = "";
     if (s_wifi_up) {
         esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
@@ -424,6 +496,7 @@ void app_main(void)
     }
 
     collect_subscribed_entities();
+    climate_hist_init();
 
     /* Wi-Fi FIRST: esp_wifi_init() needs a sizeable chunk of internal (DMA
      * capable) RAM and fails with ESP_ERR_NO_MEM if the LVGL UI has already
@@ -482,6 +555,11 @@ void app_main(void)
     esp_timer_handle_t ntimer;
     if (esp_timer_create(&nargs, &ntimer) == ESP_OK) {
         esp_timer_start_periodic(ntimer, 5ULL * 1000000);
+    }
+    const esp_timer_create_args_t hargs = { .callback = history_backfill_cb, .name = "hist" };
+    esp_timer_handle_t htimer;
+    if (esp_timer_create(&hargs, &htimer) == ESP_OK) {
+        esp_timer_start_periodic(htimer, 10ULL * 1000000); /* polls until HA + clock are up */
     }
 
     /* Start telemetry sampling into the PSRAM ring buffer (served by the web

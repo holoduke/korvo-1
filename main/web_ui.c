@@ -15,6 +15,9 @@
 #include "freertos/task.h"
 #include "bsp/display.h"
 #include "metrics.h"
+uint32_t lv_pipeline_guard_recoveries(void);
+uint32_t lv_pipeline_guard_lost(void);
+uint32_t lv_pipeline_guard_vsyncs(void);
 #include "ota.h"
 #include "panel_ui.h"
 
@@ -85,19 +88,23 @@ static esp_err_t status_get(httpd_req_t *req)
     if (running) {
         esp_ota_get_state_partition(running, &st);
     }
-    char buf[400];
+    char buf[480];
     int n = snprintf(buf, sizeof(buf),
                      "{\"version\":\"%s\",\"partition\":\"%s\",\"compiled\":\"%s %s\","
                      "\"idf\":\"%s\",\"uptime\":%llu,\"reset_reason\":%d,"
                      "\"pending_verify\":%s,\"heap_free\":%u,\"heap_min\":%u,"
-                     "\"touch_recoveries\":%lu}",
+                     "\"touch_recoveries\":%lu,\"fb_recoveries\":%lu,\"fb_lost\":%lu,"
+                     "\"vsyncs\":%lu}",
                      desc->version, running ? running->label : "?",
                      desc->date, desc->time, desc->idf_ver,
                      esp_timer_get_time() / 1000000ULL, (int)esp_reset_reason(),
                      st == ESP_OTA_IMG_PENDING_VERIFY ? "true" : "false",
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                      (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
-                     (unsigned long)bsp_touch_get_recoveries());
+                     (unsigned long)bsp_touch_get_recoveries(),
+                     (unsigned long)lv_pipeline_guard_recoveries(),
+                     (unsigned long)lv_pipeline_guard_lost(),
+                     (unsigned long)lv_pipeline_guard_vsyncs());
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, buf, n);
 }
@@ -239,6 +246,23 @@ static esp_err_t tasks_get(httpd_req_t *req)
     return err;
 }
 
+/* ---- POST /api/panic ----------------------------------------------------- */
+/* Debug aid (token required): abort() now to capture a coredump of a wedged
+ * state; the panel reboots into the same image. Read it with
+ * idf.py coredump-info -p <port>. */
+static esp_err_t panic_post(httpd_req_t *req)
+{
+    if (!ota_request_authorized(req)) {
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "unauthorized");
+        return ESP_FAIL;
+    }
+    httpd_resp_sendstr(req, "aborting for coredump\n");
+    vTaskDelay(pdMS_TO_TICKS(200));
+    ESP_LOGE(TAG, "coredump requested via /api/panic");
+    abort();
+    return ESP_OK;
+}
+
 /* ---- GET /api/screen ----------------------------------------------------- */
 /* Verification aid: returns the composited screen as raw little-endian RGB565
  * behind a one-line text header "RGB565 <w> <h>\n". Query options drive the UI
@@ -263,10 +287,15 @@ static esp_err_t screen_get(httpd_req_t *req)
     const int tab = query_int(req, "tab", -1);
     const int drawer = query_int(req, "drawer", -1);
     const int settings = query_int(req, "settings", -1);
+    const int climate = query_int(req, "climate", -2); /* -1 closes, N opens sensor N */
     const int scale = query_int(req, "scale", 1) == 2 ? 2 : 1;
     if (tab >= 0 || drawer >= 0 || settings >= 0) {
         panel_ui_debug_select(tab, drawer, settings);
         vTaskDelay(pdMS_TO_TICKS(600)); /* let slide animations finish */
+    }
+    if (climate >= -1) {
+        panel_ui_debug_climate(climate);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
     lv_draw_buf_t *snap = panel_ui_capture();
     if (snap == NULL) {
@@ -310,6 +339,7 @@ void web_ui_register(httpd_handle_t server)
         { .uri = "/api/metrics", .method = HTTP_GET, .handler = metrics_get },
         { .uri = "/api/screen", .method = HTTP_GET, .handler = screen_get },
         { .uri = "/api/tasks", .method = HTTP_GET, .handler = tasks_get },
+        { .uri = "/api/panic", .method = HTTP_POST, .handler = panic_post },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         httpd_register_uri_handler(server, &routes[i]);

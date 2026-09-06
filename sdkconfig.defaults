@@ -71,3 +71,8 @@ CONFIG_ESP_TASK_WDT_PANIC=y
 # Task list + CPU usage for GET /api/tasks (live deadlock/starvation diagnosis).
 CONFIG_FREERTOS_USE_TRACE_FACILITY=y
 CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y
+# The RGB LCD vsync interrupt must survive flash writes (Wi-Fi NVS, OTA,
+# otadata). As a non-IRAM interrupt it is masked/restored around every flash
+# operation; on some boots (seen 2026-09-06) it never came back and the LVGL
+# frame-buffer pipeline then waited forever for a vsync release (frozen UI).
+CONFIG_LCD_RGB_ISR_IRAM_SAFE=y

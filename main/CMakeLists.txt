@@ -8,6 +8,8 @@ idf_component_register(
         "metrics.c"
         "web_ui.c"
         "lv_mem_psram.c"
+        "climate_hist.c"
+        "lv_pipeline_guard.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES nvs_flash esp_wifi esp_netif esp_http_server app_update espcoredump
                   esp32_s31_korvo
@@ -44,4 +46,11 @@ target_include_directories(${COMPONENT_LIB} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/
 target_link_libraries(${COMPONENT_LIB} INTERFACE
     "-Wl,--wrap=lv_malloc_core" "-Wl,--wrap=lv_realloc_core" "-Wl,--wrap=lv_free_core"
     # force the wrappers' object out of libmain.a (nothing references it before LVGL is linked)
-    "-u __wrap_lv_malloc_core" "-u __wrap_lv_realloc_core" "-u __wrap_lv_free_core")
+    "-u __wrap_lv_malloc_core" "-u __wrap_lv_realloc_core" "-u __wrap_lv_free_core"
+    # Bounded, self-healing frame-buffer wait (see lv_pipeline_guard.c)
+    "-Wl,--wrap=display_bridge_pipeline_wait_free_buf" "-u __wrap_display_bridge_pipeline_wait_free_buf"
+    "-Wl,--wrap=display_bridge_vsync_on_isr" "-u __wrap_display_bridge_vsync_on_isr")
+# The guard reads the adapter's private pipeline structs for its diagnostics.
+idf_component_get_property(_lv_adapter_dir espressif__esp_lvgl_adapter COMPONENT_DIR)
+target_include_directories(${COMPONENT_LIB} PRIVATE
+    ${_lv_adapter_dir}/src/adapter ${_lv_adapter_dir}/src/display/bridge/common)

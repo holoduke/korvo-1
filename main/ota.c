@@ -169,6 +169,7 @@ esp_err_t ota_start_server(const char *auth_token)
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.stack_size = 12288;      /* OTA image verification + 2 KB JSON writer */
     config.max_open_sockets = 4;    /* leave lwIP sockets for HA/SNTP/DNS (needs +3) */
+    config.max_uri_handlers = 12;
     config.lru_purge_enable = true;
     config.recv_wait_timeout = 20;
     config.send_wait_timeout = 20;
