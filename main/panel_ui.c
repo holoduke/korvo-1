@@ -212,9 +212,8 @@ static lv_obj_t *s_theme_dd;
 static lv_obj_t *s_theme_lbl;     /* "wordt toegepast..." feedback */
 
 /* Screensaver timeout options (index -> milliseconds). */
-static const uint32_t SAVER_OPTS_MS[] = {30000, 60000, 300000, 1800000,
-                                         7200000, 86400000, 0};
-#define SAVER_OPTS_STR "30 sec\n1 min\n5 min\n30 min\n2 uur\n24 uur\nnooit"
+static const uint32_t SAVER_OPTS_MS[] = {60000, 300000, 1800000, 7200000};
+#define SAVER_OPTS_STR "1 min\n5 min\n30 min\n2 uur"
 static panel_ui_light_cb_t s_light_cb;
 static panel_ui_scene_cb_t s_scene_cb;
 static panel_ui_brightness_cb_t s_brightness_cb;
@@ -1969,7 +1968,7 @@ static void on_saver_mode_changed(lv_event_t *e)
 static int saver_load_idx(void)
 {
     const int n = sizeof(SAVER_OPTS_MS) / sizeof(SAVER_OPTS_MS[0]);
-    uint8_t idx = 1; /* default: 1 min */
+    uint8_t idx = 1; /* default: 5 min */
     uint8_t mode = SAVER_MODE_EYE;
     nvs_handle_t h;
     if (nvs_open("panel", NVS_READONLY, &h) == ESP_OK) {
