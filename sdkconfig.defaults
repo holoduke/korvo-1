@@ -63,3 +63,11 @@ CONFIG_ESP_WS_CLIENT_SEPARATE_TX_LOCK=y
 # not just log: with rollback enabled the bootloader then discards an
 # unconfirmed image. Seen 2026-09-06: Wi-Fi task stuck in the SHA HAL.
 CONFIG_ESP_TASK_WDT_PANIC=y
+# Software SHA: the hardware SHA (DMA) engine hangs in sha_hal_wait_idle during
+# the WPA handshake on the ESP32-S31 (intermittent, then every boot on
+# 2026-09-06), spinning the Wi-Fi task at priority 23 forever. WPA only hashes
+# a few KB, so software SHA costs nothing noticeable.
+# CONFIG_MBEDTLS_HARDWARE_SHA is not set
+# Task list + CPU usage for GET /api/tasks (live deadlock/starvation diagnosis).
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y

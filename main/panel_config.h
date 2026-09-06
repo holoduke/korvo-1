@@ -37,6 +37,8 @@ typedef struct {
     int device_count;
     const char *const *scene_icons; /* optional LV_SYMBOL_* per scene (scene tabs) */
     const panel_swatch_t *scene_swatches; /* optional colour dot per scene (scene tabs) */
+    int quick_scenes;              /* the last N scenes render as small icon buttons in
+                                    * the bottom row instead of grid tiles (scene tabs) */
     bool scene_tiles;              /* true: grid shows scenes as tiles and the bottom
                                     * row shows the active scene instead of chips */
 } panel_tab_t;
@@ -54,10 +56,15 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
     { "scene.woonkamer_avond_licht", "Avond licht" },
     { "scene.woonkamer_paars_rood",  "Paars rood" },
     { "scene.woonkamer_alles_uit",   "Alles uit" },
+    /* Quick buttons (bottom row): every ground-floor light on at minimum /
+     * full brightness. Scenes created in HA's scene editor on 2026-09-06. */
+    { "scene.woonkamer_min",         "Min" },
+    { "scene.woonkamer_max",         "Max" },
 };
 /* Tile icons, same order as TAB_THUIS_SCENES. */
 static const char *const TAB_THUIS_ICONS[] = {
     LV_SYMBOL_CHARGE, LV_SYMBOL_EYE_CLOSE, LV_SYMBOL_EYE_OPEN, LV_SYMBOL_TINT, LV_SYMBOL_POWER,
+    LV_SYMBOL_MINUS, LV_SYMBOL_PLUS,
 };
 /* Drawer: every individual ground-floor light, grouped by room, taken from the
  * members of HA's light.lampen_beneden_verdieping and the scenes above. */
@@ -128,15 +135,15 @@ static const panel_entity_t TAB_ZOLDER_DEVICES[] = {
 #define TAB_ENTRY(name, lights, scenes, devices) \
     { name, lights, sizeof(lights) / sizeof((lights)[0]), \
       scenes, sizeof(scenes) / sizeof((scenes)[0]), \
-      devices, sizeof(devices) / sizeof((devices)[0]), NULL, NULL, false }
+      devices, sizeof(devices) / sizeof((devices)[0]), NULL, NULL, 0, false }
 
 /* Scene tab: scenes are the tiles (with icons and/or colour swatches; either
  * may be NULL), the bottom row shows the active scene plus a power toggle for
  * lights[0]. More than 6 scenes -> compact 4x3 tiles. */
-#define TAB_ENTRY_SCENES(name, lights, scenes, icons, swatches, devices) \
+#define TAB_ENTRY_SCENES(name, lights, scenes, icons, swatches, quick, devices) \
     { name, lights, sizeof(lights) / sizeof((lights)[0]), \
       scenes, sizeof(scenes) / sizeof((scenes)[0]), \
-      devices, sizeof(devices) / sizeof((devices)[0]), icons, swatches, true }
+      devices, sizeof(devices) / sizeof((devices)[0]), icons, swatches, quick, true }
 
 /* ---- Tab: Garage -------------------------------------------------------- */
 /* 17 colour bulbs driven by scenes: four white levels, then colour moods. The
@@ -191,14 +198,14 @@ static const panel_entity_t TAB_GARAGE_DEVICES[] = {
 /* Tab with no scenes (just the tiles + "Alle lampen" drawer). */
 #define TAB_ENTRY_NS(name, lights, devices) \
     { name, lights, sizeof(lights) / sizeof((lights)[0]), \
-      NULL, 0, devices, sizeof(devices) / sizeof((devices)[0]), NULL, NULL, false }
+      NULL, 0, devices, sizeof(devices) / sizeof((devices)[0]), NULL, NULL, 0, false }
 
 static const panel_tab_t PANEL_TABS[] = {
-    TAB_ENTRY_SCENES("Beneden", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_ICONS, NULL,
+    TAB_ENTRY_SCENES("Beneden", TAB_THUIS_LIGHTS, TAB_THUIS_SCENES, TAB_THUIS_ICONS, NULL, 2,
                      TAB_THUIS_DEVICES),
     TAB_ENTRY("Boven", TAB_BOVEN_LIGHTS, TAB_BOVEN_SCENES, TAB_BOVEN_DEVICES),
     TAB_ENTRY_NS("Zolder", TAB_ZOLDER_LIGHTS, TAB_ZOLDER_DEVICES),
-    TAB_ENTRY_SCENES("Garage", TAB_GARAGE_LIGHTS, TAB_GARAGE_SCENES, NULL, TAB_GARAGE_SWATCHES,
+    TAB_ENTRY_SCENES("Garage", TAB_GARAGE_LIGHTS, TAB_GARAGE_SCENES, NULL, TAB_GARAGE_SWATCHES, 0,
                      TAB_GARAGE_DEVICES),
 };
 #define PANEL_TAB_COUNT (sizeof(PANEL_TABS) / sizeof(PANEL_TABS[0]))
@@ -217,19 +224,30 @@ typedef struct {
     const char *temp_id;
     const char *humidity_id; /* NULL = no humidity line */
     const char *label;
+    bool indoor;             /* colour the readings against the comfort bands below */
 } panel_sensor_t;
+
+/* Comfort bands (indoor sensors only): temperature 19-24 C is green, below is
+ * blue, above is orange, above 26 red. Humidity 40-60 % is green, outside is
+ * orange, more than 10 points outside (below 30 / above 70) is red. */
+#define COMFORT_TEMP_MIN     19.0f
+#define COMFORT_TEMP_MAX     24.0f
+#define COMFORT_TEMP_HOT     26.0f
+#define COMFORT_HUM_MIN      40.0f
+#define COMFORT_HUM_MAX      60.0f
+#define COMFORT_HUM_MARGIN   10.0f
 static const panel_sensor_t PANEL_TEMP_SENSORS[] = {
     { "sensor.sensor_buiten_voor_1_temperature",
-      "sensor.sensor_buiten_voor_1_humidity",           "Buiten" },
-    { "sensor.sensor_zitkamer_achter_1_temperature",
-      "sensor.sensor_zitkamer_achter_1_humidity",       "Zitkamer" },
-    { "sensor.sensor_keuken_1_temperature",
-      "sensor.sensor_keuken_1_humidity",                "Keuken" },
-    /* Zigbee 0xa4c138c1a5a2f0aa, named "sensor voorkamer 1" in Zigbee2MQTT
-     * (the gameroom). Renaming the device in Z2M changes these ids. */
+      "sensor.sensor_buiten_voor_1_humidity",           "Buiten",    false },
+    /* Z2M "sensor voorkamer 1" (0xa4c138c1a5a2f0aa) sits in the zitkamer. */
     { "sensor.sensor_voorkamer_1_temperature",
-      "sensor.sensor_voorkamer_1_humidity",             "Voorkamer" },
+      "sensor.sensor_voorkamer_1_humidity",             "Zitkamer",  true },
+    { "sensor.sensor_keuken_1_temperature",
+      "sensor.sensor_keuken_1_humidity",                "Keuken",    true },
+    /* Z2M "sensor zitkamer achter 1" is the gameroom (playroom). */
+    { "sensor.sensor_zitkamer_achter_1_temperature",
+      "sensor.sensor_zitkamer_achter_1_humidity",       "Gameroom",  true },
     { "sensor.sensor_zolder_1_temperature",
-      "sensor.sensor_zolder_1_humidity",                "Zolder" },
+      "sensor.sensor_zolder_1_humidity",                "Zolder",    true },
 };
 #define PANEL_TEMP_SENSOR_COUNT (sizeof(PANEL_TEMP_SENSORS) / sizeof(PANEL_TEMP_SENSORS[0]))

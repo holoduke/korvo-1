@@ -13,6 +13,7 @@
 #include "panel_config.h"
 #include "esp_app_desc.h"
 #include "esp_heap_caps.h"
+#include "esp_task_wdt.h"
 #include "esp_ota_ops.h"
 #include "esp_timer.h"
 #ifdef PANEL_ENABLE_SCREEN_DUMP /* on-device screenshot helper (off by default) */
@@ -37,6 +38,8 @@ static const char *TAG = "panel_ui";
 #define COLOR_OK        lv_color_hex(0x4dd06a)
 #define COLOR_WARN      lv_color_hex(0xe0a555)
 #define COLOR_BAD       lv_color_hex(0xe05555)
+#define COLOR_COLD      lv_color_hex(0x6fb3ff)   /* below the comfort band */
+#define COLOR_HUM       lv_color_hex(0x7fa8d0)   /* neutral humidity (outdoor) */
 
 #define HEADER_H        84
 #define TABBAR_H        46
@@ -306,7 +309,9 @@ static void scene_highlight(int tab, int idx)
             lv_obj_set_style_text_color(s_scene_icon[tab][j],
                                         on ? COLOR_SCENE_TEXT : COLOR_TEXT_DIM, 0);
         }
-        lv_obj_set_style_text_color(s_scene_name[tab][j], on ? COLOR_SCENE_TEXT : COLOR_TEXT, 0);
+        if (s_scene_name[tab][j]) {
+            lv_obj_set_style_text_color(s_scene_name[tab][j], on ? COLOR_SCENE_TEXT : COLOR_TEXT, 0);
+        }
         if (s_scene_state_lbl[tab][j]) {
             lv_label_set_text(s_scene_state_lbl[tab][j], on ? "actief" : "scene");
             lv_obj_set_style_text_color(s_scene_state_lbl[tab][j],
@@ -358,6 +363,20 @@ static void on_bright_slider_event(lv_event_t *e)
             }
         }
     }
+}
+
+static void lvgl_wdt_feed(lv_timer_t *t)
+{
+    (void)t;
+    static bool subscribed;
+    if (!subscribed) { /* first run: we are on the LVGL task now */
+        subscribed = esp_task_wdt_add(NULL) == ESP_OK;
+        if (subscribed) {
+            ESP_LOGI(TAG, "LVGL task subscribed to the task watchdog");
+        }
+        return;
+    }
+    esp_task_wdt_reset();
 }
 
 static void on_clock_timer(lv_timer_t *t)
@@ -536,7 +555,7 @@ static void create_header(lv_obj_t *parent)
         lv_label_set_text(s_hum_val[i], PANEL_TEMP_SENSORS[i].humidity_id ? LV_SYMBOL_TINT " --"
                                                                          : "");
         lv_obj_set_style_text_font(s_hum_val[i], &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(s_hum_val[i], lv_color_hex(0x7fa8d0), 0);
+        lv_obj_set_style_text_color(s_hum_val[i], COLOR_HUM, 0);
     }
 
     /* Spacer pushes the clock cluster + gear to the right edge. */
@@ -613,14 +632,16 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab, int tab_
          * tiles (icon / name / "actief"); more get a compact 4x3 grid of
          * swatch + name pills. Tapping activates the scene and lights the tile. */
         const int scene_n = tab->scene_count < MAX_SCENES ? tab->scene_count : MAX_SCENES;
-        const bool compact = scene_n > 6;
+        /* The last quick_scenes entries become bottom-row buttons (create_scene_row). */
+        const int grid_n = scene_n - (tab->quick_scenes < scene_n ? tab->quick_scenes : 0);
+        const bool compact = grid_n > 6;
         const int cols = compact ? 4 : 3;
         s_scene_counts[tab_idx] = scene_n;
         if (compact) {
             lv_obj_set_grid_dsc_array(grid, s_col_dsc4, s_row_dsc3);
             lv_obj_set_style_pad_gap(grid, 10, 0);
         }
-        for (int i = 0; i < scene_n; i++) {
+        for (int i = 0; i < grid_n; i++) {
             lv_obj_t *tile = lv_button_create(grid);
             lv_obj_set_grid_cell(tile, LV_GRID_ALIGN_STRETCH, i % cols, 1,
                                  LV_GRID_ALIGN_STRETCH, i / cols, 1);
@@ -771,6 +792,34 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_i
         lv_obj_center(t->icon);
     }
 
+    if (tab->scene_tiles && tab->quick_scenes > 0) {
+        /* Quick scenes: small square icon buttons (e.g. Min / Max brightness)
+         * that behave exactly like the grid scene tiles (same registry). */
+        const int scene_n = tab->scene_count < MAX_SCENES ? tab->scene_count : MAX_SCENES;
+        const int first = scene_n - (tab->quick_scenes < scene_n ? tab->quick_scenes : 0);
+        for (int i = first; i < scene_n; i++) {
+            lv_obj_t *btn = lv_button_create(row);
+            lv_obj_set_size(btn, SCENE_ROW_H - 14, LV_PCT(100));
+            lv_obj_set_style_bg_color(btn, COLOR_TILE, 0);
+            lv_obj_set_style_radius(btn, 14, 0);
+            lv_obj_set_style_shadow_width(btn, 0, 0);
+            lv_obj_set_style_bg_opa(btn, LV_OPA_80, LV_STATE_PRESSED);
+            s_scene_chips[tab_idx][i] = btn;
+            s_scene_ctx[tab_idx][i] = (scene_ctx_t){ &tab->scenes[i], tab_idx };
+            lv_obj_add_event_cb(btn, on_scene_clicked, LV_EVENT_SHORT_CLICKED,
+                                &s_scene_ctx[tab_idx][i]);
+            lv_obj_t *icon = lv_label_create(btn);
+            lv_label_set_text(icon, (tab->scene_icons && tab->scene_icons[i])
+                                        ? tab->scene_icons[i] : tab->scenes[i].label);
+            lv_obj_set_style_text_font(icon, &lv_font_montserrat_24, 0);
+            lv_obj_set_style_text_color(icon, COLOR_TEXT_DIM, 0);
+            lv_obj_center(icon);
+            s_scene_icon[tab_idx][i] = icon;
+            s_scene_name[tab_idx][i] = NULL;
+            s_scene_state_lbl[tab_idx][i] = NULL;
+        }
+    }
+
     if (tab->scene_tiles) {
         /* Scene tab: the scenes live in the grid, so the bottom row shows which
          * one is active (a passive pill; the grid tiles were registered by
@@ -784,7 +833,7 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_i
         lv_obj_set_style_radius(pill, 14, 0);
         lv_obj_set_style_pad_hor(pill, 18, 0);
         lv_obj_t *lbl = lv_label_create(pill);
-        lv_label_set_text(lbl, "Actieve scene:  \xE2\x80\x94"); /* em dash */
+        lv_label_set_text(lbl, "Actieve scene:  -");
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_obj_set_width(lbl, LV_PCT(100));
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
@@ -2266,6 +2315,12 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     create_settings(lv_layer_top());
     create_screensaver(lv_layer_top());
 
+    /* The LVGL task feeds the task watchdog from this timer. A UI task that
+     * blocks forever (I2C, a lock inversion) then panics within
+     * CONFIG_ESP_TASK_WDT_TIMEOUT_S, writes a coredump and reboots instead of
+     * leaving a frozen panel that still answers HTTP. */
+    lv_timer_create(lvgl_wdt_feed, 500, NULL);
+
     /* Drive the header clock/date (updates once SNTP has synced). */
     lv_timer_create(on_clock_timer, 1000, NULL);
     on_clock_timer(NULL);
@@ -2513,8 +2568,16 @@ void panel_ui_set_temp_sensor(const char *entity_id, float temperature)
     }
     if (isnan(temperature)) {
         lv_label_set_text(s_temp_val[idx], "--");
+        lv_obj_set_style_text_color(s_temp_val[idx], COLOR_TEXT, 0);
     } else {
         lv_label_set_text_fmt(s_temp_val[idx], "%.1f\xC2\xB0", (double)temperature);
+        lv_color_t c = COLOR_TEXT;
+        if (PANEL_TEMP_SENSORS[idx].indoor) {
+            c = temperature < COMFORT_TEMP_MIN ? COLOR_COLD
+              : temperature <= COMFORT_TEMP_MAX ? COLOR_OK
+              : temperature <= COMFORT_TEMP_HOT ? COLOR_WARN : COLOR_BAD;
+        }
+        lv_obj_set_style_text_color(s_temp_val[idx], c, 0);
     }
     bsp_display_unlock();
 }
@@ -2534,8 +2597,16 @@ void panel_ui_set_humidity(const char *entity_id, float percent)
     }
     if (isnan(percent)) {
         lv_label_set_text(s_hum_val[idx], LV_SYMBOL_TINT " --");
+        lv_obj_set_style_text_color(s_hum_val[idx], COLOR_HUM, 0);
     } else {
         lv_label_set_text_fmt(s_hum_val[idx], LV_SYMBOL_TINT " %.0f%%", (double)percent);
+        lv_color_t c = COLOR_HUM;
+        if (PANEL_TEMP_SENSORS[idx].indoor) {
+            const float off = percent < COMFORT_HUM_MIN ? COMFORT_HUM_MIN - percent
+                            : percent > COMFORT_HUM_MAX ? percent - COMFORT_HUM_MAX : 0.0f;
+            c = off <= 0.0f ? COLOR_OK : off > COMFORT_HUM_MARGIN ? COLOR_BAD : COLOR_WARN;
+        }
+        lv_obj_set_style_text_color(s_hum_val[idx], c, 0);
     }
     bsp_display_unlock();
 }

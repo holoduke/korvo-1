@@ -204,6 +204,40 @@ static esp_err_t metrics_get(httpd_req_t *req)
     return failed ? ESP_FAIL : ESP_OK;
 }
 
+/* ---- GET /api/tasks ------------------------------------------------------ */
+/* Live task table: name, state, priority, core, stack headroom, CPU share.
+ * The first stop when the UI freezes but HTTP still answers. */
+static esp_err_t tasks_get(httpd_req_t *req)
+{
+    const UBaseType_t n = uxTaskGetNumberOfTasks();
+    TaskStatus_t *ts = heap_caps_malloc(sizeof(TaskStatus_t) * n, MALLOC_CAP_SPIRAM);
+    char *out = heap_caps_malloc(96 * n + 128, MALLOC_CAP_SPIRAM);
+    if (ts == NULL || out == NULL) {
+        heap_caps_free(ts);
+        heap_caps_free(out);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "no mem");
+        return ESP_FAIL;
+    }
+    configRUN_TIME_COUNTER_TYPE total = 0;
+    const UBaseType_t got = uxTaskGetSystemState(ts, n, &total);
+    static const char *const st[] = { "running", "ready", "blocked", "suspended", "deleted", "invalid" };
+    int len = snprintf(out, 128, "%-18s %-9s %4s %4s %7s %5s\n", "task", "state", "prio", "core",
+                       "stackhw", "cpu%");
+    for (UBaseType_t i = 0; i < got; i++) {
+        const int pct = total ? (int)((ts[i].ulRunTimeCounter * 100ULL) / total) : 0;
+        const int core = (int)xTaskGetCoreID(ts[i].xHandle); /* tskNO_AFFINITY -> -1 */
+        len += snprintf(out + len, 96, "%-18s %-9s %4u %4d %7u %5d\n", ts[i].pcTaskName,
+                        st[ts[i].eCurrentState < 6 ? ts[i].eCurrentState : 5],
+                        (unsigned)ts[i].uxCurrentPriority, core > 1 ? -1 : core,
+                        (unsigned)ts[i].usStackHighWaterMark, pct);
+    }
+    httpd_resp_set_type(req, "text/plain");
+    esp_err_t err = httpd_resp_send(req, out, len);
+    heap_caps_free(ts);
+    heap_caps_free(out);
+    return err;
+}
+
 /* ---- GET /api/screen ----------------------------------------------------- */
 /* Verification aid: returns the composited screen as raw little-endian RGB565
  * behind a one-line text header "RGB565 <w> <h>\n". Query options drive the UI
@@ -270,6 +304,7 @@ void web_ui_register(httpd_handle_t server)
         { .uri = "/api/status", .method = HTTP_GET, .handler = status_get },
         { .uri = "/api/metrics", .method = HTTP_GET, .handler = metrics_get },
         { .uri = "/api/screen", .method = HTTP_GET, .handler = screen_get },
+        { .uri = "/api/tasks", .method = HTTP_GET, .handler = tasks_get },
     };
     for (size_t i = 0; i < sizeof(routes) / sizeof(routes[0]); i++) {
         httpd_register_uri_handler(server, &routes[i]);

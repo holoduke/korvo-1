@@ -45,6 +45,8 @@ static size_t s_rx_len;
 static bool s_rx_drop;                    /* current message overflowed: skip its tail */
 static volatile uint32_t s_last_rx_tick;  /* last time any frame arrived (32-bit: atomic) */
 static volatile bool s_ws_stopped;        /* client task exited -> heartbeat restarts it */
+static volatile bool s_authed;            /* auth_ok seen on the current connection */
+static volatile bool s_states_seen;       /* at least one entity event since auth */
 static int s_forced_reconnects;           /* consecutive stale-link reconnects */
 
 static ha_forecast_cb_t s_forecast_cb;
@@ -190,6 +192,8 @@ static void handle_message(const char *data, size_t len)
     } else if (strcmp(type->valuestring, "auth_ok") == 0) {
         ESP_LOGI(TAG, "Authenticated with Home Assistant");
         s_forced_reconnects = 0;
+        s_authed = true;
+        s_states_seen = false;
         esp_websocket_client_set_reconnect_timeout(s_client, HA_RECONNECT_MS);
         send_subscribe();
         if (s_conn_cb) {
@@ -203,6 +207,9 @@ static void handle_message(const char *data, size_t len)
         const cJSON *event = cJSON_GetObjectItem(root, "event");
         const cJSON *added = cJSON_GetObjectItem(event, "a");
         const cJSON *changes = cJSON_GetObjectItem(event, "c");
+        if (added || changes) {
+            s_states_seen = true;
+        }
         if (added) {
             handle_entity_object(added, false);
         }
@@ -231,6 +238,7 @@ static void on_ws_event(void *arg, esp_event_base_t base, int32_t event_id, void
     switch (event_id) {
     case WEBSOCKET_EVENT_CONNECTED:
         ESP_LOGI(TAG, "WebSocket connected, waiting for auth_required");
+        s_authed = false;
         s_rx_len = 0;
         s_rx_drop = false;
         s_last_rx_tick = xTaskGetTickCount();
@@ -470,6 +478,12 @@ static void heartbeat_task(void *arg)
             continue; /* built-in auto-reconnect is working on it */
         }
         send_ping();
+        /* Insurance: if HA never delivered the initial state dump after auth
+         * (seen once, HA was busy reloading scenes), ask again. */
+        if (s_authed && !s_states_seen) {
+            ESP_LOGW(TAG, "No entity states since auth -> re-subscribing");
+            send_subscribe();
+        }
         /* Refresh the forecast roughly every 30 min (120 * 15s). */
         if (++cycles >= 120 && s_weather_entity[0]) {
             cycles = 0;
