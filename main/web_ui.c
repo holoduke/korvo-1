@@ -13,6 +13,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "bsp/display.h"
 #include "metrics.h"
 #include "panel_ui.h"
 
@@ -87,13 +88,15 @@ static esp_err_t status_get(httpd_req_t *req)
     int n = snprintf(buf, sizeof(buf),
                      "{\"version\":\"%s\",\"partition\":\"%s\",\"compiled\":\"%s %s\","
                      "\"idf\":\"%s\",\"uptime\":%llu,\"reset_reason\":%d,"
-                     "\"pending_verify\":%s,\"heap_free\":%u,\"heap_min\":%u}",
+                     "\"pending_verify\":%s,\"heap_free\":%u,\"heap_min\":%u,"
+                     "\"touch_recoveries\":%lu}",
                      desc->version, running ? running->label : "?",
                      desc->date, desc->time, desc->idf_ver,
                      esp_timer_get_time() / 1000000ULL, (int)esp_reset_reason(),
                      st == ESP_OTA_IMG_PENDING_VERIFY ? "true" : "false",
                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
-                     (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+                     (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL),
+                     (unsigned long)bsp_touch_get_recoveries());
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_send(req, buf, n);
 }

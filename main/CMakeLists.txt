@@ -10,6 +10,7 @@ idf_component_register(
         "lv_mem_psram.c"
     INCLUDE_DIRS "."
     PRIV_REQUIRES nvs_flash esp_wifi esp_netif esp_http_server app_update espcoredump
+                  esp32_s31_korvo
                   esp_driver_tsens esp_timer
     EMBED_TXTFILES "dashboard.html"
 )

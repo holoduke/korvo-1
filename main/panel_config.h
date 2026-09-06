@@ -212,7 +212,7 @@ static const panel_tab_t PANEL_TABS[] = {
 
 /* Climate sensors shown in the header next to the weather forecast: a
  * temperature entity (°C) with an optional humidity entity (%). Order =
- * display order. The header fits about four columns. */
+ * display order. The header fits five columns next to a 4-day forecast. */
 typedef struct {
     const char *temp_id;
     const char *humidity_id; /* NULL = no humidity line */
@@ -229,5 +229,7 @@ static const panel_sensor_t PANEL_TEMP_SENSORS[] = {
      * (the gameroom). Renaming the device in Z2M changes these ids. */
     { "sensor.sensor_voorkamer_1_temperature",
       "sensor.sensor_voorkamer_1_humidity",             "Voorkamer" },
+    { "sensor.sensor_zolder_1_temperature",
+      "sensor.sensor_zolder_1_humidity",                "Zolder" },
 };
 #define PANEL_TEMP_SENSOR_COUNT (sizeof(PANEL_TEMP_SENSORS) / sizeof(PANEL_TEMP_SENSORS[0]))

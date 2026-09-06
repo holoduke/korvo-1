@@ -1,7 +1,30 @@
 dependencies:
   idf:
     version: ">=6.1.0"
-  esp32_s31_korvo:
-    path: "/Users/gillis/esp/esp-dev-kits/examples/esp32-s31-korvo/examples/common_components/esp32_s31_korvo"
-  espressif/esp_websocket_client: "^1.5.0"
-  espressif/cjson: "^1.7.19"
+  # Every registry component pinned to the versions of the last known-good build
+  # (2026-09-06): an unpinned re-resolve pulled newer releases and the Wi-Fi task
+  # hung in the SHA hardware during the WPA handshake. Bump deliberately, one at a
+  # time, and test on the board. dependencies.lock is tracked in git for the same reason.
+  espressif/button: "==4.2.0"
+  espressif/cjson: "==1.7.19~2"
+  espressif/cmake_utilities: "==0.5.3"
+  espressif/esp_cam_sensor: "==2.2.0"
+  espressif/esp_codec_dev: "==1.5.11"
+  espressif/esp_lcd_touch: "==1.2.1"
+  espressif/esp_lcd_touch_gt1151: "==1.1.0~1"
+  espressif/esp_lv_decoder: "==0.4.3"
+  espressif/esp_lv_fs: "==1.0.1"
+  espressif/esp_lvgl_adapter: "==0.5.3"
+  espressif/esp_mmap_assets: "==2.0.0"
+  espressif/esp_new_jpeg: "==1.0.2"
+  espressif/esp_sccb_intf: "==0.0.8"
+  espressif/esp_video: "==2.2.0"
+  espressif/esp_websocket_client: "==1.7.0"
+  espressif/freetype: "==2.14.2"
+  espressif/knob: "==1.1.0"
+  espressif/led_strip: "==3.0.3"
+  espressif/libpng: "==1.6.58"
+  espressif/usb: "==1.4.1"
+  espressif/usb_host_uvc: "==2.5.1"
+  espressif/zlib: "==1.3.2"
+  lvgl/lvgl: "==9.5.0"

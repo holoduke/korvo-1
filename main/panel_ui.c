@@ -96,8 +96,9 @@ static lv_obj_t *settings_label(lv_obj_t *parent, const char *txt,
 static void open_light_popup(const light_tile_t *tile);
 static lv_obj_t *s_date_label;
 static lv_obj_t *s_dow_label;     /* weekday, right cluster */
-/* 5-day forecast columns in the header (index 0 = today). */
-#define FORECAST_DAYS 5
+/* Forecast columns in the header (index 0 = today); 4 days leaves room for
+ * five climate-sensor columns. */
+#define FORECAST_DAYS 4
 static lv_obj_t *s_fc_day[FORECAST_DAYS];
 static lv_obj_t *s_fc_sun[FORECAST_DAYS];
 static lv_obj_t *s_fc_cloud[FORECAST_DAYS];
@@ -472,11 +473,11 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_flex_flow(bar, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(bar, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    /* Left cluster: 5-day forecast, one column per day (index 0 = today). */
+    /* Left cluster: forecast, one column per day (index 0 = today). */
     lv_obj_t *fc = lv_obj_create(bar);
     lv_obj_set_size(fc, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     make_plain(fc);
-    lv_obj_set_style_pad_gap(fc, 16, 0);
+    lv_obj_set_style_pad_gap(fc, 12, 0);
     lv_obj_set_flex_flow(fc, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(fc, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     for (int i = 0; i < FORECAST_DAYS; i++) {
@@ -505,14 +506,14 @@ static void create_header(lv_obj_t *parent)
     make_plain(rule);
     lv_obj_set_style_bg_color(rule, COLOR_TILE, 0);
     lv_obj_set_style_bg_opa(rule, LV_OPA_COVER, 0);
-    lv_obj_set_style_margin_hor(rule, 18, 0);
+    lv_obj_set_style_margin_hor(rule, 14, 0);
 
     /* Climate sensors: one column per sensor (name, temperature, humidity),
      * laid out like the forecast columns so they read as one strip. */
     lv_obj_t *tc = lv_obj_create(bar);
     lv_obj_set_size(tc, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     make_plain(tc);
-    lv_obj_set_style_pad_gap(tc, 14, 0);
+    lv_obj_set_style_pad_gap(tc, 11, 0);
     lv_obj_set_flex_flow(tc, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(tc, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
@@ -577,7 +578,7 @@ static void create_header(lv_obj_t *parent)
     lv_obj_set_style_radius(s_status_dot, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(s_status_dot, COLOR_BAD, 0);
     lv_obj_set_style_border_width(s_status_dot, 0, 0);
-    lv_obj_set_style_margin_left(s_status_dot, 16, 0);
+    lv_obj_set_style_margin_left(s_status_dot, 14, 0);
 
     lv_obj_t *gear = lv_button_create(bar);
     lv_obj_set_size(gear, 56, 56);

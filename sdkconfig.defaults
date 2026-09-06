@@ -59,3 +59,7 @@ CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
 CONFIG_LWIP_MAX_SOCKETS=16
 # UI-originated HA sends must not wait behind the websocket receive loop.
 CONFIG_ESP_WS_CLIENT_SEPARATE_TX_LOCK=y
+# A task starving IDLE0 for 5 s (a driver spin at high priority) must reboot,
+# not just log: with rollback enabled the bootloader then discards an
+# unconfirmed image. Seen 2026-09-06: Wi-Fi task stuck in the SHA HAL.
+CONFIG_ESP_TASK_WDT_PANIC=y
