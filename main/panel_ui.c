@@ -187,6 +187,7 @@ static lv_obj_t *s_eye_img;
 static lv_obj_t *s_eye_glow;      /* radial gradient over the pupil */
 static lv_obj_t *s_eye_ring;      /* thin rotating arc around the rim */
 static lv_grad_dsc_t s_eye_glow_grad;
+static lv_obj_t *s_eye_temps[PANEL_TEMP_SENSOR_COUNT]; /* room temperatures, top-left column */
 static lv_timer_t *s_eye_flicker_timer;
 static int s_saver_mode;          /* 0 = scherm uit (backlight off), 1 = AI oog */
 static lv_obj_t *s_saver_mode_dd;
@@ -1572,6 +1573,22 @@ static void eye_anims_stop(void)
     }
 }
 
+/* Room temperatures in the eye screensaver (top-left, top to bottom). */
+static void saver_refresh_temps(void)
+{
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (s_eye_temps[i] == NULL) {
+            continue;
+        }
+        if (isnan(s_temp_now[i])) {
+            lv_label_set_text_fmt(s_eye_temps[i], "%s   --", PANEL_TEMP_SENSORS[i].label);
+        } else {
+            lv_label_set_text_fmt(s_eye_temps[i], "%s   %.1f\xC2\xB0", PANEL_TEMP_SENSORS[i].label,
+                                  (double)s_temp_now[i]);
+        }
+    }
+}
+
 /* Show the saver in the configured mode. Caller holds the LVGL lock. */
 static void saver_show(void)
 {
@@ -1588,6 +1605,7 @@ static void saver_show(void)
     lv_obj_remove_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(s_saver);
     if (s_saver_mode == SAVER_MODE_EYE && s_eye_group) {
+        saver_refresh_temps();
         lv_obj_remove_flag(s_eye_group, LV_OBJ_FLAG_HIDDEN);
         lv_obj_set_style_text_color(s_saver_clock, lv_color_hex(0x5a3028), 0); /* ember, fits the eye */
         eye_anims_start();
@@ -1634,6 +1652,9 @@ static void saver_timer_cb(lv_timer_t *t)
         !lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) {
         last_min = mins;
         lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
+        if (s_saver_mode == SAVER_MODE_EYE) {
+            saver_refresh_temps();
+        }
     }
     if (s_saver_timeout_ms > 0 &&
         lv_display_get_inactive_time(NULL) > s_saver_timeout_ms &&
@@ -1700,6 +1721,15 @@ static void create_screensaver(lv_obj_t *root)
     lv_obj_set_style_arc_opa(s_eye_ring, LV_OPA_60, LV_PART_MAIN);
     lv_obj_set_style_arc_rounded(s_eye_ring, true, LV_PART_MAIN);
     lv_obj_remove_flag(s_eye_ring, LV_OBJ_FLAG_CLICKABLE);
+
+    /* Temperature column, top-left, top to bottom (eye mode only). */
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        s_eye_temps[i] = lv_label_create(s_eye_group);
+        lv_label_set_text(s_eye_temps[i], "");
+        lv_obj_set_style_text_font(s_eye_temps[i], &lv_font_montserrat_24, 0);
+        lv_obj_set_style_text_color(s_eye_temps[i], lv_color_hex(0x7a3d30), 0); /* ember */
+        lv_obj_align(s_eye_temps[i], LV_ALIGN_TOP_LEFT, 28, 24 + i * 40);
+    }
 
     s_saver_clock = lv_label_create(s_saver);
     lv_label_set_text(s_saver_clock, "--:--");
