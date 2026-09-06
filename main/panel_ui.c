@@ -2881,15 +2881,12 @@ static void create_climate_popup(lv_obj_t *root)
     lv_obj_align_to(s_clim_hmax, s_clim_chart, LV_ALIGN_OUT_RIGHT_TOP, 4, 2);
     lv_obj_align_to(s_clim_hmin, s_clim_chart, LV_ALIGN_OUT_RIGHT_BOTTOM, 4, -2);
 
-    /* Time axis: the wall-clock time at 24 h ago .. now (filled on open). */
+    /* Time axis: whole-hour marks every 6 h, positioned on open. */
     for (int i = 0; i < 5; i++) {
         s_clim_xmarks[i] = clim_label(box, &lv_font_montserrat_14, COLOR_TEXT_DIM);
         lv_obj_set_width(s_clim_xmarks[i], 44);
-        lv_obj_set_style_text_align(s_clim_xmarks[i], i == 0 ? LV_TEXT_ALIGN_LEFT
-                                                       : i == 4 ? LV_TEXT_ALIGN_RIGHT
-                                                                : LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_align_to(s_clim_xmarks[i], s_clim_chart, LV_ALIGN_OUT_BOTTOM_LEFT,
-                        i == 0 ? 0 : i == 4 ? 600 - 44 : (600 * i) / 4 - 22, 4);
+        lv_obj_set_style_text_align(s_clim_xmarks[i], LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_add_flag(s_clim_xmarks[i], LV_OBJ_FLAG_HIDDEN);
     }
 
     s_clim_range = clim_label(box, &lv_font_montserrat_18, COLOR_TEXT_DIM);
@@ -2941,18 +2938,27 @@ static void climate_popup_fill(int idx)
     lv_chart_set_axis_range(s_clim_chart, LV_CHART_AXIS_PRIMARY_Y, ylo, yhi);
     lv_chart_set_axis_range(s_clim_chart, LV_CHART_AXIS_SECONDARY_Y, hlo, hhi);
     lv_chart_refresh(s_clim_chart);
-    /* X axis: actual clock times, 24 h ago .. now in 6 h steps. */
+    /* X axis: marks on whole hours (every 6 h back from the last full hour),
+     * each placed where that hour falls on the 24 h span ending now. */
     for (int i = 0; i < 5; i++) {
-        if (s_clim_xmarks[i] == NULL) {
-            continue;
+        if (s_clim_xmarks[i]) {
+            lv_obj_add_flag(s_clim_xmarks[i], LV_OBJ_FLAG_HIDDEN);
         }
-        const time_t at = now - (time_t)(24 - 6 * i) * 3600;
-        struct tm tm_at;
-        localtime_r(&at, &tm_at);
-        if (climate_time_valid(now)) {
-            lv_label_set_text_fmt(s_clim_xmarks[i], "%02d:%02d", tm_at.tm_hour, tm_at.tm_min);
-        } else {
-            lv_label_set_text(s_clim_xmarks[i], "");
+    }
+    if (climate_time_valid(now)) {
+        struct tm tm_now;
+        localtime_r(&now, &tm_now);
+        tm_now.tm_min = 0;
+        tm_now.tm_sec = 0;
+        time_t mark = mktime(&tm_now); /* last full hour */
+        const time_t start = now - 24 * 3600;
+        for (int i = 0; i < 5 && mark >= start && s_clim_xmarks[i]; i++, mark -= 6 * 3600) {
+            struct tm tm_m;
+            localtime_r(&mark, &tm_m);
+            lv_label_set_text_fmt(s_clim_xmarks[i], "%02d:00", tm_m.tm_hour);
+            const int x = (int)((mark - start) * 600 / (24 * 3600)) - 22; /* centre on the hour */
+            lv_obj_align_to(s_clim_xmarks[i], s_clim_chart, LV_ALIGN_OUT_BOTTOM_LEFT, x, 4);
+            lv_obj_remove_flag(s_clim_xmarks[i], LV_OBJ_FLAG_HIDDEN);
         }
     }
     lv_label_set_text_fmt(s_clim_ymax, "%d\xC2\xB0", yhi / 10);
