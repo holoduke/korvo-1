@@ -152,6 +152,7 @@ static lv_chart_series_t *s_clim_ser_h;
 static lv_obj_t *s_clim_range;
 static lv_obj_t *s_clim_advice;
 static lv_obj_t *s_clim_ymax, *s_clim_ymin, *s_clim_hmax, *s_clim_hmin;
+static lv_obj_t *s_clim_xmarks[5];  /* clock times along the x axis */
 static int32_t *s_clim_t_arr;     /* CLIMATE_SLOTS each, PSRAM */
 static int32_t *s_clim_h_arr;
 static int s_clim_idx = -1;
@@ -2652,6 +2653,10 @@ static void on_content_pressed(lv_event_t *e)
         s_drag_x0 = p.x - lv_obj_get_x(s_drag_from_img);
         return;
     }
+    /* A new touch is a new gesture: the swipe-suppression of the previous one
+     * must not swallow this tap (it used to, for taps outside the tile area
+     * such as the header sensors). */
+    s_drag_suppress_click = false;
     /* Only start tracking for touches that begin inside the tile area, clear of
      * the header/tab bar, the right-edge brightness slider, and any overlay. */
     if (p.y < CONTENT_Y || p.x > SLIDER_LANE_X - SLIDER_MARGIN || overlays_open()) {
@@ -2659,7 +2664,6 @@ static void on_content_pressed(lv_event_t *e)
     }
     s_drag_press = true;
     s_drag_on = false;
-    s_drag_suppress_click = false;
     s_drag_release_pending = false;
     s_drag_x0 = p.x;
     s_drag_indev = indev;
@@ -2821,11 +2825,23 @@ static void create_climate_popup(lv_obj_t *root)
     lv_obj_set_style_pad_all(box, 20, 0);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Title row: room name left, current readings right. */
+    /* Title row: room name left, current readings and a close button right. */
     s_clim_title = clim_label(box, &lv_font_montserrat_24, COLOR_TEXT);
     lv_obj_align(s_clim_title, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_t *close = lv_button_create(box);
+    lv_obj_set_size(close, 44, 44);
+    lv_obj_align(close, LV_ALIGN_TOP_RIGHT, 6, -6);
+    lv_obj_set_style_bg_color(close, COLOR_TILE_OFF, 0);
+    lv_obj_set_style_radius(close, 12, 0);
+    lv_obj_set_style_shadow_width(close, 0, 0);
+    lv_obj_add_event_cb(close, on_climate_close, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *xl = lv_label_create(close);
+    lv_label_set_text(xl, LV_SYMBOL_CLOSE);
+    lv_obj_set_style_text_font(xl, &lv_font_montserrat_18, 0);
+    lv_obj_set_style_text_color(xl, COLOR_TEXT, 0);
+    lv_obj_center(xl);
     s_clim_now = clim_label(box, &lv_font_montserrat_24, COLOR_TEXT);
-    lv_obj_align(s_clim_now, LV_ALIGN_TOP_RIGHT, 0, 0);
+    lv_obj_align(s_clim_now, LV_ALIGN_TOP_RIGHT, -56, 0);
 
     /* Axis labels flank the chart: temperature left (accent), humidity right. */
     s_clim_ymax = clim_label(box, &lv_font_montserrat_14, COLOR_ACCENT);
@@ -2865,12 +2881,15 @@ static void create_climate_popup(lv_obj_t *root)
     lv_obj_align_to(s_clim_hmax, s_clim_chart, LV_ALIGN_OUT_RIGHT_TOP, 4, 2);
     lv_obj_align_to(s_clim_hmin, s_clim_chart, LV_ALIGN_OUT_RIGHT_BOTTOM, 4, -2);
 
-    /* Time axis: 24 h ago .. now. */
-    static const char *const marks[] = { "-24u", "-18u", "-12u", "-6u", "nu" }; /* chart x axis */
+    /* Time axis: the wall-clock time at 24 h ago .. now (filled on open). */
     for (int i = 0; i < 5; i++) {
-        lv_obj_t *m = clim_label(box, &lv_font_montserrat_14, COLOR_TEXT_DIM);
-        lv_label_set_text(m, marks[i]);
-        lv_obj_align_to(m, s_clim_chart, LV_ALIGN_OUT_BOTTOM_LEFT, (600 - 30) * i / 4, 4);
+        s_clim_xmarks[i] = clim_label(box, &lv_font_montserrat_14, COLOR_TEXT_DIM);
+        lv_obj_set_width(s_clim_xmarks[i], 44);
+        lv_obj_set_style_text_align(s_clim_xmarks[i], i == 0 ? LV_TEXT_ALIGN_LEFT
+                                                       : i == 4 ? LV_TEXT_ALIGN_RIGHT
+                                                                : LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align_to(s_clim_xmarks[i], s_clim_chart, LV_ALIGN_OUT_BOTTOM_LEFT,
+                        i == 0 ? 0 : i == 4 ? 600 - 44 : (600 * i) / 4 - 22, 4);
     }
 
     s_clim_range = clim_label(box, &lv_font_montserrat_18, COLOR_TEXT_DIM);
@@ -2922,6 +2941,20 @@ static void climate_popup_fill(int idx)
     lv_chart_set_axis_range(s_clim_chart, LV_CHART_AXIS_PRIMARY_Y, ylo, yhi);
     lv_chart_set_axis_range(s_clim_chart, LV_CHART_AXIS_SECONDARY_Y, hlo, hhi);
     lv_chart_refresh(s_clim_chart);
+    /* X axis: actual clock times, 24 h ago .. now in 6 h steps. */
+    for (int i = 0; i < 5; i++) {
+        if (s_clim_xmarks[i] == NULL) {
+            continue;
+        }
+        const time_t at = now - (time_t)(24 - 6 * i) * 3600;
+        struct tm tm_at;
+        localtime_r(&at, &tm_at);
+        if (climate_time_valid(now)) {
+            lv_label_set_text_fmt(s_clim_xmarks[i], "%02d:%02d", tm_at.tm_hour, tm_at.tm_min);
+        } else {
+            lv_label_set_text(s_clim_xmarks[i], "");
+        }
+    }
     lv_label_set_text_fmt(s_clim_ymax, "%d\xC2\xB0", yhi / 10);
     lv_label_set_text_fmt(s_clim_ymin, "%d\xC2\xB0", ylo / 10);
     lv_label_set_text_fmt(s_clim_hmax, "%d%%", hhi / 10);
