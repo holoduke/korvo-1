@@ -27,11 +27,12 @@ ap.add_argument('out'); ap.add_argument('--ip', default='192.168.2.160')
 ap.add_argument('--tab', type=int); ap.add_argument('--drawer', type=int)
 ap.add_argument('--settings', type=int); ap.add_argument('--climate', type=int)
 ap.add_argument('--theme', type=int, help='persist theme N and restart the panel (no image returned)')
+ap.add_argument('--saver', type=int, help='1 = show the screensaver, 0 = hide it')
 ap.add_argument('--scale', type=int, default=1)
 a = ap.parse_args()
 q = [f'scale={a.scale}'] + [f'{k}={v}' for k, v in (('tab', a.tab), ('drawer', a.drawer),
                                                    ('settings', a.settings), ('climate', a.climate),
-                                                   ('theme', a.theme))
+                                                   ('theme', a.theme), ('saver', a.saver))
                             if v is not None]
 url = f'http://{a.ip}/api/screen?' + '&'.join(q)
 tok_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'secrets', 'ha_token.txt')

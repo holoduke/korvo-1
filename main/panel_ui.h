@@ -73,6 +73,8 @@ void panel_ui_debug_select(int tab, int drawer_open, int settings_open);
 void panel_ui_get_screen_state(int *screen_off, int *timeout_s, int *idle_s);
 /* Select theme idx (themes.h), persist it and restart to apply. Thread-safe. */
 void panel_ui_set_theme(int idx);
+/* Force the screensaver on (1) or off (0) for verification. Thread-safe. */
+void panel_ui_debug_saver(int show);
 /* Open (idx >= 0) or close (-1) the Klimaat popup for PANEL_TEMP_SENSORS[idx]. */
 void panel_ui_debug_climate(int idx);
 /* Composite the live screen plus any visible top-layer overlay (popup,

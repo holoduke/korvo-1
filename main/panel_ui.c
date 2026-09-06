@@ -178,6 +178,21 @@ static char s_net_ssids[20][33];  /* last scan results, indexed by button */
 static int s_net_count;
 static lv_obj_t *s_saver;         /* night dim / screensaver overlay */
 static lv_obj_t *s_saver_clock;
+/* "AI oog" screensaver: HAL-style eye (embedded 440x440 RGB565) with a pulsing
+ * pupil glow, a scanning ring and a slow breath, all driven by lv_anim. */
+extern const uint8_t eye_rgb565_start[] asm("_binary_eye_440x440_rgb565_start");
+static lv_image_dsc_t s_eye_dsc;
+static lv_obj_t *s_eye_group;     /* container for the eye layer (hidden in "scherm uit" mode) */
+static lv_obj_t *s_eye_img;
+static lv_obj_t *s_eye_glow;      /* radial gradient over the pupil */
+static lv_obj_t *s_eye_ring;      /* thin rotating arc around the rim */
+static lv_grad_dsc_t s_eye_glow_grad;
+static lv_timer_t *s_eye_flicker_timer;
+static int s_saver_mode;          /* 0 = scherm uit (backlight off), 1 = AI oog */
+static lv_obj_t *s_saver_mode_dd;
+#define SAVER_MODE_OFF 0
+#define SAVER_MODE_EYE 1
+
 static lv_obj_t *s_popup;         /* long-press per-light brightness popup */
 static lv_obj_t *s_popup_title;
 static lv_obj_t *s_popup_slider;
@@ -1475,11 +1490,135 @@ void panel_ui_splash_progress(int percent, const char *status)
 
 /* ---- Night dim / screensaver -------------------------------------------- */
 
+static void eye_anim_opa(void *obj, int32_t v)
+{
+    lv_obj_set_style_opa(obj, (lv_opa_t)v, 0);
+}
+
+static void eye_anim_rot(void *obj, int32_t v)
+{
+    lv_arc_set_rotation(obj, v);
+}
+
+static void eye_flicker_done(lv_anim_t *a)
+{
+    (void)a;
+    /* Back to the breathing pulse after a flicker. */
+    lv_obj_set_style_opa(s_eye_glow, LV_OPA_COVER, 0);
+}
+
+/* Random short dips of the pupil glow every few seconds: an "alive" feel on
+ * top of the regular pulse. */
+static void eye_flicker_cb(lv_timer_t *t)
+{
+    if (s_eye_glow == NULL || lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) {
+        return;
+    }
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_eye_glow);
+    lv_anim_set_exec_cb(&a, eye_anim_opa);
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_30);
+    lv_anim_set_duration(&a, 90);
+    lv_anim_set_playback_duration(&a, 140);
+    lv_anim_set_repeat_count(&a, (lv_rand(0, 10) < 3) ? 2 : 1);
+    lv_anim_set_completed_cb(&a, eye_flicker_done);
+    lv_anim_start(&a);
+    lv_timer_set_period(t, lv_rand(4000, 9000));
+}
+
+static void eye_anims_start(void)
+{
+    lv_anim_t a;
+    /* Pupil glow: slow pulse. */
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_eye_glow);
+    lv_anim_set_exec_cb(&a, eye_anim_opa);
+    lv_anim_set_values(&a, LV_OPA_50, LV_OPA_COVER);
+    lv_anim_set_duration(&a, 1600);
+    lv_anim_set_playback_duration(&a, 1600);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+    lv_anim_start(&a);
+    /* Whole eye: a longer, subtler breath. */
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_eye_img);
+    lv_anim_set_exec_cb(&a, eye_anim_opa);
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_80);
+    lv_anim_set_duration(&a, 2700);
+    lv_anim_set_playback_duration(&a, 2700);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+    lv_anim_start(&a);
+    /* Scanning ring: one revolution every 9 s. */
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_eye_ring);
+    lv_anim_set_exec_cb(&a, eye_anim_rot);
+    lv_anim_set_values(&a, 0, 360);
+    lv_anim_set_duration(&a, 9000);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&a);
+    if (s_eye_flicker_timer) {
+        lv_timer_resume(s_eye_flicker_timer);
+    }
+}
+
+static void eye_anims_stop(void)
+{
+    lv_anim_delete(s_eye_glow, NULL);
+    lv_anim_delete(s_eye_img, NULL);
+    lv_anim_delete(s_eye_ring, NULL);
+    if (s_eye_flicker_timer) {
+        lv_timer_pause(s_eye_flicker_timer);
+    }
+}
+
+/* Show the saver in the configured mode. Caller holds the LVGL lock. */
+static void saver_show(void)
+{
+    if (s_saver == NULL) {
+        return;
+    }
+    /* Clock straight away (the 1 Hz saver timer only refreshes on minute changes). */
+    time_t now = time(NULL);
+    struct tm tm_now;
+    localtime_r(&now, &tm_now);
+    if (tm_now.tm_year > 100 && s_saver_clock) {
+        lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
+    }
+    lv_obj_remove_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_saver);
+    if (s_saver_mode == SAVER_MODE_EYE && s_eye_group) {
+        lv_obj_remove_flag(s_eye_group, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_color(s_saver_clock, lv_color_hex(0x5a3028), 0); /* ember, fits the eye */
+        eye_anims_start();
+        bsp_display_backlight_on();
+    } else {
+        lv_obj_set_style_text_color(s_saver_clock, lv_color_hex(0x2e3340), 0);
+        if (s_eye_group) {
+            lv_obj_add_flag(s_eye_group, LV_OBJ_FLAG_HIDDEN);
+        }
+        /* The backlight GPIO is on/off only (no PWM), so "dim" means off: a
+         * black overlay with the backlight lit still burns the full panel
+         * power. Any touch wakes it (on_saver_click). */
+        bsp_display_backlight_off();
+    }
+}
+
+static void saver_hide(void)
+{
+    if (s_saver == NULL) {
+        return;
+    }
+    eye_anims_stop();
+    lv_obj_add_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
+    bsp_display_backlight_on();
+}
+
 static void on_saver_click(lv_event_t *e)
 {
     (void)e;
-    lv_obj_add_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
-    bsp_display_backlight_on();
+    saver_hide();
 }
 
 static void saver_timer_cb(lv_timer_t *t)
@@ -1502,12 +1641,7 @@ static void saver_timer_cb(lv_timer_t *t)
         lv_obj_has_flag(s_saver, LV_OBJ_FLAG_HIDDEN)) {
         last_min = -1; /* force a clock refresh now that it's visible */
         lv_label_set_text_fmt(s_saver_clock, "%02d:%02d", tm_now.tm_hour, tm_now.tm_min);
-        lv_obj_remove_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_move_foreground(s_saver);
-        /* The backlight GPIO is on/off only (no PWM), so "dim" means off: a
-         * black overlay with the backlight lit still burns the full panel
-         * power. Any touch wakes it (on_saver_click). */
-        bsp_display_backlight_off();
+        saver_show();
     }
 }
 
@@ -1523,13 +1657,74 @@ static void create_screensaver(lv_obj_t *root)
     lv_obj_add_flag(s_saver, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_event_cb(s_saver, on_saver_click, LV_EVENT_CLICKED, NULL);
 
+    /* AI oog layer: eye artwork, glow, ring. Hidden unless that mode is active. */
+    s_eye_group = lv_obj_create(s_saver);
+    lv_obj_set_size(s_eye_group, LV_PCT(100), LV_PCT(100));
+    make_plain(s_eye_group);
+    lv_obj_add_flag(s_eye_group, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_eye_group, LV_OBJ_FLAG_EVENT_BUBBLE); /* taps reach on_saver_click */
+
+    s_eye_dsc = (lv_image_dsc_t){
+        .header = { .magic = LV_IMAGE_HEADER_MAGIC, .cf = LV_COLOR_FORMAT_RGB565, .flags = 0,
+                    .w = 440, .h = 440, .stride = 440 * 2 },
+        .data_size = 440 * 440 * 2,
+        .data = eye_rgb565_start,
+    };
+    s_eye_img = lv_image_create(s_eye_group);
+    lv_image_set_src(s_eye_img, &s_eye_dsc);
+    lv_obj_center(s_eye_img);
+
+    /* Pupil glow: red core fading to transparent, pulsed via opacity. */
+    lv_color_t gc[2] = { lv_color_hex(0xff3b1f), lv_color_hex(0xff3b1f) };
+    lv_opa_t go[2] = { LV_OPA_80, LV_OPA_TRANSP };
+    lv_grad_init_stops(&s_eye_glow_grad, gc, go, NULL, 2);
+    lv_grad_radial_init(&s_eye_glow_grad, LV_GRAD_CENTER, LV_GRAD_CENTER, LV_GRAD_RIGHT, LV_GRAD_CENTER,
+                        LV_GRAD_EXTEND_PAD);
+    s_eye_glow = lv_obj_create(s_eye_group);
+    lv_obj_set_size(s_eye_glow, 170, 170);
+    make_plain(s_eye_glow);
+    lv_obj_set_style_radius(s_eye_glow, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_opa(s_eye_glow, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_grad(s_eye_glow, &s_eye_glow_grad, 0);
+    lv_obj_align(s_eye_glow, LV_ALIGN_CENTER, 4, 4); /* the artwork's pupil sits just off-centre */
+
+    /* Scanning ring: a thin 50-degree amber arc that circles the rim. */
+    s_eye_ring = lv_arc_create(s_eye_group);
+    lv_obj_set_size(s_eye_ring, 470, 470);
+    lv_obj_center(s_eye_ring);
+    lv_arc_set_bg_angles(s_eye_ring, 0, 50);
+    lv_arc_set_value(s_eye_ring, 0);
+    lv_obj_remove_style(s_eye_ring, NULL, LV_PART_KNOB);
+    lv_obj_remove_style(s_eye_ring, NULL, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_width(s_eye_ring, 2, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(s_eye_ring, lv_color_hex(0xff8a3d), LV_PART_MAIN);
+    lv_obj_set_style_arc_opa(s_eye_ring, LV_OPA_60, LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(s_eye_ring, true, LV_PART_MAIN);
+    lv_obj_remove_flag(s_eye_ring, LV_OBJ_FLAG_CLICKABLE);
+
     s_saver_clock = lv_label_create(s_saver);
     lv_label_set_text(s_saver_clock, "--:--");
     lv_obj_set_style_text_font(s_saver_clock, &lv_font_montserrat_46, 0);
     lv_obj_set_style_text_color(s_saver_clock, lv_color_hex(0x2e3340), 0); /* dim */
-    lv_obj_center(s_saver_clock);
+    lv_obj_align(s_saver_clock, LV_ALIGN_BOTTOM_RIGHT, -28, -16);
+
+    s_eye_flicker_timer = lv_timer_create(eye_flicker_cb, 6000, NULL);
+    lv_timer_pause(s_eye_flicker_timer);
 
     lv_timer_create(saver_timer_cb, 1000, NULL);
+}
+
+void panel_ui_debug_saver(int show)
+{
+    if (!bsp_display_lock(1000)) {
+        return;
+    }
+    if (show) {
+        saver_show();
+    } else {
+        saver_hide();
+    }
+    bsp_display_unlock();
 }
 
 static void style_tab_bar(lv_obj_t *tabview)
@@ -1758,16 +1953,31 @@ static void on_saver_dd_changed(lv_event_t *e)
     saver_apply_and_save(lv_dropdown_get_selected(lv_event_get_target(e)));
 }
 
+static void on_saver_mode_changed(lv_event_t *e)
+{
+    const int mode = (int)lv_dropdown_get_selected(lv_event_get_target(e));
+    s_saver_mode = mode == SAVER_MODE_EYE ? SAVER_MODE_EYE : SAVER_MODE_OFF;
+    nvs_handle_t h;
+    if (nvs_open("panel", NVS_READWRITE, &h) == ESP_OK) {
+        nvs_set_u8(h, "saver_mode", (uint8_t)s_saver_mode);
+        nvs_commit(h);
+        nvs_close(h);
+    }
+}
+
 /* Load the saved screensaver-timeout index, apply it, and return it. */
 static int saver_load_idx(void)
 {
     const int n = sizeof(SAVER_OPTS_MS) / sizeof(SAVER_OPTS_MS[0]);
     uint8_t idx = 1; /* default: 1 min */
+    uint8_t mode = SAVER_MODE_EYE;
     nvs_handle_t h;
     if (nvs_open("panel", NVS_READONLY, &h) == ESP_OK) {
         nvs_get_u8(h, "saver_idx", &idx);
+        nvs_get_u8(h, "saver_mode", &mode);
         nvs_close(h);
     }
+    s_saver_mode = mode == SAVER_MODE_EYE ? SAVER_MODE_EYE : SAVER_MODE_OFF;
     if (idx >= n) {
         idx = 1;
     }
@@ -1792,7 +2002,7 @@ static lv_obj_t *settings_row(lv_obj_t *parent, const char *title)
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
     make_plain(row);
-    lv_obj_set_style_pad_ver(row, 18, 0);
+    lv_obj_set_style_pad_ver(row, 12, 0);
     lv_obj_set_style_border_color(row, COLOR_TILE, 0);
     lv_obj_set_style_border_width(row, 1, 0);
     lv_obj_set_style_border_side(row, LV_BORDER_SIDE_BOTTOM, 0);
@@ -1815,7 +2025,8 @@ static void create_settings(lv_obj_t *root)
     lv_obj_set_style_border_width(s_settings, 0, 0);
     lv_obj_set_style_radius(s_settings, 0, 0);
     lv_obj_set_style_pad_all(s_settings, 24, 0);
-    lv_obj_set_style_pad_gap(s_settings, 10, 0);
+    lv_obj_set_style_pad_bottom(s_settings, 8, 0);
+    lv_obj_set_style_pad_gap(s_settings, 6, 0);
     lv_obj_set_flex_flow(s_settings, LV_FLEX_FLOW_COLUMN);
     lv_obj_clear_flag(s_settings, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(s_settings, LV_OBJ_FLAG_HIDDEN);
@@ -1834,8 +2045,18 @@ static void create_settings(lv_obj_t *root)
     lv_obj_add_event_cb(close, on_settings_close, LV_EVENT_CLICKED, NULL);
     lv_obj_center(settings_label(close, LV_SYMBOL_CLOSE, &lv_font_montserrat_24, COLOR_TEXT));
 
+    /* Rows live in a vertically scrollable body under the fixed header. */
+    lv_obj_t *body = lv_obj_create(s_settings);
+    lv_obj_set_width(body, LV_PCT(100));
+    lv_obj_set_flex_grow(body, 1);
+    make_plain(body);
+    lv_obj_set_flex_flow(body, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_scroll_dir(body, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(body, LV_SCROLLBAR_MODE_AUTO);
+    lv_obj_add_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+
     /* --- Wi-Fi row: title left, SSID/status + connect button right. --- */
-    lv_obj_t *wr = settings_row(s_settings, LV_SYMBOL_WIFI "  Wi-Fi");
+    lv_obj_t *wr = settings_row(body, LV_SYMBOL_WIFI "  Wi-Fi");
     s_wifi_sel_lbl = settings_label(wr, "Niet verbonden", &lv_font_montserrat_24, COLOR_TEXT_DIM);
     lv_obj_set_style_margin_right(s_wifi_sel_lbl, 16, 0);
     lv_obj_t *wbtn = lv_button_create(wr);
@@ -1847,15 +2068,23 @@ static void create_settings(lv_obj_t *root)
     lv_obj_center(s_wifi_btn_lbl);
 
     /* --- Screensaver row: title left, timeout dropdown right. --- */
-    lv_obj_t *sr = settings_row(s_settings, LV_SYMBOL_EYE_OPEN "  Scherm uit na");
+    lv_obj_t *sr = settings_row(body, LV_SYMBOL_EYE_OPEN "  Screensaver na");
     s_saver_dd = lv_dropdown_create(sr);
     lv_dropdown_set_options(s_saver_dd, SAVER_OPTS_STR);
     lv_obj_set_width(s_saver_dd, 170);
     lv_dropdown_set_selected(s_saver_dd, saver_load_idx());
     lv_obj_add_event_cb(s_saver_dd, on_saver_dd_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
+    /* --- Screensaver mode: backlight off, or the AI eye animation. --- */
+    lv_obj_t *mr = settings_row(body, LV_SYMBOL_PLAY "  Screensaver");
+    s_saver_mode_dd = lv_dropdown_create(mr);
+    lv_dropdown_set_options(s_saver_mode_dd, "Scherm uit\nAI oog");
+    lv_obj_set_width(s_saver_mode_dd, 170);
+    lv_dropdown_set_selected(s_saver_mode_dd, (uint32_t)s_saver_mode);
+    lv_obj_add_event_cb(s_saver_mode_dd, on_saver_mode_changed, LV_EVENT_VALUE_CHANGED, NULL);
+
     /* --- Theme row: dropdown with every palette; applies with a restart. --- */
-    lv_obj_t *tr = settings_row(s_settings, LV_SYMBOL_IMAGE "  Thema");
+    lv_obj_t *tr = settings_row(body, LV_SYMBOL_IMAGE "  Thema");
     s_theme_lbl = settings_label(tr, "", &lv_font_montserrat_18, COLOR_TEXT_DIM);
     lv_obj_set_style_margin_right(s_theme_lbl, 12, 0);
     s_theme_dd = lv_dropdown_create(tr);
@@ -1874,9 +2103,9 @@ static void create_settings(lv_obj_t *root)
     lv_obj_add_event_cb(s_theme_dd, on_theme_dd_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
     /* --- Diagnostics: connection + firmware (updated by panel_ui_set_net_details). --- */
-    lv_obj_t *nr = settings_row(s_settings, LV_SYMBOL_LOOP "  Verbinding");
+    lv_obj_t *nr = settings_row(body, LV_SYMBOL_LOOP "  Verbinding");
     s_net_lbl = settings_label(nr, "--", &lv_font_montserrat_18, COLOR_TEXT_DIM);
-    lv_obj_t *fr = settings_row(s_settings, LV_SYMBOL_DRIVE "  Firmware");
+    lv_obj_t *fr = settings_row(body, LV_SYMBOL_DRIVE "  Firmware");
     s_fw_lbl = settings_label(fr, "--", &lv_font_montserrat_18, COLOR_TEXT_DIM);
 
     /* Network picker: a modal on the top layer, above the settings screen. */

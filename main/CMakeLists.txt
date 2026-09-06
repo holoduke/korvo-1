@@ -16,7 +16,7 @@ idf_component_register(
                   esp32_s31_korvo esp_hal_wdt
                   esp_driver_tsens esp_timer
     EMBED_TXTFILES "dashboard.html"
-    EMBED_FILES "assets/splash_800x480.rgb565"
+    EMBED_FILES "assets/splash_800x480.rgb565" "assets/eye_440x440.rgb565"
 )
 
 # --- Embed secrets from the gitignored secrets/ directory -------------------

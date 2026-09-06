@@ -352,6 +352,11 @@ static esp_err_t screen_get(httpd_req_t *req)
     const int settings = query_int(req, "settings", -1);
     const int climate = query_int(req, "climate", -2); /* -1 closes, N opens sensor N */
     const int theme = query_int(req, "theme", -1);      /* N: persist theme N and restart */
+    const int saver = query_int(req, "saver", -1);      /* 1 shows the screensaver, 0 hides it */
+    if (saver >= 0) {
+        panel_ui_debug_saver(saver);
+        vTaskDelay(pdMS_TO_TICKS(300));
+    }
     if (theme >= 0) {
         httpd_resp_sendstr(req, "applying theme, restarting\n");
         panel_ui_set_theme(theme);

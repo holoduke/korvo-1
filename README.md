@@ -9,8 +9,13 @@ its WebSocket API. Dutch UI.
   lamp, long-press for brightness/colour.
 - Header: 4-day Buienradar forecast, five room climate sensors coloured
   against comfort bands, clock, link status.
-- Settings: Wi-Fi provisioning, screen-off timeout, connection and firmware
+- Tap a header sensor for a 24 h temperature/humidity chart with min/max and
+  a ventilation advice (absolute humidity indoors vs outdoors).
+- Settings: Wi-Fi provisioning, screensaver timeout and mode ("Scherm uit" or
+  the animated **AI oog**), six colour themes, connection and firmware
   diagnostics.
+- Boot splash and screensaver artwork generated with xAI grok-imagine
+  (`secrets/xai_key.txt`); assets live in `main/assets/` as raw RGB565.
 - On-device web dashboard with 12 h telemetry (`http://<panel>/`).
 
 ## Build
@@ -33,13 +38,21 @@ Configuration of tabs, scenes and sensors: `main/panel_config.h`.
 | Tool | Purpose |
 |---|---|
 | `tools/ota_push.sh [ip]` | OTA update (bearer token), waits for the reboot and confirms |
-| `tools/screenshot.py out.png [--tab N] [--drawer 0/1] [--settings 0/1]` | Screenshot over Wi-Fi |
-| `GET /api/status` | version, partition, uptime, reset reason, heap, touch recoveries |
+| `tools/screenshot.py out.png [--tab N] [--drawer 0/1] [--settings 0/1] [--climate N] [--saver 0/1] [--theme N]` | Screenshot over Wi-Fi (bearer token); `--theme` restarts into a theme |
+| `GET /api/status` | build hash, partition, uptime, reset reason, heap, display counters (`lcd_vsyncs`, `fb_recoveries`), screen state |
+| `GET /api/intr`, `POST /api/reboot[?hard=1]`, `POST /api/panic` | interrupt table, clean restart, forced coredump (token) |
 | `GET /api/tasks` | task table: state, priority, core, stack headroom, CPU share |
 | `GET /api/metrics[?since=t]` | telemetry ring buffer (JSON) |
 | `idf.py coredump-info -p <port>` | read a crash dump from the coredump partition |
 
 ## Safety nets
+
+- **Full-chip resets**: on this ESP32-S31 (rev v0.0) a software reset leaves
+  the RGB LCD controller and its DMA in a state where, in about half of the
+  boots, no display interrupt ever reaches the CPU again (frozen or dark
+  screen). Every restart therefore goes through the RTC watchdog (same effect
+  as a power cycle); a boot arriving via any other reset does that once,
+  after confirming a freshly updated image (`main/sys_reset.c`).
 
 - **Bootloader rollback**: a new image confirms itself once the HTTP server is
   up; otherwise it is rolled back (task watchdog panics a stuck core; a
