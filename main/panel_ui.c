@@ -28,6 +28,7 @@ static const char *TAG = "panel_ui";
 #define COLOR_TEXT_DIM  lv_color_hex(0x848b9c)
 #define COLOR_SCENE     lv_color_hex(0x2b3444)
 #define COLOR_SCENE_ON  lv_color_hex(0xa78bfa)   /* light purple, active scene */
+#define COLOR_SCENE_TEXT lv_color_hex(0x1a1030)  /* dark text on an active scene tile */
 #define COLOR_ACCENT    lv_color_hex(0xffb84d)
 #define COLOR_OK        lv_color_hex(0x4dd06a)
 #define COLOR_WARN      lv_color_hex(0xe0a555)
@@ -96,6 +97,9 @@ static lv_obj_t *s_fc_day[FORECAST_DAYS];
 static lv_obj_t *s_fc_sun[FORECAST_DAYS];
 static lv_obj_t *s_fc_cloud[FORECAST_DAYS];
 static lv_obj_t *s_fc_temp[FORECAST_DAYS];
+/* Climate readings in the header (index = PANEL_TEMP_SENSORS order). */
+static lv_obj_t *s_temp_val[PANEL_TEMP_SENSOR_COUNT];
+static lv_obj_t *s_hum_val[PANEL_TEMP_SENSOR_COUNT];
 static lv_obj_t *s_settings;      /* settings overlay */
 static lv_obj_t *s_kb;
 static lv_obj_t *s_pass_ta;
@@ -142,10 +146,18 @@ static bool s_slider_dragging;
 static uint32_t s_slider_release_tick;        /* suppress HA sync briefly after a user change */
 static int s_tab_brightness[PANEL_TAB_COUNT]; /* last known area brightness, -1 unknown */
 
-/* Scene chips per tab, so activating one can highlight it and clear the others. */
-#define MAX_SCENES 6
+/* Scene buttons per tab (bottom chips, or grid tiles on a scene tab), so
+ * activating one can highlight it and clear the others. */
+#define MAX_SCENES 12
 static lv_obj_t *s_scene_chips[PANEL_TAB_COUNT][MAX_SCENES];
 static int s_scene_counts[PANEL_TAB_COUNT];
+/* Scene-tab extras: per-tile sub-labels ("actief"), the tile icon/name labels
+ * (re-tinted when active), and the bottom-row "active scene" readout. */
+static lv_obj_t *s_scene_state_lbl[PANEL_TAB_COUNT][MAX_SCENES];
+static lv_obj_t *s_scene_icon[PANEL_TAB_COUNT][MAX_SCENES];
+static lv_obj_t *s_scene_name[PANEL_TAB_COUNT][MAX_SCENES];
+static lv_obj_t *s_active_scene_lbl[PANEL_TAB_COUNT];
+static int s_active_scene[PANEL_TAB_COUNT]; /* index into the tab's scenes, -1 none */
 
 typedef struct {
     const panel_entity_t *scene;
@@ -162,6 +174,11 @@ static scene_ctx_t s_scene_ctx[PANEL_TAB_COUNT][MAX_SCENES];
 /* Grid templates (LVGL keeps the pointer, so they must persist). */
 static int32_t s_col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
 static int32_t s_row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+/* Compact 4x3 grid for scene tabs with more than 6 scenes. */
+static int32_t s_col_dsc4[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+                                LV_GRID_TEMPLATE_LAST };
+static int32_t s_row_dsc3[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1),
+                                LV_GRID_TEMPLATE_LAST };
 
 /* The drawer occupies only the middle band, keeping the header + scene row
  * (bottom buttons) visible; it's toggled by the "Alle lampen" button. */
@@ -252,19 +269,54 @@ static void open_light_popup(const light_tile_t *tile)
     lv_obj_move_foreground(s_popup);
 }
 
+/* Radio-style highlight: scene idx lit, the others on the tab cleared. On a
+ * scene tab this also re-tints the tile text and updates the bottom-row
+ * "active scene" readout. Caller holds the LVGL lock. */
+static void scene_highlight(int tab, int idx)
+{
+    if (tab < 0 || tab >= (int)PANEL_TAB_COUNT || idx < 0 || idx >= s_scene_counts[tab]) {
+        return;
+    }
+    if (s_active_scene[tab] == idx) {
+        return; /* already shown: keep the tab's cached bitmap */
+    }
+    s_active_scene[tab] = idx;
+    const bool tiles = PANEL_TABS[tab].scene_tiles;
+    for (int j = 0; j < s_scene_counts[tab]; j++) {
+        const bool on = (j == idx);
+        lv_obj_set_style_bg_color(s_scene_chips[tab][j],
+                                  on ? COLOR_SCENE_ON : (tiles ? COLOR_TILE : COLOR_SCENE), 0);
+        if (!tiles) {
+            continue;
+        }
+        if (s_scene_icon[tab][j]) {
+            lv_obj_set_style_text_color(s_scene_icon[tab][j],
+                                        on ? COLOR_SCENE_TEXT : COLOR_TEXT_DIM, 0);
+        }
+        lv_obj_set_style_text_color(s_scene_name[tab][j], on ? COLOR_SCENE_TEXT : COLOR_TEXT, 0);
+        if (s_scene_state_lbl[tab][j]) {
+            lv_label_set_text(s_scene_state_lbl[tab][j], on ? "actief" : "scene");
+            lv_obj_set_style_text_color(s_scene_state_lbl[tab][j],
+                                        on ? lv_color_hex(0x3b2d66) : COLOR_TEXT_DIM, 0);
+        }
+    }
+    if (s_active_scene_lbl[tab]) {
+        lv_label_set_text_fmt(s_active_scene_lbl[tab], "Actieve scene:  %s",
+                              PANEL_TABS[tab].scenes[idx].label);
+    }
+    mark_snapshot_dirty(tab);
+}
+
 static void on_scene_clicked(lv_event_t *e)
 {
+    if (s_drag_suppress_click) {
+        return; /* this touch was a swipe, not a tap */
+    }
     const scene_ctx_t *ctx = lv_event_get_user_data(e);
-    lv_obj_t *chip = lv_event_get_target(e);
     if (s_scene_cb) {
         s_scene_cb(ctx->scene->entity_id);
     }
-    /* Radio-style highlight: this scene lit, the others on the tab cleared. */
-    for (int j = 0; j < s_scene_counts[ctx->tab_idx]; j++) {
-        lv_obj_set_style_bg_color(s_scene_chips[ctx->tab_idx][j], COLOR_SCENE, 0);
-    }
-    lv_obj_set_style_bg_color(chip, COLOR_SCENE_ON, 0);
-    mark_snapshot_dirty(ctx->tab_idx);
+    scene_highlight(ctx->tab_idx, (int)(ctx->scene - PANEL_TABS[ctx->tab_idx].scenes));
 }
 
 /* Vertical brightness slider: live % readout while dragging, applies on release. */
@@ -435,6 +487,45 @@ static void create_header(lv_obj_t *parent)
         lv_obj_set_style_text_color(s_fc_temp[i], COLOR_TEXT, 0);
     }
 
+    /* Thin vertical rule separating the forecast from the room sensors. */
+    lv_obj_t *rule = lv_obj_create(bar);
+    lv_obj_set_size(rule, 1, 48);
+    make_plain(rule);
+    lv_obj_set_style_bg_color(rule, COLOR_TILE, 0);
+    lv_obj_set_style_bg_opa(rule, LV_OPA_COVER, 0);
+    lv_obj_set_style_margin_hor(rule, 18, 0);
+
+    /* Climate sensors: one column per sensor (name, temperature, humidity),
+     * laid out like the forecast columns so they read as one strip. */
+    lv_obj_t *tc = lv_obj_create(bar);
+    lv_obj_set_size(tc, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    make_plain(tc);
+    lv_obj_set_style_pad_gap(tc, 14, 0);
+    lv_obj_set_flex_flow(tc, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(tc, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        lv_obj_t *col = lv_obj_create(tc);
+        lv_obj_set_size(col, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        make_plain(col);
+        lv_obj_set_style_pad_gap(col, 1, 0);
+        lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_align(col, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                              LV_FLEX_ALIGN_CENTER);
+        lv_obj_t *name = lv_label_create(col);
+        lv_label_set_text(name, PANEL_TEMP_SENSORS[i].label);
+        lv_obj_set_style_text_font(name, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(name, COLOR_TEXT_DIM, 0);
+        s_temp_val[i] = lv_label_create(col);
+        lv_label_set_text(s_temp_val[i], "--");
+        lv_obj_set_style_text_font(s_temp_val[i], &lv_font_montserrat_24, 0);
+        lv_obj_set_style_text_color(s_temp_val[i], COLOR_TEXT, 0);
+        s_hum_val[i] = lv_label_create(col);
+        lv_label_set_text(s_hum_val[i], PANEL_TEMP_SENSORS[i].humidity_id ? LV_SYMBOL_TINT " --"
+                                                                         : "");
+        lv_obj_set_style_text_font(s_hum_val[i], &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(s_hum_val[i], lv_color_hex(0x7fa8d0), 0);
+    }
+
     /* Spacer pushes the clock cluster + gear to the right edge. */
     lv_obj_t *spacer = lv_obj_create(bar);
     make_plain(spacer);
@@ -504,6 +595,86 @@ static void create_light_grid(lv_obj_t *parent, const panel_tab_t *tab, int tab_
     lv_obj_set_grid_dsc_array(grid, s_col_dsc, s_row_dsc);
     lv_obj_set_layout(grid, LV_LAYOUT_GRID);
 
+    if (tab->scene_tiles) {
+        /* Scene tab: one tile per scene. Up to 6 scenes get big light-style
+         * tiles (icon / name / "actief"); more get a compact 4x3 grid of
+         * swatch + name pills. Tapping activates the scene and lights the tile. */
+        const int scene_n = tab->scene_count < MAX_SCENES ? tab->scene_count : MAX_SCENES;
+        const bool compact = scene_n > 6;
+        const int cols = compact ? 4 : 3;
+        s_scene_counts[tab_idx] = scene_n;
+        if (compact) {
+            lv_obj_set_grid_dsc_array(grid, s_col_dsc4, s_row_dsc3);
+            lv_obj_set_style_pad_gap(grid, 10, 0);
+        }
+        for (int i = 0; i < scene_n; i++) {
+            lv_obj_t *tile = lv_button_create(grid);
+            lv_obj_set_grid_cell(tile, LV_GRID_ALIGN_STRETCH, i % cols, 1,
+                                 LV_GRID_ALIGN_STRETCH, i / cols, 1);
+            lv_obj_set_style_bg_color(tile, COLOR_TILE, 0);
+            lv_obj_set_style_radius(tile, compact ? 14 : 18, 0);
+            lv_obj_set_style_shadow_width(tile, 0, 0);
+            lv_obj_set_style_pad_all(tile, compact ? 12 : 16, 0);
+            lv_obj_set_style_pad_gap(tile, compact ? 10 : 0, 0);
+            lv_obj_set_style_bg_opa(tile, LV_OPA_80, LV_STATE_PRESSED);
+            lv_obj_set_flex_flow(tile, compact ? LV_FLEX_FLOW_ROW : LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_flex_align(tile, LV_FLEX_ALIGN_START,
+                                  compact ? LV_FLEX_ALIGN_CENTER : LV_FLEX_ALIGN_START,
+                                  LV_FLEX_ALIGN_START);
+            s_scene_chips[tab_idx][i] = tile;
+            s_scene_ctx[tab_idx][i] = (scene_ctx_t){ &tab->scenes[i], tab_idx };
+            lv_obj_add_event_cb(tile, on_scene_clicked, LV_EVENT_SHORT_CLICKED,
+                                &s_scene_ctx[tab_idx][i]);
+
+            /* Leading glyph: a colour swatch if configured, else a symbol. */
+            const panel_swatch_t *sw = tab->scene_swatches ? &tab->scene_swatches[i] : NULL;
+            s_scene_icon[tab_idx][i] = NULL;
+            if (sw && sw->a) {
+                const int d = compact ? 28 : 36;
+                lv_obj_t *dot = wx_shape(tile, d, d, LV_RADIUS_CIRCLE,
+                                         lv_color_hex(sw->a == SWATCH_RAINBOW ? 0xff0000 : sw->a));
+                if (sw->a == SWATCH_RAINBOW) {
+                    lv_obj_set_style_bg_grad(dot, &s_hue_grad, 0);
+                } else if (sw->b) {
+                    lv_obj_set_style_bg_grad_color(dot, lv_color_hex(sw->b), 0);
+                    lv_obj_set_style_bg_grad_dir(dot, LV_GRAD_DIR_HOR, 0);
+                }
+            } else {
+                lv_obj_t *icon = lv_label_create(tile);
+                lv_label_set_text(icon, (tab->scene_icons && tab->scene_icons[i])
+                                            ? tab->scene_icons[i] : LV_SYMBOL_CHARGE);
+                lv_obj_set_style_text_font(icon, compact ? &lv_font_montserrat_24
+                                                         : &lv_font_montserrat_32, 0);
+                lv_obj_set_style_text_color(icon, COLOR_TEXT_DIM, 0);
+                s_scene_icon[tab_idx][i] = icon;
+            }
+
+            if (!compact) {
+                lv_obj_t *spacer = lv_obj_create(tile);
+                lv_obj_set_width(spacer, LV_PCT(100));
+                make_plain(spacer);
+                lv_obj_set_flex_grow(spacer, 1);
+            }
+
+            lv_obj_t *name = lv_label_create(tile);
+            lv_label_set_text(name, tab->scenes[i].label);
+            lv_obj_set_style_text_font(name, compact ? &lv_font_montserrat_18
+                                                     : &lv_font_montserrat_24, 0);
+            lv_obj_set_style_text_color(name, COLOR_TEXT, 0);
+            s_scene_name[tab_idx][i] = name;
+
+            s_scene_state_lbl[tab_idx][i] = NULL;
+            if (!compact) {
+                lv_obj_t *sub = lv_label_create(tile);
+                lv_label_set_text(sub, "scene");
+                lv_obj_set_style_text_font(sub, &lv_font_montserrat_18, 0);
+                lv_obj_set_style_text_color(sub, COLOR_TEXT_DIM, 0);
+                s_scene_state_lbl[tab_idx][i] = sub;
+            }
+        }
+        return;
+    }
+
     for (int i = 0; i < tab->light_count && s_tile_count < PANEL_MAX_LIGHTS; i++) {
         light_tile_t *t = &s_tiles[s_tile_count++];
         t->entity = &tab->lights[i];
@@ -563,8 +734,57 @@ static void create_scene_row(lv_obj_t *parent, const panel_tab_t *tab, int tab_i
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
 
-    const int scene_n = tab->scene_count < MAX_SCENES ? tab->scene_count : MAX_SCENES;
-    s_scene_counts[tab_idx] = scene_n;
+    if (tab->scene_tiles && tab->light_count > 0 && s_tile_count < PANEL_MAX_LIGHTS) {
+        /* Square power toggle for the zone group (lights[0]): tap toggles,
+         * long-press opens the brightness/colour popup for the whole group.
+         * Registered as a tile (no text labels) so HA state colours it. */
+        light_tile_t *t = &s_tiles[s_tile_count++];
+        t->entity = &tab->lights[0];
+        t->tab_idx = tab_idx;
+        t->name_label = NULL;
+        t->state_label = NULL;
+        t->tile = lv_button_create(row);
+        lv_obj_set_size(t->tile, SCENE_ROW_H - 14, LV_PCT(100));
+        lv_obj_set_style_bg_color(t->tile, COLOR_TILE, 0);
+        lv_obj_set_style_radius(t->tile, 14, 0);
+        lv_obj_set_style_shadow_width(t->tile, 0, 0);
+        lv_obj_set_style_bg_opa(t->tile, LV_OPA_80, LV_STATE_PRESSED);
+        lv_obj_add_event_cb(t->tile, on_tile_clicked, LV_EVENT_SHORT_CLICKED, t);
+        lv_obj_add_event_cb(t->tile, on_tile_long_pressed, LV_EVENT_LONG_PRESSED, t);
+        t->icon = lv_label_create(t->tile);
+        lv_label_set_text(t->icon, LV_SYMBOL_POWER);
+        lv_obj_set_style_text_font(t->icon, &lv_font_montserrat_32, 0);
+        lv_obj_set_style_text_color(t->icon, COLOR_TEXT_DIM, 0);
+        lv_obj_center(t->icon);
+    }
+
+    if (tab->scene_tiles) {
+        /* Scene tab: the scenes live in the grid, so the bottom row shows which
+         * one is active (a passive pill; the grid tiles were registered by
+         * create_light_grid). */
+        lv_obj_t *pill = lv_obj_create(row);
+        lv_obj_set_flex_grow(pill, 2);
+        lv_obj_set_height(pill, LV_PCT(100));
+        make_plain(pill);
+        lv_obj_set_style_bg_color(pill, COLOR_TILE_OFF, 0);
+        lv_obj_set_style_bg_opa(pill, LV_OPA_COVER, 0);
+        lv_obj_set_style_radius(pill, 14, 0);
+        lv_obj_set_style_pad_hor(pill, 18, 0);
+        lv_obj_t *lbl = lv_label_create(pill);
+        lv_label_set_text(lbl, "Actieve scene:  \xE2\x80\x94"); /* em dash */
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+        lv_obj_set_width(lbl, LV_PCT(100));
+        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_18, 0);
+        lv_obj_set_style_text_color(lbl, COLOR_TEXT_DIM, 0);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 0, 0);
+        s_active_scene_lbl[tab_idx] = lbl;
+    }
+
+    const int scene_n = tab->scene_tiles ? 0
+                        : (tab->scene_count < MAX_SCENES ? tab->scene_count : MAX_SCENES);
+    if (!tab->scene_tiles) {
+        s_scene_counts[tab_idx] = scene_n;
+    }
     for (int i = 0; i < scene_n; i++) {
         lv_obj_t *chip = lv_button_create(row);
         lv_obj_set_flex_grow(chip, 1);
@@ -971,8 +1191,6 @@ static void init_slider_grads(void)
 
 static void create_popup(lv_obj_t *root)
 {
-    init_slider_grads();
-
     /* Dim backdrop; tapping it closes. */
     s_popup = lv_obj_create(root);
     lv_obj_set_size(s_popup, LV_PCT(100), LV_PCT(100));
@@ -1877,7 +2095,10 @@ void panel_ui_create(panel_ui_light_cb_t light_cb, panel_ui_scene_cb_t scene_cb,
     s_tile_count = 0;
     for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
         s_tab_brightness[t] = -1;
+        s_active_scene[t] = -1;
     }
+
+    init_slider_grads(); /* swatches + popup sliders share these gradient descriptors */
 
     lv_obj_t *screen = lv_screen_active();
     lv_obj_set_style_bg_color(screen, COLOR_BG, 0);
@@ -1977,18 +2198,26 @@ void panel_ui_set_light_state(const char *entity_id, const char *state)
             lv_obj_set_style_bg_color(t->tile, COLOR_TILE_OFF, 0);
             lv_label_set_text(t->icon, LV_SYMBOL_WARNING);
             lv_obj_set_style_text_color(t->icon, COLOR_TEXT_DIM, 0);
-            lv_obj_set_style_text_color(t->name_label, COLOR_TEXT_DIM, 0);
-            lv_label_set_text(t->state_label, "niet beschikbaar");
-            lv_obj_set_style_text_color(t->state_label, COLOR_TEXT_DIM, 0);
+            if (t->name_label) {
+                lv_obj_set_style_text_color(t->name_label, COLOR_TEXT_DIM, 0);
+            }
+            if (t->state_label) {
+                lv_label_set_text(t->state_label, "niet beschikbaar");
+                lv_obj_set_style_text_color(t->state_label, COLOR_TEXT_DIM, 0);
+            }
         } else {
             lv_obj_set_style_opa(t->tile, LV_OPA_COVER, 0);
             lv_obj_set_style_bg_color(t->tile, on ? COLOR_TILE_ON : COLOR_TILE, 0);
             lv_label_set_text(t->icon, LV_SYMBOL_POWER);
             lv_obj_set_style_text_color(t->icon, on ? COLOR_ON_TEXT : COLOR_TEXT_DIM, 0);
-            lv_obj_set_style_text_color(t->name_label, on ? COLOR_ON_TEXT : COLOR_TEXT, 0);
-            lv_label_set_text(t->state_label, on ? "aan" : "uit");
-            lv_obj_set_style_text_color(t->state_label,
-                                        on ? lv_color_hex(0x6b5518) : COLOR_TEXT_DIM, 0);
+            if (t->name_label) {
+                lv_obj_set_style_text_color(t->name_label, on ? COLOR_ON_TEXT : COLOR_TEXT, 0);
+            }
+            if (t->state_label) {
+                lv_label_set_text(t->state_label, on ? "aan" : "uit");
+                lv_obj_set_style_text_color(t->state_label,
+                                            on ? lv_color_hex(0x6b5518) : COLOR_TEXT_DIM, 0);
+            }
         }
         mark_snapshot_dirty(t->tab_idx); /* only this tile's tab needs re-caching */
     }
@@ -2010,12 +2239,8 @@ void panel_ui_set_scene_active(const char *entity_id)
             if (!bsp_display_lock(1000)) {
                 return;
             }
-            for (int j = 0; j < s_scene_counts[t]; j++) {
-                lv_obj_set_style_bg_color(s_scene_chips[t][j], COLOR_SCENE, 0);
-            }
-            lv_obj_set_style_bg_color(s_scene_chips[t][i], COLOR_SCENE_ON, 0);
+            scene_highlight(t, i);
             bsp_display_unlock();
-            mark_snapshot_dirty(t);
             return;
         }
     }
@@ -2023,7 +2248,7 @@ void panel_ui_set_scene_active(const char *entity_id)
 
 void panel_ui_set_area_brightness(const char *entity_id, int brightness_pct)
 {
-    if (entity_id == NULL || brightness_pct < 0) {
+    if (entity_id == NULL || brightness_pct < 0 || s_tabview == NULL) {
         return;
     }
     /* Reflect only a tab's representative (first) light on the slider. */
@@ -2110,10 +2335,51 @@ void panel_ui_set_weather(const char *condition, float temperature)
     panel_ui_set_forecast_day(0, condition, temperature);
 }
 
+void panel_ui_set_temp_sensor(const char *entity_id, float temperature)
+{
+    int idx = -1;
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (strcmp(PANEL_TEMP_SENSORS[i].temp_id, entity_id) == 0) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0 || s_temp_val[idx] == NULL || !bsp_display_lock(1000)) {
+        return;
+    }
+    if (isnan(temperature)) {
+        lv_label_set_text(s_temp_val[idx], "--");
+    } else {
+        lv_label_set_text_fmt(s_temp_val[idx], "%.1f\xC2\xB0", (double)temperature);
+    }
+    bsp_display_unlock();
+}
+
+void panel_ui_set_humidity(const char *entity_id, float percent)
+{
+    int idx = -1;
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (PANEL_TEMP_SENSORS[i].humidity_id &&
+            strcmp(PANEL_TEMP_SENSORS[i].humidity_id, entity_id) == 0) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0 || s_hum_val[idx] == NULL || !bsp_display_lock(1000)) {
+        return;
+    }
+    if (isnan(percent)) {
+        lv_label_set_text(s_hum_val[idx], LV_SYMBOL_TINT " --");
+    } else {
+        lv_label_set_text_fmt(s_hum_val[idx], LV_SYMBOL_TINT " %.0f%%", (double)percent);
+    }
+    bsp_display_unlock();
+}
+
 void panel_ui_set_link_status(bool wifi_up, bool ha_up)
 {
-    if (!bsp_display_lock(1000)) {
-        return;
+    if (s_status_dot == NULL || !bsp_display_lock(1000)) {
+        return; /* Wi-Fi can come up before the UI exists */
     }
     lv_color_t color = COLOR_BAD;
     if (wifi_up && ha_up) {

@@ -1,7 +1,10 @@
 /* Korvo-1 wall panel: LVGL touch UI controlling Home Assistant. */
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "bsp/esp32_s31_korvo.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_netif_sntp.h"
 #include "freertos/FreeRTOS.h"
@@ -19,9 +22,13 @@ static const char *TAG = "app_main";
 
 static bool s_wifi_up;
 static bool s_ha_up;
+static bool s_ui_ready;         /* panel_ui_create() has run */
+static bool s_services_started; /* HA client + OTA/web server are up */
+static portMUX_TYPE s_svc_mux = portMUX_INITIALIZER_UNLOCKED;
 
-/* Entities to subscribe to: every light tile + device + scene + weather. */
-static const char *s_subscribed[PANEL_MAX_LIGHTS + 1];
+/* Entities to subscribe to: every light tile + device + scene + weather +
+ * the header temperature sensors. */
+static const char *s_subscribed[PANEL_MAX_LIGHTS + 1 + 2 * PANEL_TEMP_SENSOR_COUNT];
 static int s_subscribed_count;
 
 /* Scene activation tracking: a scene's HA state is its last-activated timestamp,
@@ -31,7 +38,7 @@ typedef struct {
     char last[40];
     bool seen;
 } scene_track_t;
-static scene_track_t s_scenes[16];
+static scene_track_t s_scenes[32];
 static int s_scene_count;
 
 static void add_subscribed(const char *id)
@@ -76,6 +83,91 @@ static void collect_subscribed_entities(void)
         }
     }
     s_subscribed[s_subscribed_count++] = PANEL_WEATHER_ENTITY;
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        s_subscribed[s_subscribed_count++] = PANEL_TEMP_SENSORS[i].temp_id;
+        if (PANEL_TEMP_SENSORS[i].humidity_id) {
+            s_subscribed[s_subscribed_count++] = PANEL_TEMP_SENSORS[i].humidity_id;
+        }
+    }
+}
+
+static bool is_temp_sensor(const char *entity_id)
+{
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (strcmp(PANEL_TEMP_SENSORS[i].temp_id, entity_id) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool is_humidity_sensor(const char *entity_id)
+{
+    for (int i = 0; i < (int)PANEL_TEMP_SENSOR_COUNT; i++) {
+        if (PANEL_TEMP_SENSORS[i].humidity_id &&
+            strcmp(PANEL_TEMP_SENSORS[i].humidity_id, entity_id) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* A sensor's state is its reading as a string ("24.19"), or
+ * "unavailable"/"unknown" -> NAN so the UI shows a placeholder. */
+static float parse_sensor_value(const char *state)
+{
+    if (state == NULL) {
+        return NAN;
+    }
+    char *end = NULL;
+    const float v = strtof(state, &end);
+    return (end != state) ? v : NAN;
+}
+
+static const char *scene_last_seen(const char *id)
+{
+    for (int k = 0; k < s_scene_count; k++) {
+        if (strcmp(s_scenes[k].id, id) == 0) {
+            return s_scenes[k].seen ? s_scenes[k].last : NULL;
+        }
+    }
+    return NULL;
+}
+
+/* At boot, HA's initial dump gives every scene's last-activated timestamp
+ * (ISO 8601, UTC, so lexical order = time order; "unknown" never sorts as
+ * newest since it doesn't start with a digit). The newest one on the tab that
+ * owns entity_id is shown as the active scene, so the panel doesn't start blank. */
+static void show_newest_scene_on_tab(const char *entity_id)
+{
+    for (int t = 0; t < (int)PANEL_TAB_COUNT; t++) {
+        const panel_tab_t *tab = &PANEL_TABS[t];
+        bool owns = false;
+        for (int i = 0; i < tab->scene_count; i++) {
+            if (strcmp(tab->scenes[i].entity_id, entity_id) == 0) {
+                owns = true;
+                break;
+            }
+        }
+        if (!owns) {
+            continue;
+        }
+        const char *best_id = NULL, *best_ts = NULL;
+        for (int i = 0; i < tab->scene_count; i++) {
+            const char *ts = scene_last_seen(tab->scenes[i].entity_id);
+            if (ts == NULL || ts[0] < '0' || ts[0] > '9') {
+                continue;
+            }
+            if (best_ts == NULL || strcmp(ts, best_ts) > 0) {
+                best_ts = ts;
+                best_id = tab->scenes[i].entity_id;
+            }
+        }
+        if (best_id) {
+            panel_ui_set_scene_active(best_id);
+        }
+        return;
+    }
 }
 
 /* A scene's state is a timestamp; if it changes after we've seen it once, the
@@ -89,12 +181,15 @@ static void handle_scene_state(const char *entity_id, const char *state)
         if (strcmp(s_scenes[k].id, entity_id) != 0) {
             continue;
         }
-        if (!s_scenes[k].seen) {
-            s_scenes[k].seen = true;
-        } else if (strcmp(s_scenes[k].last, state) != 0) {
-            panel_ui_set_scene_active(entity_id);
-        }
+        const bool first = !s_scenes[k].seen;
+        const bool changed = !first && strcmp(s_scenes[k].last, state) != 0;
+        s_scenes[k].seen = true;
         strlcpy(s_scenes[k].last, state, sizeof(s_scenes[k].last));
+        if (changed) {
+            panel_ui_set_scene_active(entity_id);
+        } else if (first) {
+            show_newest_scene_on_tab(entity_id);
+        }
         return;
     }
 }
@@ -104,6 +199,14 @@ static void on_ha_state(const char *entity_id, const char *state,
 {
     if (strcmp(entity_id, PANEL_WEATHER_ENTITY) == 0) {
         panel_ui_set_weather(state, temperature);
+    } else if (is_temp_sensor(entity_id)) {
+        if (state != NULL) { /* attribute-only updates carry no reading */
+            panel_ui_set_temp_sensor(entity_id, parse_sensor_value(state));
+        }
+    } else if (is_humidity_sensor(entity_id)) {
+        if (state != NULL) {
+            panel_ui_set_humidity(entity_id, parse_sensor_value(state));
+        }
     } else if (strncmp(entity_id, "scene.", 6) == 0) {
         handle_scene_state(entity_id, state);
     } else {
@@ -155,39 +258,58 @@ static void on_scan_request(void)
     wifi_mgr_scan_start(on_scan_done);
 }
 
+/* The network services need both Wi-Fi (obviously) and the finished UI (so
+ * HA's initial state dump lands on real tiles instead of being lost). Wi-Fi is
+ * started before the UI is built, so whichever of the two comes second kicks
+ * this off; the spinlock makes the start-once decision race-free between the
+ * main task and the Wi-Fi event task. */
+static void start_services_if_ready(void)
+{
+    bool go = false;
+    portENTER_CRITICAL(&s_svc_mux);
+    if (s_wifi_up && s_ui_ready && !s_services_started) {
+        s_services_started = true;
+        go = true;
+    }
+    portEXIT_CRITICAL(&s_svc_mux);
+    if (!go) {
+        return;
+    }
+
+    setenv("TZ", PANEL_TIMEZONE, 1);
+    tzset();
+    esp_sntp_config_t sntp_cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG(PANEL_SNTP_SERVER);
+    esp_err_t err = esp_netif_sntp_init(&sntp_cfg);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "SNTP init failed: %s", esp_err_to_name(err));
+    }
+
+    ha_client_set_forecast_cb(on_ha_forecast);
+    ha_client_set_caps_cb(on_light_caps);
+    err = ha_client_start(HA_WEBSOCKET_URI, SECRET_HA_TOKEN,
+                          s_subscribed, s_subscribed_count,
+                          on_ha_state, on_ha_conn);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "HA client failed to start: %s", esp_err_to_name(err));
+    }
+
+    if (ota_start_server(SECRET_HA_TOKEN) != ESP_OK) {
+        ESP_LOGW(TAG, "OTA server failed to start");
+    }
+}
+
 static void on_wifi_status(bool connected)
 {
     s_wifi_up = connected;
+    /* Both UI setters are no-ops until the UI exists. */
     panel_ui_set_link_status(s_wifi_up, s_ha_up);
 
     char ssid[33] = {0};
     wifi_mgr_get_ssid(ssid, sizeof(ssid));
     panel_ui_set_wifi_connected(connected, ssid);
 
-    static bool services_started;
-    if (connected && !services_started) {
-        services_started = true;
-
-        setenv("TZ", PANEL_TIMEZONE, 1);
-        tzset();
-        esp_sntp_config_t sntp_cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG(PANEL_SNTP_SERVER);
-        esp_err_t err = esp_netif_sntp_init(&sntp_cfg);
-        if (err != ESP_OK) {
-            ESP_LOGW(TAG, "SNTP init failed: %s", esp_err_to_name(err));
-        }
-
-        ha_client_set_forecast_cb(on_ha_forecast);
-        ha_client_set_caps_cb(on_light_caps);
-        err = ha_client_start(HA_WEBSOCKET_URI, SECRET_HA_TOKEN,
-                              s_subscribed, s_subscribed_count,
-                              on_ha_state, on_ha_conn);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "HA client failed to start: %s", esp_err_to_name(err));
-        }
-
-        if (ota_start_server(SECRET_HA_TOKEN) != ESP_OK) {
-            ESP_LOGW(TAG, "OTA server failed to start");
-        }
+    if (connected) {
+        start_services_if_ready();
     }
 }
 
@@ -236,6 +358,16 @@ void app_main(void)
 
     collect_subscribed_entities();
 
+    /* Wi-Fi FIRST: esp_wifi_init() needs a sizeable chunk of internal (DMA
+     * capable) RAM and fails with ESP_ERR_NO_MEM if the LVGL UI has already
+     * filled it (LVGL objects are small mallocs that prefer internal RAM; once
+     * that's gone they spill over into PSRAM, which is fine for the UI but not
+     * for Wi-Fi). Connecting runs in the background while the display comes up. */
+    err = wifi_mgr_start(SECRET_WIFI_SSID, SECRET_WIFI_PASS, on_wifi_status);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Wi-Fi failed to start: %s", esp_err_to_name(err));
+    }
+
     /* Triple-buffer tear avoidance + PPA hardware acceleration for smooth,
      * tear-free rendering (the ESP32-S31 has a Pixel Processing Accelerator). */
     bsp_display_config_t display_cfg = BSP_DISPLAY_DEFAULT_CONFIG();
@@ -258,20 +390,23 @@ void app_main(void)
         panel_ui_set_color_callbacks(on_set_color, on_set_warmth);
         bsp_display_unlock();
     }
-
-    /* Start telemetry sampling into the PSRAM ring buffer (served by the web
-     * dashboard once Wi-Fi + the HTTP server are up). */
-    metrics_start(disp);
-
-    err = wifi_mgr_start(SECRET_WIFI_SSID, SECRET_WIFI_PASS, on_wifi_status);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Wi-Fi failed to start: %s", esp_err_to_name(err));
-    }
+    ESP_LOGI(TAG, "UI built; free internal heap %u bytes",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
 
     char ssid[33] = {0};
     wifi_mgr_get_ssid(ssid, sizeof(ssid));
     panel_ui_set_wifi_callback(on_wifi_settings, ssid);
     panel_ui_set_scan_callback(on_scan_request);
+    /* Reflect a Wi-Fi link that may have come up while the UI was being built. */
+    panel_ui_set_link_status(s_wifi_up, s_ha_up);
+    panel_ui_set_wifi_connected(s_wifi_up, ssid);
+
+    s_ui_ready = true;
+    start_services_if_ready();
+
+    /* Start telemetry sampling into the PSRAM ring buffer (served by the web
+     * dashboard once Wi-Fi + the HTTP server are up). */
+    metrics_start(disp);
 
     ESP_LOGI(TAG, "Wall panel running");
 }

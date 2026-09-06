@@ -49,4 +49,9 @@ void panel_ui_set_light_caps(const char *entity_id, int caps, int min_kelvin, in
 void panel_ui_set_weather(const char *condition, float temperature);
 /* Set one day of the 5-day header forecast (idx 0 = today). */
 void panel_ui_set_forecast_day(int idx, const char *condition, float temperature);
+/* Update a header room-temperature reading (PANEL_TEMP_SENSORS entity); NAN
+ * shows the "--" placeholder (sensor unavailable). */
+void panel_ui_set_temp_sensor(const char *entity_id, float temperature);
+/* Update a header humidity reading (PANEL_TEMP_SENSORS humidity entity). */
+void panel_ui_set_humidity(const char *entity_id, float percent);
 void panel_ui_set_link_status(bool wifi_up, bool ha_up);
