@@ -97,6 +97,7 @@ static const panel_entity_t TAB_THUIS_DEVICES[] = {
     { "light.lamp_playroom_1",               "Gameroom" },
     { "light.lamp_playroom_muur_1",          "Gameroom muur 1" },
     { "light.lamp_playroom_muur_2",          "Gameroom muur 2" },
+    { "light.lamp_playroom_muur_3",          "Gameroom muur 3" },
     { "light.lamp_gang_deur_1",              "Gang deur" },
     { "light.lamp_gang_trap_beneden_1",      "Gang trap" },
     { "light.lamp_wc_beneden_1",             "WC" },
