@@ -189,15 +189,17 @@ static const panel_swatch_t TAB_GARAGE_SWATCHES[] = {
     { SWATCH_RAINBOW, 0 },  /* Regenboog */
 };
 static const panel_entity_t TAB_GARAGE_DEVICES[] = {
+    /* HA has no lamp_garage_4 / _10 (the numbers were skipped); 18-21 are Innr GU10s added 2026-09-09. */
     { "light.lamp_garage_1",  "Lamp 1" },  { "light.lamp_garage_2",  "Lamp 2" },
-    { "light.lamp_garage_3",  "Lamp 3" },  { "light.lamp_garage_4",  "Lamp 4" },
-    { "light.lamp_garage_5",  "Lamp 5" },  { "light.lamp_garage_6",  "Lamp 6" },
-    { "light.lamp_garage_7",  "Lamp 7" },  { "light.lamp_garage_8",  "Lamp 8" },
-    { "light.lamp_garage_9",  "Lamp 9" },  { "light.lamp_garage_10", "Lamp 10" },
-    { "light.lamp_garage_11", "Lamp 11" }, { "light.lamp_garage_12", "Lamp 12" },
-    { "light.lamp_garage_13", "Lamp 13" }, { "light.lamp_garage_14", "Lamp 14" },
-    { "light.lamp_garage_15", "Lamp 15" }, { "light.lamp_garage_16", "Lamp 16" },
-    { "light.lamp_garage_17", "Lamp 17" },
+    { "light.lamp_garage_3",  "Lamp 3" },  { "light.lamp_garage_5",  "Lamp 5" },
+    { "light.lamp_garage_6",  "Lamp 6" },  { "light.lamp_garage_7",  "Lamp 7" },
+    { "light.lamp_garage_8",  "Lamp 8" },  { "light.lamp_garage_9",  "Lamp 9" },
+    { "light.lamp_garage_11", "Lamp 11" },  { "light.lamp_garage_12", "Lamp 12" },
+    { "light.lamp_garage_13", "Lamp 13" },  { "light.lamp_garage_14", "Lamp 14" },
+    { "light.lamp_garage_15", "Lamp 15" },  { "light.lamp_garage_16", "Lamp 16" },
+    { "light.lamp_garage_17", "Lamp 17" },  { "light.lamp_garage_18", "Lamp 18" },
+    { "light.lamp_garage_19", "Lamp 19" },  { "light.lamp_garage_20", "Lamp 20" },
+    { "light.lamp_garage_21", "Lamp 21" },
 };
 
 /* ---- Tab: Tuin (garden) --- not shown yet ------------------------------- */
