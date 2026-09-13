@@ -87,7 +87,9 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .fc-day { font-size: 14px; color: var(--text_dim); font-weight: 600; }
 .fc-day.today { color: var(--accent); }
 .fc-temp { font-size: 18px; font-weight: 600; }
-.rule { width: 1px; height: 48px; background: var(--tile); margin: 0 14px; flex: none; }
+/* Divider spacing scales with the width so every header column fits on an
+ * 11" iPad in landscape (1194 px) and still breathes on wider screens. */
+.rule { width: 1px; height: 48px; background: var(--tile); margin: 0 clamp(6px, 0.75vw, 14px); flex: none; }
 .sensors { display: flex; gap: 11px; align-items: center; }
 .sensor-col { padding: 2px 4px; border-radius: 10px; transition: background-color 0.15s; }
 .sensor-col:active { background: color-mix(in srgb, var(--tile) 70%, transparent); }
@@ -465,18 +467,6 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .page.vac-page { grid-template-rows: minmax(0, 1fr); }
 .vp { display: flex; flex-direction: column; gap: 14px; padding: var(--pad) 20px var(--pad) var(--pad); min-height: 0; }
 .vp.offline { opacity: 0.6; }
-.vp-head { display: flex; align-items: center; gap: 14px; }
-.vac-ic { font-size: 36px; color: var(--accent); display: grid; place-items: center; }
-.vp.busy .vac-ic { animation: vac-spin 3s linear infinite; }
-@keyframes vac-spin { to { transform: rotate(360deg); } }
-.vac-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.vac-title b { font-size: 24px; font-weight: 700; }
-.vac-status { font-size: 17px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.vp.busy .vac-status { color: var(--accent); }
-.vac-batt { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 600; color: var(--text_dim); font-variant-numeric: tabular-nums; }
-.vac-batt i { width: 34px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 2px var(--text_dim); padding: 3px; display: block; }
-.vac-batt s { display: block; height: 100%; background: var(--ok); border-radius: 2px; text-decoration: none; transition: width 0.4s; }
-.vac-batt.low s { background: var(--bad); }
 .vlabel { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
 .vchip { padding: 10px 16px; border-radius: 12px; background: var(--tile); font-size: 16px; font-weight: 600; color: var(--text); transition: background-color 0.2s, color 0.2s, transform 0.12s; }
 .vchip.active { background: var(--scene_on); color: var(--scene_text); }
@@ -484,7 +474,6 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .vbtn .ic { font-size: 18px; }
 .vbtn.primary { background: var(--accent); color: var(--on_text); }
 .vbtn:disabled { opacity: 0.45; cursor: default; }
-.vbtn.ghost { padding: 10px; background: transparent; font-size: 24px; color: var(--text_dim); }
 .vchip.pressed, .vbtn.pressed, .vs-room.pressed { transform: scale(0.95); }
 .vs-body { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 22px; min-height: 0; flex: 1; }
 /* Scroll containers reset touch-action: keep horizontal moves for the section swipe. */
@@ -492,7 +481,6 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .vs-map { display: flex; flex-direction: column; gap: 10px; }
 .vs-side { display: flex; flex-direction: column; gap: 12px; padding-right: 2px; }
 .vs-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); margin: 4px 0 2px; }
-.vs-section-title em { font-style: normal; font-weight: 600; letter-spacing: 0; text-transform: none; margin-left: 8px; opacity: 0.8; }
 .vs-rooms {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); grid-auto-rows: minmax(130px, 1fr);
   gap: 12px; padding: 14px; border-radius: 18px;
@@ -548,8 +536,6 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
   :root { --rail-w: 70px; }
   .rail-btn span { display: none; }
   .rail-btn b { font-size: 26px; }
-  .vac-title b { font-size: 18px; }
-  .vac-ic { font-size: 26px; }
   .vchip { padding: 7px 11px; font-size: 14px; }
   .vbtn { padding: 8px 13px; font-size: 14px; }
 }
@@ -578,6 +564,16 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .a-co2 small, .stat-v small { font-size: 0.5em; font-weight: 600; margin-left: 2px; opacity: 0.85; }
 .a-pm { color: var(--text_dim); }
 .air-col.stale { opacity: 0.55; }
+
+/* Vacuum column: battery with the robot icon, status underneath. */
+.vac-col { align-items: flex-start; text-align: left; }
+.vh-batt { display: flex; align-items: center; gap: 7px; }
+.vh-batt .ic { font-size: 22px; color: var(--accent); }
+.vac-col.busy .vh-batt .ic { animation: vac-spin 3s linear infinite; }
+@keyframes vac-spin { to { transform: rotate(360deg); } }
+.vh-status { color: var(--text_dim); white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; display: block; }
+.vac-col.busy .vh-status { color: var(--accent); }
+.vac-col.stale { opacity: 0.55; }
 .clim-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .stat { background: var(--tile_off); border-radius: 12px; padding: 8px 10px; min-width: 0; }
 .stat-v { font-size: 22px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: color 0.4s; }

@@ -186,7 +186,13 @@
             `<div class="s-hum a-pm">PM2.5 --</div><div class="s-hum a-hum">${icon("drop")}<span>--</span></div>` +
             `</div></button>`
         )
-        .join("");
+        .join("") +
+      (cfg.vacuum
+        ? `<div class="rule"></div><button class="sensor-col vac-col" data-vachdr aria-label="${cfg.vacuum.label}">` +
+          `<div class="s-name"><span>${cfg.vacuum.label}</span></div>` +
+          `<div class="s-temp vh-batt">${icon("vacuum")}<span>--</span></div>` +
+          `<div class="s-hum vh-status">...</div></button>`
+        : "");
     $("gear").innerHTML = icon("gear");
   }
 

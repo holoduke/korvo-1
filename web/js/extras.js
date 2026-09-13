@@ -364,8 +364,10 @@
   $("sensors").addEventListener("click", (e) => {
     const col = e.target.closest("[data-sensor]");
     const air = e.target.closest("[data-air]");
+    const vac = e.target.closest("[data-vachdr]");
     if (col) Panel.openClimate(+col.dataset.sensor);
     else if (air) Panel.openAir(+air.dataset.air);
+    else if (vac) Panel.setSection(cfg.sections.findIndex((s) => s.kind === "vacuum"), true);
   });
   window.addEventListener("resize", () => popupOpen() && draw(1));
 

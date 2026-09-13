@@ -1,9 +1,9 @@
-/* Schoonmaak section: the robot vacuum's page. Header with status, battery and
- * locate; left the rooms as large tiles (tap to choose, a live sweep on the
- * rooms of the current run, when each room was last cleaned) and the robot's
- * recent runs; right the actions, the mode/suction/water choices and the
- * consumables. The robot keeps its map in the Xiaomi cloud; the room tiles are
- * laid out so a real map image can later sit underneath them. */
+/* Schoonmaak section: the robot vacuum's page. Left the rooms as large tiles
+ * (tap to choose, a live sweep on the rooms of the current run, when each room
+ * was last cleaned) and the robot's recent runs; right the actions, the
+ * mode/suction/water choices and the consumables. Battery and status sit in
+ * the app header's vacuum column. The robot keeps its map in the Xiaomi cloud;
+ * the room tiles are laid out so a real map image can later sit underneath. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -65,12 +65,8 @@
   Panel.buildVacuum = function (container) {
     root = container;
     root.innerHTML =
-      `<div class="vp-head"><span class="vac-ic">${icon("vacuum")}</span>` +
-      `<div class="vac-title"><b>${vac.label}</b><span class="vac-status">...</span></div>` +
-      `<div class="vac-batt"><i><s></s></i><span>--</span></div>` +
-      `<button class="vbtn ghost" data-vac="locate" aria-label="Zoek robot">${icon("locate")}</button></div>` +
       `<div class="vs-body">` +
-      `<section class="vs-map"><div class="vs-section-title">Kamers <em>tik om te kiezen</em></div>` +
+      `<section class="vs-map">` +
       `<div class="vs-rooms">` +
       vac.rooms
         .map(
@@ -86,6 +82,7 @@
       `<button class="vbtn" data-vac="pause">${icon("pause")}<span>Pauze</span></button>` +
       `<button class="vbtn" data-vac="resume">${icon("play")}<span>Verder</span></button>` +
       `<button class="vbtn" data-vac="dock">${icon("dock")}<span>Naar dock</span></button>` +
+      `<button class="vbtn" data-vac="locate">${icon("locate")}<span>Zoek robot</span></button>` +
       `</div>` +
       `<div class="vs-group"><span class="vlabel">Modus</span><div class="vs-chips">${chips("mode", MODE_NL)}</div></div>` +
       `<div class="vs-group"><span class="vlabel">Zuigkracht</span><div class="vs-chips">${chips("fan", FAN_NL)}</div></div>` +
@@ -106,15 +103,19 @@
     const area = Panel.num(vac.area);
     let status = offline ? "Niet bereikbaar" : STATUS_NL[statusRaw] || STATE_NL[vstate] || vstate;
     if (busy && Number.isFinite(area) && area > 0) status += ` · ${Math.round(area)} m²`;
-    q(".vac-status").textContent = status;
-    root.classList.toggle("busy", busy);
     root.classList.toggle("offline", offline);
 
-    const batt = Panel.num(vac.battery);
-    const bEl = q(".vac-batt");
-    bEl.querySelector("span").textContent = Number.isFinite(batt) ? Math.round(batt) + "%" : "--";
-    bEl.querySelector("s").style.width = (Number.isFinite(batt) ? batt : 0) + "%";
-    bEl.classList.toggle("low", Number.isFinite(batt) && batt < 20);
+    /* Battery and status live in the header, visible from every section. */
+    const hdr = document.querySelector("[data-vachdr]");
+    if (hdr) {
+      const batt = Panel.num(vac.battery);
+      hdr.querySelector(".vh-batt span").textContent = Number.isFinite(batt) ? Math.round(batt) + "%" : "--";
+      hdr.querySelector(".vh-batt").style.color = !Number.isFinite(batt)
+        ? "var(--text)" : batt < 20 ? "var(--bad)" : batt < 40 ? "var(--warn)" : "var(--ok)";
+      hdr.querySelector(".vh-status").textContent = status;
+      hdr.classList.toggle("busy", busy);
+      hdr.classList.toggle("stale", offline);
+    }
 
     const live = v && ["cleaning", "paused"].includes(vstate) ? parseList(v.attributes["robotic_vacuum.clean_values"]) : [];
     qa(".vs-room").forEach((el) => {
@@ -235,10 +236,19 @@
     if (kind === "locate") return Panel.client.callService("button", "press", null, { entity_id: vac.locate }).catch(fail);
   };
 
-  Panel.onVacuum = render;
+  /* The run log and room history are fetched when the page is shown, but only
+   * once HA is connected: after a reload straight onto #schoonmaak the section
+   * opens before the socket does, and the first state dump marks the connection. */
+  let connected = false;
+  const onPage = () => cfg.sections[Panel.section] && cfg.sections[Panel.section].kind === "vacuum";
+  Panel.onVacuum = function () {
+    connected = true;
+    render();
+    if (onPage()) load(false);
+  };
   const prevOnSection = Panel.onSection;
   Panel.onSection = function (si) {
     if (prevOnSection) prevOnSection(si);
-    if (cfg.sections[si] && cfg.sections[si].kind === "vacuum") load(false);
+    if (connected && onPage()) load(false);
   };
 })();

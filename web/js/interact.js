@@ -68,6 +68,7 @@
       syncSlider();
       if (Panel.onSection) Panel.onSection(i);
     }
+    writeHash();
   };
 
   /* ---- Floors (inside Verlichting) --------------------------------------------- */
@@ -113,6 +114,7 @@
       closeDrawer();
       syncSlider();
     }
+    writeHash();
   };
 
   /* Jump to wherever a PANEL_TABS entry lives (a floor, or its own section). */
@@ -126,6 +128,37 @@
     const si = cfg.sections.findIndex((s) => s.kind === "tab" && s.tab === ti);
     if (si >= 0) Panel.setSection(si, animate);
   };
+
+  /* ---- URL ---------------------------------------------------------------------- */
+  /* The place in the app lives in the hash (#verlichting/1, #schoonmaak, #garage),
+   * so a reload or a bookmark lands on the same section and floor. replaceState
+   * keeps swipes out of the browser history; editing the hash by hand works too. */
+  let urlReady = false; /* false until the hash has been read at start-up */
+  const slug = (name) => name.toLowerCase().trim().replace(/\s+/g, "-");
+  function hashFor() {
+    const s = cfg.sections[Panel.section];
+    return "#" + slug(s.name) + (s.kind === "floors" ? "/" + cfg.floors[Panel.floor].label : "");
+  }
+  function writeHash() {
+    if (!urlReady) return;
+    const h = hashFor();
+    if (location.hash !== h) history.replaceState(null, "", location.pathname + location.search + h);
+  }
+  function applyHash(animate) {
+    let raw = "";
+    try {
+      raw = decodeURIComponent(location.hash.slice(1));
+    } catch (e) {
+      /* malformed escape: treat as no hash */
+    }
+    const [sec, floor] = raw.toLowerCase().split("/");
+    const si = cfg.sections.findIndex((s) => slug(s.name) === sec);
+    const fi = cfg.floors.findIndex((f) => f.label.toLowerCase() === floor);
+    if (si >= 0) Panel.setSection(si, animate);
+    if (fi >= 0) Panel.setFloor(fi, animate);
+    writeHash(); /* normalise an unknown or partial hash */
+  }
+  window.addEventListener("hashchange", () => applyHash(true));
 
   $("tabbar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-tab]");
@@ -545,6 +578,8 @@
     }
     Panel.setSection(0, false);
     Panel.setFloor(0, false);
+    urlReady = true;
+    applyHash(false);
     syncSlider();
     requestAnimationFrame(() => {
       setIndicator(Panel.section, false);
