@@ -51,9 +51,10 @@
     },
   });
 
+  /* In pixels, not calc(% + px): Safari does not animate between calc() values. */
   function setTrack(pos, offPx, animate) {
     track.classList.toggle("snapping", !!animate);
-    track.style.transform = `translate3d(0,calc(${-pos * 100}% + ${offPx}px),0)`;
+    track.style.transform = `translate3d(0,${-pos * view.clientHeight + offPx}px,0)`;
   }
   function setRailInd(posFloat, animate) {
     const btns = railBtns();
@@ -61,7 +62,7 @@
     const f = Util.clamp(posFloat - i, 0, 1);
     const a = btns[i];
     const b = btns[Math.min(btns.length - 1, i + 1)];
-    railInd.style.transition = animate ? "transform .24s cubic-bezier(.22,.61,.36,1), height .24s" : "none";
+    railInd.style.transition = animate ? "transform .32s cubic-bezier(.22,.61,.36,1), height .32s" : "none";
     railInd.style.height = a.offsetHeight + (b.offsetHeight - a.offsetHeight) * f + "px";
     railInd.style.transform = `translate3d(0,${a.offsetTop + (b.offsetTop - a.offsetTop) * f}px,0)`;
   }
@@ -111,7 +112,11 @@
     if (e.key === "ArrowUp") Panel.setFloor(Panel.floor + 1, true);
     if (e.key === "ArrowDown") Panel.setFloor(Panel.floor - 1, true);
   });
-  window.addEventListener("resize", () => page && setRailInd(Panel.floorPos(Panel.floor), false));
+  window.addEventListener("resize", () => {
+    if (!page) return;
+    setTrack(Panel.floorPos(Panel.floor), 0, false);
+    setRailInd(Panel.floorPos(Panel.floor), false);
+  });
 
   Panel.on("start", () => {
     if (!page) return;

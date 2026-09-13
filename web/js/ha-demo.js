@@ -257,6 +257,8 @@
       return [state, a];
     }
 
+    const automations = new Map(); /* config id -> automation config */
+
     function change(ids) {
       setTimeout(() => ev.emit("states", ids), 140);
     }
@@ -281,6 +283,22 @@
           : colourful ? { state: "on", brightness: 200, hs_color: [[280, 240, 0, 120][i % 4], 100] }
           : { state: "on", brightness: 120 + (i % 3) * 40, color_temp_kelvin: 2700 };
         return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id, i) => [id, stored(i)])) };
+      },
+      /* Automations the panel writes (cleaning schedules), kept in memory. */
+      async automationConfig(id) {
+        return automations.get(id) || null;
+      },
+      async saveAutomation(id, config) {
+        const entity = `automation.${id}`;
+        automations.set(id, config);
+        set(entity, (states.get(entity) || {}).state || "on", { id, friendly_name: config.alias, last_triggered: null }, Date.now());
+        change([entity]);
+        return { result: "ok" };
+      },
+      async deleteAutomation(id) {
+        automations.delete(id);
+        states.delete(`automation.${id}`);
+        return { result: "ok" };
       },
       /* Demo states; a tab's "lampen ..." group holds that tab's drawer lamps. */
       async getStates() {
@@ -320,6 +338,11 @@
             temperature: 18 + d,
           }));
           return { response: { [cfg.weather]: { forecast } } };
+        }
+        if (domain === "automation") {
+          ids.forEach((id) => states.has(id) && set(id, service === "turn_off" ? "off" : "on", states.get(id).attributes, Date.now()));
+          change(ids);
+          return returnResponse ? { response: {} } : null;
         }
         /* Appliance commands (before the vacuum branch, which also takes buttons). */
         const applEntities = (cfg.appliances || []).flatMap((ap) => Object.values(ap.entities));
@@ -469,8 +492,10 @@
         const out = {};
         const runs = [[8, 0.2, 19], [5, 1.1, 14], [4, 3.3, 22]];
         ids.forEach((id) => {
+          /* A run of today stays today, however close to midnight the demo starts. */
+          const midnight = new Date(now).setHours(0, 0, 0, 0);
           out[id] = runs.flatMap(([room, daysAgo, m2]) => {
-            const t = now - daysAgo * 86400e3;
+            const t = daysAgo < 1 ? Math.max(midnight, now - daysAgo * 86400e3) : now - daysAgo * 86400e3;
             const at = (values, area, time) => ({
               "robotic_vacuum.clean_values": values,
               "robotic_vacuum.clean_area": area,

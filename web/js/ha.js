@@ -142,6 +142,20 @@
       });
     }
 
+    /* Home Assistant's REST config API (scenes, automations; admin users). A GET
+     * of something that does not exist is null. */
+    async function configApi(method, path, body) {
+      const token = await getAccessToken();
+      const res = await fetch(`${hassUrl()}/api/config/${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 404 && method === "GET") return null;
+      if (!res.ok) throw new Error(`${path.split("/")[0]} ${res.status}`);
+      return res.json();
+    }
+
     function applyEntities(msg) {
       const changed = [];
       if (msg.a) {
@@ -274,15 +288,13 @@
       async sceneConfig(sceneEntityId) {
         const s = states.get(sceneEntityId);
         const id = s && s.attributes && s.attributes.id;
-        if (!id) return null;
-        const token = await getAccessToken();
-        const res = await fetch(`${hassUrl()}/api/config/scene/config/${encodeURIComponent(id)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.status === 404) return null;
-        if (!res.ok) throw new Error("scene config " + res.status);
-        return res.json();
+        return id ? configApi("GET", `scene/config/${encodeURIComponent(id)}`) : null;
       },
+      /* An automation's stored config (by its config id); null when there is none. */
+      automationConfig: (id) => configApi("GET", `automation/config/${encodeURIComponent(id)}`),
+      /* Creates or replaces an automation; Home Assistant reloads its automations. */
+      saveAutomation: (id, config) => configApi("POST", `automation/config/${encodeURIComponent(id)}`, config),
+      deleteAutomation: (id) => configApi("DELETE", `automation/config/${encodeURIComponent(id)}`),
       /* Every current state once (which entities exist, light group members). */
       getStates() {
         return send({ type: "get_states" });

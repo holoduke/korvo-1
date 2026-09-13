@@ -18,24 +18,32 @@
     return (216.7 * ((es * rh) / 100)) / (273.15 + t);
   }
 
+  /* Each series has its own colour for its axis and legend (and for its line
+   * outdoors); indoors and for air the line takes the colour of its band. The
+   * second series is dashed. */
+  const PM_COLOUR = "#c792ea";
   function spec() {
     if (popup.kind === "climate") {
       const s = cfg.sensors[popup.idx];
       return {
-        left: { id: s.temp, colour: css("--accent"), range: ranges.temp, fmt: (v) => v + "°" },
-        right: s.humidity ? { id: s.humidity, colour: css("--hum"), range: ranges.hum, fmt: (v) => v + "%" } : null,
+        left: { id: s.temp, colour: css("--accent"), bands: s.indoor ? Panel.bands.temp : null, range: ranges.temp, fmt: (v) => v + "°" },
+        right: s.humidity
+          ? { id: s.humidity, colour: css("--hum"), bands: s.indoor ? Panel.bands.hum : null, dashed: true, range: ranges.hum, fmt: (v) => v + "%" }
+          : null,
       };
     }
     const a = cfg.air[popup.idx];
     return {
-      left: { id: a.co2, colour: css("--accent"), range: ranges.co2, fmt: (v) => String(v) },
-      right: { id: a.pm25, colour: css("--scene_on"), range: ranges.pm, fmt: (v) => String(v) },
-      bands: [
+      left: { id: a.co2, colour: css("--text"), bands: Panel.bands.co2, range: ranges.co2, fmt: (v) => String(v) },
+      right: { id: a.pm25, colour: PM_COLOUR, bands: Panel.bands.pm, dashed: true, range: ranges.pm, fmt: (v) => String(v) },
+      thresholds: [
         { v: cfg.airBands.co2Good, colour: css("--warn") },
         { v: cfg.airBands.co2Poor, colour: css("--bad") },
       ],
     };
   }
+  /* A legend mark: the series' line style in its colour. */
+  const mark = (s) => `<i class="lg${s.dashed ? " dashed" : ""}" style="--c:${s.colour}"></i>`;
 
   const span = (vals, digits, unit) =>
     `${Math.min(...vals).toFixed(digits)}${unit} - ${Math.max(...vals).toFixed(digits)}${unit}`;
@@ -50,17 +58,17 @@
     if (popup.kind === "climate") {
       if (a.vals.length && b && b.vals.length) {
         range.innerHTML =
-          `<span class="part">Min ${Math.min(...a.vals).toFixed(1)}°&nbsp; Max ${Math.max(...a.vals).toFixed(1)}°</span>` +
-          `<span class="part">${icon("drop")} ${span(b.vals, 0, "%")}</span>`;
+          `<span class="part">${mark(a)}Min ${Math.min(...a.vals).toFixed(1)}°&nbsp; Max ${Math.max(...a.vals).toFixed(1)}°</span>` +
+          `<span class="part">${mark(b)}${icon("drop")} ${span(b.vals, 0, "%")}</span>`;
       } else if (a.vals.length) {
-        range.textContent = `Min ${Math.min(...a.vals).toFixed(1)}°  Max ${Math.max(...a.vals).toFixed(1)}°`;
+        range.innerHTML = `<span class="part">${mark(a)}Min ${Math.min(...a.vals).toFixed(1)}°&nbsp; Max ${Math.max(...a.vals).toFixed(1)}°</span>`;
       } else {
         range.textContent = "Nog geen geschiedenis (wordt opgehaald)";
       }
     } else {
       const parts = [];
-      if (a.vals.length) parts.push(`<span class="part"><b class="k" style="color:${css("--accent")}">CO2</b> ${Math.round(Math.min(...a.vals))} - ${Math.round(Math.max(...a.vals))} ppm</span>`);
-      if (b.vals.length) parts.push(`<span class="part"><b class="k" style="color:${css("--scene_on")}">PM2.5</b> ${Math.round(Math.min(...b.vals))} - ${Math.round(Math.max(...b.vals))} µg/m³</span>`);
+      if (a.vals.length) parts.push(`<span class="part">${mark(a)}<b class="k">CO2</b> ${Math.round(Math.min(...a.vals))} - ${Math.round(Math.max(...a.vals))} ppm</span>`);
+      if (b.vals.length) parts.push(`<span class="part">${mark(b)}<b class="k">PM2.5</b> ${Math.round(Math.min(...b.vals))} - ${Math.round(Math.max(...b.vals))} µg/m³</span>`);
       range.innerHTML = parts.length ? parts.join("") : "Nog geen geschiedenis (wordt opgehaald)";
     }
   }

@@ -17,17 +17,28 @@
   cfg.air.forEach((a) => a.co2 && Panel.validate(a.co2, co2Valid));
 
   /* ---- Colour bands ------------------------------------------------------------ */
+  /* From low to high: [limit, tone, inclusive]. A value takes the first band it
+   * stays below (or at, when inclusive). Tones are the status colours --cold,
+   * --ok, --warn and --bad. The header, the popups and the charts share these. */
   const comfort = cfg.comfort;
-  const bands = cfg.airBands;
-  Panel.comfortTemp = (v, indoor) =>
-    !indoor ? "var(--text)" : v < comfort.tempMin ? "var(--cold)" : v <= comfort.tempMax ? "var(--ok)" : v <= comfort.tempHot ? "var(--warn)" : "var(--bad)";
-  Panel.comfortHum = function (v, indoor) {
-    if (!indoor) return "var(--hum)";
-    const off = v < comfort.humMin ? comfort.humMin - v : v > comfort.humMax ? v - comfort.humMax : 0;
-    return off <= 0 ? "var(--ok)" : off > comfort.humMargin ? "var(--bad)" : "var(--warn)";
+  const air = cfg.airBands;
+  Panel.bands = {
+    temp: [[comfort.tempMin, "cold", false], [comfort.tempMax, "ok", true], [comfort.tempHot, "warn", true], [Infinity, "bad", true]],
+    hum: [
+      [comfort.humMin - comfort.humMargin, "bad", false],
+      [comfort.humMin, "warn", false],
+      [comfort.humMax, "ok", true],
+      [comfort.humMax + comfort.humMargin, "warn", true],
+      [Infinity, "bad", true],
+    ],
+    co2: [[air.co2Good, "ok", true], [air.co2Poor, "warn", true], [Infinity, "bad", true]],
+    pm: [[air.pm25Good, "ok", true], [air.pm25Poor, "warn", true], [Infinity, "bad", true]],
   };
-  Panel.co2Colour = (v) => (v <= bands.co2Good ? "var(--ok)" : v <= bands.co2Poor ? "var(--warn)" : "var(--bad)");
-  Panel.pmColour = (v) => (v <= bands.pm25Good ? "var(--ok)" : v <= bands.pm25Poor ? "var(--warn)" : "var(--bad)");
+  Panel.bandTone = (bands, v) => bands.find(([limit, , inclusive]) => (inclusive ? v <= limit : v < limit))[1];
+  Panel.comfortTemp = (v, indoor) => (indoor ? `var(--${Panel.bandTone(Panel.bands.temp, v)})` : "var(--text)");
+  Panel.comfortHum = (v, indoor) => (indoor ? `var(--${Panel.bandTone(Panel.bands.hum, v)})` : "var(--hum)");
+  Panel.co2Colour = (v) => `var(--${Panel.bandTone(Panel.bands.co2, v)})`;
+  Panel.pmColour = (v) => `var(--${Panel.bandTone(Panel.bands.pm, v)})`;
   const QUALITY = {
     good: ["goed", "var(--ok)"],
     fair: ["redelijk", "var(--warn)"],

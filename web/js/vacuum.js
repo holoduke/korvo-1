@@ -62,10 +62,11 @@
           (r) =>
             `<button class="vs-room" data-vac="room" data-room="${r.id}"><span class="vs-rname">${r.label}</span>` +
             `<span class="vs-rid">#${r.id}</span><span class="vs-pct"></span>` +
-            `<span class="vs-rlast">${icon("clock")}<span></span></span><i class="vs-sweep"></i><i class="vs-prog"><b></b></i></button>`
+            `<span class="vs-rlast">${icon("clock")}<span></span></span><span class="vs-rplan"></span><i class="vs-sweep"></i><i class="vs-prog"><b></b></i></button>`
         )
         .join("") +
-      `</div><div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div></section>` +
+      `</div><div class="vs-plan"></div>` +
+      `<div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div></section>` +
       `<section class="vs-side"><div class="vs-actions">` +
       `<button class="vbtn primary" data-vac="rooms">${icon("play")}<span>Kies kamers</span></button>` +
       `<button class="vbtn" data-vac="start">${icon("play")}<span>Hele huis</span></button>` +

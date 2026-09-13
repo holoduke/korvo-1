@@ -60,9 +60,12 @@
     pm: (v) => [0, v.length ? Math.max(20, Math.ceil(Math.max(...v) / 5) * 5 + 5) : 20],
   };
 
-  /* spec: {left: {id, colour, range, fmt}, right: {...} | null, bands: [{v, colour}] on the
-   * left axis}. progress 0..1 reveals the lines. Returns the series (with their
-   * values) and spanH, the hours shown. */
+  /* spec: {left: series, right: series | null, thresholds: [{v, colour}] on the left axis}
+   * where a series is {id, colour, range, fmt, bands, dashed}: colour names the
+   * series (axis labels, and the line when it has no bands); bands (see
+   * readings.js) colour the line by how good its value is; dashed tells the
+   * second line apart. progress 0..1 reveals the lines. Returns the series (with
+   * their values) and spanH, the hours shown. */
   Panel.drawChart = function (canvas, spec, progress) {
     const dpr = window.devicePixelRatio || 1;
     const W = canvas.clientWidth;
@@ -109,15 +112,14 @@
     }
     c.stroke();
 
-    /* Threshold lines (e.g. CO2 800/1200 ppm), dashed, in the status colours. */
+    /* Threshold lines (e.g. CO2 800/1200 ppm), faint, in the status colours. */
     const left = series[0];
-    (spec.bands || []).forEach((band) => {
+    (spec.thresholds || []).forEach((band) => {
       if (band.v <= left.range[0] || band.v >= left.range[1]) return;
       const y = Math.round(yOf(left)(band.v)) + 0.5;
       c.save();
-      c.setLineDash([5, 5]);
       c.strokeStyle = band.colour;
-      c.globalAlpha = 0.55;
+      c.globalAlpha = 0.3;
       c.beginPath();
       c.moveTo(L + 8, y);
       c.lineTo(L + pw - 8, y);
@@ -157,29 +159,44 @@
     c.lineJoin = "round";
     c.lineCap = "round";
     const path = (seg, y) => seg.forEach((p, i) => (i ? c.lineTo(xOf(p.t), y(p.v)) : c.moveTo(xOf(p.t), y(p.v))));
+    /* A vertical gradient with hard edges at the band limits, so the line turns
+     * orange or red exactly where its value does. alpha: a hex suffix. */
+    const paint = (s, alpha) => {
+      if (!s.bands) return s.colour + alpha;
+      const [lo, hi] = s.range;
+      const at = (v) => Util.clamp((v - lo) / (hi - lo), 0, 1);
+      const grad = c.createLinearGradient(0, T + ph, 0, T);
+      let from = -Infinity;
+      for (const [limit, tone] of s.bands) {
+        const colour = css(`--${tone}`) + alpha;
+        grad.addColorStop(at(from), colour);
+        grad.addColorStop(at(limit), colour);
+        from = limit;
+      }
+      return grad;
+    };
     [...series].reverse().forEach((s) => {
       const y = yOf(s);
       for (const seg of s.segs) {
         if (!seg.length) continue;
         if (s === left) {
-          const grad = c.createLinearGradient(0, T, 0, T + ph);
-          grad.addColorStop(0, s.colour + "38");
-          grad.addColorStop(1, s.colour + "00");
           c.beginPath();
           path(seg, y);
           c.lineTo(xOf(seg[seg.length - 1].t), T + ph);
           c.lineTo(xOf(seg[0].t), T + ph);
           c.closePath();
-          c.fillStyle = grad;
+          c.fillStyle = paint(s, "26");
           c.fill();
         }
         c.beginPath();
         path(seg, y);
-        c.strokeStyle = s.colour;
-        c.lineWidth = 3;
+        c.setLineDash(s.dashed ? [9, 7] : []);
+        c.strokeStyle = paint(s, "");
+        c.lineWidth = s.dashed ? 2.5 : 3;
         c.stroke();
       }
     });
+    c.setLineDash([]);
     c.restore();
     return { series, spanH };
   };

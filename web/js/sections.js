@@ -53,14 +53,16 @@
     const inset = 0.18;
     const left = (el) => el.offsetLeft + el.offsetWidth * inset;
     const width = (el) => el.offsetWidth * (1 - 2 * inset);
-    ind.style.transition = animate ? "transform .16s cubic-bezier(.22,.61,.36,1), width .16s" : "none";
+    ind.style.transition = animate ? "transform .3s cubic-bezier(.22,.61,.36,1), width .3s" : "none";
     ind.style.width = width(a) + (width(b) - width(a)) * f + "px";
     ind.style.transform = `translate3d(${left(a) + (left(b) - left(a)) * f}px,0,0)`;
   }
 
+  /* In pixels, not calc(% + px): Safari does not animate between calc() values,
+   * so a released swipe would jump instead of gliding into place. */
   function setTrack(offsetPx, animate) {
     track.classList.toggle("snapping", !!animate);
-    track.style.transform = `translate3d(calc(${-Panel.section * 100}% + ${offsetPx}px),0,0)`;
+    track.style.transform = `translate3d(${-Panel.section * stage.clientWidth + offsetPx}px,0,0)`;
   }
 
   Panel.setSection = function (i, animate) {
@@ -128,7 +130,10 @@
     const b = e.target.closest("[data-tab]");
     if (b) Panel.setSection(+b.dataset.tab, true);
   });
-  window.addEventListener("resize", () => setIndicator(Panel.section, false));
+  window.addEventListener("resize", () => {
+    setTrack(0, false);
+    setIndicator(Panel.section, false);
+  });
   window.addEventListener("keydown", (e) => {
     if (Panel.overlayOpen()) return;
     if (e.key === "ArrowRight") Panel.setSection(Panel.section + 1, true);

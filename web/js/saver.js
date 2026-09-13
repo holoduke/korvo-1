@@ -94,7 +94,7 @@
     saver.classList.toggle("off", Panel.prefs.saverMode === 0);
     renderTemps();
     renderMedia();
-    ["popup", "climate", "settings"].forEach((id) => ($(id).hidden = true));
+    ["popup", "climate", "settings", "plan"].forEach((id) => ($(id).hidden = true));
     Panel.closeDrawer();
     saver.hidden = false;
     if (Panel.prefs.saverMode === 1) scheduleFlicker();

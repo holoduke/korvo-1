@@ -53,6 +53,7 @@
     stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
     expand: '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
     person: '<circle cx="12" cy="7" r="3.5"/><path d="M5 21v-1.5a7 7 0 0 1 14 0V21"/>',
     door: '<path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="14.5" cy="12" r=".9"/>',
     motion: '<circle cx="13.5" cy="4.5" r="2"/><path d="M8 21l3-6 3 2.5V21M6.5 11.5 10 8.5l4 .5 2.5 3.5 3 1M11 15l-1-6.5"/>',

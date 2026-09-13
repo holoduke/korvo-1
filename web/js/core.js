@@ -107,7 +107,7 @@
   };
 
   /* ---- Overlays ------------------------------------------------------------------- */
-  const OVERLAYS = ["popup", "climate", "settings", "saver"];
+  const OVERLAYS = ["popup", "climate", "settings", "plan", "saver"];
   Panel.overlayOpen = () => OVERLAYS.some((id) => !$(id).hidden);
   Panel.openOverlay = function (el) {
     el.classList.remove("closing");
@@ -123,7 +123,7 @@
   };
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    ["popup", "climate", "settings"].forEach((id) => Panel.closeOverlay($(id)));
+    ["popup", "climate", "settings", "plan"].forEach((id) => Panel.closeOverlay($(id)));
     bus.emit("escape");
   });
 

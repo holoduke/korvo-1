@@ -279,8 +279,28 @@ window.PANEL_CONFIG = {
       "name": "Boven",
       "lights": [
         {
-          "id": "light.lamp_slaapkamer_gillis_ilse",
-          "label": "Slaapkamer"
+          "id": "light.lamp_gang_boven_plafond_1",
+          "label": "Gang plafond 1"
+        },
+        {
+          "id": "light.lamp_gang_boven_plafond_2",
+          "label": "Gang plafond 2"
+        },
+        {
+          "id": "light.lamp_gang_boven_plafond_3",
+          "label": "Gang plafond 3"
+        },
+        {
+          "id": "light.lamp_gang_boven_plafond_4",
+          "label": "Gang plafond 4"
+        },
+        {
+          "id": "light.lamp_slaapkamer_plafond_achter_1",
+          "label": "Gillis en Ilse plafond"
+        },
+        {
+          "id": "light.lamp_slaapkamer_achter_nachtkast_1",
+          "label": "Gillis en Ilse nachtkast"
         },
         {
           "id": "light.lamp_valerie_kamer_1",
@@ -288,15 +308,35 @@ window.PANEL_CONFIG = {
         },
         {
           "id": "light.lamp_jongens_kamer_1",
-          "label": "Jongens"
+          "label": "Naomi"
         },
         {
-          "id": "light.lamp_badkamer_2_plafond_2",
-          "label": "Badkamer 2"
+          "id": "light.lamp_badkamer_2_plafond_1",
+          "label": "Badkamer plafond"
         },
         {
-          "id": "light.lamp_badkamer_2_plafond_3",
-          "label": "Badkamer 3"
+          "id": "light.lamp_badkamer_3",
+          "label": "Badkamer lamp"
+        },
+        {
+          "id": "light.lamp_badkamer_muur_1",
+          "label": "Badkamer muur 1"
+        },
+        {
+          "id": "light.lamp_badkamer_muur_2",
+          "label": "Badkamer muur 2"
+        },
+        {
+          "id": "light.lamp_badkamer_spiegel_1",
+          "label": "Badkamer spiegel"
+        },
+        {
+          "id": "light.lamp_kledingkast_plafond_1",
+          "label": "Kledingkast 1"
+        },
+        {
+          "id": "light.lamp_kledingkast_plafond_2",
+          "label": "Kledingkast 2"
         }
       ],
       "scenes": [
@@ -315,16 +355,28 @@ window.PANEL_CONFIG = {
       ],
       "devices": [
         {
-          "id": "light.lamp_slaapkamer_gillis_ilse",
-          "label": "Slaapkamer"
+          "id": "light.lamp_gang_boven_plafond_1",
+          "label": "Gang plafond 1"
         },
         {
-          "id": "light.lamp_slaapkamer_staand_ilse_gillis",
-          "label": "Slaapk. staand"
+          "id": "light.lamp_gang_boven_plafond_2",
+          "label": "Gang plafond 2"
         },
         {
-          "id": "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje",
-          "label": "Nachtkastje"
+          "id": "light.lamp_gang_boven_plafond_3",
+          "label": "Gang plafond 3"
+        },
+        {
+          "id": "light.lamp_gang_boven_plafond_4",
+          "label": "Gang plafond 4"
+        },
+        {
+          "id": "light.lamp_slaapkamer_plafond_achter_1",
+          "label": "Gillis en Ilse plafond"
+        },
+        {
+          "id": "light.lamp_slaapkamer_achter_nachtkast_1",
+          "label": "Gillis en Ilse nachtkast"
         },
         {
           "id": "light.lamp_valerie_kamer_1",
@@ -332,19 +384,35 @@ window.PANEL_CONFIG = {
         },
         {
           "id": "light.lamp_jongens_kamer_1",
-          "label": "Jongens"
+          "label": "Naomi"
         },
         {
           "id": "light.lamp_badkamer_2_plafond_1",
-          "label": "Badkamer 1"
+          "label": "Badkamer plafond"
         },
         {
-          "id": "light.lamp_badkamer_2_plafond_2",
-          "label": "Badkamer 2"
+          "id": "light.lamp_badkamer_3",
+          "label": "Badkamer lamp"
         },
         {
-          "id": "light.lamp_badkamer_2_plafond_3",
-          "label": "Badkamer 3"
+          "id": "light.lamp_badkamer_muur_1",
+          "label": "Badkamer muur 1"
+        },
+        {
+          "id": "light.lamp_badkamer_muur_2",
+          "label": "Badkamer muur 2"
+        },
+        {
+          "id": "light.lamp_badkamer_spiegel_1",
+          "label": "Badkamer spiegel"
+        },
+        {
+          "id": "light.lamp_kledingkast_plafond_1",
+          "label": "Kledingkast 1"
+        },
+        {
+          "id": "light.lamp_kledingkast_plafond_2",
+          "label": "Kledingkast 2"
         }
       ],
       "icons": null,
@@ -352,14 +420,10 @@ window.PANEL_CONFIG = {
       "sceneTiles": false,
       "areas": [
         {
-          "label": "Slaapkamer",
+          "label": "Gillis en Ilse",
           "lights": [
-            "light.lamp_slaapkamer_gillis_ilse",
-            "light.lamp_slaapkamer_staand_ilse_gillis",
-            "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje",
-            "light.lamp_slaapkamer_achter_1",
-            "light.lamp_slaapkamer_achter_nachtkast_1",
-            "light.lamp_slaapkamer_plafond_achter_1"
+            "light.lamp_slaapkamer_plafond_achter_1",
+            "light.lamp_slaapkamer_achter_nachtkast_1"
           ]
         },
         {
@@ -369,7 +433,7 @@ window.PANEL_CONFIG = {
           ]
         },
         {
-          "label": "Jongens",
+          "label": "Naomi",
           "lights": [
             "light.lamp_jongens_kamer_1"
           ]
@@ -378,8 +442,6 @@ window.PANEL_CONFIG = {
           "label": "Badkamer",
           "lights": [
             "light.lamp_badkamer_2_plafond_1",
-            "light.lamp_badkamer_2_plafond_2",
-            "light.lamp_badkamer_2_plafond_3",
             "light.lamp_badkamer_3",
             "light.lamp_badkamer_muur_1",
             "light.lamp_badkamer_muur_2",
@@ -393,13 +455,6 @@ window.PANEL_CONFIG = {
             "light.lamp_gang_boven_plafond_2",
             "light.lamp_gang_boven_plafond_3",
             "light.lamp_gang_boven_plafond_4"
-          ]
-        },
-        {
-          "label": "Kledingkast",
-          "lights": [
-            "light.lamp_kledingkast_plafond_1",
-            "light.lamp_kledingkast_plafond_2"
           ]
         }
       ]

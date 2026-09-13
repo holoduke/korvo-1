@@ -10,7 +10,10 @@
 .clim-range { font-size: 18px; color: var(--text_dim); margin-top: 10px; display: flex; column-gap: 22px; row-gap: 6px; align-items: center; flex-wrap: wrap; }
 .clim-range .ic { font-size: 14px; color: var(--hum); }
 .clim-range .part { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
-.clim-range .k { font-weight: 700; }
+.clim-range .k { font-weight: 700; color: var(--text); }
+/* Legend mark: a short stretch of the series' line, solid or dashed. */
+.lg { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--c, var(--text)); border-radius: 2px; flex: none; }
+.lg.dashed { border-top-style: dashed; border-top-width: 2.5px; }
 .clim-advice { font-size: 18px; margin-top: 6px; display: flex; gap: 8px; align-items: center; }
 .clim-advice.ok { color: var(--ok); }
 .clim-advice.warn { color: var(--warn); }

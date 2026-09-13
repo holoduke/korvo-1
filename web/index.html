@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/lighting.css?v=__VERSION__">
   <link rel="stylesheet" href="css/controls.css?v=__VERSION__">
   <link rel="stylesheet" href="css/vacuum.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/planning.css?v=__VERSION__">
   <link rel="stylesheet" href="css/car.css?v=__VERSION__">
   <link rel="stylesheet" href="css/appliances.css?v=__VERSION__">
   <link rel="stylesheet" href="css/sensors.css?v=__VERSION__">
@@ -113,6 +114,16 @@
     </div>
   </div>
 
+  <div id="plan" class="overlay" hidden>
+    <div class="box plan-box">
+      <div class="box-head">
+        <div id="planTitle" class="box-title">Planning</div>
+        <button id="planClose" class="close-btn" aria-label="Sluiten"></button>
+      </div>
+      <div id="planBody"></div>
+    </div>
+  </div>
+
   <div id="saver" class="saver" hidden>
     <div id="eyeGroup" class="eye-group">
       <div class="eye-wrap">
@@ -158,6 +169,7 @@
   <script src="js/drawer.js?v=__VERSION__"></script>
   <script src="js/sliders.js?v=__VERSION__"></script>
   <script src="js/vacuum.js?v=__VERSION__"></script>
+  <script src="js/planning.js?v=__VERSION__"></script>
   <script src="js/car.js?v=__VERSION__"></script>
   <script src="js/appliances.js?v=__VERSION__"></script>
   <script src="js/appliance-kinds.js?v=__VERSION__"></script>
