@@ -386,6 +386,13 @@
       set(b.lock, "on", {});
       set(b.speed, "0", { unit_of_measurement: "km/h" });
     }
+    if (cfg.car) {
+      const c = cfg.car;
+      set(c.battery, "61", { unit_of_measurement: "%" });
+      set(c.range, "322.2", { unit_of_measurement: "km" });
+      set(c.charging, "no_power", {});
+      set(c.lock, "locked", {});
+    }
     cfg.air.forEach((a) => {
       set(a.co2, "742", { unit_of_measurement: "ppm" });
       set(a.pm25, "4", { unit_of_measurement: "µg/m³" });

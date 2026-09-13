@@ -600,6 +600,13 @@ window.PANEL_CONFIG = {
     "lock": "binary_sensor.st7_bike_lock",
     "speed": "sensor.st7_bike_speed"
   },
+  "car": {
+    "label": "Auto",
+    "battery": "sensor.vlm_battery_level",
+    "range": "sensor.vlm_battery_range",
+    "charging": "sensor.vlm_charging",
+    "lock": "lock.vlm_lock"
+  },
   "media": [
     {
       "id": "media_player.living_room",

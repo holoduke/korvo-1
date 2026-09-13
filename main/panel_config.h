@@ -373,6 +373,23 @@ static const panel_bike_t PANEL_BIKE = {
     "sensor.st7_bike_speed",
 };
 
+/* Car in the web app's header: battery, range, charging and lock (Tesla Fleet
+ * integration; the panel's firmware does not show it). */
+typedef struct {
+    const char *label;
+    const char *battery_id;  /* % */
+    const char *range_id;    /* km */
+    const char *charging_id; /* charging / starting / complete / stopped / disconnected / no_power */
+    const char *lock_id;     /* lock entity: locked / unlocked */
+} panel_car_t;
+static const panel_car_t PANEL_CAR = {
+    "Auto",
+    "sensor.vlm_battery_level",
+    "sensor.vlm_battery_range",
+    "sensor.vlm_charging",
+    "lock.vlm_lock",
+};
+
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
  * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */

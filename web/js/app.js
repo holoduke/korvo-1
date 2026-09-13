@@ -70,6 +70,9 @@
   const bike = cfg.bike;
   const bikeIds = new Set(bike ? ["battery", "location", "lock", "speed"].map((k) => bike[k]).filter(Boolean) : []);
   bikeIds.forEach((id) => ids.add(id));
+  const car = cfg.car;
+  const carIds = new Set(car ? ["battery", "range", "charging", "lock"].map((k) => car[k]).filter(Boolean) : []);
+  carIds.forEach((id) => ids.add(id));
   const client = demo ? HA.createDemo(cfg) : HA.createClient([...ids]);
   Panel.client = client;
   let loaded = false; /* initial state dump received */
@@ -202,6 +205,11 @@
               `<span class="vh-batt">${icon("bike")}<span>--</span></span><span class="vh-status">...</span></div>`
             : "") +
           `</div>`
+        : "") +
+      /* Car: its own narrow column, battery on top and range or charging below. */
+      (cfg.car
+        ? `<div class="sensor-col car-col" data-car aria-label="${cfg.car.label}">` +
+          `<span class="vh-batt">${icon("car")}<span>--</span></span><span class="vh-status">...</span></div>`
         : "");
     $("gear").innerHTML = icon("gear");
   }
@@ -313,6 +321,26 @@
     statusEl.textContent = status; /* zone names come from HA: text, not markup */
     if (!offline && !riding && locked) statusEl.insertAdjacentHTML("beforeend", icon("lock"));
     row.classList.toggle("riding", riding);
+    row.classList.toggle("stale", offline);
+  }
+
+  function renderCar() {
+    const row = car && document.querySelector("[data-car]");
+    if (!row) return;
+    const batt = Panel.num(car.battery);
+    const range = Panel.num(car.range);
+    const charging = ((st(car.charging) || {}).state || "").toLowerCase();
+    const locked = (st(car.lock) || {}).state === "locked";
+    const offline = loaded && unavailable(st(car.battery));
+    const busy = charging === "charging" || charging === "starting";
+    /* Charging or full while plugged in; otherwise how far it can go. */
+    const status = offline ? "Offline" : busy ? "Laadt" : charging === "complete" ? "Vol" : Number.isFinite(range) ? `${Math.round(range)} km` : "";
+    row.querySelector(".vh-batt span").textContent = Number.isFinite(batt) ? Math.round(batt) + "%" : "--";
+    row.querySelector(".vh-batt").style.color = Panel.battColour(batt);
+    const statusEl = row.querySelector(".vh-status");
+    statusEl.textContent = status;
+    if (!offline && locked) statusEl.insertAdjacentHTML("beforeend", icon("lock"));
+    row.classList.toggle("riding", busy); /* accent status while charging */
     row.classList.toggle("stale", offline);
   }
 
@@ -587,6 +615,7 @@
     const allIds = first ? [...ids] : changed;
     let vacChanged = false;
     let bikeChanged = false;
+    let carChanged = false;
     for (const id of allIds) {
       const s = st(id);
       if (id.startsWith("light.")) {
@@ -605,6 +634,8 @@
         if (Panel.onMedia) Panel.onMedia();
       } else if (bikeIds.has(id)) {
         bikeChanged = true;
+      } else if (carIds.has(id)) {
+        carChanged = true;
       } else if (vacIds.has(id)) {
         vacChanged = true;
       } else if (airOf.has(id)) {
@@ -627,6 +658,7 @@
     }
     if (vacChanged && Panel.onVacuum) Panel.onVacuum();
     if (bikeChanged) renderBike();
+    if (carChanged) renderCar();
     if (first) {
       newestScenes();
       loadHistory();
@@ -643,6 +675,7 @@
     cfg.sensors.forEach((_, i) => renderSensor(i));
     cfg.air.forEach((_, i) => renderAir(i));
     renderBike();
+    renderCar();
     /* Fade the header strip's right edge only while more columns hide there. */
     const strip = document.querySelector(".hdr-strip");
     const fade = () =>

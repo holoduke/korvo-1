@@ -187,6 +187,17 @@ def parse_bike(src):
     return dict(zip(keys, vals))
 
 
+def parse_car(src):
+    m = re.search(r"\bPANEL_CAR\s*=\s*\{(.*?)\};", src, re.S)
+    if not m:
+        fail("PANEL_CAR not found")
+    vals = re.findall(r'"([^"]*)"', m.group(1))
+    keys = ("label", "battery", "range", "charging", "lock")
+    if len(vals) != len(keys):
+        fail(f"PANEL_CAR: expected {len(keys)} strings, found {len(vals)}")
+    return dict(zip(keys, vals))
+
+
 def parse_layout(src, tabs):
     names = [t["name"] for t in tabs]
 
@@ -258,6 +269,7 @@ def main():
         },
         "vacuum": parse_vacuum(cfg),
         "bike": parse_bike(cfg),
+        "car": parse_car(cfg),
         "media": entity_table(cfg, "PANEL_MEDIA_PLAYERS"),
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),
