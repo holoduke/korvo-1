@@ -167,13 +167,39 @@ def parse_vacuum(src):
     if not m:
         fail("PANEL_VACUUM not found")
     vals = re.findall(r'"([^"]*)"', m.group(1))
-    keys = ("tab", "label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate")
+    keys = ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate")
     if len(vals) != len(keys):
         fail(f"PANEL_VACUUM: expected {len(keys)} strings, found {len(vals)}")
     vac = dict(zip(keys, vals))
     rooms = re.findall(r'\{\s*(\d+)\s*,\s*"([^"]*)"\s*\}', array_body(src, "PANEL_VACUUM_ROOMS"))
     vac["rooms"] = [{"id": int(i), "label": l} for i, l in rooms]
     return vac
+
+
+def parse_layout(src, tabs):
+    names = [t["name"] for t in tabs]
+
+    def tab_index(name, where):
+        if name not in names:
+            fail(f"{where}: no tab named {name!r} in PANEL_TABS")
+        return names.index(name)
+
+    floors = [{"tab": tab_index(t, "PANEL_FLOORS"), "label": l, "name": n}
+              for t, l, n in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}',
+                                        array_body(src, "PANEL_FLOORS"))]
+    sections = []
+    for name, kind, tab in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}',
+                                      array_body(src, "PANEL_SECTIONS")):
+        if kind not in ("floors", "vacuum", "tab"):
+            fail(f"PANEL_SECTIONS: unknown kind {kind!r}")
+        tab_name = c_string_or_null(tab)
+        if (kind == "tab") != (tab_name is not None):
+            fail(f"PANEL_SECTIONS: {name!r} of kind {kind!r} {'needs' if kind == 'tab' else 'takes no'} tab")
+        sections.append({"name": name, "kind": kind,
+                         "tab": tab_index(tab_name, "PANEL_SECTIONS") if tab_name else None})
+    if not floors or not sections:
+        fail("PANEL_FLOORS / PANEL_SECTIONS empty")
+    return floors, sections
 
 
 def define(src, name, kind):
@@ -203,9 +229,13 @@ def parse_themes(src):
 
 def main():
     cfg = strip_comments(CONFIG_H.read_text())
+    tabs = parse_tabs(cfg)
+    floors, sections = parse_layout(cfg, tabs)
     config = {
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),
-        "tabs": parse_tabs(cfg),
+        "tabs": tabs,
+        "floors": floors,
+        "sections": sections,
         "sensors": parse_sensors(cfg),
         "air": parse_air_sensors(cfg),
         "airBands": {

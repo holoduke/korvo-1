@@ -1,6 +1,7 @@
 /* Web panel core: preferences, theme, HA state, and rendering of the header,
- * tabs, tiles and bottom rows. Gestures live in interact.js; the climate
- * popup, screensaver, settings and splash in extras.js. Mirrors main/panel_ui.c. */
+ * the sections (Verlichting with its floors, Schoonmaak, Garage), tiles and
+ * bottom rows. Gestures live in interact.js, the vacuum page in vacuum.js,
+ * popups, screensaver, settings and splash in extras.js. */
 (function () {
   "use strict";
 
@@ -62,7 +63,9 @@
   cfg.air.forEach((a, i) => AIR_KINDS.forEach((k) => a[k] && (ids.add(a[k]), airOf.set(a[k], [i, k]))));
   cfg.media.forEach((m) => ids.add(m.id));
   const vac = cfg.vacuum;
-  const vacIds = new Set(["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]).filter(Boolean));
+  const vacIds = new Set(
+    vac ? ["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]).filter(Boolean) : []
+  );
   vacIds.forEach((id) => ids.add(id));
   const client = demo ? HA.createDemo(cfg) : HA.createClient([...ids]);
   Panel.client = client;
@@ -71,6 +74,7 @@
   const st = (id) => client.states.get(id);
   Panel.st = st;
   const unavailable = (s) => !s || s.state === "unavailable" || s.state === "unknown" || s.state === "none";
+  Panel.unavailable = unavailable;
   const pct = (s) => (s && s.attributes && typeof s.attributes.brightness === "number" ? Math.round((s.attributes.brightness * 100) / 255) : -1);
   Panel.brightnessPct = (id) => pct(st(id));
   Panel.caps = function (id) {
@@ -365,8 +369,19 @@
   }
   let haveForecast = false;
 
-  /* ---- Tabs, tiles and rows -------------------------------------------------- */
-  Panel.tab = 0;
+  /* ---- Sections and floors ------------------------------------------------------ */
+  Panel.section = 0;
+  Panel.floor = 0; /* index into cfg.floors (0 = begane grond) */
+  /* Floors are shown top to bottom from the highest, like a lift panel. */
+  Panel.floorOrder = cfg.floors.map((_, i) => i).reverse();
+  Panel.floorPos = (fi) => Panel.floorOrder.indexOf(fi);
+  /* The PANEL_TABS index whose lights the slider, drawer and bottom row use,
+   * or -1 on a section without lights (Schoonmaak). */
+  Panel.activeTab = function () {
+    const s = cfg.sections[Panel.section];
+    return s.kind === "floors" ? cfg.floors[Panel.floor].tab : s.kind === "tab" ? s.tab : -1;
+  };
+
   const activeScene = cfg.tabs.map(() => -1);
   const tabBrightness = cfg.tabs.map(() => -1);
   Panel.tabBrightness = tabBrightness;
@@ -385,147 +400,44 @@
     return `<span class="swatch" style="background:${bg}"></span>`;
   }
 
-  function buildTabs() {
-    const bar = $("tabbar");
-    bar.insertAdjacentHTML(
+  function buildSections() {
+    $("tabbar").insertAdjacentHTML(
       "afterbegin",
-      cfg.tabs.map((t, i) => `<button class="tab${i === 0 ? " active" : ""}" data-tab="${i}">${t.name}</button>`).join("")
+      cfg.sections.map((s, i) => `<button class="tab${i === 0 ? " active" : ""}" data-tab="${i}">${s.name}</button>`).join("")
     );
-    $("track").innerHTML = cfg.tabs
-      .map((t, ti) => {
-        const hasVac = isVacTab(t);
-        return `<section class="page${hasVac ? " has-vac" : ""}" data-page="${ti}">${gridHtml(t, ti)}${hasVac ? vacHtml() : ""}${rowHtml(t, ti)}</section>`;
-      })
-      .join("");
+    $("track").innerHTML = cfg.sections.map(pageHtml).join("");
   }
 
-  /* ---- Robot vacuum ("Schoonmaak") -------------------------------------------- */
-  const isVacTab = (t) => !!vac && t.name === vac.tab;
-  const STATUS_NL = {
-    idle: "Klaar", busy: "Bezig", delay: "Wacht", mopping: "Dweilen", "sweeping and mopping": "Zuigen en dweilen",
-    paused: "Gepauzeerd", sweeping: "Zuigen", error: "Storing", charging: "Opladen", "go charging": "Terug naar dock",
-    breakcharging: "Tussendoor laden", gowash: "Dweil wassen", charged: "Opgeladen", buildingmap: "Kaart maken",
-    updating: "Update", sleeping: "Slaapt", relocation: "Zoekt positie", stationworking: "Station bezig",
-    mappingpause: "Kaart gepauzeerd", gochargebreak: "Laadpauze", washbreak: "Waspauze", "linking device": "Verbinden",
-    godust: "Stof legen",
-  };
-  const STATE_NL = { docked: "In dock", cleaning: "Aan het schoonmaken", returning: "Terug naar dock", idle: "Klaar", paused: "Gepauzeerd", error: "Storing" };
-  const MODE_NL = { BothWork: "Zuigen + dweilen", OnlySweep: "Zuigen", OnlyMop: "Dweilen", SweepFirst: "Eerst zuigen" };
-  const FAN_NL = { Quiet: "Stil", Auto: "Auto", Strong: "Sterk", Max: "Max" };
-  const WATER_NL = { Low: "Laag", Mid: "Midden", High: "Hoog" };
-  const vacRooms = new Set(); /* selected room ids */
-  Panel.vacRooms = vacRooms;
-  Panel.vacStatusNl = (raw, vstate) => STATUS_NL[raw] || STATE_NL[vstate] || vstate;
-
-  function chips(kind, labels) {
-    return Object.entries(labels)
-      .map(([opt, l]) => `<button class="vchip" data-vac="${kind}" data-opt="${opt}">${l}</button>`)
-      .join("");
+  function pageHtml(sec, si) {
+    if (sec.kind === "floors") {
+      const order = Panel.floorOrder;
+      return (
+        `<section class="page floors-page" data-page="${si}">` +
+        `<nav class="rail" aria-label="Verdieping"><div class="rail-track"><i class="rail-ind"></i>` +
+        order
+          .map((fi) => `<button class="rail-btn" data-floor="${fi}"><b>${cfg.floors[fi].label}</b><span>${cfg.floors[fi].name}</span></button>`)
+          .join("") +
+        `</div></nav>` +
+        `<div class="floor-view"><div class="floor-track">` +
+        order.map((fi) => `<div class="floor" data-floor-panel="${fi}">${gridHtml(cfg.tabs[cfg.floors[fi].tab], cfg.floors[fi].tab)}</div>`).join("") +
+        `</div></div>` +
+        `<div class="floor-rows">` +
+        cfg.floors.map((f, fi) => `<div class="floor-row${fi === 0 ? " active" : ""}" data-floor-row="${fi}">${rowHtml(cfg.tabs[f.tab], f.tab)}</div>`).join("") +
+        `</div></section>`
+      );
+    }
+    if (sec.kind === "vacuum") {
+      return `<section class="page vac-page" data-page="${si}"><div id="vacPage" class="vp"></div></section>`;
+    }
+    const t = cfg.tabs[sec.tab];
+    return `<section class="page tab-page" data-page="${si}">${gridHtml(t, sec.tab)}${rowHtml(t, sec.tab)}</section>`;
   }
-  function vacHtml() {
-    return (
-      `<div class="vac" id="vac">` +
-      `<div class="vac-head"><span class="vac-ic">${icon("vacuum")}</span>` +
-      `<div class="vac-title"><b>${vac.label}</b><span class="vac-status">...</span></div>` +
-      `<div class="vac-batt"><i><s></s></i><span>--</span></div>` +
-      `<button class="vbtn ghost" data-vac="locate" aria-label="Zoek robot">${icon("locate")}</button>` +
-      `<button class="vbtn open" data-vac="open">${icon("expand")}<span>Kamers &amp; onderhoud</span></button></div>` +
-      `<div class="vac-rooms"><span class="vlabel">Kamers</span>` +
-      vac.rooms.map((r) => `<button class="vchip room" data-vac="room" data-room="${r.id}">${r.label}</button>`).join("") +
-      `</div>` +
-      `<div class="vac-modes"><span class="vlabel">Modus</span>${chips("mode", MODE_NL)}` +
-      `<span class="vlabel">Zuigkracht</span>${chips("fan", FAN_NL)}` +
-      `<span class="vlabel vwater">Water</span>${chips("water", WATER_NL)}</div>` +
-      `<div class="vac-actions">` +
-      `<button class="vbtn primary" data-vac="rooms">${icon("play")}<span>Kamers schoonmaken</span></button>` +
-      `<button class="vbtn" data-vac="start">${icon("play")}<span>Hele huis</span></button>` +
-      `<button class="vbtn" data-vac="pause">${icon("pause")}<span>Pauze</span></button>` +
-      `<button class="vbtn" data-vac="resume">${icon("play")}<span>Verder</span></button>` +
-      `<button class="vbtn" data-vac="dock">${icon("dock")}<span>Naar dock</span></button>` +
-      `</div></div>`
-    );
-  }
-
-  function renderVacuum() {
-    const card = $("vac");
-    if (!card) return;
-    const v = st(vac.vacuum);
-    const statusRaw = ((st(vac.status) || {}).state || "").toLowerCase();
-    const vstate = v ? v.state : "unavailable";
-    const offline = unavailable(v);
-    const busy = ["cleaning", "returning"].includes(vstate);
-    const paused = vstate === "paused" || statusRaw === "paused";
-    const area = Panel.num(vac.area);
-    let status = offline ? "Niet bereikbaar" : STATUS_NL[statusRaw] || STATE_NL[vstate] || vstate;
-    if (busy && Number.isFinite(area) && area > 0) status += ` · ${Math.round(area)} m²`;
-    card.querySelector(".vac-status").textContent = status;
-    card.classList.toggle("busy", busy);
-    card.classList.toggle("offline", offline);
-    const batt = Panel.num(vac.battery);
-    const b = card.querySelector(".vac-batt");
-    b.querySelector("span").textContent = Number.isFinite(batt) ? Math.round(batt) + "%" : "--";
-    b.querySelector("s").style.width = (Number.isFinite(batt) ? batt : 0) + "%";
-    b.classList.toggle("low", Number.isFinite(batt) && batt < 20);
-    for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
-      const cur = (st(id) || {}).state;
-      card.querySelectorAll(`[data-vac="${kind}"]`).forEach((c) => c.classList.toggle("active", c.dataset.opt === cur));
-    }
-    const mode = (st(vac.mode) || {}).state;
-    card.querySelectorAll('[data-vac="water"], .vwater').forEach((c) => (c.hidden = mode === "OnlySweep"));
-    card.querySelectorAll('[data-vac="room"]').forEach((c) => c.classList.toggle("active", vacRooms.has(+c.dataset.room)));
-    const n = vacRooms.size;
-    const roomsBtn = card.querySelector('[data-vac="rooms"]');
-    roomsBtn.querySelector("span").textContent = n ? `${n === 1 ? "Kamer" : n + " kamers"} schoonmaken` : "Kies kamers";
-    roomsBtn.disabled = !n || busy || offline;
-    card.querySelector('[data-vac="start"]').hidden = busy || paused;
-    card.querySelector('[data-vac="rooms"]').hidden = busy || paused;
-    card.querySelector('[data-vac="pause"]').hidden = !busy || vstate === "returning";
-    card.querySelector('[data-vac="resume"]').hidden = !paused;
-    card.querySelector('[data-vac="dock"]').hidden = !(busy || paused) || vstate === "returning";
-    if (Panel.onVacuum) Panel.onVacuum();
-  }
-
-  Panel.vacTap = function (el) {
-    const kind = el.dataset.vac;
-    const target = { entity_id: vac.vacuum };
-    if (kind === "open") return Panel.openVacuum && Panel.openVacuum();
-    if (kind === "noop") return renderVacuum(); /* selection changed elsewhere (the sheet) */
-    const fail = () => {};
-    if (kind === "room") {
-      const id = +el.dataset.room;
-      if (vacRooms.has(id)) vacRooms.delete(id);
-      else vacRooms.add(id);
-      return renderVacuum();
-    }
-    if (kind === "mode" || kind === "fan" || kind === "water") {
-      const entity = vac[kind];
-      const s = st(entity);
-      if (s) client.states.set(entity, { ...s, state: el.dataset.opt }); /* optimistic; HA confirms */
-      renderVacuum();
-      return client.callService("select", "select_option", { option: el.dataset.opt }, { entity_id: entity }).catch(fail);
-    }
-    if (kind === "rooms") {
-      if (!vacRooms.size) return;
-      const list = JSON.stringify([...vacRooms].sort((a, b) => a - b));
-      /* start-clean(clean-type = 3 AreaClean, clean-values = "[id,...]") */
-      client
-        .callService("xiaomi_miot", "call_action", { entity_id: vac.vacuum, siid: 17, aiid: 1, params: [3, list] })
-        .catch(fail);
-      vacRooms.clear();
-      return renderVacuum();
-    }
-    if (kind === "start" || kind === "resume") return client.callService("vacuum", "start", null, target).catch(fail);
-    if (kind === "pause") return client.callService("vacuum", "pause", null, target).catch(fail);
-    if (kind === "dock") return client.callService("vacuum", "return_to_base", null, target).catch(fail);
-    if (kind === "locate") return client.callService("button", "press", null, { entity_id: vac.locate }).catch(fail);
-  };
 
   function gridHtml(t, ti) {
     if (t.sceneTiles) {
       const gridN = t.scenes.length - Math.min(t.quick, t.scenes.length);
-      /* Compact tiles for many scenes, or to make room for the vacuum section. */
-      const compact = gridN > 6 || isVacTab(t);
-      let html = `<div class="grid${compact ? " compact" : ""}${isVacTab(t) && gridN <= 6 ? " c3" : ""}">`;
+      const compact = gridN > 6;
+      let html = `<div class="grid${compact ? " compact" : ""}">`;
       for (let i = 0; i < gridN; i++) {
         const sw = t.swatches && t.swatches[i];
         const lead = sw ? swatchHtml(sw) : `<span class="t-icon">${icon((t.icons && t.icons[i]) || "bolt")}</span>`;
@@ -625,7 +537,7 @@
       const v = pct(st(id));
       if (v < 0) return;
       tabBrightness[ti] = v;
-      if (ti === Panel.tab && Panel.onTabBrightness) Panel.onTabBrightness(v);
+      if (ti === Panel.activeTab() && Panel.onTabBrightness) Panel.onTabBrightness(v);
     });
   }
 
@@ -633,6 +545,7 @@
     const first = !loaded;
     loaded = true;
     const allIds = first ? [...ids] : changed;
+    let vacChanged = false;
     for (const id of allIds) {
       const s = st(id);
       if (id.startsWith("light.")) {
@@ -650,7 +563,7 @@
       } else if (id.startsWith("media_player.")) {
         if (Panel.onMedia) Panel.onMedia();
       } else if (vacIds.has(id)) {
-        renderVacuum();
+        vacChanged = true;
       } else if (airOf.has(id)) {
         const prev = lastRaw.get(id);
         lastRaw.set(id, s ? s.state : undefined);
@@ -669,6 +582,7 @@
         if (Panel.onSensor) Panel.onSensor(id);
       }
     }
+    if (vacChanged && Panel.onVacuum) Panel.onVacuum();
     if (first) {
       newestScenes();
       loadHistory();
@@ -680,10 +594,10 @@
   /* ---- Boot ------------------------------------------------------------------ */
   Panel.boot = function () {
     buildHeader();
-    buildTabs();
+    buildSections();
+    if (Panel.buildVacuum && $("vacPage")) Panel.buildVacuum($("vacPage"));
     cfg.sensors.forEach((_, i) => renderSensor(i));
     cfg.air.forEach((_, i) => renderAir(i));
-    renderVacuum();
     /* Fade the header strip's right edge only while more columns hide there. */
     const strip = document.querySelector(".hdr-strip");
     const fade = () =>
@@ -705,7 +619,7 @@
       if (Panel.onStatus) Panel.onStatus(s);
     });
     client.on("states", handleStates);
-    /* Visible before the gesture layer measures anything (slider, indicator). */
+    /* Visible before the gesture layer measures anything (slider, indicators). */
     $("app").hidden = false;
     if (Panel.initInteract) Panel.initInteract();
     if (Panel.initExtras) Panel.initExtras();

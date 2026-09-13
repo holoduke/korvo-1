@@ -465,6 +465,40 @@ window.PANEL_CONFIG = {
       "sceneTiles": true
     }
   ],
+  "floors": [
+    {
+      "tab": 0,
+      "label": "0",
+      "name": "Begane grond"
+    },
+    {
+      "tab": 1,
+      "label": "1",
+      "name": "1e verdieping"
+    },
+    {
+      "tab": 2,
+      "label": "2",
+      "name": "Zolder"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Verlichting",
+      "kind": "floors",
+      "tab": null
+    },
+    {
+      "name": "Schoonmaak",
+      "kind": "vacuum",
+      "tab": null
+    },
+    {
+      "name": "Garage",
+      "kind": "tab",
+      "tab": 3
+    }
+  ],
   "sensors": [
     {
       "temp": "sensor.sensor_buiten_voor_1_temperature",
@@ -522,7 +556,6 @@ window.PANEL_CONFIG = {
     "pm25Poor": 35.0
   },
   "vacuum": {
-    "tab": "Beneden",
     "label": "Stofzuiger",
     "vacuum": "vacuum.stofzuiger_xiaomi_robot_cleaner",
     "status": "sensor.stofzuiger_xiaomi_status",

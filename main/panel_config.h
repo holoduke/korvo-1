@@ -309,8 +309,8 @@ static const panel_air_sensor_t PANEL_AIR_SENSORS[] = {
 };
 #define PANEL_AIR_SENSOR_COUNT (sizeof(PANEL_AIR_SENSORS) / sizeof(PANEL_AIR_SENSORS[0]))
 
-/* Robot vacuum: a "Schoonmaak" section on one tab of the web app (the panel's
- * firmware does not show it). Room cleaning goes straight to the robot via
+/* Robot vacuum: the web app's "Schoonmaak" section (the panel's firmware does
+ * not show it). Room cleaning goes straight to the robot via
  * xiaomi_miot call_action: siid 17 aiid 1 start-clean with clean-type 3
  * (AreaClean) and clean-values as a JSON list of room ids, e.g. "[8,5]" -- the
  * value the robot itself reported for a two-room run on 2026-09-13. Room names
@@ -321,7 +321,6 @@ typedef struct {
 } panel_room_t;
 
 typedef struct {
-    const char *tab;        /* name of the tab that shows the section */
     const char *label;
     const char *vacuum_id;  /* vacuum entity (start / pause / return_to_base) */
     const char *status_id;  /* text status sensor */
@@ -342,7 +341,7 @@ static const panel_room_t PANEL_VACUUM_ROOMS[] = {
     { 8, "Kamer 8" },
 };
 static const panel_vacuum_t PANEL_VACUUM = {
-    "Beneden", "Stofzuiger",
+    "Stofzuiger",
     "vacuum.stofzuiger_xiaomi_robot_cleaner",
     "sensor.stofzuiger_xiaomi_status",
     "sensor.stofzuiger_xiaomi_battery_level",
@@ -351,4 +350,29 @@ static const panel_vacuum_t PANEL_VACUUM = {
     "select.stofzuiger_xiaomi_fan_mode",
     "select.stofzuiger_xiaomi_water_mode",
     "button.stofzuiger_xiaomi_seek_robot",
+};
+
+/* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
+ * sections; "Verlichting" shows one floor at a time, picked with the vertical
+ * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */
+typedef struct {
+    const char *tab;   /* PANEL_TABS entry with that floor's lights and scenes */
+    const char *label; /* button text */
+    const char *name;  /* caption under the button */
+} panel_floor_t;
+static const panel_floor_t PANEL_FLOORS[] = {
+    { "Beneden", "0", "Begane grond" },
+    { "Boven",   "1", "1e verdieping" },
+    { "Zolder",  "2", "Zolder" },
+};
+
+typedef struct {
+    const char *name;
+    const char *kind; /* "floors", "vacuum", or "tab" (one PANEL_TABS entry) */
+    const char *tab;  /* for "tab": the PANEL_TABS name */
+} panel_section_t;
+static const panel_section_t PANEL_SECTIONS[] = {
+    { "Verlichting", "floors", NULL },
+    { "Schoonmaak",  "vacuum", NULL },
+    { "Garage",      "tab",    "Garage" },
 };

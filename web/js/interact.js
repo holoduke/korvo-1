@@ -1,14 +1,14 @@
-/* Gestures: finger-following tab swipe, tap vs long-press on tiles, the
- * slide-out "Alle lampen" drawer (also swipe-to-close), the vertical area
- * brightness slider and the per-light popup sliders. Timings and thresholds
- * follow main/panel_ui.c (16 px drag threshold, commit past 1/5 width or on a
- * flick, 160 ms snap, 240/220 ms drawer). */
+/* Gestures and navigation: sections (top tabs, horizontal finger-following
+ * swipe), floors (vertical lift-style buttons plus a vertical swipe), tap vs
+ * long-press on tiles, the "Alle lampen" drawer (swipe right to close), the
+ * area brightness slider and the popup sliders. Timings follow the panel:
+ * 16 px drag threshold, commit past 1/5 of the size or on a flick, ~160 ms snap. */
 (function () {
   "use strict";
   const Panel = window.Panel;
   const { cfg, $ } = Panel;
 
-  const DRAG_START = 16;      /* px before a press becomes a horizontal drag */
+  const DRAG_START = 16;      /* px before a press becomes a drag */
   const MOVE_CANCEL = 10;     /* px of movement that cancels a long-press */
   const LONG_PRESS_MS = 450;
   const FLICK_VEL = 0.45;     /* px/ms toward the target counts as a flick */
@@ -27,13 +27,15 @@
       el.classList.remove("closing");
     }, 160);
   };
-  const overlayOpen = () => ["popup", "climate", "settings", "saver", "vacSheet"].some((id) => !$(id).hidden);
+  const OVERLAYS = ["popup", "climate", "settings", "saver"];
+  const overlayOpen = () => OVERLAYS.some((id) => !$(id).hidden);
 
-  /* ---- Tabs ------------------------------------------------------------------ */
+  /* ---- Sections (top tabs) ----------------------------------------------------- */
   const stage = $("stage");
   const track = $("track");
   const ind = $("tabind");
   const tabs = () => [...document.querySelectorAll(".tab")];
+  const sectionKind = () => cfg.sections[Panel.section].kind;
 
   function setIndicator(pos, animate) {
     const t = tabs();
@@ -41,7 +43,7 @@
     const f = Math.max(0, Math.min(1, pos - i));
     const a = t[i];
     const b = t[Math.min(t.length - 1, i + 1)];
-    const inset = 0.18; /* underline spans the middle of the tab label area */
+    const inset = 0.18;
     const left = (el) => el.offsetLeft + el.offsetWidth * inset;
     const width = (el) => el.offsetWidth * (1 - 2 * inset);
     ind.style.transition = animate ? "transform .16s cubic-bezier(.22,.61,.36,1), width .16s" : "none";
@@ -51,42 +53,102 @@
 
   function setTrack(offsetPx, animate) {
     track.classList.toggle("snapping", !!animate);
-    track.style.transform = `translate3d(calc(${-Panel.tab * 100}% + ${offsetPx}px),0,0)`;
+    track.style.transform = `translate3d(calc(${-Panel.section * 100}% + ${offsetPx}px),0,0)`;
   }
 
-  Panel.setTab = function (i, animate) {
-    i = Math.max(0, Math.min(cfg.tabs.length - 1, i));
-    const changed = i !== Panel.tab;
-    Panel.tab = i;
+  Panel.setSection = function (i, animate) {
+    i = Math.max(0, Math.min(cfg.sections.length - 1, i));
+    const changed = i !== Panel.section;
+    Panel.section = i;
     tabs().forEach((el, k) => el.classList.toggle("active", k === i));
     setTrack(0, animate);
     setIndicator(i, animate);
     if (changed) {
-      closeDrawer(false);
-      const v = Panel.tabBrightness[i];
-      setSlider(v >= 0 ? v : 50, v >= 0);
+      closeDrawer();
+      syncSlider();
+      if (Panel.onSection) Panel.onSection(i);
     }
+  };
+
+  /* ---- Floors (inside Verlichting) --------------------------------------------- */
+  /* Found in initInteract: app.js builds the pages at boot, after this script loads. */
+  let floorsPage = null;
+  let floorView = null;
+  let floorTrack = null;
+  let railInd = null;
+  const railBtns = () => (floorsPage ? [...floorsPage.querySelectorAll(".rail-btn")] : []); /* display order */
+
+  function setFloorTrack(posFloat, animate) {
+    if (!floorTrack) return;
+    floorTrack.classList.toggle("snapping", !!animate);
+    floorTrack.style.transform = `translate3d(0,${-posFloat * 100}%,0)`;
+  }
+  function setFloorTrackPx(pos, offPx) {
+    floorTrack.classList.remove("snapping");
+    floorTrack.style.transform = `translate3d(0,calc(${-pos * 100}% + ${offPx}px),0)`;
+  }
+  function setRailInd(posFloat, animate) {
+    const btns = railBtns();
+    if (!btns.length) return;
+    const i = Math.max(0, Math.min(btns.length - 1, Math.floor(posFloat)));
+    const f = Math.max(0, Math.min(1, posFloat - i));
+    const a = btns[i];
+    const b = btns[Math.min(btns.length - 1, i + 1)];
+    railInd.style.transition = animate ? "transform .24s cubic-bezier(.22,.61,.36,1), height .24s" : "none";
+    railInd.style.height = a.offsetHeight + (b.offsetHeight - a.offsetHeight) * f + "px";
+    railInd.style.transform = `translate3d(0,${a.offsetTop + (b.offsetTop - a.offsetTop) * f}px,0)`;
+  }
+
+  Panel.setFloor = function (fi, animate) {
+    if (!floorsPage) return;
+    fi = Math.max(0, Math.min(cfg.floors.length - 1, fi));
+    const changed = fi !== Panel.floor;
+    Panel.floor = fi;
+    const pos = Panel.floorPos(fi);
+    railBtns().forEach((el) => el.classList.toggle("active", +el.dataset.floor === fi));
+    floorsPage.querySelectorAll(".floor-row").forEach((el) => el.classList.toggle("active", +el.dataset.floorRow === fi));
+    setFloorTrack(pos, animate);
+    setRailInd(pos, animate);
+    if (changed) {
+      closeDrawer();
+      syncSlider();
+    }
+  };
+
+  /* Jump to wherever a PANEL_TABS entry lives (a floor, or its own section). */
+  Panel.showTab = function (ti, animate) {
+    const fi = cfg.floors.findIndex((f) => f.tab === ti);
+    if (fi >= 0) {
+      Panel.setSection(cfg.sections.findIndex((s) => s.kind === "floors"), animate);
+      Panel.setFloor(fi, animate);
+      return;
+    }
+    const si = cfg.sections.findIndex((s) => s.kind === "tab" && s.tab === ti);
+    if (si >= 0) Panel.setSection(si, animate);
   };
 
   $("tabbar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-tab]");
-    if (b) Panel.setTab(+b.dataset.tab, true);
+    if (b) Panel.setSection(+b.dataset.tab, true);
   });
   window.addEventListener("resize", () => {
-    setIndicator(Panel.tab, false);
+    setIndicator(Panel.section, false);
+    if (floorsPage) setRailInd(Panel.floorPos(Panel.floor), false);
     if (drawer.classList.contains("open")) placeDrawer();
   });
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      ["popup", "climate", "settings", "vacSheet"].forEach((id) => Panel.closeOverlay($(id)));
-      closeDrawer(true);
+      ["popup", "climate", "settings"].forEach((id) => Panel.closeOverlay($(id)));
+      closeDrawer();
     }
     if (overlayOpen()) return;
-    if (e.key === "ArrowRight") Panel.setTab(Panel.tab + 1, true);
-    if (e.key === "ArrowLeft") Panel.setTab(Panel.tab - 1, true);
+    if (e.key === "ArrowRight") Panel.setSection(Panel.section + 1, true);
+    if (e.key === "ArrowLeft") Panel.setSection(Panel.section - 1, true);
+    if (sectionKind() === "floors" && e.key === "ArrowUp") Panel.setFloor(Panel.floor + 1, true);
+    if (sectionKind() === "floors" && e.key === "ArrowDown") Panel.setFloor(Panel.floor - 1, true);
   });
 
-  /* ---- Press / long-press / swipe over the pages and the drawer --------------- */
+  /* ---- Press / long-press / swipe ------------------------------------------------ */
   let g = null; /* active gesture */
   let swallowClick = false; /* the click synthesized from a long-press's lift */
   window.addEventListener(
@@ -103,7 +165,7 @@
   window.addEventListener("pointerdown", () => (swallowClick = false), { capture: true });
 
   function actionTarget(el) {
-    return el.closest("[data-light],[data-scene],[data-all],[data-vac]");
+    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac]");
   }
 
   function onDown(e, surface) {
@@ -117,9 +179,10 @@
       y0: e.clientY,
       target,
       drag: false,
+      axis: null,
       cancelled: false,
-      long: false,
-      samples: [{ x: e.clientX, t: e.timeStamp }],
+      inFloorView: !!e.target.closest(".floor-view"),
+      samples: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }],
       width: surface === "stage" ? stage.clientWidth : drawer.clientWidth,
     };
     if (target) target.classList.add("pressed");
@@ -144,44 +207,67 @@
     if (!g || e.pointerId !== g.id) return;
     const dx = e.clientX - g.x0;
     const dy = e.clientY - g.y0;
-    g.samples.push({ x: e.clientX, t: e.timeStamp });
+    g.samples.push({ x: e.clientX, y: e.clientY, t: e.timeStamp });
     if (g.samples.length > 8) g.samples.shift();
     if (!g.drag) {
       if (Math.hypot(dx, dy) > MOVE_CANCEL) {
         clearTimeout(g.lpTimer);
         if (g.target) g.target.classList.remove("pressed");
       }
-      if (Math.abs(dy) > MOVE_CANCEL && Math.abs(dy) > Math.abs(dx)) {
-        g.cancelled = true; /* vertical: let the drawer scroll natively */
-        return;
+      if (g.cancelled) return;
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+      if (ax < DRAG_START && ay < DRAG_START) return;
+      if (ay > ax) {
+        /* Vertical: switches floors over the floor view; elsewhere the content
+         * (drawer, Schoonmaak columns) scrolls natively. */
+        if (g.surface !== "stage" || !g.inFloorView || sectionKind() !== "floors") {
+          g.cancelled = true;
+          return;
+        }
+        g.axis = "y";
+        g.d0 = dy;
+        g.height = floorView.clientHeight;
+      } else {
+        if (g.surface === "drawer" && dx < 0) return; /* the drawer only swipes closed */
+        g.axis = "x";
+        g.d0 = dx;
+        if (g.surface === "stage") $("bright").classList.add("dim");
+        else drawer.classList.add("dragging");
       }
-      if (g.cancelled || Math.abs(dx) < DRAG_START || g.long) return;
-      if (g.surface === "drawer" && dx < 0) return; /* the drawer only swipes closed */
       g.drag = true;
-      g.dx0 = dx; /* start from the finger without a 16 px jump */
       (g.surface === "stage" ? stage : drawer).setPointerCapture(g.id);
-      if (g.surface === "stage") $("bright").classList.add("dim");
-      else drawer.classList.add("dragging");
     }
-    const raw = dx - Math.sign(g.dx0) * DRAG_START;
-    if (g.surface === "stage") {
-      const atEdge = (raw > 0 && Panel.tab === 0) || (raw < 0 && Panel.tab === cfg.tabs.length - 1);
-      const off = atEdge ? raw * 0.3 : Math.max(-g.width, Math.min(g.width, raw));
+    if (g.axis === "y") {
+      const raw = dy - Math.sign(g.d0) * DRAG_START;
+      const pos = Panel.floorPos(Panel.floor);
+      const last = cfg.floors.length - 1;
+      const atEdge = (raw > 0 && pos === 0) || (raw < 0 && pos === last);
+      const off = atEdge ? raw * 0.3 : Math.max(-g.height, Math.min(g.height, raw));
       g.off = off;
-      setTrack(off, false);
-      setIndicator(Panel.tab - off / g.width, false);
+      setFloorTrackPx(pos, off);
+      setRailInd(Math.max(0, Math.min(last, pos - off / g.height)), false);
     } else {
-      g.off = Math.max(0, raw);
-      drawer.style.transform = `translate3d(${g.off}px,0,0)`;
+      const raw = dx - Math.sign(g.d0) * DRAG_START;
+      if (g.surface === "stage") {
+        const atEdge = (raw > 0 && Panel.section === 0) || (raw < 0 && Panel.section === cfg.sections.length - 1);
+        const off = atEdge ? raw * 0.3 : Math.max(-g.width, Math.min(g.width, raw));
+        g.off = off;
+        setTrack(off, false);
+        setIndicator(Panel.section - off / g.width, false);
+      } else {
+        g.off = Math.max(0, raw);
+        drawer.style.transform = `translate3d(${g.off}px,0,0)`;
+      }
     }
     e.preventDefault();
   }
 
-  function velocity(gest) {
+  function velocity(gest, key) {
     const s = gest.samples;
     const a = s.find((p) => s[s.length - 1].t - p.t < 110) || s[0];
     const b = s[s.length - 1];
-    return b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0;
+    return b.t > a.t ? (b[key] - a[key]) / (b.t - a.t) : 0;
   }
 
   function onUp(e) {
@@ -191,38 +277,50 @@
     clearTimeout(gest.lpTimer);
     if (gest.target) gest.target.classList.remove("pressed");
     if (gest.drag) {
-      const v = velocity(gest);
-      if (gest.surface === "stage") {
-        const dir = gest.off < 0 ? 1 : -1; /* +1 = next tab */
-        const to = Panel.tab + dir;
+      if (gest.axis === "y") {
+        const v = velocity(gest, "y");
+        const dir = gest.off < 0 ? 1 : -1; /* +1 = the panel below (a lower floor) */
+        const pos = Panel.floorPos(Panel.floor);
+        const to = pos + dir;
+        const far = Math.abs(gest.off) > gest.height / 5;
+        const flick = -dir * v > FLICK_VEL && Math.abs(gest.off) > 24;
+        if ((far || flick) && to >= 0 && to < cfg.floors.length) Panel.setFloor(Panel.floorOrder[to], true);
+        else Panel.setFloor(Panel.floor, true);
+      } else if (gest.surface === "stage") {
+        const v = velocity(gest, "x");
+        const dir = gest.off < 0 ? 1 : -1;
+        const to = Panel.section + dir;
         const far = Math.abs(gest.off) > gest.width / 5;
         const flick = -dir * v > FLICK_VEL && Math.abs(gest.off) > 24;
         $("bright").classList.remove("dim");
-        if ((far || flick) && to >= 0 && to < cfg.tabs.length) Panel.setTab(to, true);
-        else Panel.setTab(Panel.tab, true);
+        if ((far || flick) && to >= 0 && to < cfg.sections.length) Panel.setSection(to, true);
+        else Panel.setSection(Panel.section, true);
       } else {
+        const v = velocity(gest, "x");
         drawer.classList.remove("dragging");
         drawer.style.transform = "";
-        if (gest.off > gest.width / 4 || (v > FLICK_VEL && gest.off > 24)) closeDrawer(true);
+        if (gest.off > gest.width / 4 || (v > FLICK_VEL && gest.off > 24)) closeDrawer();
       }
       return;
     }
-    if (gest.cancelled || gest.long || e.type === "pointercancel" || !gest.target) return;
+    if (gest.cancelled || e.type === "pointercancel" || !gest.target) return;
     if (Math.hypot(e.clientX - gest.x0, e.clientY - gest.y0) > MOVE_CANCEL) return;
     const t = gest.target;
+    if (t.disabled) return;
     if (t.dataset.light) Panel.toggleLight(t.dataset.light);
     else if (t.dataset.scene) {
       const [tab, idx] = t.dataset.scene.split(":").map(Number);
       Panel.activateScene(tab, idx);
     } else if (t.dataset.all) toggleDrawer();
-    else if (t.dataset.vac && !t.disabled) Panel.vacTap(t);
+    else if (t.dataset.floor) Panel.setFloor(+t.dataset.floor, true);
+    else if (t.dataset.vac && Panel.vacTap) Panel.vacTap(t);
   }
 
-  for (const [el, name] of [
+  const drawer = $("drawer");
+  for (const [node, name] of [
     [stage, "stage"],
-    [null, "drawer"],
+    [drawer, "drawer"],
   ]) {
-    const node = el || $("drawer");
     node.addEventListener("pointerdown", (e) => onDown(e, name));
     node.addEventListener("pointermove", onMove, { passive: false });
     node.addEventListener("pointerup", onUp);
@@ -234,30 +332,35 @@
   window.addEventListener("pointerup", onUp);
   window.addEventListener("pointercancel", onUp);
 
-  /* ---- Drawer ----------------------------------------------------------------- */
-  const drawer = $("drawer");
+  /* ---- Drawer ------------------------------------------------------------------ */
   let drawerTab = -1;
+  const rowOf = (ti) => {
+    const btn = document.querySelector(`[data-all="${ti}"]`);
+    return btn && btn.closest(".row");
+  };
 
   function placeDrawer() {
     const top = $("tabbar").getBoundingClientRect().top;
-    const page = document.querySelector(`[data-page="${Panel.tab}"] .row`);
-    const bottom = page ? window.innerHeight - page.getBoundingClientRect().top : 0;
+    const row = rowOf(Panel.activeTab());
+    const bottom = row ? window.innerHeight - row.getBoundingClientRect().top : 0;
     drawer.style.top = top + "px";
     drawer.style.bottom = bottom + "px";
   }
 
   function openDrawer() {
-    const t = cfg.tabs[Panel.tab];
-    if (drawerTab !== Panel.tab) {
+    const ti = Panel.activeTab();
+    if (ti < 0) return;
+    const t = cfg.tabs[ti];
+    if (drawerTab !== ti) {
       $("drawerGrid").innerHTML = t.devices.map((d) => Panel.lightTile(d)).join("");
       t.devices.forEach((d) => Panel.renderLight(d.id));
-      drawerTab = Panel.tab;
+      drawerTab = ti;
     }
     drawer.scrollTop = 0;
     placeDrawer();
     drawer.classList.add("open");
     drawer.setAttribute("aria-hidden", "false");
-    document.querySelectorAll("[data-all]").forEach((b) => b.classList.toggle("open", +b.dataset.all === Panel.tab));
+    document.querySelectorAll("[data-all]").forEach((b) => b.classList.toggle("open", +b.dataset.all === ti));
   }
 
   function closeDrawer() {
@@ -276,24 +379,31 @@
   /* ---- Vertical area-brightness slider ---------------------------------------- */
   const bright = $("bright");
   const vTrack = bright.querySelector(".vs-track");
+  const KNOB = 46;
   let vDrag = null;
   let vReleasedAt = 0;
 
   function setSlider(v, showLabel) {
-    bright.hidden = false;
     const h = vTrack.clientHeight || 1;
-    const knob = 46;
-    const y = (v / 100) * (h - knob) + knob / 2; /* knob centre from the bottom */
+    const y = (v / 100) * (h - KNOB) + KNOB / 2; /* knob centre from the bottom */
     bright.querySelector(".vs-fill").style.height = y + "px";
     bright.querySelector(".vs-knob").style.bottom = y + "px";
     bright.dataset.value = v;
     $("brightLabel").textContent = showLabel ? v + "%" : "";
   }
 
+  /* The slider belongs to the active section's lights; hidden where there are none. */
+  function syncSlider() {
+    const ti = Panel.activeTab();
+    bright.hidden = ti < 0;
+    if (ti < 0) return;
+    const v = Panel.tabBrightness[ti];
+    setSlider(v >= 0 ? v : 50, v >= 0);
+  }
+
   function sliderValue(clientY) {
     const r = vTrack.getBoundingClientRect();
-    const knob = 46;
-    const f = 1 - (clientY - r.top - knob / 2) / Math.max(1, r.height - knob);
+    const f = 1 - (clientY - r.top - KNOB / 2) / Math.max(1, r.height - KNOB);
     return Math.round(Math.max(0, Math.min(1, f)) * 100);
   }
 
@@ -310,10 +420,12 @@
     if (vDrag !== e.pointerId) return;
     vDrag = null;
     bright.classList.remove("dragging");
+    const ti = Panel.activeTab();
+    if (ti < 0) return;
     const v = +bright.dataset.value;
     vReleasedAt = Date.now();
-    Panel.tabBrightness[Panel.tab] = v;
-    Panel.setBrightness(cfg.tabs[Panel.tab].lights.map((l) => l.id), v);
+    Panel.tabBrightness[ti] = v;
+    Panel.setBrightness(cfg.tabs[ti].lights.map((l) => l.id), v);
   };
   vTrack.addEventListener("pointerup", vEnd);
   vTrack.addEventListener("pointercancel", vEnd);
@@ -425,11 +537,21 @@
 
   /* ---- Init ------------------------------------------------------------------ */
   Panel.initInteract = function () {
-    Panel.setTab(0, false);
-    setSlider(50, false);
-    requestAnimationFrame(() => setIndicator(0, false));
-    /* The knob position depends on the track height: redraw whenever the
-     * layout changes (rotation, window resize, header wrapping). */
+    floorsPage = document.querySelector(".floors-page");
+    if (floorsPage) {
+      floorView = floorsPage.querySelector(".floor-view");
+      floorTrack = floorsPage.querySelector(".floor-track");
+      railInd = floorsPage.querySelector(".rail-ind");
+    }
+    Panel.setSection(0, false);
+    Panel.setFloor(0, false);
+    syncSlider();
+    requestAnimationFrame(() => {
+      setIndicator(Panel.section, false);
+      if (floorsPage) setRailInd(Panel.floorPos(Panel.floor), false);
+    });
+    /* Geometry-dependent pieces redraw whenever the layout changes. */
     new ResizeObserver(() => setSlider(+bright.dataset.value || 0, $("brightLabel").textContent !== "")).observe(vTrack);
+    if (floorsPage) new ResizeObserver(() => setRailInd(Panel.floorPos(Panel.floor), false)).observe(floorsPage.querySelector(".rail-track"));
   };
 })();
