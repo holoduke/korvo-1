@@ -285,6 +285,34 @@
       fireEvent(eventType, eventData) {
         return send({ type: "fire_event", event_type: eventType, event_data: eventData });
       },
+      /* A scene's stored per-entity states; null without a stored config. */
+      async sceneConfig(sceneEntityId) {
+        const s = states.get(sceneEntityId);
+        const id = s && s.attributes && s.attributes.id;
+        if (!id) return null;
+        const token = await getAccessToken();
+        const res = await fetch(`${hassUrl()}/api/config/scene/config/${encodeURIComponent(id)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error("scene config " + res.status);
+        return res.json();
+      },
+      /* Every current state once (which entities exist, light group members). */
+      getStates() {
+        return send({ type: "get_states" });
+      },
+      /* Also follow these entities, now and after every reconnect. */
+      addEntities(more) {
+        const fresh = more.filter((id) => !entityIds.includes(id));
+        if (!fresh.length) return;
+        entityIds.push(...fresh);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const id = nextId++;
+          pending.set(id, { resolve() {}, reject() {}, subscription: true });
+          ws.send(JSON.stringify({ id, type: "subscribe_entities", entity_ids: fresh }));
+        }
+      },
       callService(domain, service, serviceData, target, returnResponse) {
         const msg = { type: "call_service", domain, service };
         if (serviceData) msg.service_data = serviceData;
@@ -476,6 +504,26 @@
       hassUrl: () => "demo",
       fireEvent() {
         return Promise.resolve(null); /* nothing to report in demo mode */
+      },
+      /* Demo scenes switch every lamp of their tab on, "uit" scenes off. */
+      async sceneConfig(sceneEntityId) {
+        const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
+        if (!tab) return null;
+        const state = /uit/.test(sceneEntityId) ? "off" : "on";
+        const lamps = [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
+        return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id) => [id, { state }])) };
+      },
+      /* Demo states; a tab's "lampen ..." group holds that tab's drawer lamps. */
+      async getStates() {
+        const groups = new Map(cfg.tabs.filter((t) => t.lights[0] && /^light\.lampen_/.test(t.lights[0].id)).map((t) => [t.lights[0].id, t.devices.map((d) => d.id)]));
+        return [...states.entries()].map(([id, s]) => ({
+          entity_id: id,
+          state: s.state,
+          attributes: groups.has(id) ? { ...s.attributes, entity_id: groups.get(id) } : s.attributes,
+        }));
+      },
+      addEntities() {
+        /* the demo holds every state already */
       },
       logout() {
         location.replace(location.pathname);

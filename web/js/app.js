@@ -201,14 +201,14 @@
       [
         cfg.vacuum && ["button", "data-vachdr", cfg.vacuum.label, "vacuum"],
         cfg.bike && ["div", "data-bike", cfg.bike.label, "bike"],
-        cfg.car && ["button", "data-carhdr", "", "car"], /* icon only: no title (user request) */
+        cfg.car && ["button", "data-carhdr", cfg.car.label, "car"],
       ]
         .filter(Boolean)
         .map(
           ([tag, attr, label, ic], i) =>
             (i === 0 ? '<div class="rule"></div>' : "") +
-            `<${tag} class="sensor-col dev-hdr" ${attr} aria-label="${label || (ic === "car" ? cfg.car.label : ic)}">` +
-            `<div class="s-name">${icon(ic)}${label ? `<span>${label}</span>` : ""}</div>` +
+            `<${tag} class="sensor-col dev-hdr" ${attr} aria-label="${label}">` +
+            `<div class="s-name">${icon(ic)}<span>${label}</span></div>` +
             `<div class="s-temp vh-batt"><span>--</span></div>` +
             `<div class="s-hum vh-status">...</div></${tag}>`
         )
@@ -489,7 +489,7 @@
           .join("") +
         `</div></nav>` +
         `<div class="floor-view"><div class="floor-track">` +
-        order.map((fi) => `<div class="floor" data-floor-panel="${fi}">${floorHtml(fi)}</div>`).join("") +
+        order.map((fi) => `<div class="floor" data-floor-panel="${fi}">${splitHtml(cfg.floors[fi].tab)}</div>`).join("") +
         `</div></div>` +
         `<div class="floor-rows">` +
         cfg.floors.map((f, fi) => `<div class="floor-row${fi === 0 ? " active" : ""}" data-floor-row="${fi}">${rowHtml(cfg.tabs[f.tab], f.tab)}</div>`).join("") +
@@ -503,43 +503,95 @@
       return `<section class="page car-page" data-page="${si}"><div id="carPage" class="cp"></div></section>`;
     }
     const t = cfg.tabs[sec.tab];
-    return `<section class="page tab-page" data-page="${si}">${gridHtml(t, sec.tab)}${rowHtml(t, sec.tab)}</section>`;
+    return `<section class="page tab-page" data-page="${si}">${splitHtml(sec.tab)}${rowHtml(t, sec.tab)}</section>`;
   }
 
-  /* ---- Floor page: lamps on the left, the floor's scenes on the right ------------ */
-  /* Every lamp of a floor: the drawer's, then room lamps it does not list. */
-  function floorLamps(t) {
-    const seen = new Set();
+  /* ---- Split pages: the tab's scenes on the left, its lamps on the right --------- */
+  /* A tab's lamps are the lamps its scenes switch on plus its own lights, with a
+   * light group counted as its members. A scene that only switches things off
+   * adds nothing ("alles uit" beneden also covers the garage). A tab without
+   * scenes keeps its configured lamps. Scene data and group members come from
+   * Home Assistant once it has answered; lamps found that way are subscribed. */
+  const lampsOfTab = new Map(); /* tab index -> [lamp ids], once known */
+  let groupMembers = new Map(); /* light group -> member ids */
+  let knownIds = null; /* every entity id HA has */
+  const nameOf = new Map(); /* entity id -> friendly name from HA */
+
+  function expandLights(ids, depth = 0) {
     const out = [];
-    const add = (id, label) => {
-      if (seen.has(id)) return;
-      seen.add(id);
-      out.push({ id, label });
-    };
-    t.devices.forEach((d) => add(d.id, d.label));
-    (t.areas || []).forEach((a) => a.lights.forEach((id) => add(id, null)));
+    ids.forEach((id) => {
+      const members = groupMembers.get(id);
+      if (members && depth < 6) out.push(...expandLights(members, depth + 1));
+      else out.push(id);
+    });
     return out;
   }
-  function lampLabel(lamp) {
-    if (lamp.label) return lamp.label;
-    const name = ((st(lamp.id) || {}).attributes || {}).friendly_name || lamp.id.replace(/^light\./, "").replace(/_/g, " ");
+  function configuredLamps(t) {
+    return [...t.lights.map((l) => l.id), ...t.devices.map((d) => d.id), ...(t.areas || []).flatMap((a) => a.lights)];
+  }
+
+  async function loadLamps() {
+    try {
+      const all = await client.getStates();
+      knownIds = new Set(all.map((s) => s.entity_id));
+      all.forEach((s) => s.attributes && s.attributes.friendly_name && nameOf.set(s.entity_id, s.attributes.friendly_name));
+      groupMembers = new Map(
+        all.filter((s) => s.entity_id.startsWith("light.") && Array.isArray((s.attributes || {}).entity_id)).map((s) => [s.entity_id, s.attributes.entity_id])
+      );
+    } catch (e) {
+      /* no group data: lamps come from what the scenes list; retried on reconnect */
+    }
+    const tabs = [...new Set([...cfg.floors.map((f) => f.tab), ...cfg.sections.filter((s) => s.kind === "tab").map((s) => s.tab)])];
+    await Promise.all(
+      tabs.map(async (ti) => {
+        const t = cfg.tabs[ti];
+        const found = new Set(expandLights(t.scenes.length ? t.lights.map((l) => l.id) : configuredLamps(t)));
+        await Promise.all(
+          t.scenes.map(async (sc) => {
+            let entities = null;
+            try {
+              const c = await client.sceneConfig(sc.id);
+              entities = c && c.entities;
+            } catch (e) {
+              entities = null;
+            }
+            if (entities) {
+              Object.entries(entities).forEach(([id, v]) => {
+                const state = typeof v === "string" ? v : v && v.state;
+                if (id.startsWith("light.") && state !== "off") expandLights([id]).forEach((x) => found.add(x));
+              });
+            } else {
+              /* No stored config: every light the scene lists. */
+              (((st(sc.id) || {}).attributes || {}).entity_id || []).filter((id) => id.startsWith("light.")).forEach((id) => expandLights([id]).forEach((x) => found.add(x)));
+            }
+          })
+        );
+        const lamps = [...found].filter((id) => id.startsWith("light.") && !groupMembers.has(id) && (!knownIds || knownIds.has(id)));
+        lampsOfTab.set(ti, lamps);
+      })
+    );
+    const fresh = [...new Set([...lampsOfTab.values()].flat())].filter((id) => !ids.has(id));
+    fresh.forEach((id) => ids.add(id));
+    if (fresh.length) client.addEntities(fresh);
+    tabs.forEach((ti) => renderTabLamps(ti));
+  }
+
+  function lampLabel(ti, id) {
+    const t = cfg.tabs[ti];
+    const known = [...t.devices, ...t.lights].find((d) => d.id === id);
+    if (known) return known.label;
+    const name = nameOf.get(id) || ((st(id) || {}).attributes || {}).friendly_name || id.replace(/^light\./, "").replace(/_/g, " ");
     const short = name.replace(/^lamp\s+/i, "");
     return short.charAt(0).toUpperCase() + short.slice(1);
   }
   const escHtml = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-  /* The lamps shown for a floor and room: once HA has answered, only lamps it has. */
-  function shownLamps(fi, area) {
-    const room = area ? new Set(area.lights) : null;
-    return floorLamps(cfg.tabs[cfg.floors[fi].tab]).filter((l) => (!room || room.has(l.id)) && (!loaded || st(l.id)));
-  }
-  function lampTile(lamp) {
+  function lampTile(ti, id) {
     return (
-      `<button class="tile" data-light="${lamp.id}"><span class="t-icon">${icon("power")}</span>` +
-      `<span class="t-text"><span class="t-name">${escHtml(lampLabel(lamp))}</span><span class="t-sub">...</span></span></button>`
+      `<button class="tile" data-light="${id}"><span class="t-icon">${icon("power")}</span>` +
+      `<span class="t-text"><span class="t-name">${escHtml(lampLabel(ti, id))}</span><span class="t-sub">...</span></span></button>`
     );
   }
-  function floorHtml(fi) {
-    const ti = cfg.floors[fi].tab;
+  function splitHtml(ti) {
     const t = cfg.tabs[ti];
     const scenes = t.scenes
       .map((s, i) => {
@@ -550,17 +602,14 @@
       .join("");
     return (
       `<div class="split${t.scenes.length ? "" : " no-scenes"}">` +
-      `<div class="split-half split-lamps"><div class="split-title">Lampen</div>` +
-      `<div class="split-list"><div class="grid" data-lamps="${fi}">${shownLamps(fi, null).map(lampTile).join("")}</div></div></div>` +
       `<div class="split-half split-scenes"><div class="split-title">Scènes</div>` +
       `<div class="split-list"><div class="grid">${scenes}</div></div></div>` +
+      `<div class="split-half split-lamps"><div class="split-title">Lampen</div>` +
+      `<div class="split-list"><div class="grid" data-lamps="${ti}"><div class="split-empty">Lampen laden…</div></div></div></div>` +
       `</div>`
     );
   }
-  const areaOf = (fi) => {
-    const ai = Panel.areaIndex ? Panel.areaIndex(fi) : -1;
-    return ai >= 0 ? cfg.tabs[cfg.floors[fi].tab].areas[ai] : null;
-  };
+
   /* A list that is taller than its half scrolls natively (touch-action pan-y);
    * one that fits leaves vertical swipes to the floor switch. */
   function markScroll(list) {
@@ -575,36 +624,30 @@
     });
   }
 
-  /* Rebuild a floor's lamp list for "Alle" (area null) or one room. */
-  Panel.renderLamps = function (fi, area) {
-    const grid = document.querySelector(`[data-lamps="${fi}"]`);
-    if (!grid) return;
-    const lamps = shownLamps(fi, area);
-    grid.innerHTML = lamps.map(lampTile).join("");
-    lamps.forEach((l) => renderLight(l.id));
+  /* Rebuild a tab's lamp list: all its lamps, or one room's (area). */
+  function renderTabLamps(ti, area) {
+    const grid = document.querySelector(`[data-lamps="${ti}"]`);
+    const lamps = lampsOfTab.get(ti);
+    if (!grid || !lamps) return;
+    if (area === undefined) {
+      const fi = cfg.floors.findIndex((f) => f.tab === ti);
+      area = fi >= 0 ? areaOf(fi) : null;
+    }
+    const room = area ? new Set(area.lights) : null;
+    const shown = lamps.filter((id) => !room || room.has(id)).sort((x, y) => lampLabel(ti, x).localeCompare(lampLabel(ti, y), "nl"));
+    grid.innerHTML = shown.length ? shown.map((id) => lampTile(ti, id)).join("") : `<div class="split-empty">Geen lampen</div>`;
+    shown.forEach((id) => renderLight(id));
     grid.closest(".split-lamps").querySelector(".split-title").textContent = area ? `Lampen · ${area.label}` : "Lampen";
     const list = grid.closest(".split-list");
     list.scrollTop = 0;
     markScroll(list);
-  };
-
-  function gridHtml(t, ti) {
-    if (t.sceneTiles) {
-      const gridN = t.scenes.length - Math.min(t.quick, t.scenes.length);
-      const compact = gridN > 6;
-      let html = `<div class="grid${compact ? " compact" : ""}">`;
-      for (let i = 0; i < gridN; i++) {
-        const sw = t.swatches && t.swatches[i];
-        const lead = sw ? swatchHtml(sw) : `<span class="t-icon">${icon((t.icons && t.icons[i]) || "bolt")}</span>`;
-        html +=
-          `<button class="tile scene" data-scene="${ti}:${i}">${lead}<span class="t-name">${t.scenes[i].label}</span>` +
-          (compact ? "" : `<span class="t-sub">scene</span>`) +
-          `</button>`;
-      }
-      return html + "</div>";
-    }
-    return `<div class="grid">${t.lights.slice(0, 6).map((l) => lightTile(l)).join("")}</div>`;
   }
+  const areaOf = (fi) => {
+    const ai = Panel.areaIndex ? Panel.areaIndex(fi) : -1;
+    return ai >= 0 ? cfg.tabs[cfg.floors[fi].tab].areas[ai] : null;
+  };
+  /* For areas.js: a floor's lamps for "Alle" (area null) or one room. */
+  Panel.renderLamps = (fi, area) => renderTabLamps(cfg.floors[fi].tab, area);
 
   function rowHtml(t, ti) {
     if ((t.areas || []).length) {
@@ -766,8 +809,7 @@
     }
     if (first) {
       newestScenes();
-      /* Now that HA has answered, drop lamps it does not have from the lists. */
-      cfg.floors.forEach((_, fi) => Panel.renderLamps(fi, areaOf(fi)));
+      loadLamps();
       loadHistory();
       loadForecast().then(() => (haveForecast = true));
       if (Panel.onReady) Panel.onReady();

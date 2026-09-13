@@ -491,6 +491,8 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .split { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); padding: var(--pad) var(--lane) var(--pad) 12px; min-height: 0; }
 .split.no-scenes { grid-template-columns: minmax(0, 1fr); }
 .split.no-scenes .split-scenes { display: none; }
+.tab-page .split { padding-left: var(--pad); }
+.split-empty { grid-column: 1 / -1; font-size: 15px; font-weight: 600; color: var(--text_dim); padding: 6px 2px; }
 .split-half { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
 .split-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
 .split-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: none; scrollbar-width: none; }
