@@ -204,7 +204,7 @@
   window.addEventListener("pointerdown", () => (swallowClick = false), { capture: true });
 
   function actionTarget(el) {
-    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac],[data-car],[data-area],[data-roomscene]");
+    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac],[data-car],[data-area]");
   }
 
   function onDown(e, surface) {
@@ -222,6 +222,7 @@
       cancelled: false,
       inFloorView: !!e.target.closest(".floor-view"),
       inAreas: e.target.closest(".areas"),
+      inList: e.target.closest(".split-list"),
       samples: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }],
       width: surface === "stage" ? stage.clientWidth : drawer.clientWidth,
     };
@@ -262,6 +263,11 @@
         /* Vertical: switches floors over the floor view; elsewhere the content
          * (drawer, Schoonmaak columns) scrolls natively. */
         if (g.surface !== "stage" || !g.inFloorView || sectionKind() !== "floors") {
+          g.cancelled = true;
+          return;
+        }
+        /* A lamp or scene list taller than its half scrolls; the floor stays. */
+        if (g.inList && g.inList.scrollHeight > g.inList.clientHeight + 1) {
           g.cancelled = true;
           return;
         }
@@ -361,7 +367,6 @@
     else if (t.dataset.vac && Panel.vacTap) Panel.vacTap(t);
     else if (t.dataset.car && Panel.carTap) Panel.carTap(t);
     else if (t.dataset.area !== undefined && Panel.areaTap) Panel.areaTap(t);
-    else if (t.dataset.roomscene && Panel.roomSceneTap) Panel.roomSceneTap(t);
   }
 
   const drawer = $("drawer");

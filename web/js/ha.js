@@ -285,24 +285,6 @@
       fireEvent(eventType, eventData) {
         return send({ type: "fire_event", event_type: eventType, event_data: eventData });
       },
-      /* A scene's stored per-entity states; null for scenes without a stored
-       * config (created at runtime or in YAML without an id). */
-      async sceneConfig(sceneEntityId) {
-        const s = states.get(sceneEntityId);
-        const id = s && s.attributes && s.attributes.id;
-        if (!id) return null;
-        const token = await getAccessToken();
-        const res = await fetch(`${hassUrl()}/api/config/scene/config/${encodeURIComponent(id)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.status === 404) return null;
-        if (!res.ok) throw new Error("scene config " + res.status);
-        return res.json();
-      },
-      /* Every current state once, e.g. to see which lamps a light group holds. */
-      getStates() {
-        return send({ type: "get_states" });
-      },
       callService(domain, service, serviceData, target, returnResponse) {
         const msg = { type: "call_service", domain, service };
         if (serviceData) msg.service_data = serviceData;
@@ -371,7 +353,7 @@
       });
     });
     cfg.tabs.forEach((t, ti) =>
-      t.scenes.forEach((s, i) => set(s.id, new Date(now - (ti * 7 + i + 1) * 3600e3).toISOString(), { id: s.id }, now - (ti * 7 + i + 1) * 3600e3))
+      t.scenes.forEach((s, i) => set(s.id, new Date(now - (ti * 7 + i + 1) * 3600e3).toISOString(), {}, now - (ti * 7 + i + 1) * 3600e3))
     );
     const base = [14.2, 21.4, 22.1, 22.7, 23.6];
     const hum = [83, 58, 57, 54, 56];
@@ -495,28 +477,6 @@
       fireEvent() {
         return Promise.resolve(null); /* nothing to report in demo mode */
       },
-      /* Demo scenes store one state for every lamp of their floor, by name. */
-      async sceneConfig(sceneEntityId) {
-        const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
-        if (!tab) return null;
-        const n = sceneEntityId;
-        const value = /uit/.test(n)
-          ? { state: "off" }
-          : /min/.test(n)
-            ? { state: "on", brightness: 8 }
-            : /max|alles_aan|fel/.test(n)
-              ? { state: "on", brightness: 255 }
-              : /avond_licht/.test(n)
-                ? { state: "on", brightness: 25, color_mode: "color_temp", color_temp_kelvin: 2000 }
-                : /avond/.test(n)
-                  ? { state: "on", brightness: 70, color_mode: "color_temp", color_temp_kelvin: 2700 }
-                  : { state: "on", brightness: 180, color_mode: "hs", hs_color: [30, 100] };
-        const lamps = new Set([...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)]);
-        return { id: n, entities: Object.fromEntries([...lamps].map((id) => [id, { ...value, friendly_name: id }])) };
-      },
-      async getStates() {
-        return []; /* the demo scenes list lamps, no groups */
-      },
       logout() {
         location.replace(location.pathname);
       },
@@ -537,17 +497,6 @@
             temperature: 18 + d,
           }));
           return { response: { [cfg.weather]: { forecast } } };
-        }
-        if (domain === "scene" && service === "apply") {
-          const t = Date.now();
-          const touched = Object.keys((data && data.entities) || {});
-          touched.forEach((id) => {
-            const { state, ...values } = data.entities[id];
-            const cur = states.get(id) || { state: "off", attributes: {} };
-            set(id, state || cur.state, { ...cur.attributes, ...values }, t);
-          });
-          change(touched);
-          return returnResponse ? { response: {} } : null;
         }
         /* Car commands (before the vacuum branch, which also takes buttons). */
         const carEntities = cfg.car ? Object.values(cfg.car.entities) : [];

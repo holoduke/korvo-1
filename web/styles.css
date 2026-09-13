@@ -486,6 +486,24 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .floor-track.snapping { transition: transform 0.24s var(--ease-out); }
 .floor { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .floor .grid { padding-left: 12px; }
+/* Floor page: lamps on the left, the floor's scenes on the right; each half
+ * scrolls on its own. A floor without scenes gives its lamps the full width. */
+.split { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--gap); padding: var(--pad) var(--lane) var(--pad) 12px; min-height: 0; }
+.split.no-scenes { grid-template-columns: minmax(0, 1fr); }
+.split.no-scenes .split-scenes { display: none; }
+.split-half { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
+.split-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.split-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: none; scrollbar-width: none; }
+.split-list.scrolls { touch-action: pan-y; } /* app.js marks lists taller than their half */
+.split-list::-webkit-scrollbar { display: none; }
+.split .grid { padding: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 76px; gap: 10px; align-content: start; }
+.split.no-scenes .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.split .grid .tile { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; }
+.split .grid .t-icon { font-size: 24px; }
+.split .grid .t-name { margin-top: 0; font-size: 18px; }
+.split .grid .t-text { display: flex; flex-direction: column; min-width: 0; }
+.split .grid .t-sub { font-size: 14px; }
+.split .grid .swatch { width: 28px; height: 28px; flex: none; }
 .floor-rows { grid-row: 2; grid-column: 1 / -1; position: relative; min-width: 0; }
 .floor-row { position: absolute; inset: 0; opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity 0.22s, transform 0.22s var(--ease-out); }
 .floor-row.active { opacity: 1; pointer-events: auto; transform: none; }
@@ -588,6 +606,9 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 }
 @media (max-width: 760px) {
   :root { --rail-w: 58px; }
+  .split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); padding: 10px var(--lane) 10px 10px; }
+  .split .grid, .split.no-scenes .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 58px; gap: 8px; }
+  .split .grid .t-name { font-size: 15px; }
   .rail { padding: var(--pad) 0 var(--pad) 10px; }
   .rail-track { padding: 4px; gap: 4px; border-radius: 16px; }
   .rail-ind { left: 4px; right: 4px; border-radius: 12px; }
