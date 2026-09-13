@@ -228,6 +228,19 @@
     if (entities) Panel.client.callService("scene", "apply", { entities }).catch(() => {});
   };
 
+  /* A fade on the row's right edge while more room buttons hide there. */
+  function markOverflow(el) {
+    el.classList.toggle("overflowing", el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }
+  /* Called by app.js once the rows exist (they are built at boot, after this loads). */
+  Panel.initAreas = function () {
+    document.querySelectorAll(".areas").forEach((el) => {
+      new ResizeObserver(() => markOverflow(el)).observe(el);
+      el.addEventListener("scroll", () => markOverflow(el), { passive: true });
+      markOverflow(el);
+    });
+  };
+
   /* ---- Hooks from app.js -------------------------------------------------------- */
   Panel.onAreaLight = function (id) {
     const area = Panel.activeArea();

@@ -243,9 +243,14 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .chip:active, .sq:active, .allbtn:active { transform: scale(0.96); opacity: 0.8; }
 /* Room buttons: one line between the main switch and "Alle lampen"; a row
  * wider than the screen scrolls sideways. */
-.areas { flex: 3; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+.areas { flex: 1 1 auto; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
 .areas::-webkit-scrollbar { display: none; }
-.area-chip { flex: 1 0 auto; padding: 0 14px; white-space: nowrap; }
+/* More buttons hide to the right: fade that edge (areas.js toggles it). */
+.areas.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); }
+.area-chip { flex: 1 0 auto; padding: 0 12px; font-size: 17px; white-space: nowrap; }
+/* With room buttons, "Alle lampen" is only as wide as its label. */
+.row.has-areas .allbtn { flex: 0 0 auto; padding: 0 18px; }
+.row.has-areas .allbtn .chev { display: none; }
 .pill { flex: 2; background: var(--tile_off); color: var(--text_dim); justify-content: flex-start; padding: 0 18px; white-space: nowrap; overflow: hidden; }
 .pill span { overflow: hidden; text-overflow: ellipsis; }
 .pill b { color: var(--text); font-weight: 600; margin-left: 0.5em; }

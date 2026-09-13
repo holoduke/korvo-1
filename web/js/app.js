@@ -532,7 +532,7 @@
   function rowHtml(t, ti) {
     if ((t.areas || []).length) {
       /* The floor's main switch, Alle and one button per room, then every lamp. */
-      let row = '<div class="row">';
+      let row = '<div class="row has-areas">';
       if (t.sceneTiles && t.lights.length) row += `<button class="sq" data-light="${t.lights[0].id}" data-group="1">${icon("power")}</button>`;
       row +=
         `<div class="areas"><button class="chip area-chip active" data-area="-1">Alle</button>` +
@@ -702,6 +702,7 @@
     buildSections();
     if (Panel.buildVacuum && $("vacPage")) Panel.buildVacuum($("vacPage"));
     if (Panel.buildCar && $("carPage")) Panel.buildCar($("carPage"));
+    if (Panel.initAreas) Panel.initAreas();
     cfg.sensors.forEach((_, i) => renderSensor(i));
     cfg.air.forEach((_, i) => renderAir(i));
     renderBike();
