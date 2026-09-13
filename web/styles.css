@@ -468,10 +468,19 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .vp { display: flex; flex-direction: column; gap: 14px; padding: var(--pad) 20px var(--pad) var(--pad); min-height: 0; }
 .vp.offline { opacity: 0.6; }
 .vlabel { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
-.vchip { padding: 10px 16px; border-radius: 12px; background: var(--tile); font-size: 16px; font-weight: 600; color: var(--text); transition: background-color 0.2s, color 0.2s, transform 0.12s; }
-.vchip.active { background: var(--scene_on); color: var(--scene_text); }
-.vbtn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 20px; border-radius: 14px; background: var(--tile); font-size: 17px; font-weight: 700; transition: background-color 0.2s, opacity 0.2s, transform 0.12s; }
-.vbtn .ic { font-size: 18px; }
+/* Actions and choices are tiles like the rooms: same surface, fixed sizes. */
+.vchip, .vbtn {
+  position: relative; min-width: 0; border-radius: 16px; background: var(--tile); color: var(--text);
+  font-weight: 700; line-height: 1.15; text-align: left;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 0 0 1px color-mix(in srgb, var(--text_dim) 18%, transparent);
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.12s;
+}
+/* Choices: a row of equal tiles, one fixed height. */
+.vchip { height: 64px; padding: 0 14px; display: flex; align-items: center; font-size: 17px; }
+.vchip.active { background: var(--tile_on); color: var(--on_text); }
+/* Actions: icon top-left, label at the bottom. */
+.vbtn { height: 96px; padding: 12px 14px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; font-size: 17px; }
+.vbtn .ic { font-size: 22px; }
 .vbtn.primary { background: var(--accent); color: var(--on_text); }
 .vbtn:disabled { opacity: 0.45; cursor: default; }
 .vchip.pressed, .vbtn.pressed, .vs-room.pressed { transform: scale(0.95); }
@@ -506,9 +515,10 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
   background-size: 250% 100%; animation: vs-sweep 2.4s linear infinite;
 }
 @keyframes vs-sweep { from { background-position: 150% 0; } to { background-position: -100% 0; } }
-.vs-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Three actions always show at once (idle, busy or paused). */
+.vs-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .vs-group { display: flex; flex-direction: column; gap: 6px; }
-.vs-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.vs-chips { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 10px; }
 .vs-cons-list, .vs-rec-list { display: flex; flex-direction: column; gap: 8px; }
 .vs-cons { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; }
 .vs-cons em, .vs-rec em { font-style: normal; color: var(--text_dim); font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -521,8 +531,9 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .vs-rec em { text-align: right; }
 .vs-empty { font-size: 15px; color: var(--text_dim); }
 @media (min-width: 1000px) and (min-height: 700px) {
-  .vchip { padding: 12px 20px; font-size: 18px; border-radius: 14px; }
-  .vbtn { padding: 15px 24px; font-size: 19px; }
+  .vchip { height: 70px; padding: 0 12px; font-size: 17px; }
+  .vbtn { height: 104px; font-size: 19px; }
+  .vbtn .ic { font-size: 24px; }
 }
 @media (max-width: 860px) {
   .vp { padding: 12px; gap: 10px; }
@@ -536,8 +547,9 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
   :root { --rail-w: 70px; }
   .rail-btn span { display: none; }
   .rail-btn b { font-size: 26px; }
-  .vchip { padding: 7px 11px; font-size: 14px; }
-  .vbtn { padding: 8px 13px; font-size: 14px; }
+  .vchip { height: 44px; padding: 0 10px; font-size: 14px; border-radius: 12px; }
+  .vbtn { height: 64px; padding: 8px 10px; font-size: 14px; border-radius: 12px; }
+  .vbtn .ic { font-size: 18px; }
 }
 @media (max-width: 760px) {
   :root { --rail-w: 58px; }
@@ -547,8 +559,8 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
   .rail-btn span { display: none; }
   .rail-btn b { font-size: 26px; }
   .floor .grid { padding-left: 10px; }
-  .vchip { padding: 8px 11px; font-size: 14px; }
-  .vbtn { padding: 10px 14px; font-size: 15px; }
+  .vchip { height: 52px; padding: 0 10px; font-size: 14px; }
+  .vbtn { height: 80px; padding: 10px; font-size: 15px; }
 }
 
 /* ---- Air-quality column and popup ----------------------------------------- */

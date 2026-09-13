@@ -20,7 +20,7 @@
     godust: "Stof legen",
   };
   const STATE_NL = { docked: "In dock", cleaning: "Aan het schoonmaken", returning: "Terug naar dock", idle: "Klaar", paused: "Gepauzeerd", error: "Storing" };
-  const MODE_NL = { BothWork: "Zuigen + dweilen", OnlySweep: "Zuigen", OnlyMop: "Dweilen", SweepFirst: "Eerst zuigen" };
+  const MODE_NL = { BothWork: "Zuigen\u00a0+ dweilen" /* breaks as "Zuigen +" / "dweilen" */, OnlySweep: "Zuigen", OnlyMop: "Dweilen", SweepFirst: "Eerst zuigen" };
   const FAN_NL = { Quiet: "Stil", Auto: "Auto", Strong: "Sterk", Max: "Max" };
   const WATER_NL = { Low: "Laag", Mid: "Midden", High: "Hoog" };
   const CONSUMABLES = {
@@ -59,8 +59,11 @@
     return `${days} dagen geleden`;
   }
 
+  /* One row of equal tiles per choice: the grid gets its column count as --n. */
   const chips = (kind, labels) =>
-    Object.entries(labels).map(([opt, l]) => `<button class="vchip" data-vac="${kind}" data-opt="${opt}">${l}</button>`).join("");
+    `<div class="vs-chips" style="--n:${Object.keys(labels).length}">` +
+    Object.entries(labels).map(([opt, l]) => `<button class="vchip" data-vac="${kind}" data-opt="${opt}">${l}</button>`).join("") +
+    `</div>`;
 
   Panel.buildVacuum = function (container) {
     root = container;
@@ -84,9 +87,9 @@
       `<button class="vbtn" data-vac="dock">${icon("dock")}<span>Naar dock</span></button>` +
       `<button class="vbtn" data-vac="locate">${icon("locate")}<span>Zoek robot</span></button>` +
       `</div>` +
-      `<div class="vs-group"><span class="vlabel">Modus</span><div class="vs-chips">${chips("mode", MODE_NL)}</div></div>` +
-      `<div class="vs-group"><span class="vlabel">Zuigkracht</span><div class="vs-chips">${chips("fan", FAN_NL)}</div></div>` +
-      `<div class="vs-group vs-water"><span class="vlabel">Water</span><div class="vs-chips">${chips("water", WATER_NL)}</div></div>` +
+      `<div class="vs-group"><span class="vlabel">Modus</span>${chips("mode", MODE_NL)}</div>` +
+      `<div class="vs-group"><span class="vlabel">Zuigkracht</span>${chips("fan", FAN_NL)}</div>` +
+      `<div class="vs-group vs-water"><span class="vlabel">Water</span>${chips("water", WATER_NL)}</div>` +
       `<div class="vs-section-title">Onderhoud</div><div class="vs-cons-list"></div>` +
       `</section></div>`;
     render();
@@ -133,7 +136,7 @@
 
     const n = selected.size;
     const roomsBtn = q('[data-vac="rooms"]');
-    roomsBtn.querySelector("span").textContent = n ? `${n === 1 ? "Kamer" : n + " kamers"} schoonmaken` : "Kies kamers";
+    roomsBtn.querySelector("span").textContent = n ? `Start ${n === 1 ? "kamer" : n + " kamers"}` : "Kies kamers";
     roomsBtn.disabled = !n || busy || offline;
     q('[data-vac="start"]').hidden = busy || paused;
     roomsBtn.hidden = busy || paused;
