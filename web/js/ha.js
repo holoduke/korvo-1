@@ -431,11 +431,12 @@
             },
           };
         }
-        if (v && (domain === "vacuum" || domain === "xiaomi_miot" || (domain === "select" && ids.some((i) => [v.mode, v.fan, v.water].includes(i))) || domain === "button")) {
+        const rooms = v && domain === v.roomsDomain;
+        if (v && (domain === "vacuum" || rooms || (domain === "select" && ids.some((i) => [v.mode, v.fan, v.water].includes(i))) || domain === "button")) {
           const now2 = Date.now();
-          if (domain === "xiaomi_miot" && data && data.params) {
+          if (rooms && service === "stofzuig") {
             const vs = states.get(v.vacuum);
-            set(v.vacuum, vs.state, { ...vs.attributes, "robotic_vacuum.clean_values": data.params[1] }, now2);
+            set(v.vacuum, vs.state, { ...vs.attributes, "robotic_vacuum.clean_values": JSON.stringify(data.gebieden) }, now2);
           }
           if (domain === "select") ids.forEach((i) => set(i, data.option, (states.get(i) || {}).attributes, now2));
           const go = (state, status, area) => {
@@ -443,9 +444,9 @@
             set(v.status, status, {}, now2);
             set(v.area, String(area), {}, now2);
           };
-          if (domain === "xiaomi_miot" || (domain === "vacuum" && service === "start")) go("cleaning", "sweeping", 3);
+          if ((rooms && service === "stofzuig") || (domain === "vacuum" && service === "start")) go("cleaning", "sweeping", 3);
           if (domain === "vacuum" && service === "pause") go("paused", "paused", 3);
-          if (domain === "vacuum" && service === "return_to_base") go("returning", "go charging", 3);
+          if ((rooms && service === "naar_station") || (domain === "vacuum" && service === "return_to_base")) go("returning", "go charging", 3);
           change([v.vacuum, v.status, v.area, v.mode, v.fan, v.water]);
           return returnResponse ? { response: {} } : null;
         }

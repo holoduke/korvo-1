@@ -565,22 +565,31 @@ window.PANEL_CONFIG = {
     "fan": "select.stofzuiger_xiaomi_fan_mode",
     "water": "select.stofzuiger_xiaomi_water_mode",
     "locate": "button.stofzuiger_xiaomi_seek_robot",
+    "roomsDomain": "robotkamers",
     "rooms": [
       {
-        "id": 4,
-        "label": "Kamer 4"
-      },
-      {
         "id": 5,
-        "label": "Kamer 5"
-      },
-      {
-        "id": 7,
-        "label": "Kamer 7"
+        "label": "Keuken"
       },
       {
         "id": 8,
-        "label": "Kamer 8"
+        "label": "Eetkamer"
+      },
+      {
+        "id": 3,
+        "label": "Zitkamer achter"
+      },
+      {
+        "id": 7,
+        "label": "Gameroom"
+      },
+      {
+        "id": 9,
+        "label": "Gang"
+      },
+      {
+        "id": 4,
+        "label": "Garage"
       }
     ]
   },

@@ -167,7 +167,7 @@ def parse_vacuum(src):
     if not m:
         fail("PANEL_VACUUM not found")
     vals = re.findall(r'"([^"]*)"', m.group(1))
-    keys = ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate")
+    keys = ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate", "roomsDomain")
     if len(vals) != len(keys):
         fail(f"PANEL_VACUUM: expected {len(keys)} strings, found {len(vals)}")
     vac = dict(zip(keys, vals))

@@ -330,15 +330,18 @@ typedef struct {
     const char *fan_id;     /* select: suction */
     const char *water_id;   /* select: water flow */
     const char *locate_id;  /* button: make the robot play a sound */
+    const char *rooms_domain; /* HA integration with stofzuig(gebieden) and naar_station */
 } panel_vacuum_t;
 
-/* Ids seen in the robot's clean-values on 2026-09-13 (4, 5, 7, 8); the names
- * are placeholders until the rooms are identified. */
+/* Room numbers as the robot knows them; the same table lives under
+ * "robotkamers: kamers:" in Home Assistant's configuration.yaml. */
 static const panel_room_t PANEL_VACUUM_ROOMS[] = {
-    { 4, "Kamer 4" },
-    { 5, "Kamer 5" },
-    { 7, "Kamer 7" },
-    { 8, "Kamer 8" },
+    { 5, "Keuken" },
+    { 8, "Eetkamer" },
+    { 3, "Zitkamer achter" },
+    { 7, "Gameroom" },
+    { 9, "Gang" },
+    { 4, "Garage" },
 };
 static const panel_vacuum_t PANEL_VACUUM = {
     "Stofzuiger",
@@ -350,6 +353,7 @@ static const panel_vacuum_t PANEL_VACUUM = {
     "select.stofzuiger_xiaomi_fan_mode",
     "select.stofzuiger_xiaomi_water_mode",
     "button.stofzuiger_xiaomi_seek_robot",
+    "robotkamers",
 };
 
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are

@@ -221,17 +221,17 @@
     }
     if (kind === "rooms") {
       if (!selected.size) return;
-      const list = JSON.stringify([...selected].sort((a, b) => a - b));
-      /* start-clean(clean-type = 3 AreaClean, clean-values = "[id,...]") */
+      /* The robotkamers integration stops any open job first: the robot silently
+       * ignores a new start while an old one is still pending. */
       Panel.client
-        .callService("xiaomi_miot", "call_action", { entity_id: vac.vacuum, siid: 17, aiid: 1, params: [3, list] })
+        .callService(vac.roomsDomain, "stofzuig", { gebieden: [...selected].sort((a, b) => a - b) })
         .catch(fail);
       selected.clear();
       return render();
     }
     if (kind === "start" || kind === "resume") return Panel.client.callService("vacuum", "start", null, target).catch(fail);
     if (kind === "pause") return Panel.client.callService("vacuum", "pause", null, target).catch(fail);
-    if (kind === "dock") return Panel.client.callService("vacuum", "return_to_base", null, target).catch(fail);
+    if (kind === "dock") return Panel.client.callService(vac.roomsDomain, "naar_station").catch(fail);
     if (kind === "locate") return Panel.client.callService("button", "press", null, { entity_id: vac.locate }).catch(fail);
   };
 
