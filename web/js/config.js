@@ -593,6 +593,13 @@ window.PANEL_CONFIG = {
       }
     ]
   },
+  "bike": {
+    "label": "Fiets",
+    "battery": "sensor.st7_battery",
+    "location": "device_tracker.st7_location",
+    "lock": "binary_sensor.st7_bike_lock",
+    "speed": "sensor.st7_bike_speed"
+  },
   "media": [
     {
       "id": "media_player.living_room",

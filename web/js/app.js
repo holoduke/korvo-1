@@ -67,6 +67,9 @@
     vac ? ["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]).filter(Boolean) : []
   );
   vacIds.forEach((id) => ids.add(id));
+  const bike = cfg.bike;
+  const bikeIds = new Set(bike ? ["battery", "location", "lock", "speed"].map((k) => bike[k]).filter(Boolean) : []);
+  bikeIds.forEach((id) => ids.add(id));
   const client = demo ? HA.createDemo(cfg) : HA.createClient([...ids]);
   Panel.client = client;
   let loaded = false; /* initial state dump received */
@@ -187,11 +190,18 @@
             `</div></button>`
         )
         .join("") +
-      (cfg.vacuum
-        ? `<div class="rule"></div><button class="sensor-col vac-col" data-vachdr aria-label="${cfg.vacuum.label}">` +
-          `<div class="s-name"><span>${cfg.vacuum.label}</span></div>` +
-          `<div class="s-temp vh-batt">${icon("vacuum")}<span>--</span></div>` +
-          `<div class="s-hum vh-status">...</div></button>`
+      /* Devices: one row each (icon, battery, short status); two rows fit the header. */
+      (cfg.vacuum || cfg.bike
+        ? `<div class="rule"></div><div class="sensor-col dev-col">` +
+          (cfg.vacuum
+            ? `<button class="dev-row" data-vachdr aria-label="${cfg.vacuum.label}">` +
+              `<span class="vh-batt">${icon("vacuum")}<span>--</span></span><span class="vh-status">...</span></button>`
+            : "") +
+          (cfg.bike
+            ? `<div class="dev-row" data-bike aria-label="${cfg.bike.label}">` +
+              `<span class="vh-batt">${icon("bike")}<span>--</span></span><span class="vh-status">...</span></div>`
+            : "") +
+          `</div>`
         : "");
     $("gear").innerHTML = icon("gear");
   }
@@ -225,6 +235,7 @@
   const b = cfg.airBands;
   const co2Colour = (v) => (v <= b.co2Good ? "var(--ok)" : v <= b.co2Poor ? "var(--warn)" : "var(--bad)");
   const pmColour = (v) => (v <= b.pm25Good ? "var(--ok)" : v <= b.pm25Poor ? "var(--warn)" : "var(--bad)");
+  Panel.battColour = (v) => (!Number.isFinite(v) ? "var(--text)" : v < 20 ? "var(--bad)" : v < 40 ? "var(--warn)" : "var(--ok)");
   const QUALITY = {
     good: ["goed", "var(--ok)"],
     fair: ["redelijk", "var(--warn)"],
@@ -281,6 +292,28 @@
     col.querySelector(".aq-txt").textContent = q ? q[0] : "";
     col.querySelector(".aq-txt").style.color = q ? q[1] : "";
     col.classList.toggle("stale", !Number.isFinite(co2) && !Number.isFinite(t));
+  }
+
+  const WHERE_NL = { home: "Thuis", not_home: "Weg" };
+  function renderBike() {
+    const row = bike && document.querySelector("[data-bike]");
+    if (!row) return;
+    const batt = Panel.num(bike.battery);
+    const where = st(bike.location);
+    const speed = Panel.num(bike.speed);
+    const locked = (st(bike.lock) || {}).state === "on";
+    const offline = loaded && unavailable(st(bike.battery));
+    const riding = Number.isFinite(speed) && speed >= 3;
+    /* Riding shows the speed; parked shows where (home, away or a zone's name)
+     * and a lock icon when locked. Short: the header column is narrow. */
+    const status = offline ? "Offline" : riding ? `${Math.round(speed)} km/u` : unavailable(where) ? "" : WHERE_NL[where.state] || where.state;
+    row.querySelector(".vh-batt span").textContent = Number.isFinite(batt) ? Math.round(batt) + "%" : "--";
+    row.querySelector(".vh-batt").style.color = Panel.battColour(batt);
+    const statusEl = row.querySelector(".vh-status");
+    statusEl.textContent = status; /* zone names come from HA: text, not markup */
+    if (!offline && !riding && locked) statusEl.insertAdjacentHTML("beforeend", icon("lock"));
+    row.classList.toggle("riding", riding);
+    row.classList.toggle("stale", offline);
   }
 
   /* The ALPSTUGA's first CO2 and PM2.5 reading after it comes back from
@@ -553,6 +586,7 @@
     loaded = true;
     const allIds = first ? [...ids] : changed;
     let vacChanged = false;
+    let bikeChanged = false;
     for (const id of allIds) {
       const s = st(id);
       if (id.startsWith("light.")) {
@@ -569,6 +603,8 @@
         if (!haveForecast && s) renderForecastDay(0, s.state, s.attributes.temperature);
       } else if (id.startsWith("media_player.")) {
         if (Panel.onMedia) Panel.onMedia();
+      } else if (bikeIds.has(id)) {
+        bikeChanged = true;
       } else if (vacIds.has(id)) {
         vacChanged = true;
       } else if (airOf.has(id)) {
@@ -590,6 +626,7 @@
       }
     }
     if (vacChanged && Panel.onVacuum) Panel.onVacuum();
+    if (bikeChanged) renderBike();
     if (first) {
       newestScenes();
       loadHistory();
@@ -605,6 +642,7 @@
     if (Panel.buildVacuum && $("vacPage")) Panel.buildVacuum($("vacPage"));
     cfg.sensors.forEach((_, i) => renderSensor(i));
     cfg.air.forEach((_, i) => renderAir(i));
+    renderBike();
     /* Fade the header strip's right edge only while more columns hide there. */
     const strip = document.querySelector(".hdr-strip");
     const fade = () =>

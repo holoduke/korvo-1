@@ -379,6 +379,13 @@
       set(v.water, "Mid", { options: ["Low", "Mid", "High"] });
       set(v.locate, "unknown", {});
     }
+    if (cfg.bike) {
+      const b = cfg.bike;
+      set(b.battery, "86", { unit_of_measurement: "%" });
+      set(b.location, "home", {});
+      set(b.lock, "on", {});
+      set(b.speed, "0", { unit_of_measurement: "km/h" });
+    }
     cfg.air.forEach((a) => {
       set(a.co2, "742", { unit_of_measurement: "ppm" });
       set(a.pm25, "4", { unit_of_measurement: "µg/m³" });
@@ -508,6 +515,7 @@
               { s: "returning", a: at(`[${room}]`, Math.round(m2 * 0.7), 600), t: t + 10 * 60e3 },
               { s: "cleaning", a: at(`[${room}]`, Math.round(m2 * 0.7), 610), t: t + 13 * 60e3 },
               { s: "docked", a: at(`[${room}]`, m2, 1000), t: t + 20 * 60e3 },
+              { s: "docked", a: at("[]", 0, 0), t: t + 60 * 60e3 }, /* counters cleared after drying */
             ];
           }).filter((r) => r.t >= start.getTime()).sort((x, y) => x.t - y.t);
         });

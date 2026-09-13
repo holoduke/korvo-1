@@ -71,6 +71,9 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
   align-items: center;
   padding: 0 20px;
   gap: 14px;
+  /* Spacing between header columns: full on wide screens, tighter on an 11"
+   * iPad in landscape (1180-1194 px) so every column fits without scrolling. */
+  --hdr-gap: clamp(7px, 1vw - 4px, 11px);
   transition: background-color 0.35s, border-color 0.35s;
 }
 .hdr-strip {
@@ -82,15 +85,14 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
   scrollbar-width: none;
 }
 .hdr-strip::-webkit-scrollbar { display: none; }
-.fc { display: flex; gap: 12px; align-items: center; }
+.fc { display: flex; gap: var(--hdr-gap); align-items: center; }
 .fc-col, .sensor-col { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .fc-day { font-size: 14px; color: var(--text_dim); font-weight: 600; }
 .fc-day.today { color: var(--accent); }
 .fc-temp { font-size: 18px; font-weight: 600; }
-/* Divider spacing scales with the width so every header column fits on an
- * 11" iPad in landscape (1194 px) and still breathes on wider screens. */
-.rule { width: 1px; height: 48px; background: var(--tile); margin: 0 clamp(6px, 0.75vw, 14px); flex: none; }
-.sensors { display: flex; gap: 11px; align-items: center; }
+/* Divider spacing scales with the width, like --hdr-gap. */
+.rule { width: 1px; height: 48px; background: var(--tile); margin: 0 clamp(5px, 1.2vw - 8px, 14px); flex: none; }
+.sensors { display: flex; gap: var(--hdr-gap); align-items: center; }
 .sensor-col { padding: 2px 4px; border-radius: 10px; transition: background-color 0.15s; }
 .sensor-col:active { background: color-mix(in srgb, var(--tile) 70%, transparent); }
 .s-name { font-size: 14px; color: var(--text_dim); font-weight: 600; display: flex; align-items: center; gap: 2px; white-space: nowrap; }
@@ -584,15 +586,21 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .a-pm { color: var(--text_dim); }
 .sensor-col.stale { opacity: 0.55; }
 
-/* Vacuum column: battery with the robot icon, status underneath. */
-.vac-col { align-items: flex-start; text-align: left; }
-.vh-batt { display: flex; align-items: center; gap: 7px; }
-.vh-batt .ic { font-size: 22px; color: var(--accent); }
-.vac-col.busy .vh-batt .ic { animation: vac-spin 3s linear infinite; }
+/* Devices column: a row per device (vacuum, bike) with its icon, battery and a
+ * short status. The battery cell has a fixed minimum width so both statuses
+ * start on the same line. */
+.dev-col { align-items: stretch; gap: 6px; }
+.dev-col:active { background: none; } /* the rows give their own press feedback */
+.dev-row { display: flex; align-items: center; gap: 6px; text-align: left; border-radius: 8px; transition: background-color 0.15s, opacity 0.3s; }
+button.dev-row:active { background: color-mix(in srgb, var(--tile) 70%, transparent); }
+.vh-batt { display: flex; align-items: center; gap: 5px; min-width: 64px; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; transition: color 0.4s; }
+.vh-batt .ic { font-size: 18px; color: var(--accent); }
+.dev-row.busy .vh-batt .ic { animation: vac-spin 3s linear infinite; }
 @keyframes vac-spin { to { transform: rotate(360deg); } }
-.vh-status { color: var(--text_dim); white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; display: block; }
-.vac-col.busy .vh-status { color: var(--accent); }
-.vac-col.stale { opacity: 0.55; }
+.vh-status { font-size: 13px; font-weight: 600; color: var(--text_dim); white-space: nowrap; max-width: 60px; overflow: hidden; text-overflow: ellipsis; } /* keeps the header within an 11" iPad */
+.vh-status .ic { display: inline-block; font-size: 12px; margin-left: 4px; vertical-align: -1px; }
+.dev-row.busy .vh-status, .dev-row.riding .vh-status { color: var(--accent); }
+.dev-row.stale { opacity: 0.55; }
 .clim-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .stat { background: var(--tile_off); border-radius: 12px; padding: 8px 10px; min-width: 0; }
 .stat-v { font-size: 22px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: color 0.4s; }

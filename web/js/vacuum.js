@@ -11,15 +11,7 @@
   const vac = cfg.vacuum;
   if (!vac) return;
 
-  const STATUS_NL = {
-    idle: "Klaar", busy: "Bezig", delay: "Wacht", mopping: "Dweilen", "sweeping and mopping": "Zuigen en dweilen",
-    paused: "Gepauzeerd", sweeping: "Zuigen", error: "Storing", charging: "Opladen", "go charging": "Terug naar dock",
-    breakcharging: "Tussendoor laden", gowash: "Dweil wassen", charged: "Opgeladen", buildingmap: "Kaart maken",
-    updating: "Update", sleeping: "Slaapt", relocation: "Zoekt positie", stationworking: "Station bezig",
-    mappingpause: "Kaart gepauzeerd", gochargebreak: "Laadpauze", washbreak: "Waspauze", "linking device": "Verbinden",
-    godust: "Stof legen",
-  };
-  const STATE_NL = { docked: "In dock", cleaning: "Aan het schoonmaken", returning: "Terug naar dock", idle: "Klaar", paused: "Gepauzeerd", error: "Storing" };
+  const STATE_NL = { docked: "In dock", idle: "Klaar", paused: "Pauze", error: "Storing" };
   const MODE_NL = { BothWork: "Zuigen\u00a0+ dweilen" /* breaks as "Zuigen +" / "dweilen" */, OnlySweep: "Zuigen", OnlyMop: "Dweilen", SweepFirst: "Eerst zuigen" };
   const FAN_NL = { Quiet: "Stil", Auto: "Auto", Strong: "Sterk", Max: "Max" };
   const WATER_NL = { Low: "Laag", Mid: "Midden", High: "Hoog" };
@@ -117,8 +109,18 @@
     const expected = running ? expectedArea(runRooms) : null;
     /* Capped below 100: the robot decides when a room is finished, not the estimate. */
     const pct = expected ? Math.min(99, Math.round((done / expected) * 100)) : null;
-    let status = offline ? "Niet bereikbaar" : STATUS_NL[statusRaw] || STATE_NL[vstate] || vstate;
-    if ((busy || paused) && done > 0) status += pct !== null ? ` · ${pct}%` : ` · ${Math.round(done)} m²`;
+    /* Header status, a word or two (the column is narrow; details are on the page).
+     * During a job that is its progress, including mop-wash trips to the dock. */
+    let status;
+    if (offline) status = "Offline";
+    else if (vstate === "error" || statusRaw === "error") status = "Storing";
+    else if (running && pct !== null) status = `${pct}%`;
+    else if (vstate === "returning") status = "Terug";
+    else if (paused) status = "Pauze";
+    else if (busy) status = done > 0 ? `${Math.round(done)} m²` : "Bezig";
+    else if (statusRaw === "charging" || statusRaw === "breakcharging") status = "Laadt";
+    else if (statusRaw === "charged") status = "Vol";
+    else status = STATE_NL[vstate] || "Klaar";
     root.classList.toggle("offline", offline);
 
     /* Battery and status live in the header, visible from every section. */
@@ -126,8 +128,7 @@
     if (hdr) {
       const batt = Panel.num(vac.battery);
       hdr.querySelector(".vh-batt span").textContent = Number.isFinite(batt) ? Math.round(batt) + "%" : "--";
-      hdr.querySelector(".vh-batt").style.color = !Number.isFinite(batt)
-        ? "var(--text)" : batt < 20 ? "var(--bad)" : batt < 40 ? "var(--warn)" : "var(--ok)";
+      hdr.querySelector(".vh-batt").style.color = Panel.battColour(batt);
       hdr.querySelector(".vh-status").textContent = status;
       hdr.classList.toggle("busy", busy);
       hdr.classList.toggle("stale", offline);
@@ -221,9 +222,8 @@
       if (area > run.area) run = { key, area };
       else if (run.area === 0) run.key = key;
     }
-    /* The last run counts only once the robot is back; otherwise it is the current one. */
-    const last = rows[rows.length - 1];
-    if (last && (last.s === "docked" || last.s === "idle")) commit();
+    /* The last run is not counted: without a later restart of clean_time it may
+     * still be going (the robot docks mid-run to wash its mop, at part of the area). */
   }
 
   /* m² expected for a set of rooms: a finished run of exactly that set, or the

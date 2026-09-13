@@ -356,6 +356,23 @@ static const panel_vacuum_t PANEL_VACUUM = {
     "robotkamers",
 };
 
+/* E-bike in the web app's header: battery, where it is, lock and speed
+ * (Stromer integration; the panel's firmware does not show it). */
+typedef struct {
+    const char *label;
+    const char *battery_id;  /* % */
+    const char *location_id; /* device_tracker: home / not_home / zone name */
+    const char *lock_id;     /* binary_sensor: on = locked */
+    const char *speed_id;    /* km/h */
+} panel_bike_t;
+static const panel_bike_t PANEL_BIKE = {
+    "Fiets",
+    "sensor.st7_battery",
+    "device_tracker.st7_location",
+    "binary_sensor.st7_bike_lock",
+    "sensor.st7_bike_speed",
+};
+
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
  * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */

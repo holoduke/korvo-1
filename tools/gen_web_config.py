@@ -176,6 +176,17 @@ def parse_vacuum(src):
     return vac
 
 
+def parse_bike(src):
+    m = re.search(r"\bPANEL_BIKE\s*=\s*\{(.*?)\};", src, re.S)
+    if not m:
+        fail("PANEL_BIKE not found")
+    vals = re.findall(r'"([^"]*)"', m.group(1))
+    keys = ("label", "battery", "location", "lock", "speed")
+    if len(vals) != len(keys):
+        fail(f"PANEL_BIKE: expected {len(keys)} strings, found {len(vals)}")
+    return dict(zip(keys, vals))
+
+
 def parse_layout(src, tabs):
     names = [t["name"] for t in tabs]
 
@@ -246,6 +257,7 @@ def main():
             "pm25Poor": define(cfg, "AIR_PM25_POOR", "num"),
         },
         "vacuum": parse_vacuum(cfg),
+        "bike": parse_bike(cfg),
         "media": entity_table(cfg, "PANEL_MEDIA_PLAYERS"),
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),
