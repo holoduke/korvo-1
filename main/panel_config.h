@@ -417,7 +417,10 @@ static const panel_area_t PANEL_AREAS[] = {
  * device's part of its entity ids (e.g. "wasruimte_wasmachine" in
  * sensor.wasruimte_wasmachine_job_state); tools/gen_web_config.py derives the
  * rest. Kinds: washer, dryer (SmartThings), dishwasher, oven, hob (Home
- * Connect via hcpy), filter (ATAG plasma filter over MQTT), fridge (Liebherr). */
+ * Connect via hcpy), filter (ATAG plasma filter over MQTT), fridge (Liebherr),
+ * tv (a DLNA media player; a Wake on LAN button named button.<name>_aanzetten
+ * switches it on) and speakers (WiiM: name lists the players' object ids,
+ * each also in PANEL_MEDIA_PLAYERS, which gives their labels). */
 typedef struct {
     const char *kind;
     const char *label;
@@ -431,6 +434,8 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "filter",     "Filter",     "atag_plasmafilter" },
     { "hob",        "Kookplaat",  "hob" },
     { "fridge",     "Koelkast",   "koelkast_1" },
+    { "speakers",   "WiiM",       "living_room kitchen media_room" },
+    { "tv",         "Samsung TV", "signage_big_ass_tv" },
 };
 
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are

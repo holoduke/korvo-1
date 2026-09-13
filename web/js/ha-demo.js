@@ -179,6 +179,23 @@
         put("temp", "4", { unit_of_measurement: "°C" });
         put("setpoint", "4", { min: 3, max: 9, step: 1, unit_of_measurement: "°C" });
         ["supercool", "party", "night"].forEach((k) => put(k, "off"));
+      } else if (ap.kind === "speakers") {
+        /* The first two play together; the last is idle on its line input. */
+        const ids = ap.players.map((p) => e[p.key]);
+        const group = ids.slice(0, 2);
+        ap.players.forEach((p, n) =>
+          put(p.key, n < 2 ? "playing" : "idle", {
+            supported_features: 678463,
+            volume_level: [0.32, 0.33, 0.49][n] ?? 0.4,
+            is_volume_muted: false,
+            group_members: n < 2 ? group : [ids[n]],
+            source: n < 2 ? "Network" : "Line In",
+            ...(n < 2 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : { source_list: ["Network", "Bluetooth", "Line In", "Optical In", "TV"] }),
+          })
+        );
+      } else if (ap.kind === "tv") {
+        put("player", "unavailable", { supported_features: 0 });
+        put("wake", "unknown");
       }
     });
     /* Room lamps that no drawer lists still have to exist in the demo. */
@@ -197,9 +214,24 @@
       set(a.humidity, "55", { unit_of_measurement: "%" });
     });
     set(cfg.weather, "partlycloudy", { temperature: 17 });
-    cfg.media.forEach((m, i) =>
-      set(m.id, i === 0 ? "playing" : "idle", i === 0 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : {})
-    );
+    cfg.media.forEach((m, i) => {
+      if (!states.has(m.id)) set(m.id, i === 0 ? "playing" : "idle", i === 0 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : {});
+    });
+
+    /* A media player's next state and attributes after a service call. */
+    function mediaChange(id, cur, service, data) {
+      const a = { ...cur.attributes };
+      let state = cur.state;
+      if (service === "media_play_pause") state = state === "playing" ? "paused" : "playing";
+      else if (service === "media_stop") state = "idle";
+      else if (service === "turn_off") state = "off";
+      else if (service === "volume_set") a.volume_level = data.volume_level;
+      else if (service === "volume_mute") a.is_volume_muted = data.is_volume_muted;
+      else if (service === "select_source") a.source = data.source;
+      else if (service === "join") a.group_members = [...new Set([...(a.group_members || [id]), ...data.group_members])];
+      else if (service === "unjoin") a.group_members = [id];
+      return [state, a];
+    }
 
     function change(ids) {
       setTimeout(() => ev.emit("states", ids), 140);
@@ -267,11 +299,13 @@
           ids.forEach((id) => {
             const cur = states.get(id) || { state: "unknown", attributes: {} };
             let next = cur.state;
+            let attributes = cur.attributes;
             if (domain === "select") next = data.option;
             else if (domain === "switch") next = service === "turn_on" ? "on" : "off";
             else if (domain === "number") next = String(data.value);
             else if (domain === "button") next = new Date(t).toISOString();
-            set(id, next, cur.attributes, t);
+            else if (domain === "media_player") [next, attributes] = mediaChange(id, cur, service, data);
+            set(id, next, attributes, t);
             (cfg.appliances || []).forEach((ap) => {
               const e = ap.entities;
               const also = (key, state) => set(e[key], state, (states.get(e[key]) || {}).attributes || {}, t);
@@ -281,6 +315,17 @@
               if (ap.kind === "oven" && id === e.pause) also("op", "Pause");
               if (ap.kind === "oven" && id === e.resume) also("op", "Run");
               if (ap.kind === "oven" && id === e.abort) also("op", "Inactive");
+              if (ap.kind === "tv" && id === e.wake) set(e.player, "unknown", { supported_features: 20493, volume_level: 0.2, is_volume_muted: false }, t);
+              if (ap.kind === "speakers" && domain === "media_player" && Object.values(e).includes(id)) {
+                /* Every member of a group lists the same members. */
+                const players = Object.values(e);
+                const members = service === "join" ? states.get(id).attributes.group_members : null;
+                players.filter((m) => m !== id).forEach((m) => {
+                  const ma = states.get(m).attributes;
+                  if (service === "join" && members.includes(m)) set(m, states.get(m).state, { ...ma, group_members: members }, t);
+                  if (service === "unjoin") set(m, states.get(m).state, { ...ma, group_members: (ma.group_members || [m]).filter((x) => x !== id) }, t);
+                });
+              }
             });
           });
           change(applEntities);

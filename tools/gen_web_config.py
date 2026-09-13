@@ -271,15 +271,28 @@ APPLIANCE_ENTITIES = {
         "temp": "sensor.{n}", "setpoint": "number.{n}_setpoint", "supercool": "switch.{n}_supercool",
         "party": "switch.{n}_partymode", "night": "switch.{n}_nightmode",
     },
+    # A DLNA media player, with a Wake on LAN button renamed after it in Home Assistant.
+    "tv": {"player": "media_player.{n}", "wake": "button.{n}_aanzetten"},
 }
 
 
-def parse_appliances(src):
+def parse_appliances(src, media):
     rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, "PANEL_APPLIANCES"))
     if not rows:
         fail("PANEL_APPLIANCES is empty or unparsable")
+    labels = {m["id"]: m["label"] for m in media}
     out = []
     for kind, label, name in rows:
+        if kind == "speakers":
+            # name lists the players' object ids; their labels come from PANEL_MEDIA_PLAYERS
+            keys = name.split()
+            missing = [k for k in keys if f"media_player.{k}" not in labels]
+            if not keys or missing:
+                fail(f"PANEL_APPLIANCES {label!r}: players {missing or 'none'} are not in PANEL_MEDIA_PLAYERS")
+            out.append({"kind": kind, "label": label, "name": name,
+                        "entities": {k: f"media_player.{k}" for k in keys},
+                        "players": [{"key": k, "label": labels[f"media_player.{k}"]} for k in keys]})
+            continue
         if kind not in APPLIANCE_ENTITIES:
             fail(f"PANEL_APPLIANCES {label!r}: unknown kind {kind!r}")
         if not re.fullmatch(r"[a-z0-9_]+", name):
@@ -375,6 +388,7 @@ def main():
     tabs = parse_tabs(cfg)
     parse_areas(cfg, tabs)
     floors, sections = parse_layout(cfg, tabs)
+    media = entity_table(cfg, "PANEL_MEDIA_PLAYERS")
     config = {
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),
         "tabs": tabs,
@@ -392,8 +406,8 @@ def main():
         "vacuum": parse_vacuum(cfg),
         "bike": parse_bike(cfg),
         "car": parse_car(cfg),
-        "appliances": parse_appliances(cfg),
-        "media": entity_table(cfg, "PANEL_MEDIA_PLAYERS"),
+        "appliances": parse_appliances(cfg, media),
+        "media": media,
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),
             "tempMax": define(cfg, "COMFORT_TEMP_MAX", "num"),

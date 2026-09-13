@@ -959,6 +959,39 @@ window.PANEL_CONFIG = {
         "party": "switch.koelkast_1_partymode",
         "night": "switch.koelkast_1_nightmode"
       }
+    },
+    {
+      "kind": "speakers",
+      "label": "WiiM",
+      "name": "living_room kitchen media_room",
+      "entities": {
+        "living_room": "media_player.living_room",
+        "kitchen": "media_player.kitchen",
+        "media_room": "media_player.media_room"
+      },
+      "players": [
+        {
+          "key": "living_room",
+          "label": "Woonkamer"
+        },
+        {
+          "key": "kitchen",
+          "label": "Keuken"
+        },
+        {
+          "key": "media_room",
+          "label": "Media room"
+        }
+      ]
+    },
+    {
+      "kind": "tv",
+      "label": "Samsung TV",
+      "name": "signage_big_ass_tv",
+      "entities": {
+        "player": "media_player.signage_big_ass_tv",
+        "wake": "button.signage_big_ass_tv_aanzetten"
+      }
     }
   ],
   "media": [

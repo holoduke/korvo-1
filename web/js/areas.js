@@ -30,7 +30,10 @@
     const row = document.querySelector(`[data-floor-row="${fi}"]`);
     row.querySelectorAll("[data-area]").forEach((c) => c.classList.toggle("active", +c.dataset.area === ai));
     Panel.renderLamps(fi, Panel.areaOf(fi));
-    if (changed) Panel.emit("area", fi);
+    if (changed) {
+      Panel.emit("area", fi);
+      Panel.emit("route");
+    }
   };
   Panel.setAreaBySlug = (fi, slug) => Panel.setArea(fi, slug ? areasOf(fi).findIndex((a) => Util.slug(a.label) === slug) : -1);
 

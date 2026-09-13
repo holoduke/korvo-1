@@ -37,6 +37,18 @@
       track = el.querySelector(".floor-track");
       railInd = el.querySelector(".rail-ind");
     },
+    /* "1" or "1/keuken": the floor and the chosen room. */
+    route: {
+      path() {
+        const area = Panel.areaOf(Panel.floor);
+        return cfg.floors[Panel.floor].label + (area ? "/" + Util.slug(area.label) : "");
+      },
+      go([floor, area], animate) {
+        const fi = cfg.floors.findIndex((f) => f.label.toLowerCase() === floor);
+        if (fi >= 0) Panel.setFloor(fi, animate);
+        Panel.setAreaBySlug(Panel.floor, area || "");
+      },
+    },
   });
 
   function setTrack(pos, offPx, animate) {
@@ -64,7 +76,10 @@
     page.querySelectorAll(".floor-row").forEach((el) => el.classList.toggle("active", +el.dataset.floorRow === fi));
     setTrack(pos, 0, animate);
     setRailInd(pos, animate);
-    if (changed) Panel.emit("floor", fi);
+    if (changed) {
+      Panel.emit("floor", fi);
+      Panel.emit("route");
+    }
   };
 
   Panel.defineAction("floor", (el) => Panel.setFloor(+el.dataset.floor, true));

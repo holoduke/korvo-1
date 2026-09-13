@@ -1,8 +1,10 @@
 /* Sections: the top tabs and their pages, side by side on a track that follows
  * a horizontal swipe. The place in the app lives in the URL hash
- * (#verlichting/1/keuken, #schoonmaak), so a reload or a bookmark lands on the
- * same section, floor and room. A module adds a kind of page with
- *   Panel.definePage(kind, {className, html(section), build(pageElement, section)}). */
+ * (#verlichting/1/keuken, #apparaten/wiim), so a reload or a bookmark lands on
+ * the same place. A module adds a kind of page with
+ *   Panel.definePage(kind, {className, html(section), build(pageElement, section),
+ *                           route: {path(), go(parts, animate)}})
+ * where route is the page's own part of the URL; it emits "route" when that changes. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -97,9 +99,8 @@
   let urlReady = false; /* false until the hash has been read at start-up */
   function hashFor() {
     const s = cfg.sections[Panel.section];
-    if (s.kind !== "floors") return "#" + Util.slug(s.name);
-    const area = Panel.areaOf(Panel.floor);
-    return "#" + Util.slug(s.name) + "/" + cfg.floors[Panel.floor].label + (area ? "/" + Util.slug(area.label) : "");
+    const route = pages[s.kind].route;
+    return "#" + Util.slug(s.name) + (route ? "/" + route.path() : "");
   }
   function writeHash() {
     if (!urlReady) return;
@@ -113,17 +114,15 @@
     } catch (e) {
       /* malformed escape: treat as no hash */
     }
-    const [sec, floor, area] = raw.toLowerCase().split("/");
+    const [sec, ...parts] = raw.toLowerCase().split("/");
     const si = cfg.sections.findIndex((s) => Util.slug(s.name) === sec);
-    const fi = cfg.floors.findIndex((f) => f.label.toLowerCase() === floor);
     if (si >= 0) Panel.setSection(si, animate);
-    if (fi >= 0) Panel.setFloor(fi, animate);
-    if (cfg.sections[Panel.section].kind === "floors") Panel.setAreaBySlug(Panel.floor, area || "");
+    const route = pages[cfg.sections[Panel.section].kind].route;
+    if (route) route.go(parts, animate);
     writeHash(); /* normalise an unknown or partial hash */
   }
   window.addEventListener("hashchange", () => applyHash(true));
-  Panel.on("floor", writeHash);
-  Panel.on("area", writeHash);
+  Panel.on("route", writeHash);
 
   $("tabbar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-tab]");
