@@ -79,6 +79,31 @@
     </div>
   </div>
 
+  <div id="vacSheet" class="overlay" hidden>
+    <div class="box vs-box">
+      <div class="clim-head">
+        <div class="vs-head">
+          <div id="vsTitle" class="clim-title"></div>
+          <div class="vs-sub"><span id="vsStatus"></span><span class="vs-dot">•</span><span id="vsBatt"></span></div>
+        </div>
+        <button id="vsClose" class="close-btn" aria-label="Sluiten"></button>
+      </div>
+      <div class="vs-body">
+        <section class="vs-map">
+          <div class="vs-section-title">Kamers <em>tik om te kiezen</em></div>
+          <div id="vsRooms" class="vs-rooms"></div>
+          <div class="vs-section-title">Laatste rondes</div>
+          <div id="vsRecords" class="vs-rec-list"></div>
+        </section>
+        <section class="vs-side">
+          <div id="vsControls" class="vs-controls"></div>
+          <div class="vs-section-title">Onderhoud</div>
+          <div id="vsCons" class="vs-cons-list"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <div id="settings" class="overlay" hidden>
     <div class="box settings-box">
       <div class="clim-head">
@@ -130,6 +155,7 @@
   <script src="js/ha.js?v=__VERSION__"></script>
   <script src="js/app.js?v=__VERSION__"></script>
   <script src="js/interact.js?v=__VERSION__"></script>
+  <script src="js/vacuum.js?v=__VERSION__"></script>
   <script src="js/extras.js?v=__VERSION__"></script>
 </body>
 </html>

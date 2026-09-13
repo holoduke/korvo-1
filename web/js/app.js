@@ -414,6 +414,8 @@
   const FAN_NL = { Quiet: "Stil", Auto: "Auto", Strong: "Sterk", Max: "Max" };
   const WATER_NL = { Low: "Laag", Mid: "Midden", High: "Hoog" };
   const vacRooms = new Set(); /* selected room ids */
+  Panel.vacRooms = vacRooms;
+  Panel.vacStatusNl = (raw, vstate) => STATUS_NL[raw] || STATE_NL[vstate] || vstate;
 
   function chips(kind, labels) {
     return Object.entries(labels)
@@ -426,7 +428,8 @@
       `<div class="vac-head"><span class="vac-ic">${icon("vacuum")}</span>` +
       `<div class="vac-title"><b>${vac.label}</b><span class="vac-status">...</span></div>` +
       `<div class="vac-batt"><i><s></s></i><span>--</span></div>` +
-      `<button class="vbtn ghost" data-vac="locate" aria-label="Zoek robot">${icon("locate")}</button></div>` +
+      `<button class="vbtn ghost" data-vac="locate" aria-label="Zoek robot">${icon("locate")}</button>` +
+      `<button class="vbtn open" data-vac="open">${icon("expand")}<span>Kamers &amp; onderhoud</span></button></div>` +
       `<div class="vac-rooms"><span class="vlabel">Kamers</span>` +
       vac.rooms.map((r) => `<button class="vchip room" data-vac="room" data-room="${r.id}">${r.label}</button>`).join("") +
       `</div>` +
@@ -479,11 +482,14 @@
     card.querySelector('[data-vac="pause"]').hidden = !busy || vstate === "returning";
     card.querySelector('[data-vac="resume"]').hidden = !paused;
     card.querySelector('[data-vac="dock"]').hidden = !(busy || paused) || vstate === "returning";
+    if (Panel.onVacuum) Panel.onVacuum();
   }
 
   Panel.vacTap = function (el) {
     const kind = el.dataset.vac;
     const target = { entity_id: vac.vacuum };
+    if (kind === "open") return Panel.openVacuum && Panel.openVacuum();
+    if (kind === "noop") return renderVacuum(); /* selection changed elsewhere (the sheet) */
     const fail = () => {};
     if (kind === "room") {
       const id = +el.dataset.room;

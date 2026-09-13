@@ -27,7 +27,7 @@
       el.classList.remove("closing");
     }, 160);
   };
-  const overlayOpen = () => ["popup", "climate", "settings", "saver"].some((id) => !$(id).hidden);
+  const overlayOpen = () => ["popup", "climate", "settings", "saver", "vacSheet"].some((id) => !$(id).hidden);
 
   /* ---- Tabs ------------------------------------------------------------------ */
   const stage = $("stage");
@@ -78,7 +78,7 @@
   });
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      ["popup", "climate", "settings"].forEach((id) => Panel.closeOverlay($(id)));
+      ["popup", "climate", "settings", "vacSheet"].forEach((id) => Panel.closeOverlay($(id)));
       closeDrawer(true);
     }
     if (overlayOpen()) return;

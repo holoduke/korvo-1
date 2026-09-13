@@ -534,8 +534,16 @@ window.PANEL_CONFIG = {
     "locate": "button.stofzuiger_xiaomi_seek_robot",
     "rooms": [
       {
+        "id": 4,
+        "label": "Kamer 4"
+      },
+      {
         "id": 5,
         "label": "Kamer 5"
+      },
+      {
+        "id": 7,
+        "label": "Kamer 7"
       },
       {
         "id": 8,

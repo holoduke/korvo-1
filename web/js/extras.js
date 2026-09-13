@@ -452,7 +452,7 @@
     saver.classList.toggle("off", Panel.prefs.saverMode === 0);
     renderSaverTemps();
     renderSaverMedia();
-    ["popup", "climate", "settings"].forEach((id) => ($(id).hidden = true));
+    ["popup", "climate", "settings", "vacSheet"].forEach((id) => ($(id).hidden = true));
     popup = null;
     Panel.closeDrawer();
     saver.hidden = false;

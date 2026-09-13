@@ -333,8 +333,12 @@ typedef struct {
     const char *locate_id;  /* button: make the robot play a sound */
 } panel_vacuum_t;
 
+/* Ids seen in the robot's clean-values on 2026-09-13 (4, 5, 7, 8); the names
+ * are placeholders until the rooms are identified. */
 static const panel_room_t PANEL_VACUUM_ROOMS[] = {
+    { 4, "Kamer 4" },
     { 5, "Kamer 5" },
+    { 7, "Kamer 7" },
     { 8, "Kamer 8" },
 };
 static const panel_vacuum_t PANEL_VACUUM = {

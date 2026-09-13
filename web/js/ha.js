@@ -288,6 +288,22 @@
         if (returnResponse) msg.return_response = true;
         return send(msg);
       },
+      /* {entity_id: [{s, a (attributes), t: ms}]}, attributes included. */
+      async historyFull(ids, start) {
+        const res = await send({
+          type: "history/history_during_period",
+          start_time: start.toISOString(),
+          entity_ids: ids,
+          minimal_response: false,
+          no_attributes: false,
+          significant_changes_only: false,
+        });
+        const out = {};
+        for (const [id, rows] of Object.entries(res || {})) {
+          out[id] = rows.map((r) => ({ s: r.s, a: r.a || {}, t: (r.lu || r.lc) * 1000 }));
+        }
+        return out;
+      },
       /* {entity_id: [{s: number|string, t: ms}]} for the period since `start`. */
       async history(ids, start) {
         const res = await send({
@@ -343,7 +359,14 @@
     });
     if (cfg.vacuum) {
       const v = cfg.vacuum;
-      set(v.vacuum, "docked", {});
+      set(v.vacuum, "docked", {
+        "robotic_vacuum.clean_values": "[]",
+        "robotic_vacuum.consumables": JSON.stringify([
+          { type: "sideBrush", used: 3, mode: 1 }, { type: "rollBrush", used: 2, mode: 1 }, { type: "filter", used: 4, mode: 1 },
+          { type: "mop", used: 3, mode: 1 }, { type: "engineSensor", used: 14, mode: 1 }, { type: "dustbag", used: 5, mode: 1 },
+          { type: "mopCleaningTrough", used: 38, mode: 1 },
+        ]),
+      });
       set(v.status, "charging", {});
       set(v.battery, "94", { unit_of_measurement: "%" });
       set(v.area, "0", {});
@@ -395,11 +418,28 @@
           return { response: { [cfg.weather]: { forecast } } };
         }
         const v = cfg.vacuum;
+        if (v && domain === "xiaomi_miot" && service === "get_properties") {
+          const day = (n) => new Date(now - n * 86400e3).toISOString().slice(0, 10).replace(/-/g, "/");
+          return {
+            response: {
+              clean_records: JSON.stringify([
+                { d: "1970/01/02", t: "04:31:23", A: 35, T: 2646, M: 1, c: 2 },
+                { d: day(2), t: "19:01:09", A: 74, T: 5466, M: 1, c: 0 },
+                { d: day(1), t: "21:10:40", A: 22, T: 1310, M: 2, c: 0 },
+                { d: day(0), t: "10:36:18", A: 19, T: 1022, M: 2, c: 0 },
+              ]),
+            },
+          };
+        }
         if (v && (domain === "vacuum" || domain === "xiaomi_miot" || (domain === "select" && ids.some((i) => [v.mode, v.fan, v.water].includes(i))) || domain === "button")) {
           const now2 = Date.now();
+          if (domain === "xiaomi_miot" && data && data.params) {
+            const vs = states.get(v.vacuum);
+            set(v.vacuum, vs.state, { ...vs.attributes, "robotic_vacuum.clean_values": data.params[1] }, now2);
+          }
           if (domain === "select") ids.forEach((i) => set(i, data.option, (states.get(i) || {}).attributes, now2));
           const go = (state, status, area) => {
-            set(v.vacuum, state, {}, now2);
+            set(v.vacuum, state, (states.get(v.vacuum) || {}).attributes || {}, now2);
             set(v.status, status, {}, now2);
             set(v.area, String(area), {}, now2);
           };
@@ -440,6 +480,21 @@
         });
         change(touched);
         return returnResponse ? { response: {} } : null;
+      },
+      async historyFull(ids, start) {
+        /* Past room runs for the vacuum: room 8 today, 5 yesterday, 4 three days ago. */
+        const out = {};
+        const runs = [[8, 0.2], [5, 1.1], [4, 3.3]];
+        ids.forEach((id) => {
+          out[id] = runs.flatMap(([room, daysAgo]) => {
+            const t = now - daysAgo * 86400e3;
+            return [
+              { s: "cleaning", a: { "robotic_vacuum.clean_values": `[${room}]` }, t },
+              { s: "docked", a: { "robotic_vacuum.clean_values": "[]" }, t: t + 20 * 60e3 },
+            ];
+          }).filter((r) => r.t >= start.getTime()).sort((x, y) => x.t - y.t);
+        });
+        return out;
       },
       async history(ids, start) {
         const out = {};
