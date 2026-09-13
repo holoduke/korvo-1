@@ -153,13 +153,19 @@
         put("care", "9");
         ["extradry", "hygiene", "speed", "silence"].forEach((k) => put(k, "off"));
       } else if (ap.kind === "oven") {
-        put("op", "Inactive");
+        const programs = ["HotAir", "TopBottomHeating", "HotAirGrilling", "GrillLargeArea", "PizzaSetting", "AirFry", "600Watt", "Max"];
+        put("op", "Ready");
         put("door", "Closed");
         put("temp", "23", { unit_of_measurement: "°C" });
         ["setpoint", "program", "remaining", "elapsed", "progress"].forEach((k) => put(k, "unknown"));
         ["pause", "resume", "abort"].forEach((k) => put(k, "unknown"));
-        put("childlock", "off");
-        put("light", "off");
+        put("selected", "HotAir", { options: programs });
+        put("active", "unknown", { options: programs });
+        put("setpointSet", "180", { min: 0, max: 300, step: 1, unit_of_measurement: "°C" });
+        put("duration", "3600", { min: 0, max: 266400, step: 1, unit_of_measurement: "s" });
+        put("powerstate", "On", { options: ["On", "Standby"] });
+        put("startAllowed", "on");
+        ["fastpreheat", "lamp", "childlock", "light"].forEach((k) => put(k, "off"));
       } else if (ap.kind === "hob") {
         const levels = ["Off", "KeepWarm", "10", "20", "30", "40", "50", "60", "70", "80", "90", "Boost1"];
         put("op", "Run");
@@ -314,7 +320,13 @@
               if (ap.kind === "dishwasher" && id === e.abort) also("op", "Ready");
               if (ap.kind === "oven" && id === e.pause) also("op", "Pause");
               if (ap.kind === "oven" && id === e.resume) also("op", "Run");
-              if (ap.kind === "oven" && id === e.abort) also("op", "Inactive");
+              if (ap.kind === "oven" && id === e.abort) also("op", "Ready");
+              if (ap.kind === "oven" && id === e.powerstate) also("op", next === "On" ? "Ready" : "Inactive");
+              if (ap.kind === "oven" && id === e.active) {
+                also("op", "Run");
+                also("setpoint", states.get(e.setpointSet).state);
+                also("remaining", states.get(e.duration).state);
+              }
               if (ap.kind === "tv" && id === e.wake) set(e.player, "unknown", { supported_features: 20493, volume_level: 0.2, is_volume_muted: false }, t);
               if (ap.kind === "speakers" && domain === "media_player" && Object.values(e).includes(id)) {
                 /* Every member of a group lists the same members. */

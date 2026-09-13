@@ -253,6 +253,12 @@ APPLIANCE_ENTITIES = {
         "pause": "button.{n}_bsh_common_command_pauseprogram", "resume": "button.{n}_bsh_common_command_resumeprogram",
         "abort": "button.{n}_bsh_common_command_abortprogram", "childlock": "switch.{n}_bsh_common_setting_childlock",
         "light": "binary_sensor.{n}_bsh_common_status_interiorilluminationactive",
+        # remote control: choose a program, set its options, then start it
+        "selected": "select.{n}_bsh_common_root_selectedprogram", "active": "select.{n}_bsh_common_root_activeprogram",
+        "setpointSet": "number.{n}_cooking_oven_option_setpointtemperature", "duration": "number.{n}_bsh_common_option_duration",
+        "fastpreheat": "switch.{n}_cooking_oven_option_fastpreheat", "lamp": "switch.{n}_cooking_oven_setting_light_cavity_001_power",
+        "startAllowed": "binary_sensor.{n}_bsh_common_status_remotecontrolstartallowed",
+        "powerstate": "select.{n}_bsh_common_setting_powerstate",
     },
     "hob": {
         "op": "sensor.{n}_bsh_common_status_operationstate", "power": "sensor.{n}_bsh_common_setting_powerstate",

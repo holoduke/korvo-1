@@ -913,7 +913,15 @@ window.PANEL_CONFIG = {
         "resume": "button.oven_bsh_common_command_resumeprogram",
         "abort": "button.oven_bsh_common_command_abortprogram",
         "childlock": "switch.oven_bsh_common_setting_childlock",
-        "light": "binary_sensor.oven_bsh_common_status_interiorilluminationactive"
+        "light": "binary_sensor.oven_bsh_common_status_interiorilluminationactive",
+        "selected": "select.oven_bsh_common_root_selectedprogram",
+        "active": "select.oven_bsh_common_root_activeprogram",
+        "setpointSet": "number.oven_cooking_oven_option_setpointtemperature",
+        "duration": "number.oven_bsh_common_option_duration",
+        "fastpreheat": "switch.oven_cooking_oven_option_fastpreheat",
+        "lamp": "switch.oven_cooking_oven_setting_light_cavity_001_power",
+        "startAllowed": "binary_sensor.oven_bsh_common_status_remotecontrolstartallowed",
+        "powerstate": "select.oven_bsh_common_setting_powerstate"
       }
     },
     {

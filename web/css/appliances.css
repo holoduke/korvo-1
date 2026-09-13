@@ -109,6 +109,13 @@
 .ap-stepper { flex: 1; display: grid; grid-template-columns: 50px minmax(0, 1fr) 50px; align-items: center; gap: 8px; }
 .ap-stepper .ap-btn { padding: 0; }
 .ap-stepper b { text-align: center; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Two controls side by side that stack when the card is narrow (a phone). */
+.ap-row.ap-split { flex-wrap: wrap; }
+.ap-row.ap-split > * { flex: 1 1 200px; }
+/* A labelled control, e.g. the oven's temperature and time steppers side by side. */
+.ap-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ap-field > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.ap-field .ap-stepper { flex: none; }
 .ap-note { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text_dim); }
 
 /* Hob zones, two by two. */

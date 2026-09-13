@@ -128,6 +128,21 @@
   });
 
   /* ---- Oven ------------------------------------------------------------------------- */
+  /* Heating modes and microwave powers offered for remote start, most used first. */
+  const OVEN_PROGRAMS = [
+    ["HotAir", "Hete lucht"], ["TopBottomHeating", "Boven- en onderwarmte"], ["HotAirGrilling", "Grill + hete lucht"],
+    ["GrillLargeArea", "Grill"], ["PizzaSetting", "Pizza"], ["AirFry", "Airfry"], ["BottomHeating", "Onderwarmte"],
+    ["HotAirGentle", "Hete lucht zacht"], ["TopBottomHeatingEco", "Boven/onder eco"], ["GrillSmallArea", "Grill klein"],
+    ["SlowCook", "Langzaam garen"], ["KeepWarm", "Warmhouden"], ["PreHeating", "Voorverwarmen"], ["PreheatOvenware", "Servies warmen"],
+    ["FrozenHeatupSpecial", "Diepvries"], ["600Watt", "Magnetron 600 W"], ["Max", "Magnetron max"], ["360Watt", "Magnetron 360 W"],
+    ["180Watt", "Magnetron 180 W"], ["90Watt", "Magnetron 90 W"],
+  ];
+  const OVEN_NL = Object.fromEntries(OVEN_PROGRAMS);
+  const isMicrowave = (program) => /Watt$/.test(program) || program === "Max";
+  const TEMP_STEP = 5;
+  const MIN_TEMP = 30;
+  const field = (label, html) => `<div class="ap-field"><span>${label}</span>${html}</div>`;
+
   Panel.defineAppliance("oven", {
     icon: "oven",
     view(a, i) {
@@ -136,37 +151,105 @@
       const op = low(e.op);
       const running = op === "run" || op === "delayedstart";
       const paused = op === "pause";
+      const busy = running || paused;
+      const standby = op === "inactive" || low(e.powerstate) === "standby";
       const temp = num(e.temp);
-      const target = num(e.setpoint);
+      const program = raw(e.selected);
+      const programLabel = OVEN_NL[program] || (known(program) ? program : "Geen programma");
+      const microwave = isMicrowave(program);
+      const target = busy && Number.isFinite(num(e.setpoint)) ? num(e.setpoint) : num(e.setpointSet);
+      const timer = num(e.duration);
+      const tempText = Number.isFinite(target) ? `${fmt(target)}°` : "--";
+      const timerText = Number.isFinite(timer) ? duration(timer).join(" ") : "--";
       const [left, leftUnit] = duration(num(e.remaining));
-      const program = raw(e.program);
+
+      const range = attrs(e.setpointSet);
+      const tempField = microwave || !s(e.setpointSet) ? "" : field("Temperatuur", stepper(i, "temp", tempText, {
+        canDown: target > Math.max(MIN_TEMP, range.min ?? MIN_TEMP), canUp: target < (range.max ?? 300), down: "Kouder", up: "Warmer",
+      }));
+      const timerField = busy || !s(e.duration) ? "" : field("Tijd", stepper(i, "time", timerText, {
+        canDown: timer > 300, canUp: timer < (attrs(e.duration).max ?? 86400), down: "Korter", up: "Langer",
+      }));
+      const settings = tempField || timerField ? `<div class="ap-row ap-split">${tempField}${timerField}</div>` : "";
+      const toggles =
+        `<div class="ap-row ap-toggles">` +
+        [["fastpreheat", "Snel opwarmen"], ["lamp", "Lamp"], ["childlock", "Kinderslot"]]
+          .filter(([k]) => s(e[k]))
+          .map(([k, label]) => btn(i, `toggle|${k}`, label, { active: on(e[k]), disabled: k === "fastpreheat" && (busy || microwave) }))
+          .join("") +
+        `</div>`;
+      const programs = (attrs(e.selected).options || []);
+
+      let controls;
+      if (busy) {
+        controls =
+          `<div class="ap-row">` +
+          (running ? btn(i, "pause", "Pauze", { ic: "pause" }) : btn(i, "resume", "Hervat", { primary: true, ic: "play" })) +
+          btn(i, "stop", "Stop", { confirm: true, ic: "stop" }) +
+          `</div>` + settings + toggles;
+      } else if (standby) {
+        controls = s(e.powerstate)
+          ? `<div class="ap-row">${btn(i, "power|On", "Aanzetten", { primary: true, ic: "power" })}</div>`
+          : note("De oven staat uit; zet hem aan op de oven zelf.");
+      } else {
+        const startAllowed = on(e.startAllowed);
+        controls =
+          `<div class="ap-chips">${OVEN_PROGRAMS.filter(([p]) => programs.includes(p)).map(([p, label]) => chip(i, `program|${p}`, label, p === program)).join("")}</div>` +
+          settings +
+          toggles +
+          `<div class="ap-row ap-split">` +
+          btn(i, "start", "Start", { primary: true, confirm: true, ic: "play", disabled: !startAllowed || op !== "ready" || !OVEN_NL[program] }) +
+          (s(e.powerstate) ? btn(i, "power|Standby", "Stand-by", { ic: "power" }) : "") +
+          `</div>` +
+          (!startAllowed ? note("Zet ‘Start op afstand’ aan op de oven om hier te starten.") : "");
+      }
+
       return {
-        tone: running ? "run" : paused ? "paused" : op === "finished" ? "done" : op === "error" ? "error" : "off",
+        tone: running ? "run" : paused ? "paused" : op === "finished" ? "done" : op === "error" ? "error" : standby ? "off" : "ready",
         pill: OP_NL[op] || raw(e.op),
         big: Number.isFinite(temp) ? fmt(temp) : "--",
         unit: "°C",
-        sub:
-          running || paused
-            ? [known(program) ? program : "Bezig", Number.isFinite(target) && `naar ${fmt(target)}°`, Number.isFinite(num(e.remaining)) && `nog ${left} ${leftUnit}`].filter(Boolean).join(" · ")
-            : "Temperatuur binnen",
-        progress: running || paused ? num(e.progress) : null,
+        sub: busy
+          ? [programLabel, !microwave && `naar ${tempText}`, Number.isFinite(num(e.remaining)) && `nog ${left} ${leftUnit}`].filter(Boolean).join(" · ")
+          : standby ? "Stand-by" : [programLabel, !microwave && tempText, timerText].filter(Boolean).join(" · "),
+        progress: busy ? num(e.progress) : null,
         stats: [
           stat("Deur", { open: "Open", locked: "Vergrendeld" }[low(e.door)] || "Dicht"),
-          stat("Doel", Number.isFinite(target) ? `${fmt(target)}°` : "--"),
-          stat("Verstreken", Number.isFinite(num(e.elapsed)) ? duration(num(e.elapsed)).join(" ") : "--"),
-          stat("Lamp", on(e.light) ? "Aan" : "Uit"),
+          stat("Lamp", on(e.light) || on(e.lamp) ? "Aan" : "Uit"),
+          ...(busy
+            ? [stat("Doel", microwave ? "--" : tempText), stat("Verstreken", Number.isFinite(num(e.elapsed)) ? duration(num(e.elapsed)).join(" ") : "--")]
+            : []),
         ],
-        controls:
-          `<div class="ap-row">` +
-          (running ? btn(i, "pause", "Pauze", { ic: "pause" }) : "") +
-          (paused ? btn(i, "resume", "Hervat", { primary: true, ic: "play" }) : "") +
-          (running || paused ? btn(i, "stop", "Stop", { confirm: true, ic: "stop" }) : "") +
-          btn(i, "toggle|childlock", "Kinderslot", { active: on(e.childlock), ic: "lock" }) +
-          `</div>` +
-          (!running && !paused ? note("Starten gaat op de oven zelf; hier zie en stop je het programma.") : ""),
+        controls,
       };
     },
-    actions: { pause: press("pause"), resume: press("resume"), stop: press("abort"), toggle },
+    actions: {
+      program: selectOption("selected"),
+      start: (a, args, call) => call("select", "select_option", { option: raw(a.entities.selected) }, a.entities.active),
+      temp(a, [dir], call) {
+        const e = a.entities;
+        const range = attrs(e.setpointSet);
+        const current = num(e.setpointSet);
+        if (!Number.isFinite(current)) return;
+        const next = Util.clamp(Math.round((current + Number(dir) * TEMP_STEP) / TEMP_STEP) * TEMP_STEP, Math.max(MIN_TEMP, range.min ?? MIN_TEMP), range.max ?? 300);
+        call("number", "set_value", { value: next }, e.setpointSet);
+      },
+      /* 5-minute steps up to an hour, quarters above it. */
+      time(a, [dir], call) {
+        const e = a.entities;
+        const current = num(e.duration);
+        if (!Number.isFinite(current)) return;
+        const up = Number(dir) > 0;
+        const step = (up ? current >= 3600 : current > 3600) ? 900 : 300;
+        const next = Util.clamp(Math.round((current + (up ? step : -step)) / step) * step, 300, attrs(e.duration).max ?? 86400);
+        call("number", "set_value", { value: next }, e.duration);
+      },
+      power: selectOption("powerstate"),
+      pause: press("pause"),
+      resume: press("resume"),
+      stop: press("abort"),
+      toggle,
+    },
   });
 
   /* ---- Hob and cooker hood ------------------------------------------------------------ */
