@@ -31,8 +31,8 @@
 .ap-item.tone-offline { opacity: 0.62; }
 .ap-item .ap-badge { width: 42px; height: 42px; border-radius: 13px; font-size: 22px; }
 /* Product photos sit on a light tile (they are shot on white), ringed in the state's colour. */
-.ap-badge.photo { padding: 3px; background: #f2f3f5; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ap-tone) 60%, transparent); }
-.ap-badge.photo img { width: 100%; height: 100%; object-fit: contain; border-radius: 9px; }
+.ap-badge.photo { display: block; overflow: hidden; padding: 3px; background: #f2f3f5; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ap-tone) 60%, transparent); }
+.ap-badge.photo img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 9px; }
 .ap-item .ap-badge.photo { width: 52px; height: 52px; border-radius: 14px; }
 .ap-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ap-item-text b { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

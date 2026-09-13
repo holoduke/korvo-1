@@ -66,6 +66,10 @@ slider, the Klimaat chart, the AI oog screensaver, and all six themes.
 - **Login** uses Home Assistant's own OAuth flow (like the HA app); no token
   is stored in the code. Tokens are kept per browser and refreshed.
 - **Demo**: append `?demo` for a fake backend that never touches real lights.
+- **Appliance photos** are manufacturers' pictures, so they are not in this
+  repository: put them in Home Assistant's `/config/www/apparaten/` with a
+  `photos.json` that maps each appliance's label slug to its file
+  (`{"wasmachine": "wasmachine.png"}`). Without one an appliance shows its icon.
 - **Updates reach installed apps**: `ha/custom_components/thuispaneel` (enabled
   with `thuispaneel:` in `configuration.yaml`) serves the files from
   `/config/www/panel` with `no-cache` on the page and a long cache only on
