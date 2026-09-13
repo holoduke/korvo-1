@@ -37,6 +37,10 @@ html, body {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
+/* No double-tap or pinch zoom anywhere: iOS ignores user-scalable=no in the
+ * viewport meta, but honours touch-action, which every element's own value
+ * narrows further (pan-y, none). Scrolling stays. */
+html { touch-action: pan-x pan-y; }
 body { transition: background-color 0.35s; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; touch-action: manipulation; /* no double-tap zoom delay on iOS */ }
 [hidden] { display: none !important; }
