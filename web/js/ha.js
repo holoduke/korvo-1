@@ -281,6 +281,10 @@
       start: connect,
       hassUrl,
       logout,
+      /* Fires a Home Assistant event (admin users); used for diagnostics. */
+      fireEvent(eventType, eventData) {
+        return send({ type: "fire_event", event_type: eventType, event_data: eventData });
+      },
       callService(domain, service, serviceData, target, returnResponse) {
         const msg = { type: "call_service", domain, service };
         if (serviceData) msg.service_data = serviceData;
@@ -396,6 +400,9 @@
       states,
       on: ev.on,
       hassUrl: () => "demo",
+      fireEvent() {
+        return Promise.resolve(null); /* nothing to report in demo mode */
+      },
       logout() {
         location.replace(location.pathname);
       },
