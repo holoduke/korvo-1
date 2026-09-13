@@ -19,7 +19,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Orbitron:wght@600&display=swap">
-  <link rel="stylesheet" href="styles.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/base.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/header.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/lighting.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/controls.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/vacuum.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/car.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/appliances.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/climate.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/settings.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/saver.css?v=__VERSION__">
 </head>
 <body>
   <div id="app" hidden>
@@ -68,8 +77,8 @@
 
   <div id="climate" class="overlay" hidden>
     <div class="box clim-box">
-      <div class="clim-head">
-        <div id="climTitle" class="clim-title"></div>
+      <div class="box-head">
+        <div id="climTitle" class="box-title"></div>
         <div id="climNow" class="clim-now"></div>
         <button id="climClose" class="close-btn" aria-label="Sluiten"></button>
       </div>
@@ -82,8 +91,8 @@
 
   <div id="settings" class="overlay" hidden>
     <div class="box settings-box">
-      <div class="clim-head">
-        <div class="clim-title">Instellingen</div>
+      <div class="box-head">
+        <div class="box-title">Instellingen</div>
         <button id="settingsClose" class="close-btn" aria-label="Sluiten"></button>
       </div>
       <div class="set-row">
@@ -130,14 +139,28 @@
   <script src="js/diag.js?v=__VERSION__"></script>
   <script src="js/config.js?v=__VERSION__"></script>
   <script src="js/icons.js?v=__VERSION__"></script>
+  <script src="js/util.js?v=__VERSION__"></script>
   <script src="js/ha.js?v=__VERSION__"></script>
-  <script src="js/app.js?v=__VERSION__"></script>
-  <script src="js/interact.js?v=__VERSION__"></script>
+  <script src="js/ha-demo.js?v=__VERSION__"></script>
+  <script src="js/core.js?v=__VERSION__"></script>
+  <script src="js/gestures.js?v=__VERSION__"></script>
+  <script src="js/readings.js?v=__VERSION__"></script>
+  <script src="js/header.js?v=__VERSION__"></script>
+  <script src="js/sections.js?v=__VERSION__"></script>
+  <script src="js/lighting.js?v=__VERSION__"></script>
+  <script src="js/floors.js?v=__VERSION__"></script>
   <script src="js/areas.js?v=__VERSION__"></script>
+  <script src="js/drawer.js?v=__VERSION__"></script>
+  <script src="js/sliders.js?v=__VERSION__"></script>
   <script src="js/vacuum.js?v=__VERSION__"></script>
   <script src="js/car.js?v=__VERSION__"></script>
   <script src="js/appliances.js?v=__VERSION__"></script>
+  <script src="js/charts.js?v=__VERSION__"></script>
+  <script src="js/climate.js?v=__VERSION__"></script>
+  <script src="js/saver.js?v=__VERSION__"></script>
+  <script src="js/settings.js?v=__VERSION__"></script>
+  <script src="js/splash.js?v=__VERSION__"></script>
   <script src="js/update.js?v=__VERSION__"></script>
-  <script src="js/extras.js?v=__VERSION__"></script>
+  <script src="js/main.js?v=__VERSION__"></script>
 </body>
 </html>

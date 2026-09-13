@@ -1,0 +1,43 @@
+/* Klimaat and Luchtkwaliteit popups: chart, current values, range and advice. */
+
+#climate { background: rgba(0, 0, 0, 0.6); }
+.clim-box { max-width: 740px; }
+.clim-now { font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.clim-now .ic { font-size: 18px; color: var(--hum); }
+.clim-chart-wrap { position: relative; height: 262px; }
+.clim-box.air .clim-chart-wrap { height: 212px; }
+#climChart { width: 100%; height: 100%; display: block; }
+.clim-range { font-size: 18px; color: var(--text_dim); margin-top: 10px; display: flex; column-gap: 22px; row-gap: 6px; align-items: center; flex-wrap: wrap; }
+.clim-range .ic { font-size: 14px; color: var(--hum); }
+.clim-range .part { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.clim-range .k { font-weight: 700; }
+.clim-advice { font-size: 18px; margin-top: 6px; display: flex; gap: 8px; align-items: center; }
+.clim-advice.ok { color: var(--ok); }
+.clim-advice.warn { color: var(--warn); }
+.clim-advice.dim { color: var(--text_dim); }
+
+.clim-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.stat { background: var(--tile_off); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.stat-v { font-size: 22px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: color 0.4s; }
+.stat-v small { font-size: 0.5em; font-weight: 600; margin-left: 2px; opacity: 0.85; }
+.stat-l { font-size: 13px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-l .l-short { display: none; }
+.aq-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; text-transform: capitalize; }
+.aq-badge i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+
+@media (max-width: 760px) {
+  .clim-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .clim-box.air .clim-chart-wrap { height: 180px; }
+  .clim-now { font-size: 18px; }
+  .stat-l .l-long { display: none; }
+  .stat-l .l-short { display: inline; }
+}
+@media (max-height: 540px) {
+  .clim-box.air { padding: 14px 18px; }
+  .clim-box.air .box-head { margin-bottom: 6px; }
+  .clim-box.air .clim-stats { margin-bottom: 6px; }
+  .clim-box.air .stat { padding: 4px 8px; }
+  .clim-box.air .stat-v { font-size: 18px; }
+  .clim-box.air .clim-chart-wrap { height: 150px; }
+  .clim-box.air .clim-range, .clim-box.air .clim-advice { font-size: 15px; margin-top: 4px; }
+}

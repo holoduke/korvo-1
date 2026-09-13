@@ -1,0 +1,36 @@
+/* Control tiles shared by the Schoonmaak and Tesla pages: section titles,
+ * labels, choice tiles (.vchip, in rows of equal width) and action tiles (.vbtn). */
+
+.vlabel { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.vs-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); margin: 4px 0 2px; }
+.vchip, .vbtn {
+  position: relative; min-width: 0; border-radius: 16px; background: var(--tile); color: var(--text);
+  font-weight: 700; line-height: 1.15; text-align: left;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 0 0 1px color-mix(in srgb, var(--text_dim) 18%, transparent);
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.12s;
+}
+/* Choices: a row of equal tiles, one fixed height. */
+.vchip { height: 64px; padding: 0 14px; display: flex; align-items: center; font-size: 17px; }
+.vchip.active { background: var(--tile_on); color: var(--on_text); }
+/* Actions: icon top-left, label at the bottom. */
+.vbtn { height: 96px; padding: 12px 14px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; font-size: 17px; }
+.vbtn .ic { font-size: 22px; }
+.vbtn.primary { background: var(--accent); color: var(--on_text); }
+.vbtn:disabled { opacity: 0.45; cursor: default; }
+.vchip.pressed, .vbtn.pressed { transform: scale(0.95); }
+.vs-chips { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 10px; }
+
+@media (min-width: 1000px) and (min-height: 700px) {
+  .vchip { height: 70px; padding: 0 12px; }
+  .vbtn { height: 104px; font-size: 19px; }
+  .vbtn .ic { font-size: 24px; }
+}
+@media (max-height: 540px) {
+  .vchip { height: 44px; padding: 0 10px; font-size: 14px; border-radius: 12px; }
+  .vbtn { height: 64px; padding: 8px 10px; font-size: 14px; border-radius: 12px; }
+  .vbtn .ic { font-size: 18px; }
+}
+@media (max-width: 760px) {
+  .vchip { height: 52px; padding: 0 10px; font-size: 14px; }
+  .vbtn { height: 80px; padding: 10px; font-size: 15px; }
+}

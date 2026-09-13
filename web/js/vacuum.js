@@ -19,10 +19,7 @@
     sideBrush: "Zijborstel", rollBrush: "Hoofdborstel", filter: "Filter", mop: "Dweil",
     engineSensor: "Sensoren", dustbag: "Stofzak", mopCleaningTrough: "Wasbak",
   };
-  const DAYS = ["zo", "ma", "di", "wo", "do", "vr", "za"];
-
   const selected = new Set(); /* chosen room ids */
-  Panel.vacRooms = selected;
   let records = null; /* robot's run log, newest first */
   const lastByRoom = new Map(); /* room id -> ms */
   /* Learned sizes, from finished runs in HA's history: m² per set of rooms
@@ -46,16 +43,7 @@
       return [];
     }
   }
-  function ago(ms) {
-    if (!ms) return "nog niet gedaan";
-    const d = new Date(ms);
-    const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-    const days = Math.round((new Date(new Date().toDateString()) - new Date(d.toDateString())) / 86400e3);
-    if (days === 0) return `vandaag ${hm}`;
-    if (days === 1) return `gisteren ${hm}`;
-    if (days < 7) return `${DAYS[d.getDay()]} ${hm}`;
-    return `${days} dagen geleden`;
-  }
+  const { ago } = Util;
 
   /* One row of equal tiles per choice: the grid gets its column count as --n. */
   const chips = (kind, labels) =>
@@ -63,8 +51,8 @@
     Object.entries(labels).map(([opt, l]) => `<button class="vchip" data-vac="${kind}" data-opt="${opt}">${l}</button>`).join("") +
     `</div>`;
 
-  Panel.buildVacuum = function (container) {
-    root = container;
+  function build(page) {
+    root = page.querySelector(".vp");
     root.innerHTML =
       `<div class="vs-body">` +
       `<section class="vs-map">` +
@@ -92,7 +80,8 @@
       `<div class="vs-section-title">Onderhoud</div><div class="vs-cons-list"></div>` +
       `</section></div>`;
     render();
-  };
+  }
+  Panel.definePage("vacuum", { className: "vac-page", html: () => `<div id="vacPage" class="vp"></div>`, build });
 
   function render() {
     if (!root) return;
@@ -124,15 +113,7 @@
     root.classList.toggle("offline", offline);
 
     /* Battery and status live in the header, visible from every section. */
-    const hdr = document.querySelector("[data-vachdr]");
-    if (hdr) {
-      const batt = Panel.num(vac.battery);
-      hdr.querySelector(".vh-batt span").textContent = Number.isFinite(batt) ? Math.round(batt) + "%" : "--";
-      hdr.querySelector(".vh-batt").style.color = Panel.battColour(batt);
-      hdr.querySelector(".vh-status").textContent = status;
-      hdr.classList.toggle("busy", busy);
-      hdr.classList.toggle("stale", offline);
-    }
+    Panel.setDevice("vacuum", { battery: Panel.num(vac.battery), status, active: busy, offline });
 
     const minutes = Math.round((Number(v && v.attributes["robotic_vacuum.clean_time"]) || 0) / 60);
     qa(".vs-room").forEach((el) => {
@@ -284,7 +265,7 @@
     render();
   }
 
-  Panel.vacTap = function (el) {
+  Panel.defineAction("vac", (el) => {
     const kind = el.dataset.vac;
     const target = { entity_id: vac.vacuum };
     const fail = () => {};
@@ -315,21 +296,18 @@
     if (kind === "pause") return Panel.client.callService("vacuum", "pause", null, target).catch(fail);
     if (kind === "dock") return Panel.client.callService(vac.roomsDomain, "naar_station").catch(fail);
     if (kind === "locate") return Panel.client.callService("button", "press", null, { entity_id: vac.locate }).catch(fail);
-  };
+  });
 
   /* The run log and room history are fetched when the page is shown, but only
    * once HA is connected: after a reload straight onto #schoonmaak the section
    * opens before the socket does, and the first state dump marks the connection. */
-  let connected = false;
-  const onPage = () => cfg.sections[Panel.section] && cfg.sections[Panel.section].kind === "vacuum";
-  Panel.onVacuum = function () {
-    connected = true;
-    render();
-    if (onPage()) load(false);
-  };
-  const prevOnSection = Panel.onSection;
-  Panel.onSection = function (si) {
-    if (prevOnSection) prevOnSection(si);
-    if (connected && onPage()) load(false);
-  };
+  const onPage = () => cfg.sections[Panel.section].kind === "vacuum";
+  Panel.track(
+    ["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]),
+    () => {
+      render();
+      if (onPage()) load(false);
+    }
+  );
+  Panel.on("section", () => Panel.isLoaded() && onPage() && load(false));
 })();

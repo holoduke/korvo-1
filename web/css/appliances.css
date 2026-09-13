@@ -1,0 +1,104 @@
+/* Apparaten: a card per appliance with its state, a large value, progress,
+ * figures and its own controls. Tones colour a card by what the appliance does. */
+
+.ap { padding: var(--pad) 20px var(--pad) var(--pad); min-height: 0; overflow-y: auto; touch-action: pan-y; scrollbar-width: none; }
+.ap::-webkit-scrollbar { display: none; }
+.ap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+.ap-card {
+  --ap-tone: var(--text_dim);
+  position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 14px; padding: 18px;
+  border-radius: 22px; min-width: 0;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--tile) 88%, #fff 12%) 0%, var(--tile) 38%, var(--tile_off) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent), 0 12px 32px rgba(0, 0, 0, 0.28);
+  transition: box-shadow 0.4s;
+}
+/* A soft light in the corner, in the state's colour, while the appliance works. */
+.ap-card::before {
+  content: ""; position: absolute; top: -90px; right: -70px; width: 240px; height: 240px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ap-tone) 38%, transparent) 0%, transparent 68%);
+  opacity: 0; transition: opacity 0.5s; pointer-events: none;
+}
+.ap-card > * { position: relative; }
+.ap-card.tone-run { --ap-tone: var(--accent); }
+.ap-card.tone-hot { --ap-tone: var(--bad); }
+.ap-card.tone-paused { --ap-tone: var(--warn); }
+.ap-card.tone-done, .ap-card.tone-ready { --ap-tone: var(--ok); }
+.ap-card.tone-cold { --ap-tone: var(--cold); }
+.ap-card.tone-error { --ap-tone: var(--bad); }
+.ap-card.tone-run::before, .ap-card.tone-hot::before, .ap-card.tone-paused::before, .ap-card.tone-cold::before, .ap-card.tone-error::before { opacity: 1; }
+.ap-card.tone-offline { opacity: 0.62; }
+.ap-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ap-badge {
+  flex: none; width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; font-size: 26px;
+  color: var(--ap-tone); background: color-mix(in srgb, var(--ap-tone) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ap-tone) 28%, transparent); transition: color 0.4s, background-color 0.4s;
+}
+.tone-run[data-kind] .ap-badge .ic { animation: ap-wobble 2.4s ease-in-out infinite; }
+@keyframes ap-wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+.ap-title { min-width: 0; flex: 1; }
+.ap-title b { display: block; font-size: 19px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-pill {
+  flex: none; max-width: 48%; padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; color: var(--ap-tone); background: color-mix(in srgb, var(--ap-tone) 15%, transparent);
+}
+.ap-pill:empty { display: none; }
+.ap-body { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; }
+.ap-hero { min-width: 0; }
+.ap-value { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.ap-big { font-size: 52px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; white-space: nowrap; }
+.ap-big.word { font-size: 30px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+.ap-unit { font-size: 20px; font-weight: 700; color: var(--text_dim); }
+.ap-sub { display: block; margin-top: 8px; font-size: 15px; font-weight: 600; color: var(--text_dim); }
+.ap-sub:empty { display: none; }
+.ap-bar { height: 8px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--text_dim) 18%, transparent); }
+.ap-bar b { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, color-mix(in srgb, var(--ap-tone) 70%, #fff 30%), var(--ap-tone)); transition: width 0.6s var(--ease-out); }
+.ap-bar.busy b { width: 35%; animation: ap-slide 1.8s ease-in-out infinite; }
+@keyframes ap-slide { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
+.ap-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ap-stat { padding: 9px 12px; border-radius: 12px; background: color-mix(in srgb, var(--bg) 35%, transparent); min-width: 0; }
+.ap-stat span { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.ap-stat b { display: block; margin-top: 2px; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.ap-controls { display: flex; flex-direction: column; gap: 10px; }
+.ap-controls:empty { display: none; }
+.ap-row { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.ap-btn {
+  flex: 1 1 0; min-width: 0; height: 48px; padding: 0 12px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: color-mix(in srgb, var(--text_dim) 16%, var(--tile)); font-size: 15px; font-weight: 700; color: var(--text);
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.12s;
+}
+.ap-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-btn .ic { font-size: 18px; flex: none; }
+.ap-btn.primary { background: var(--accent); color: var(--on_text); }
+.ap-btn.on { background: var(--tile_on); color: var(--on_text); }
+.ap-btn.armed { background: var(--bad); color: #fff; }
+.ap-btn.pending, .ap-chip.pending { opacity: 0.55; }
+.ap-btn:disabled, .ap-chip:disabled { opacity: 0.38; cursor: default; }
+.ap-btn.pressed, .ap-chip.pressed { transform: scale(0.96); }
+/* Option toggles: as many per row as fit (the dishwasher's four become 2 x 2). */
+.ap-row.ap-toggles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+.ap-toggles .ap-btn { height: 42px; font-size: 14px; }
+.ap-chips { display: flex; gap: 8px; overflow-x: auto; touch-action: pan-x; scrollbar-width: none; margin: 0 -18px; padding: 0 18px; }
+.ap-chips::-webkit-scrollbar { display: none; }
+.ap-chip { flex: 0 0 auto; height: 40px; padding: 0 14px; border-radius: 12px; font-size: 14px; font-weight: 700; background: color-mix(in srgb, var(--text_dim) 16%, var(--tile)); white-space: nowrap; transition: background-color 0.2s, color 0.2s, transform 0.12s; }
+.ap-chip.active { background: var(--scene_on); color: var(--scene_text); }
+.ap-row > .ap-chip { flex: 0 0 auto; height: 48px; }
+.ap-stepper { flex: 1; display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; align-items: center; gap: 8px; }
+.ap-stepper .ap-btn { padding: 0; }
+.ap-stepper b { text-align: center; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ap-note { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text_dim); }
+.ap-zones { flex: none; display: grid; grid-template-columns: repeat(2, 56px); gap: 10px; }
+.ap-zone {
+  width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; font-weight: 700; color: var(--text_dim);
+  border: 2px solid color-mix(in srgb, var(--text_dim) 30%, transparent); transition: all 0.4s;
+}
+.ap-zone.on {
+  color: #fff; border-color: color-mix(in srgb, var(--bad) 80%, #fff 20%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--bad) 70%, #ffb347 30%) 0%, color-mix(in srgb, var(--bad) 25%, transparent) 72%);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--bad) 45%, transparent);
+}
+.ap-extra:empty { display: none; }
+@media (max-width: 760px) {
+  .ap { padding: 12px; }
+  .ap-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .ap-big { font-size: 44px; }
+}

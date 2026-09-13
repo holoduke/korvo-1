@@ -1,0 +1,67 @@
+/* Full-screen layers: the "AI oog" screensaver and the boot splash. */
+
+/* ---- Screensaver ------------------------------------------------------------------ */
+.saver { position: fixed; inset: 0; z-index: 60; background: #000; animation: fade-in 0.6s ease-out; cursor: none; }
+.eye-group { position: absolute; inset: 0; }
+.eye-wrap { position: absolute; left: 50%; top: 50%; width: min(470px, 86vmin); aspect-ratio: 1; transform: translate(-50%, -50%); }
+.eye { position: absolute; inset: 3.2%; width: 93.6%; height: 93.6%; animation: breath 5.4s ease-in-out infinite; }
+.eye-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36.2%;
+  aspect-ratio: 1;
+  margin: calc(-18.1% + 4px) 0 0 calc(-18.1% + 4px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 59, 31, 0.8) 0%, rgba(255, 59, 31, 0) 70%);
+  mix-blend-mode: screen;
+  animation: glow 3.2s ease-in-out infinite;
+}
+.eye-glow.flicker { animation: glow 3.2s ease-in-out infinite, flicker 0.23s ease-in-out 1; }
+.eye-ring { position: absolute; inset: 0; width: 100%; height: 100%; animation: spin 9s linear infinite; }
+@keyframes breath { 50% { opacity: 0.8; } }
+@keyframes glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+@keyframes flicker { 40% { filter: brightness(0.3); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.eye-temps { position: absolute; left: 28px; top: 20px; display: grid; grid-template-columns: auto auto; column-gap: 22px; row-gap: 10px; font-size: 24px; font-weight: 600; color: #7a3d30; }
+.eye-temps .v { text-align: right; font-variant-numeric: tabular-nums; }
+.eye-media { position: absolute; left: 28px; bottom: 20px; right: 40%; }
+.eye-media .where { font-size: 18px; font-weight: 600; color: #7a3d30; display: flex; align-items: center; gap: 8px; }
+.eye-media .what { font-size: 24px; font-weight: 600; color: #a8543f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+.saver-clock { position: absolute; right: 28px; bottom: 16px; font-size: 46px; font-weight: 600; color: #5a3028; font-variant-numeric: tabular-nums; }
+.saver.off .saver-clock { color: #2e3340; }
+.saver.off .eye-group { display: none; }
+
+/* ---- Splash ------------------------------------------------------------------ */
+.splash { position: fixed; inset: 0; z-index: 80; background: #000; transition: opacity 0.5s ease-out; }
+.splash img { width: 100%; height: 100%; object-fit: cover; }
+.splash.gone { opacity: 0; pointer-events: none; }
+/* Brand line above the loader: across the full width (splash.js sizes it to
+ * fit), not taller than about 8% of the screen, cyan with a soft glow. */
+.splash-title { position: absolute; left: 0; right: 0; bottom: calc(8% + 64px); padding: 0 4vw; text-align: center; white-space: nowrap; pointer-events: none; }
+#splashTitle {
+  display: inline-block;
+  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.32em;
+  margin-right: -0.32em; /* the last letter's spacing would push the line off centre */
+  text-transform: uppercase;
+  color: #7ff4ff;
+  text-shadow: 0 0 4px rgba(127, 244, 255, 0.9), 0 0 14px rgba(0, 220, 255, 0.55), 0 0 36px rgba(0, 190, 255, 0.35);
+}
+.splash-bottom { position: absolute; left: 50%; bottom: 8%; width: min(420px, 70vw); transform: translateX(-50%); text-align: center; }
+.splash-status { font-size: 14px; font-weight: 600; color: #9fd8ff; letter-spacing: 0.06em; margin-bottom: 10px; text-shadow: 0 0 12px rgba(80, 180, 255, 0.6); }
+.splash-bar { height: 4px; border-radius: 2px; background: rgba(120, 190, 255, 0.18); overflow: hidden; }
+#splashFill { height: 100%; width: 0; background: linear-gradient(90deg, #3ee0d8, #5ad1ff); box-shadow: 0 0 10px #5ad1ff; transition: width 0.4s var(--ease-out); }
+
+@media (max-width: 760px) {
+  .eye-temps { font-size: 18px; left: 16px; top: 14px; row-gap: 6px; }
+  .saver-clock { font-size: 34px; right: 16px; }
+  .eye-media { left: 16px; right: 16px; bottom: 70px; }
+  .eye-media .what { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eye, .eye-glow, .eye-ring { animation: none; }
+}

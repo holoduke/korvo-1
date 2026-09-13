@@ -1,0 +1,113 @@
+/* Web panel: the Korvo wall-panel UI (800x480 LVGL) rebuilt for the browser.
+ * Measurements follow main/panel_ui.c; colours come from the theme variables
+ * core.js sets from main/themes.h. Status colours are fixed, like on the panel.
+ * This file: tokens, the app's frame, pages and overlays. */
+
+:root {
+  --ok: #4dd06a;
+  --warn: #e0a555;
+  --bad: #e05555;
+  --cold: #6fb3ff;
+  --hum: #7fa8d0;
+  --header-h: 84px;
+  --tabbar-h: 46px;
+  --row-h: 84px;
+  --lane: 84px;          /* right lane reserved for the brightness slider */
+  --gap: 14px;
+  --pad: 16px;
+  --radius: 18px;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  font-family: "Montserrat", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (max-width: 760px) {
+  :root { --header-h: auto; --tabbar-h: 44px; --row-h: 72px; --lane: 72px; --gap: 10px; --pad: 12px; --radius: 16px; }
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+body { transition: background-color 0.35s; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; touch-action: manipulation; /* no double-tap zoom delay on iOS */ }
+[hidden] { display: none !important; }
+.ic { width: 1em; height: 1em; display: block; flex: none; }
+
+#app {
+  height: 100dvh;
+  display: grid;
+  /* An explicit minmax(0, 1fr) column keeps the app at the viewport width; the
+   * implicit column would grow to the header strip's content on phones. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto var(--tabbar-h) minmax(0, 1fr);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+/* As a home-screen app the page runs under a transparent status bar: paint the
+ * safe area above the header in the header's colour so the bar blends in. */
+#app::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: var(--toolbar);
+  z-index: 5;
+  pointer-events: none;
+}
+
+@keyframes pulse { to { opacity: 0.35; } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes pop-in { from { transform: scale(0.94) translateY(10px); opacity: 0; } }
+@keyframes pop-out { to { transform: scale(0.96); opacity: 0; } }
+
+/* ---- Pages (swipe track) ---------------------------------------------------- */
+/* clip, not hidden: a hidden box still scrolls when focus or scrollIntoView reaches
+ * a control near its edge, which shifts the section track off its snap point. */
+.stage { position: relative; overflow: clip; touch-action: pan-y; }
+.track { display: flex; height: 100%; will-change: transform; }
+.track.snapping { transition: transform 0.16s var(--ease-out); }
+.page {
+  flex: 0 0 100%;
+  height: 100%;
+  display: grid;
+  /* minmax(0, 1fr): without an explicit column the implicit one grows to the
+   * row's content and pushes "Alle lampen" off-screen on narrow widths. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--row-h);
+  min-width: 0;
+}
+/* Pages without a bottom row. */
+.page.vac-page, .page.car-page, .page.appl-page { grid-template-rows: minmax(0, 1fr); }
+
+/* ---- Overlays ---------------------------------------------------------------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  animation: fade-in 0.18s ease-out;
+}
+.overlay.closing { animation: fade-out 0.16s ease-in forwards; }
+.overlay.closing .box { animation: pop-out 0.16s ease-in forwards; }
+.box { background: var(--tile); border-radius: 20px; padding: 24px; width: 100%; animation: pop-in 0.22s var(--ease-out); max-height: calc(100dvh - 32px); overflow: auto; }
+.box-head { display: flex; align-items: center; gap: 12px; margin: -6px -6px 12px 0; }
+.box-title { font-size: 24px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.close-btn { width: 44px; height: 44px; border-radius: 12px; background: var(--tile_off); font-size: 18px; display: grid; place-items: center; flex: none; }
+.close-btn:active { transform: scale(0.94); }
+@media (max-width: 760px) {
+  .box-title { white-space: normal; font-size: 18px; line-height: 1.25; }
+}

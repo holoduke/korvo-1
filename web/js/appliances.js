@@ -10,7 +10,7 @@
   const { cfg } = Panel;
   const list = cfg.appliances || [];
   if (!list.length) return;
-  const st = Panel.st;
+  const { esc, hm, fmt, known, duration } = Util;
   const CONFIRM_MS = 3000;
   const PENDING_MS = 10000;
 
@@ -33,38 +33,24 @@
   };
   const HIDDEN_PROGRAMS = new Set(["001", "LearningDishwasher"]);
 
-  const armed = new Map(); /* control key -> timer */
-  const pending = new Map(); /* control key -> {appliance index, until} */
+  /* Controls are known as "<appliance index>|<action>[|<argument>]". */
+  const twoTap = Util.confirmer(CONFIRM_MS, () => render());
+  const pending = Util.pendingSet(PENDING_MS, () => render());
   let root = null;
 
-  /* ---- Helpers ---------------------------------------------------------------------- */
-  const s = (id) => (id ? st(id) : undefined);
+  /* ---- State values ----------------------------------------------------------------- */
+  const s = (id) => (id ? Panel.st(id) : undefined);
   const raw = (id) => ((s(id) || {}).state || "");
   const low = (id) => raw(id).toLowerCase();
-  const num = (id) => (id ? Panel.num(id) : NaN);
+  const num = (id) => Panel.num(id);
   const on = (id) => raw(id) === "on";
   const attrs = (id) => (s(id) || {}).attributes || {};
-  const known = (v) => !!v && !["unknown", "unavailable", "none", ""].includes(String(v).toLowerCase());
   const offline = (id) => !s(id) || raw(id) === "unavailable";
-  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-  const hm = (d) => String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  const fmt = (n, digits = 0) => (Number.isFinite(n) ? n.toLocaleString("nl-NL", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "--");
-  function timeOf(id) {
-    const t = known(raw(id)) ? Date.parse(raw(id)) : NaN;
-    return Number.isFinite(t) ? new Date(t) : null;
-  }
-  /* Seconds -> ["2:05", "uur"] or ["42", "min"]. */
-  function duration(sec) {
-    if (!Number.isFinite(sec) || sec < 0) return ["--", ""];
-    const m = Math.round(sec / 60);
-    if (m >= 60) return [`${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`, "uur"];
-    return [String(m), "min"];
-  }
 
   /* ---- Controls --------------------------------------------------------------------- */
   function btn(i, action, label, { primary = false, active = false, disabled = false, confirm = false, ic = null } = {}) {
     const key = `${i}|${action}`;
-    const isArmed = armed.has(key);
+    const isArmed = twoTap.armed(key);
     const cls = ["ap-btn", primary && "primary", active && "on", isArmed && "armed", pending.has(key) && "pending"].filter(Boolean).join(" ");
     return (
       `<button class="${cls}" data-appl="${key}"${confirm ? " data-confirm" : ""}${disabled ? " disabled" : ""}>` +
@@ -179,8 +165,10 @@
       const view = {
         tone: active ? "hot" : powered ? "ready" : "off",
         pill: powered || active ? "Aan" : "Uit",
-        big: String(active),
-        unit: active === 1 ? "zone aan" : "zones aan",
+        /* The number of zones in use; a hob that is off says so instead of "0". */
+        big: active ? String(active) : powered ? "0" : "Uit",
+        word: !active && !powered,
+        unit: active ? (active === 1 ? "zone aan" : "zones aan") : powered ? "zones aan" : "",
         sub: vent && vent !== "Off" ? `Afzuiging ${ventLabel.toLowerCase()}` : "Afzuiging uit",
         extra:
           `<div class="ap-zones">${zones.map((z, n) => `<div class="ap-zone${known(z) && z !== "Off" ? " on" : ""}" title="Zone ${n + 1}">${zoneLabel(z)}</div>`).join("")}</div>`,
@@ -261,7 +249,7 @@
     const job = low(e.job);
     const running = machine === "run";
     const paused = machine === "pause";
-    const done = timeOf(e.done);
+    const done = Util.dateOf(raw(e.done));
     const left = done ? Math.max(0, (done - Date.now()) / 1000) : NaN;
     const [big, unit] = duration(left);
     const remote = on(e.remote);
@@ -295,8 +283,8 @@
   }
 
   /* ---- Build and render ------------------------------------------------------------ */
-  Panel.buildAppliances = function (container) {
-    root = container;
+  function build(page) {
+    root = page.querySelector(".ap");
     root.innerHTML =
       `<div class="ap-grid">` +
       list
@@ -313,12 +301,12 @@
         .join("") +
       `</div>`;
     render();
-  };
+  }
+  Panel.definePage("appliances", { className: "appl-page", html: () => `<div id="applPage" class="ap"></div>`, build });
 
   function render() {
     if (!root) return;
-    const now = Date.now();
-    for (const [key, p] of pending) if (now > p.until) pending.delete(key);
+    pending.settle();
     list.forEach((a, i) => {
       const card = root.querySelector(`[data-appl-card="${i}"]`);
       const view = VIEWS[a.kind] ? VIEWS[a.kind](a, i) : offlineView("Onbekend apparaat");
@@ -342,24 +330,21 @@
   }
 
   /* ---- Actions --------------------------------------------------------------------- */
-  Panel.applTap = function (el) {
+  Panel.defineAction("appl", (el) => {
     const key = el.dataset.appl;
     const [iStr, action, arg] = key.split("|");
-    const i = +iStr;
-    const a = list[i];
-    if (!a) return;
-    if (el.hasAttribute("data-confirm") && !armed.has(key)) {
-      armed.set(key, setTimeout(() => (armed.delete(key), render()), CONFIRM_MS));
-      render();
-      return;
-    }
-    clearTimeout(armed.get(key));
-    armed.delete(key);
+    const a = list[+iStr];
+    if (!a || !twoTap.tap(key, el.hasAttribute("data-confirm"))) return;
     const e = a.entities;
+    /* Settles once any of the appliance's entities reports something new. */
+    const snapshot = () => Object.values(e).map((id) => Panel.st(id));
     const call = (domain, service, data, entity) => {
       if (!entity) return;
-      pending.set(key, { i, until: Date.now() + PENDING_MS });
-      Panel.client.callService(domain, service, data || null, { entity_id: entity }).catch(() => pending.delete(key));
+      pending.mark(key, snapshot);
+      Panel.client.callService(domain, service, data || null, { entity_id: entity }).catch(() => {
+        pending.drop(key);
+        render();
+      });
     };
     if (action === "select") call("select", "select_option", { option: arg }, e.state);
     else if (action === "program") call("select", "select_option", { option: arg }, e.selected);
@@ -380,15 +365,12 @@
       if (next) call("select", "select_option", { option: next }, e.vent);
     } else if (action === "filterreset") call("button", "press", null, e.filterReset);
     render();
-  };
+  });
 
-  /* app.js calls this with the changed appliance entity ids. */
-  Panel.onAppliances = function (changed) {
-    if (changed && changed.length) {
-      for (const [key, p] of pending) if (Object.values(list[p.i].entities).some((id) => changed.includes(id))) pending.delete(key);
-    }
-    render();
-  };
+  Panel.track(
+    list.flatMap((a) => Object.values(a.entities)),
+    () => render()
+  );
   /* Time left moves on its own (the washer reports a finish time). */
   setInterval(render, 30000);
 })();

@@ -1,0 +1,135 @@
+/* Header (forecast, climate, air and device columns, clock) and the tab bar. */
+
+#header {
+  min-height: var(--header-h);
+  background: var(--toolbar);
+  border-bottom: 1px solid var(--tile);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 14px;
+  /* Spacing between header columns: full on wide screens, tighter on an 11"
+   * iPad in landscape (1180-1194 px) so every column fits without scrolling. */
+  --hdr-gap: clamp(6px, 1vw - 5px, 11px);
+  transition: background-color 0.35s, border-color 0.35s;
+}
+.hdr-strip {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.hdr-strip::-webkit-scrollbar { display: none; }
+/* More columns hide to the right: fade that edge (header.js toggles it). */
+.hdr-strip.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.fc { display: flex; gap: var(--hdr-gap); align-items: center; }
+.fc-col, .sensor-col { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.fc-day { font-size: 13px; color: var(--text_dim); font-weight: 600; }
+.fc-day.today { color: var(--accent); }
+.fc-temp { font-size: 17px; font-weight: 600; }
+/* Divider spacing scales with the width, like --hdr-gap. */
+.rule { width: 1px; height: 48px; background: var(--tile); margin: 0 clamp(5px, 1.2vw - 8px, 14px); flex: none; }
+.sensors { display: flex; gap: var(--hdr-gap); align-items: center; }
+.sensor-col { padding: 2px; border-radius: 10px; transition: background-color 0.15s; }
+.sensor-col:active { background: color-mix(in srgb, var(--tile) 70%, transparent); }
+.sensor-col.stale { opacity: 0.55; }
+.s-name { font-size: 13px; color: var(--text_dim); font-weight: 600; display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.s-name .ic { font-size: 12px; }
+.s-temp { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; transition: color 0.4s; }
+.s-hum { font-size: 13px; font-weight: 600; color: var(--hum); display: flex; align-items: center; gap: 3px; transition: color 0.4s; }
+.s-hum .ic { font-size: 11px; }
+
+/* Drawn weather icon: sun disc + three-part cloud, 36x34 like the panel. */
+.wx { position: relative; width: 36px; height: 34px; }
+.wx .sun { position: absolute; left: 1px; top: 7px; width: 20px; height: 20px; border-radius: 50%; background: #ffcf4d; }
+.wx .cloud { position: absolute; left: 0; bottom: 0; width: 36px; height: 19px; color: var(--text_dim); }
+.wx .cloud i { position: absolute; background: currentColor; display: block; }
+.wx .cloud i:nth-child(1) { left: 1px; bottom: 0; width: 34px; height: 10px; border-radius: 5px; }
+.wx .cloud i:nth-child(2) { left: 4px; bottom: 2px; width: 14px; height: 14px; border-radius: 50%; }
+.wx .cloud i:nth-child(3) { left: 11.5px; bottom: 1px; width: 17px; height: 17px; border-radius: 50%; }
+
+/* Air column: the label, then two columns (CO2 over PM2.5, temperature over
+ * humidity) whose second row starts exactly under the first. */
+.air-col { align-items: flex-start; text-align: left; }
+.air-col .s-name { gap: 6px; justify-content: flex-start; }
+.aq-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tile); flex: none; transition: background-color 0.4s; }
+.aq-txt { font-size: 12px; font-weight: 700; }
+.air-grid { display: grid; grid-template-columns: auto auto; column-gap: 18px; row-gap: 1px; justify-items: start; align-items: baseline; }
+.air-grid .s-hum { justify-content: flex-start; }
+.a-co2 small { font-size: 0.5em; font-weight: 600; margin-left: 2px; opacity: 0.85; }
+.a-pm { color: var(--text_dim); }
+
+/* Device columns (vacuum, bike, car): the climate columns' three lines, so
+ * their text lines up. The icon sits small in the name line. */
+.dev-hdr { align-items: flex-start; text-align: left; transition: background-color 0.15s, opacity 0.3s; }
+.dev-hdr .s-name { gap: 4px; }
+.dev-hdr .s-name .ic { font-size: 13px; color: var(--accent); }
+.dev-hdr[data-device="vacuum"].active .s-name .ic { animation: vac-spin 3s linear infinite; }
+@keyframes vac-spin { to { transform: rotate(360deg); } }
+.vh-batt { transition: color 0.4s; }
+.vh-status { display: block; color: var(--text_dim); white-space: nowrap; max-width: 60px; overflow: hidden; text-overflow: ellipsis; } /* keeps the header within an 11" iPad */
+.vh-status .ic { display: inline-block; font-size: 11px; margin-left: 2px; vertical-align: -1px; }
+.dev-hdr.active .vh-status { color: var(--accent); }
+.dev-hdr[data-device="car"] .vh-status { max-width: 68px; } /* "322 km" and the lock; this line sets the column's width */
+
+.hdr-right { display: flex; align-items: center; flex: none; }
+.timebox { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.clock { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.05; }
+.daterow { display: flex; gap: 6px; font-size: 13px; font-weight: 600; }
+.dow { color: var(--text_soft); }
+.date { color: var(--text_dim); }
+.status { width: 14px; height: 14px; border-radius: 50%; background: var(--bad); margin-left: 10px; transition: background-color 0.3s; }
+.status.connecting { background: var(--warn); animation: pulse 1.2s ease-in-out infinite alternate; }
+.status.connected { background: var(--ok); }
+.gear { width: 44px; height: 44px; border-radius: 12px; margin-left: 8px; font-size: 30px; display: grid; place-items: center; transition: background-color 0.15s; }
+.gear:active { background: color-mix(in srgb, var(--tile) 30%, transparent); }
+
+/* ---- Tab bar ----------------------------------------------------------------- */
+.tabbar {
+  position: relative;
+  display: flex;
+  padding: 0 12px;
+  background: var(--bg);
+  transition: background-color 0.35s;
+}
+.tab {
+  flex: 1;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text_dim);
+  transition: color 0.2s;
+}
+.tab.active { color: var(--accent); }
+.tabind {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 2px;
+  will-change: transform;
+}
+
+/* ---- Smaller screens ------------------------------------------------------- */
+/* The panel's own 800x480 and similar small landscapes. */
+@media (min-width: 761px) and (max-width: 860px) {
+  #header { padding: 0 12px; gap: 8px; }
+  .fc { gap: 7px; }
+  .sensors { gap: 5px; }
+  .rule { margin: 0 8px; }
+  .status { margin-left: 8px; }
+  .gear { width: 48px; margin-left: 4px; font-size: 28px; }
+}
+/* Phones: the clock and gear on a line of their own above the columns. */
+@media (max-width: 760px) {
+  #header { flex-wrap: wrap; padding: 8px 12px; gap: 6px; }
+  .hdr-right { order: -1; width: 100%; justify-content: space-between; }
+  .timebox { flex-direction: row; align-items: baseline; gap: 10px; margin-right: auto; }
+  .clock { font-size: 28px; }
+  .gear { font-size: 26px; }
+  .hdr-strip { flex: 1 1 100%; padding-bottom: 2px; }
+  /* Five sections: size tabs to their labels instead of equal shares. */
+  .tab { font-size: 13px; flex: 1 1 auto; padding: 0 2px; }
+}

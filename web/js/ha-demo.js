@@ -1,0 +1,437 @@
+/* Demo backend for ?demo: an in-browser Home Assistant with the real client's
+ * interface (states, services, history), seeded so every run looks the same.
+ * The UI can be explored and tested with it without touching real devices. */
+(function () {
+  "use strict";
+
+  function createDemo(cfg) {
+    const ev = Util.emitter();
+    const states = new Map();
+    const now = Date.now();
+    const set = (id, state, attributes, lc) =>
+      states.set(id, { state, attributes: attributes || {}, lastChanged: lc || now, lastUpdated: lc || now });
+
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+    const lights = new Set();
+    cfg.tabs.forEach((t) => [...t.lights, ...t.devices].forEach((l) => lights.add(l.id)));
+    [...lights].forEach((id, i) => {
+      if (i % 11 === 5) return set(id, "unavailable");
+      const on = rnd() > 0.45;
+      const colour = /garage|playroom|keuken_muur|zitkamer_achter_muur/.test(id);
+      set(id, on ? "on" : "off", {
+        brightness: on ? Math.round(60 + rnd() * 195) : null,
+        supported_color_modes: colour ? ["color_temp", "xy"] : ["color_temp"],
+        min_color_temp_kelvin: 2202,
+        max_color_temp_kelvin: 6535,
+      });
+    });
+    cfg.tabs.forEach((t, ti) =>
+      t.scenes.forEach((s, i) => set(s.id, new Date(now - (ti * 7 + i + 1) * 3600e3).toISOString(), {}, now - (ti * 7 + i + 1) * 3600e3))
+    );
+    const base = [14.2, 21.4, 22.1, 22.7, 23.6];
+    const hum = [83, 58, 57, 54, 56];
+    cfg.sensors.forEach((s, i) => {
+      set(s.temp, String(base[i] ?? 21), { unit_of_measurement: "°C" });
+      if (s.humidity) set(s.humidity, String(hum[i] ?? 50), { unit_of_measurement: "%" });
+    });
+    if (cfg.vacuum) {
+      const v = cfg.vacuum;
+      set(v.vacuum, "docked", {
+        "robotic_vacuum.clean_values": "[]",
+        "robotic_vacuum.consumables": JSON.stringify([
+          { type: "sideBrush", used: 3, mode: 1 }, { type: "rollBrush", used: 2, mode: 1 }, { type: "filter", used: 4, mode: 1 },
+          { type: "mop", used: 3, mode: 1 }, { type: "engineSensor", used: 14, mode: 1 }, { type: "dustbag", used: 5, mode: 1 },
+          { type: "mopCleaningTrough", used: 38, mode: 1 },
+        ]),
+      });
+      set(v.status, "charging", {});
+      set(v.battery, "94", { unit_of_measurement: "%" });
+      set(v.area, "0", {});
+      set(v.mode, "BothWork", { options: ["BothWork", "OnlySweep", "OnlyMop", "SweepFirst", "Custom"] });
+      set(v.fan, "Auto", { options: ["Quiet", "Auto", "Strong", "Max"] });
+      set(v.water, "Mid", { options: ["Low", "Mid", "High"] });
+      set(v.locate, "unknown", {});
+    }
+    if (cfg.bike) {
+      const b = cfg.bike;
+      set(b.battery, "86", { unit_of_measurement: "%" });
+      set(b.location, "home", {});
+      set(b.lock, "on", {});
+      set(b.speed, "0", { unit_of_measurement: "km/h" });
+    }
+    if (cfg.car) {
+      const e = cfg.car.entities;
+      const put = (key, state, attributes = {}) => set(e[key], state, attributes);
+      put("battery", "61", { unit_of_measurement: "%" });
+      put("usable", "60", { unit_of_measurement: "%" });
+      put("range", "322.2", { unit_of_measurement: "km" });
+      put("estRange", "290", { unit_of_measurement: "km" });
+      put("charging", "no_power", { options: ["starting", "charging", "stopped", "complete", "disconnected", "no_power"] });
+      put("charge", "off");
+      put("chargeLimit", "70", { min: 50, max: 100, step: 1, unit_of_measurement: "%" });
+      put("chargeAmps", "24", { min: 0, max: 24, step: 1, unit_of_measurement: "A" });
+      put("chargerPower", "0", { unit_of_measurement: "kW" });
+      put("chargerVoltage", "0", { unit_of_measurement: "V" });
+      put("chargerCurrent", "0", { unit_of_measurement: "A" });
+      put("chargeRate", "0", { unit_of_measurement: "km/h" });
+      put("energyAdded", "0", { unit_of_measurement: "kWh" });
+      put("timeToFull", "unavailable");
+      put("cable", "on");
+      put("port", "open", { supported_features: 3 });
+      put("cableLock", "locked");
+      put("lock", "locked");
+      put("sentry", "off");
+      put("frunk", "closed", { supported_features: 1 });
+      put("trunk", "closed", { supported_features: 3 });
+      put("windows", "closed", { supported_features: 3 });
+      ["doorFL", "doorFR", "doorRL", "doorRR", "winFL", "winFR", "winRL", "winRR"].forEach((k) => put(k, "off"));
+      put("climate", "off", {
+        hvac_modes: ["heat_cool", "off"], min_temp: 15, max_temp: 28, preset_modes: ["off", "keep", "dog", "camp"],
+        current_temperature: 29, temperature: 21.5, preset_mode: "off",
+      });
+      put("inside", "29.1", { unit_of_measurement: "°C" });
+      put("outside", "17.5", { unit_of_measurement: "°C" });
+      put("defrost", "off");
+      ["seatFL", "seatFR", "seatRL", "seatRC", "seatRR"].forEach((k) => put(k, "off", { options: ["off", "low", "medium", "high"] }));
+      put("wheel", "off", { options: ["off", "low", "high"] });
+      put("precond", "off");
+      put("battHeater", "off");
+      put("online", "on");
+      put("present", "off");
+      put("location", "home");
+      put("shift", "unknown");
+      put("speed", "unknown", { unit_of_measurement: "km/h" });
+      put("power", "0", { unit_of_measurement: "kW" });
+      put("odometer", "18342.6", { unit_of_measurement: "km" });
+      put("tireFL", "2.9", { unit_of_measurement: "bar" });
+      put("tireFR", "2.9", { unit_of_measurement: "bar" });
+      put("tireRL", "2.8", { unit_of_measurement: "bar" });
+      put("tireRR", "2.4", { unit_of_measurement: "bar" });
+      ["tireWarnFL", "tireWarnFR", "tireWarnRL"].forEach((k) => put(k, "off"));
+      put("tireWarnRR", "on");
+      put("destination", "unknown");
+      put("distToArrival", "unknown", { unit_of_measurement: "km" });
+      put("timeToArrival", "unavailable");
+      put("socAtArrival", "unknown", { unit_of_measurement: "%" });
+      put("trafficDelay", "unknown", { unit_of_measurement: "min" });
+      ["flash", "honk", "homelink", "keyless", "fart", "wake"].forEach((k) => put(k, "unknown"));
+      put("media", "off");
+      put("update", "off", { installed_version: "2026.32.3", latest_version: "2026.32.3" });
+    }
+    /* Appliances: a washer mid-cycle, a running dishwasher, a hob with two zones on. */
+    (cfg.appliances || []).forEach((ap) => {
+      const e = ap.entities;
+      const put = (key, state, attributes = {}) => e[key] && set(e[key], state, attributes);
+      const soon = (min) => new Date(now + min * 60e3).toISOString();
+      if (ap.kind === "washer" || ap.kind === "dryer") {
+        const washer = ap.kind === "washer";
+        put("state", washer ? "run" : "stop", { options: ["stop", "run", "pause"] });
+        put("machine", washer ? "run" : "stop", { options: ["pause", "run", "stop"] });
+        put("job", washer ? "ai_wash" : "none");
+        put("done", washer ? soon(42) : soon(-95));
+        put("power", washer ? "380" : "0", { unit_of_measurement: "W" });
+        put("energy", washer ? "186.9" : "138.1", { unit_of_measurement: "kWh" });
+        put("water", "9192.4", { unit_of_measurement: "L" });
+        put("remote", "on");
+        put("lock", "off");
+        put("on", washer ? "on" : "off");
+      } else if (ap.kind === "dishwasher") {
+        const programs = ["001", "Auto1", "Auto2", "Auto3", "Eco50", "Kurz60", "LearningDishwasher", "MachineCare", "PreRinse"];
+        put("op", "Run");
+        put("door", "Closed");
+        put("phase", "MainWash");
+        put("selected", "Eco50", { options: programs });
+        put("active", "Eco50", { options: programs });
+        put("remaining", "5400", { unit_of_measurement: "s" });
+        put("progress", "35", { unit_of_measurement: "%" });
+        put("startAllowed", "on");
+        put("abort", "unknown");
+        put("energy", "46");
+        put("water", "40");
+        put("care", "9");
+        ["extradry", "hygiene", "speed", "silence"].forEach((k) => put(k, "off"));
+      } else if (ap.kind === "oven") {
+        put("op", "Inactive");
+        put("door", "Closed");
+        put("temp", "23", { unit_of_measurement: "°C" });
+        ["setpoint", "program", "remaining", "elapsed", "progress"].forEach((k) => put(k, "unknown"));
+        ["pause", "resume", "abort"].forEach((k) => put(k, "unknown"));
+        put("childlock", "off");
+        put("light", "off");
+      } else if (ap.kind === "hob") {
+        const levels = ["Off", "KeepWarm", "10", "20", "30", "40", "50", "60", "70", "80", "90", "Boost1"];
+        put("op", "Run");
+        put("power", "On");
+        put("zone1", "50", { options: levels });
+        put("zone2", "Off", { options: levels });
+        put("zone3", "KeepWarm", { options: levels });
+        put("zone4", "Off", { options: levels });
+        put("childlock", "off");
+        put("filter", "2");
+        put("filterReset", "unknown");
+        put("vent", "Level03", { options: ["Off", "Automatic", "Level01", "Level02", "Level03", "Level04", "Level05", "BoostLevel1", "AfterRun"] });
+        put("airmode", "Recirculation", { options: ["Recirculation", "Extraction"] });
+      } else if (ap.kind === "filter") {
+        Object.keys(e).forEach((k) => put(k, "unavailable"));
+      } else if (ap.kind === "fridge") {
+        put("temp", "4", { unit_of_measurement: "°C" });
+        put("setpoint", "4", { min: 3, max: 9, step: 1, unit_of_measurement: "°C" });
+        ["supercool", "party", "night"].forEach((k) => put(k, "off"));
+      }
+    });
+    /* Room lamps that no drawer lists still have to exist in the demo. */
+    cfg.tabs.forEach((t) =>
+      (t.areas || []).forEach((a) =>
+        a.lights.forEach((id, i) => {
+          if (!states.has(id)) set(id, i % 3 ? "on" : "off", { brightness: 150, supported_color_modes: ["color_temp", "hs"], friendly_name: id.replace("light.", "").replace(/_/g, " ") });
+        })
+      )
+    );
+    cfg.air.forEach((a) => {
+      set(a.co2, "742", { unit_of_measurement: "ppm" });
+      set(a.pm25, "4", { unit_of_measurement: "µg/m³" });
+      set(a.quality, "good", {});
+      set(a.temp, "22.8", { unit_of_measurement: "°C" });
+      set(a.humidity, "55", { unit_of_measurement: "%" });
+    });
+    set(cfg.weather, "partlycloudy", { temperature: 17 });
+    cfg.media.forEach((m, i) =>
+      set(m.id, i === 0 ? "playing" : "idle", i === 0 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : {})
+    );
+
+    function change(ids) {
+      setTimeout(() => ev.emit("states", ids), 140);
+    }
+
+    return {
+      demo: true,
+      states,
+      on: ev.on,
+      hassUrl: () => "demo",
+      fireEvent() {
+        return Promise.resolve(null); /* nothing to report in demo mode */
+      },
+      /* Demo scenes switch every lamp of their tab on, "uit" scenes off. */
+      async sceneConfig(sceneEntityId) {
+        const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
+        if (!tab) return null;
+        const state = /uit/.test(sceneEntityId) ? "off" : "on";
+        const lamps = [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
+        return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id) => [id, { state }])) };
+      },
+      /* Demo states; a tab's "lampen ..." group holds that tab's drawer lamps. */
+      async getStates() {
+        const groups = new Map(cfg.tabs.filter((t) => t.lights[0] && /^light\.lampen_/.test(t.lights[0].id)).map((t) => [t.lights[0].id, t.devices.map((d) => d.id)]));
+        return [...states.entries()].map(([id, s]) => ({
+          entity_id: id,
+          state: s.state,
+          attributes: groups.has(id) ? { ...s.attributes, entity_id: groups.get(id) } : s.attributes,
+        }));
+      },
+      addEntities() {
+        /* the demo holds every state already */
+      },
+      /* For tests: a state change as Home Assistant would report it. */
+      setState(id, { state, attributes }) {
+        const cur = states.get(id) || { state: "unknown", attributes: {} };
+        set(id, state === undefined ? cur.state : state, attributes || cur.attributes, Date.now());
+        ev.emit("states", [id]);
+      },
+      logout() {
+        location.replace(location.pathname);
+      },
+      start() {
+        ev.emit("status", "connecting");
+        setTimeout(() => {
+          ev.emit("status", "connected");
+          ev.emit("states", [...states.keys()]);
+        }, 500);
+      },
+      async callService(domain, service, data, target, returnResponse) {
+        const ids = [].concat((target && target.entity_id) || []);
+        if (domain === "weather" && service === "get_forecasts") {
+          const conds = ["partlycloudy", "rainy", "sunny"];
+          const forecast = [0, 1, 2].map((d) => ({
+            datetime: new Date(now + d * 86400e3).toISOString(),
+            condition: conds[d],
+            temperature: 18 + d,
+          }));
+          return { response: { [cfg.weather]: { forecast } } };
+        }
+        /* Appliance commands (before the vacuum branch, which also takes buttons). */
+        const applEntities = (cfg.appliances || []).flatMap((ap) => Object.values(ap.entities));
+        if (ids.length && ids.every((id) => applEntities.includes(id))) {
+          const t = Date.now();
+          ids.forEach((id) => {
+            const cur = states.get(id) || { state: "unknown", attributes: {} };
+            let next = cur.state;
+            if (domain === "select") next = data.option;
+            else if (domain === "switch") next = service === "turn_on" ? "on" : "off";
+            else if (domain === "number") next = String(data.value);
+            else if (domain === "button") next = new Date(t).toISOString();
+            set(id, next, cur.attributes, t);
+            (cfg.appliances || []).forEach((ap) => {
+              const e = ap.entities;
+              const also = (key, state) => set(e[key], state, (states.get(e[key]) || {}).attributes || {}, t);
+              if ((ap.kind === "washer" || ap.kind === "dryer") && id === e.state) also("machine", next);
+              if (ap.kind === "dishwasher" && id === e.active) also("op", "Run");
+              if (ap.kind === "dishwasher" && id === e.abort) also("op", "Ready");
+              if (ap.kind === "oven" && id === e.pause) also("op", "Pause");
+              if (ap.kind === "oven" && id === e.resume) also("op", "Run");
+              if (ap.kind === "oven" && id === e.abort) also("op", "Inactive");
+            });
+          });
+          change(applEntities);
+          return returnResponse ? { response: {} } : null;
+        }
+        /* Car commands (before the vacuum branch, which also takes buttons). */
+        const carEntities = cfg.car ? Object.values(cfg.car.entities) : [];
+        if (ids.length && ids.every((id) => carEntities.includes(id))) {
+          const t = Date.now();
+          const e = cfg.car.entities;
+          ids.forEach((id) => {
+            const cur = states.get(id) || { state: "unknown", attributes: {} };
+            const a = cur.attributes || {};
+            let next = cur.state;
+            let nextAttrs = a;
+            if (domain === "switch") next = service === "turn_on" ? "on" : "off";
+            else if (domain === "lock") next = service === "lock" ? "locked" : "unlocked";
+            else if (domain === "cover") next = service === "open_cover" ? "open" : "closed";
+            else if (domain === "number") next = String(data.value);
+            else if (domain === "select") next = data.option;
+            else if (domain === "button") next = new Date(t).toISOString();
+            else if (domain === "climate") {
+              if (service === "turn_on") next = "heat_cool";
+              if (service === "turn_off") next = "off";
+              if (service === "set_temperature") nextAttrs = { ...a, temperature: data.temperature };
+              if (service === "set_preset_mode") nextAttrs = { ...a, preset_mode: data.preset_mode };
+            } else if (domain === "media_player") {
+              if (service === "media_play_pause") next = cur.state === "playing" ? "paused" : "playing";
+              if (service === "volume_set") nextAttrs = { ...a, volume_level: data.volume_level };
+            }
+            set(id, next, nextAttrs, t);
+            if (id === e.charge) set(e.charging, next === "on" ? "charging" : "stopped", (states.get(e.charging) || {}).attributes || {}, t);
+          });
+          change([...ids, cfg.car.entities.charging]);
+          return returnResponse ? { response: {} } : null;
+        }
+        const v = cfg.vacuum;
+        if (v && domain === "xiaomi_miot" && service === "get_properties") {
+          const day = (n) => new Date(now - n * 86400e3).toISOString().slice(0, 10).replace(/-/g, "/");
+          return {
+            response: {
+              clean_records: JSON.stringify([
+                { d: "1970/01/02", t: "04:31:23", A: 35, T: 2646, M: 1, c: 2 },
+                { d: day(2), t: "19:01:09", A: 74, T: 5466, M: 1, c: 0 },
+                { d: day(1), t: "21:10:40", A: 22, T: 1310, M: 2, c: 0 },
+                { d: day(0), t: "10:36:18", A: 19, T: 1022, M: 2, c: 0 },
+              ]),
+            },
+          };
+        }
+        const rooms = v && domain === v.roomsDomain;
+        if (v && (domain === "vacuum" || rooms || (domain === "select" && ids.some((i) => [v.mode, v.fan, v.water].includes(i))) || domain === "button")) {
+          const now2 = Date.now();
+          if (rooms && service === "stofzuig") {
+            const vs = states.get(v.vacuum);
+            set(v.vacuum, vs.state, { ...vs.attributes, "robotic_vacuum.clean_values": JSON.stringify(data.gebieden) }, now2);
+          }
+          if (domain === "select") ids.forEach((i) => set(i, data.option, (states.get(i) || {}).attributes, now2));
+          const go = (state, status, area) => {
+            set(v.vacuum, state, (states.get(v.vacuum) || {}).attributes || {}, now2);
+            set(v.status, status, {}, now2);
+            set(v.area, String(area), {}, now2);
+          };
+          if ((rooms && service === "stofzuig") || (domain === "vacuum" && service === "start")) go("cleaning", "sweeping", 3);
+          if (domain === "vacuum" && service === "pause") go("paused", "paused", 3);
+          if ((rooms && service === "naar_station") || (domain === "vacuum" && service === "return_to_base")) go("returning", "go charging", 3);
+          change([v.vacuum, v.status, v.area, v.mode, v.fan, v.water]);
+          return returnResponse ? { response: {} } : null;
+        }
+        const touched = [];
+        const members = (id) => {
+          const tab = cfg.tabs.find((t) => t.lights[0] && t.lights[0].id === id && t.devices.length);
+          return tab && /lampen_/.test(id) ? [id, ...tab.devices.map((d) => d.id)] : [id];
+        };
+        ids.forEach((id) => {
+          if (domain === "scene") {
+            const ts = new Date().toISOString();
+            set(id, ts, {}, Date.now());
+            touched.push(id);
+            return;
+          }
+          members(id).forEach((mid) => {
+            const s = states.get(mid);
+            if (!s || s.state === "unavailable") return;
+            const attrs = { ...s.attributes };
+            let on = s.state === "on";
+            if (service === "toggle") on = !on;
+            if (service === "turn_off") on = false;
+            if (service === "turn_on") {
+              on = true;
+              if (data && data.brightness_pct != null) attrs.brightness = Math.round(data.brightness_pct * 2.55);
+            }
+            if (on && !attrs.brightness) attrs.brightness = 200;
+            if (!on) attrs.brightness = null;
+            set(mid, on ? "on" : "off", attrs, Date.now());
+            touched.push(mid);
+          });
+        });
+        change(touched);
+        return returnResponse ? { response: {} } : null;
+      },
+      async historyFull(ids, start) {
+        /* Past room runs for the vacuum, shaped like the real robot's history
+         * (a mop-wash trip mid-run, rooms and area kept after docking):
+         * room 8 (19 m²) today, 5 (14 m²) yesterday, 4 (22 m²) three days ago. */
+        const out = {};
+        const runs = [[8, 0.2, 19], [5, 1.1, 14], [4, 3.3, 22]];
+        ids.forEach((id) => {
+          out[id] = runs.flatMap(([room, daysAgo, m2]) => {
+            const t = now - daysAgo * 86400e3;
+            const at = (values, area, time) => ({
+              "robotic_vacuum.clean_values": values,
+              "robotic_vacuum.clean_area": area,
+              "robotic_vacuum.clean_time": time,
+            });
+            return [
+              { s: "cleaning", a: at(`[${room}]`, 0, 1), t },
+              { s: "returning", a: at(`[${room}]`, Math.round(m2 * 0.7), 600), t: t + 10 * 60e3 },
+              { s: "cleaning", a: at(`[${room}]`, Math.round(m2 * 0.7), 610), t: t + 13 * 60e3 },
+              { s: "docked", a: at(`[${room}]`, m2, 1000), t: t + 20 * 60e3 },
+              { s: "docked", a: at("[]", 0, 0), t: t + 60 * 60e3 }, /* counters cleared after drying */
+            ];
+          }).filter((r) => r.t >= start.getTime()).sort((x, y) => x.t - y.t);
+        });
+        return out;
+      },
+      async history(ids, start) {
+        const out = {};
+        ids.forEach((id) => {
+          const cur = parseFloat((states.get(id) || {}).state);
+          /* Plausible daily shapes: [amplitude, period (h), phase (h), noise]. */
+          const shape = /carbon_dioxide/.test(id)
+            ? [260, 2.6, 5, 40]
+            : /pm2_5/.test(id)
+              ? [4, 1.7, 2, 1.5]
+              : /humidity/.test(id)
+                ? [6, 3.5, 0, 1.5]
+                : [1.4, 3.8, 6, 0.25];
+          const rows = [];
+          for (let t = start.getTime(); t <= Date.now(); t += 20 * 60e3) {
+            const h = (t - start.getTime()) / 3600e3;
+            const wave = shape[0] * Math.sin((h - shape[2]) / shape[1]);
+            const v = Math.max(0, cur + wave + (rnd() - 0.5) * shape[3]);
+            rows.push({ s: String(v.toFixed(1)), t });
+          }
+          out[id] = rows;
+        });
+        return out;
+      },
+    };
+  }
+
+  window.HA.createDemo = createDemo;
+})();

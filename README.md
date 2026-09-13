@@ -53,7 +53,13 @@ finger-following tab swipes, the "Alle lampen" drawer (swipe right to close),
 tap to toggle, long-press for brightness/colour/warmth, the area brightness
 slider, the Klimaat chart, the AI oog screensaver, and all six themes.
 
-- Plain HTML/CSS/JS in `web/`, no build step.
+- Plain HTML/CSS/JS in `web/`, no build step. `js/core.js` holds the
+  connection, an entity registry (`Panel.track`) and an event bus; every other
+  script is a module that registers what it follows, the pages it adds
+  (`Panel.definePage`), its controls (`Panel.defineAction`) and its swipes
+  (`Panel.addSwipe`, in `js/gestures.js`), and `js/main.js` boots once all are
+  loaded. Shared helpers live in `js/util.js`, the demo backend in
+  `js/ha-demo.js`, and the styles per feature in `css/`.
 - **One config for both**: `tools/gen_web_config.py` generates
   `web/js/config.js` from `main/panel_config.h` and `main/themes.h`, so tabs,
   scenes, lamps, sensors and themes never drift apart.

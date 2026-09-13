@@ -15,14 +15,14 @@
   if (!car) return;
   const E = car.entities;
   const st = Panel.st;
+  const { fmt, hm, known, clamp } = Util;
   const CONFIRM_MS = 3000;
-  const PENDING_MS = 20000;
+  const PENDING_MS = 20000; /* a sleeping car first has to wake up */
 
   const CHARGING_NL = { starting: "Start", charging: "Laadt", stopped: "Gestopt", complete: "Vol", disconnected: "Niet aangesloten", no_power: "Geen stroom" };
   const SHIFT_NL = { p: "Geparkeerd", d: "Rijdt", r: "Achteruit", n: "Neutraal" };
   const PRESET_NL = { off: "Normaal", keep: "Behouden", dog: "Hond", camp: "Kamperen" };
   const LEVEL_NL = { off: "Uit", low: "Laag", medium: "Midden", high: "Hoog" };
-  const WHERE_NL = { home: "Thuis", not_home: "Weg" };
   const OPENINGS = [
     ["doorFL", "deur linksvoor"], ["doorFR", "deur rechtsvoor"], ["doorRL", "deur linksachter"], ["doorRR", "deur rechtsachter"],
     ["winFL", "raam linksvoor"], ["winFR", "raam rechtsvoor"], ["winRL", "raam linksachter"], ["winRR", "raam rechtsachter"],
@@ -43,20 +43,7 @@
   const stateOf = (key) => ((s(key) || {}).state || "").toLowerCase();
   const attrs = (key) => (s(key) || {}).attributes || {};
   const unit = (key) => attrs(key).unit_of_measurement || "";
-  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  const hm = (d) => String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  const fmt = (n, digits = 0) =>
-    Number.isFinite(n) ? n.toLocaleString("nl-NL", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "--";
-  const known = (v) => v !== undefined && v !== null && !["", "unknown", "unavailable", "none"].includes(String(v).toLowerCase());
-  function timeOf(key) {
-    const x = s(key);
-    const t = x && known(x.state) ? Date.parse(x.state) : NaN;
-    return Number.isFinite(t) ? new Date(t) : null;
-  }
-  function when(ms) {
-    const d = new Date(ms);
-    return new Date().toDateString() === d.toDateString() ? hm(d) : `${d.getDate()}-${d.getMonth() + 1} ${hm(d)}`;
-  }
+  const timeOf = (key) => Util.dateOf((s(key) || {}).state);
 
   /* ---- Markup ----------------------------------------------------------------------- */
   const tile = (action, ic, label, extra = "") =>
@@ -67,8 +54,8 @@
     `<button class="vchip" data-car="${name}" data-step="-${step}" aria-label="Lager">${icon("minus")}</button><b>--</b>` +
     `<button class="vchip" data-car="${name}" data-step="${step}" aria-label="Hoger">${icon("plus")}</button></div>`;
 
-  Panel.buildCar = function (container) {
-    root = container;
+  function build(page) {
+    root = page.querySelector(".cp");
     root.innerHTML =
       `<div class="cp-banner" hidden>${icon("power")}<span class="cp-banner-text"></span></div>` +
       `<div class="cp-body">` +
@@ -115,40 +102,17 @@
       `</div></div>` +
       `</section></div>`;
     render();
-  };
+  }
+  Panel.definePage("car", { className: "car-page", html: () => `<div id="carPage" class="cp"></div>`, build });
 
   /* ---- Pending and confirm --------------------------------------------------------- */
-  const armed = new Map(); /* element -> timer */
-  const pending = new Map(); /* element -> {key, snap, until} */
+  /* A control is known by its action and its options (a stepper's direction, a preset). */
+  const keyOf = (el) => ["car", "key", "value", "opt", "step", "cmd"].map((k) => el.dataset[k]).filter((v) => v !== undefined).join("|");
+  const twoTap = Util.confirmer(CONFIRM_MS, () => render());
+  const pending = Util.pendingSet(PENDING_MS, () => render());
+  /* What a command changes: the state, or the climate and media attributes it sets. */
   const snap = (x) =>
     x ? JSON.stringify([x.state, x.attributes && x.attributes.temperature, x.attributes && x.attributes.preset_mode, x.attributes && x.attributes.volume_level]) : "";
-
-  function arm(el) {
-    el.classList.add("armed");
-    const label = el.querySelector(".cp-label b");
-    if (label) label.textContent = "Nogmaals tikken";
-    armed.set(el, setTimeout(() => disarm(el), CONFIRM_MS));
-  }
-  function disarm(el) {
-    if (!armed.has(el)) return;
-    clearTimeout(armed.get(el));
-    armed.delete(el);
-    el.classList.remove("armed");
-    render();
-  }
-  function mark(el, key) {
-    pending.set(el, { key, snap: snap(s(key)), until: Date.now() + PENDING_MS });
-    el.classList.add("pending");
-    setTimeout(render, PENDING_MS + 50);
-  }
-  function settle() {
-    for (const [el, p] of pending) {
-      if (Date.now() > p.until || snap(s(p.key)) !== p.snap) {
-        pending.delete(el);
-        el.classList.remove("pending");
-      }
-    }
-  }
 
   /* ---- Render ----------------------------------------------------------------------- */
   function tileState(action, active, label, small, visible = true) {
@@ -156,7 +120,7 @@
     if (!el) return null;
     el.hidden = !visible;
     el.classList.toggle("on", !!active);
-    if (!armed.has(el)) el.querySelector(".cp-label b").textContent = label;
+    el.querySelector(".cp-label b").textContent = twoTap.armed(action) ? "Nogmaals tikken" : label;
     el.querySelector(".cp-label small").textContent = small;
     return el;
   }
@@ -171,7 +135,7 @@
   }
   function whereText() {
     const x = s("location");
-    return x && known(x.state) ? WHERE_NL[x.state] || x.state : "";
+    return x && known(x.state) ? Util.place(x.state) : "";
   }
   function lastSeen() {
     return Math.max(0, ...["battery", "range", "inside", "location", "online"].map((k) => (s(k) || {}).lastChanged || 0));
@@ -179,7 +143,7 @@
 
   function render() {
     if (!root) return;
-    settle();
+    pending.settle();
     /* "off": the car sleeps and its last values stand. No known state at all
      * (after a Home Assistant restart while the car sleeps): Tesla Fleet has no
      * data yet and reports placeholders, e.g. frunk and trunk as open. */
@@ -193,14 +157,14 @@
     } else if (asleep) {
       const last = lastSeen();
       q(".cp-banner-text").textContent =
-        `De auto slaapt${last ? `; gegevens van ${when(last)}` : ""}. Een opdracht maakt hem eerst wakker, dat duurt even.`;
+        `De auto slaapt${last ? `; gegevens van ${Util.stamp(last)}` : ""}. Een opdracht maakt hem eerst wakker, dat duurt even.`;
     }
 
     /* Battery, range, state */
     const batt = val("battery");
     const limit = val("chargeLimit");
     q(".cp-soc b").textContent = Number.isFinite(batt) ? Math.round(batt) : "--";
-    q(".cp-soc").style.color = Panel.battColour(batt);
+    q(".cp-soc").style.color = Util.batteryColour(batt);
     const range = val("range");
     q(".cp-range b").textContent = Number.isFinite(range) ? `${fmt(range)} km` : "--";
     const est = val("estRange");
@@ -210,7 +174,7 @@
       Number.isFinite(usable) && Number.isFinite(batt) && Math.round(usable) !== Math.round(batt) ? `bruikbaar ${fmt(usable)}%` : "",
     ].filter(Boolean).join(" · ");
     q(".cp-bar b").style.width = clamp(Number.isFinite(batt) ? batt : 0, 0, 100) + "%";
-    q(".cp-bar b").style.background = Panel.battColour(batt);
+    q(".cp-bar b").style.background = Util.batteryColour(batt);
     const marker = q(".cp-bar i");
     marker.hidden = !Number.isFinite(limit);
     if (Number.isFinite(limit)) marker.style.left = clamp(limit, 0, 100) + "%";
@@ -367,26 +331,25 @@
         [a.media_title, a.media_artist].filter(known).join(" · ") || (a.source ? String(a.source) : media.state === "playing" ? "Speelt" : "Gepauzeerd");
       q('[data-cmd="media_play_pause"]').innerHTML = icon(media.state === "playing" ? "pause" : "play");
     }
+
+    qa("[data-car]").forEach((el) => {
+      const key = keyOf(el);
+      el.classList.toggle("pending", pending.has(key));
+      el.classList.toggle("armed", twoTap.armed(key));
+    });
   }
 
   /* ---- Actions ---------------------------------------------------------------------- */
-  Panel.carTap = function (el) {
+  Panel.defineAction("car", (el) => {
     const action = el.dataset.car;
-    if (el.hasAttribute("data-confirm") && !armed.has(el)) {
-      arm(el);
-      return;
-    }
-    if (armed.has(el)) {
-      clearTimeout(armed.get(el));
-      armed.delete(el);
-      el.classList.remove("armed");
-    }
+    const control = keyOf(el);
+    if (!twoTap.tap(control, el.hasAttribute("data-confirm"))) return;
     const call = (domain, service, data, key) => {
       if (!E[key]) return;
-      mark(el, key);
+      pending.mark(control, () => snap(s(key)));
       Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch(() => {
-        pending.delete(el);
-        el.classList.remove("pending");
+        pending.drop(control);
+        render();
       });
       render();
     };
@@ -457,7 +420,7 @@
         return call("media_player", "volume_set", { volume_level: next }, "media");
       }
     }
-  };
+  });
 
-  Panel.onCar = render;
+  Panel.track(Object.values(E), render);
 })();

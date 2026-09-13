@@ -1,0 +1,17 @@
+/* Settings: theme cards, screensaver choices, the connection. */
+
+.settings-box { max-width: 560px; }
+.set-row { padding: 16px 0; border-top: 1px solid var(--grid); display: flex; flex-direction: column; gap: 10px; }
+.set-title { font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.set-value { font-size: 16px; font-weight: 500; }
+.theme-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.theme-card { border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: left; border: 2px solid transparent; transition: border-color 0.2s, transform 0.12s; }
+.theme-card.selected { border-color: var(--accent); }
+.theme-card:active { transform: scale(0.97); }
+.theme-card .tc-dots { display: flex; gap: 6px; }
+.theme-card .tc-dots i { width: 22px; height: 22px; border-radius: 50%; display: block; }
+.theme-card .tc-name { font-size: 16px; font-weight: 600; }
+.seg { display: flex; background: var(--tile_off); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { flex: 1; padding: 10px 6px; border-radius: 9px; font-size: 15px; font-weight: 600; color: var(--text_dim); transition: background-color 0.2s, color 0.2s; }
+.seg button.selected { background: var(--tile); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
+.text-btn { align-self: flex-start; display: flex; gap: 8px; align-items: center; font-size: 16px; font-weight: 600; color: var(--accent); padding: 8px 0; }

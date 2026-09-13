@@ -80,7 +80,7 @@ def icon_table(src, name):
     return out
 
 
-def swatch_table(src, name, rainbow):
+def swatch_table(src, name):
     body = array_body(src, name)
     out = []
     for a, b in re.findall(r"\{\s*([^,{}]+?)\s*,\s*([^,{}]+?)\s*\}", body):
@@ -115,24 +115,20 @@ def parse_tabs(src):
     tabs = []
     for macro, args in re.findall(r"(TAB_ENTRY(?:_SCENES|_NS)?)\s*\((.*?)\)\s*,", body, re.S):
         a = split_args(args)
-        name = c_string_or_null(a[0])
+        icons = swatches = "NULL"
         if macro == "TAB_ENTRY":
-            lights, scenes, devices = a[1], a[2], a[3]
-            tab = {"name": name, "lights": entity_table(src, lights),
-                   "scenes": entity_table(src, scenes), "devices": entity_table(src, devices),
-                   "icons": None, "swatches": None, "quick": 0, "sceneTiles": False}
+            lights, scenes, devices = a[1:4]
         elif macro == "TAB_ENTRY_NS":
-            lights, devices = a[1], a[2]
-            tab = {"name": name, "lights": entity_table(src, lights), "scenes": [],
-                   "devices": entity_table(src, devices), "icons": None, "swatches": None,
-                   "quick": 0, "sceneTiles": False}
-        else:
-            lights, scenes, icons, swatches, quick, devices = a[1:7]
-            tab = {"name": name, "lights": entity_table(src, lights),
-                   "scenes": entity_table(src, scenes), "devices": entity_table(src, devices),
-                   "icons": None if icons == "NULL" else icon_table(src, icons),
-                   "swatches": None if swatches == "NULL" else swatch_table(src, swatches, True),
-                   "quick": int(quick, 0), "sceneTiles": True}
+            lights, scenes, devices = a[1], None, a[2]
+        else:  # TAB_ENTRY_SCENES; its quick-button count is the firmware's own
+            lights, scenes, icons, swatches, _quick, devices = a[1:7]
+        name = c_string_or_null(a[0])
+        tab = {"name": name, "lights": entity_table(src, lights),
+               "scenes": entity_table(src, scenes) if scenes else [],
+               "devices": entity_table(src, devices),
+               "icons": None if icons == "NULL" else icon_table(src, icons),
+               "swatches": None if swatches == "NULL" else swatch_table(src, swatches),
+               "sceneTiles": macro == "TAB_ENTRY_SCENES"}
         for key in ("icons", "swatches"):
             if tab[key] is not None and len(tab[key]) != len(tab["scenes"]):
                 fail(f"tab {name}: {key} has {len(tab[key])} entries for {len(tab['scenes'])} scenes")
@@ -162,29 +158,27 @@ def parse_air_sensors(src):
     return [dict(zip(keys, row)) for row in rows]
 
 
-def parse_vacuum(src):
-    m = re.search(r"\bPANEL_VACUUM\s*=\s*\{(.*?)\};", src, re.S)
+def string_struct(src, name, keys):
+    """A struct of strings, e.g. PANEL_BIKE = { "Fiets", "sensor.x", ... }, as a dict."""
+    m = re.search(r"\b%s\s*=\s*\{(.*?)\};" % re.escape(name), src, re.S)
     if not m:
-        fail("PANEL_VACUUM not found")
+        fail(f"{name} not found")
     vals = re.findall(r'"([^"]*)"', m.group(1))
-    keys = ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate", "roomsDomain")
     if len(vals) != len(keys):
-        fail(f"PANEL_VACUUM: expected {len(keys)} strings, found {len(vals)}")
-    vac = dict(zip(keys, vals))
+        fail(f"{name}: expected {len(keys)} strings, found {len(vals)}")
+    return dict(zip(keys, vals))
+
+
+def parse_vacuum(src):
+    vac = string_struct(src, "PANEL_VACUUM",
+                        ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate", "roomsDomain"))
     rooms = re.findall(r'\{\s*(\d+)\s*,\s*"([^"]*)"\s*\}', array_body(src, "PANEL_VACUUM_ROOMS"))
     vac["rooms"] = [{"id": int(i), "label": l} for i, l in rooms]
     return vac
 
 
 def parse_bike(src):
-    m = re.search(r"\bPANEL_BIKE\s*=\s*\{(.*?)\};", src, re.S)
-    if not m:
-        fail("PANEL_BIKE not found")
-    vals = re.findall(r'"([^"]*)"', m.group(1))
-    keys = ("label", "battery", "location", "lock", "speed")
-    if len(vals) != len(keys):
-        fail(f"PANEL_BIKE: expected {len(keys)} strings, found {len(vals)}")
-    return dict(zip(keys, vals))
+    return string_struct(src, "PANEL_BIKE", ("label", "battery", "location", "lock", "speed"))
 
 
 # Tesla Fleet entities by role: (key, domain, object id after "<car name>_").
@@ -296,13 +290,10 @@ def parse_appliances(src):
 
 
 def parse_car(src):
-    m = re.search(r"\bPANEL_CAR\s*=\s*\{(.*?)\};", src, re.S)
-    if not m:
-        fail("PANEL_CAR not found")
-    vals = re.findall(r'"([^"]*)"', m.group(1))
-    if len(vals) != 2 or not re.fullmatch(r"[a-z0-9_]+", vals[1]):
-        fail(f"PANEL_CAR: expected a label and a car name like \"vlm\", found {vals}")
-    label, name = vals
+    car = string_struct(src, "PANEL_CAR", ("label", "name"))
+    label, name = car["label"], car["name"]
+    if not re.fullmatch(r"[a-z0-9_]+", name):
+        fail(f"PANEL_CAR: expected a car name like \"vlm\", found {name!r}")
     entities = {key: f"{domain}.{name}_{object_id}" for key, domain, object_id in TESLA_FLEET_ENTITIES}
     return {"label": label, "name": name, "entities": entities,
             # the header column's four
@@ -311,28 +302,21 @@ def parse_car(src):
 
 
 def parse_areas(src, tabs):
-    """PANEL_AREAS -> tabs[i]["areas"] = [{label, lights: [ids], scenes: [{id, label}]}]."""
+    """PANEL_AREAS -> tabs[i]["areas"] = [{label, lights: [ids]}]."""
     names = [t["name"] for t in tabs]
     for t in tabs:
         t["areas"] = []
-    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}',
-                      array_body(src, "PANEL_AREAS"))
+    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\}', array_body(src, "PANEL_AREAS"))
     if not rows:
         fail("PANEL_AREAS is empty or unparsable")
-    for tab, label, lights, scenes in rows:
+    for tab, label, lights in rows:
         if tab not in names:
             fail(f"PANEL_AREAS: no tab named {tab!r}")
         ids = lights.split()
         bad = [i for i in ids if not re.fullmatch(r"light\.[a-z0-9_]+", i)]
         if not ids or bad:
             fail(f"PANEL_AREAS {label!r}: expected light entity ids, got {bad or 'nothing'}")
-        own = []
-        for pair in scenes.split():
-            m = re.fullmatch(r"(scene\.[a-z0-9_]+)=(\S+)", pair)
-            if not m:
-                fail(f"PANEL_AREAS {label!r}: scene {pair!r} is not entity_id=Label")
-            own.append({"id": m.group(1), "label": m.group(2).replace("_", " ")})
-        tabs[names.index(tab)]["areas"].append({"label": label, "lights": ids, "scenes": own})
+        tabs[names.index(tab)]["areas"].append({"label": label, "lights": ids})
 
 
 def parse_layout(src, tabs):

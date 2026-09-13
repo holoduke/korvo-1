@@ -166,7 +166,6 @@ window.PANEL_CONFIG = {
         null,
         null
       ],
-      "quick": 2,
       "sceneTiles": true,
       "areas": [
         {
@@ -182,20 +181,13 @@ window.PANEL_CONFIG = {
             "light.lamp_keuken_muur_1",
             "light.lamp_keuken_muur_2",
             "light.lamp_keuken_muur_3"
-          ],
-          "scenes": [
-            {
-              "id": "scene.keuken_voor_knipperen",
-              "label": "Knipperen"
-            }
           ]
         },
         {
           "label": "Eetkamer",
           "lights": [
             "light.lamp_keuken_eettafel_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Zitkamer",
@@ -206,8 +198,7 @@ window.PANEL_CONFIG = {
             "light.lamp_grond_1",
             "light.lamp_woonkamer_kubus_1",
             "light.lamp_valerie_rieten_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Zitk. achter",
@@ -217,8 +208,7 @@ window.PANEL_CONFIG = {
             "light.lamp_zitkamer_achter_3",
             "light.lamp_zitkamer_achter_muur_1",
             "light.lamp_zitkamer_achter_muur_2"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Gameroom",
@@ -228,8 +218,7 @@ window.PANEL_CONFIG = {
             "light.lamp_playroom_muur_1",
             "light.lamp_playroom_muur_2",
             "light.lamp_playroom_muur_3"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Gang",
@@ -240,15 +229,13 @@ window.PANEL_CONFIG = {
             "light.lamp_gang_deur_1",
             "light.lamp_gang_trap_beneden_1",
             "light.lamp_wc_beneden_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Buiten",
           "lights": [
             "light.lamp_buiten_1"
-          ],
-          "scenes": []
+          ]
         }
       ]
     },
@@ -326,7 +313,6 @@ window.PANEL_CONFIG = {
       ],
       "icons": null,
       "swatches": null,
-      "quick": 0,
       "sceneTiles": false,
       "areas": [
         {
@@ -338,22 +324,19 @@ window.PANEL_CONFIG = {
             "light.lamp_slaapkamer_achter_1",
             "light.lamp_slaapkamer_achter_nachtkast_1",
             "light.lamp_slaapkamer_plafond_achter_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Valerie",
           "lights": [
             "light.lamp_valerie_kamer_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Jongens",
           "lights": [
             "light.lamp_jongens_kamer_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Badkamer",
@@ -365,8 +348,7 @@ window.PANEL_CONFIG = {
             "light.lamp_badkamer_muur_1",
             "light.lamp_badkamer_muur_2",
             "light.lamp_badkamer_spiegel_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Gang",
@@ -375,16 +357,14 @@ window.PANEL_CONFIG = {
             "light.lamp_gang_boven_plafond_2",
             "light.lamp_gang_boven_plafond_3",
             "light.lamp_gang_boven_plafond_4"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Kledingkast",
           "lights": [
             "light.lamp_kledingkast_plafond_1",
             "light.lamp_kledingkast_plafond_2"
-          ],
-          "scenes": []
+          ]
         }
       ]
     },
@@ -421,7 +401,6 @@ window.PANEL_CONFIG = {
       ],
       "icons": null,
       "swatches": null,
-      "quick": 0,
       "sceneTiles": false,
       "areas": [
         {
@@ -429,30 +408,26 @@ window.PANEL_CONFIG = {
           "lights": [
             "light.lamp_zolder_gang",
             "light.lamp_zolder_tussengang_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Babykamer",
           "lights": [
             "light.lamp_zolder_baby_kamer_1",
             "light.lamp_zolder_baby_kamer_2"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Voorkamer",
           "lights": [
             "light.lamp_zolder_voorkamer_1"
-          ],
-          "scenes": []
+          ]
         },
         {
           "label": "Achterkamer",
           "lights": [
             "light.lamp_zolder_achterkamer_1"
-          ],
-          "scenes": []
+          ]
         }
       ]
     },
@@ -635,7 +610,6 @@ window.PANEL_CONFIG = {
           "b": null
         }
       ],
-      "quick": 0,
       "sceneTiles": true,
       "areas": []
     }
