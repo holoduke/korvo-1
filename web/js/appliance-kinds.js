@@ -38,9 +38,12 @@
       if (offline(e.machine)) return offlineView(`${noun} is niet bereikbaar`);
       const machine = low(e.machine);
       const job = low(e.job);
-      const running = machine === "run";
-      const paused = machine === "pause";
       const done = Util.dateOf(raw(e.done));
+      const paused = machine === "pause";
+      /* Samsung's machine_state is unreliable (it can stay "stop" while the
+       * machine runs), so a machine that is on with a completion time still
+       * ahead counts as running too, unless it reports a pause. */
+      const running = !paused && (machine === "run" || (on(e.on) && !!done && done.getTime() > Date.now()));
       const [big, unit] = duration(done ? Math.max(0, (done - Date.now()) / 1000) : NaN);
       const remote = on(e.remote);
       const finished = job === "finish" || job === "finished";

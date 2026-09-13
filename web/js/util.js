@@ -63,6 +63,13 @@
       if (days < 7) return `${DAYS_SHORT[d.getDay()]} ${Util.hm(d)}`;
       return `${days} dagen geleden`;
     },
+    /* "zojuist", "12 min geleden", then as ago(). */
+    since(ms) {
+      const minutes = Math.floor((Date.now() - ms) / 60e3);
+      if (minutes < 1) return "zojuist";
+      if (minutes < 60) return `${minutes} min geleden`;
+      return Util.ago(ms);
+    },
     /* A device tracker's state in words: Thuis, Weg or the zone's own name. */
     place: (state) => PLACES[state] || state,
     /* URL part for a name: "Zitk. achter" -> "zitk-achter". */
@@ -107,6 +114,7 @@
       const same = (a, b) => (Array.isArray(a) ? a.length === b.length && a.every((x, i) => x === b[i]) : a === b);
       return {
         has: (key) => items.has(key),
+        any: () => items.size > 0,
         mark(key, read) {
           items.set(key, { read, value: read(), until: Date.now() + ms });
           setTimeout(changed, ms + 50);

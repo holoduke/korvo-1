@@ -152,9 +152,10 @@
     const call = (domain, service, data, entity) => {
       if (!entity) return;
       pending.mark(key, snapshot);
-      Panel.client.callService(domain, service, data || null, { entity_id: entity }).catch(() => {
+      Panel.client.callService(domain, service, data || null, { entity_id: entity }).catch((err) => {
         pending.drop(key);
         render();
+        Panel.commandFailed(a.label)(err);
       });
     };
     act(a, args, call);

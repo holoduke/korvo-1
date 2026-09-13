@@ -635,26 +635,37 @@ window.PANEL_CONFIG = {
     {
       "name": "Verlichting",
       "kind": "floors",
+      "icon": "lights",
       "tab": null
     },
     {
       "name": "Apparaten",
       "kind": "appliances",
+      "icon": "plug",
       "tab": null
     },
     {
       "name": "Schoonmaak",
       "kind": "vacuum",
+      "icon": "vacuum",
       "tab": null
     },
     {
       "name": "Garage",
       "kind": "tab",
+      "icon": "garage",
       "tab": 3
     },
     {
       "name": "Tesla",
       "kind": "car",
+      "icon": "car",
+      "tab": null
+    },
+    {
+      "name": "Sensoren",
+      "kind": "sensors",
+      "icon": "eye",
       "tab": null
     }
   ],
@@ -999,6 +1010,147 @@ window.PANEL_CONFIG = {
       "entities": {
         "player": "media_player.signage_big_ass_tv",
         "wake": "button.signage_big_ass_tv_aanzetten"
+      }
+    }
+  ],
+  "sensorCards": [
+    {
+      "kind": "presence",
+      "label": "Gang beneden",
+      "name": "sensor_aanwezigheid_gang_beneden_1",
+      "entities": {
+        "presence": "binary_sensor.sensor_aanwezigheid_gang_beneden_1_presence",
+        "temperature": "sensor.sensor_aanwezigheid_gang_beneden_1_temperature",
+        "humidity": "sensor.sensor_aanwezigheid_gang_beneden_1_humidity",
+        "illuminance": "sensor.sensor_aanwezigheid_gang_beneden_1_illuminance",
+        "distance": "sensor.sensor_aanwezigheid_gang_beneden_1_target_distance",
+        "battery": "sensor.sensor_aanwezigheid_gang_beneden_1_battery"
+      }
+    },
+    {
+      "kind": "presence",
+      "label": "Garage",
+      "name": "sensor_aanwezigheid_garage_1",
+      "entities": {
+        "presence": "binary_sensor.sensor_aanwezigheid_garage_1_presence",
+        "temperature": "sensor.sensor_aanwezigheid_garage_1_temperature",
+        "humidity": "sensor.sensor_aanwezigheid_garage_1_humidity",
+        "illuminance": "sensor.sensor_aanwezigheid_garage_1_illuminance",
+        "distance": "sensor.sensor_aanwezigheid_garage_1_target_distance",
+        "battery": "sensor.sensor_aanwezigheid_garage_1_battery"
+      }
+    },
+    {
+      "kind": "presence",
+      "label": "Aanwezigheid",
+      "name": "sensor_aanwezigheid_1",
+      "entities": {
+        "presence": "binary_sensor.sensor_aanwezigheid_1_presence",
+        "temperature": "sensor.sensor_aanwezigheid_1_temperature",
+        "humidity": "sensor.sensor_aanwezigheid_1_humidity",
+        "illuminance": "sensor.sensor_aanwezigheid_1_illuminance",
+        "distance": "sensor.sensor_aanwezigheid_1_target_distance",
+        "battery": "sensor.sensor_aanwezigheid_1_battery"
+      }
+    },
+    {
+      "kind": "motion",
+      "label": "Beweging",
+      "name": "bewegingssensor_1",
+      "entities": {
+        "occupancy": "binary_sensor.bewegingssensor_1_occupancy",
+        "battery": "sensor.bewegingssensor_1_battery"
+      }
+    },
+    {
+      "kind": "motion",
+      "label": "Beweging kast",
+      "name": "bewegingssensor_kast_2",
+      "entities": {
+        "occupancy": "binary_sensor.bewegingssensor_kast_2_occupancy",
+        "battery": "sensor.bewegingssensor_kast_2_battery"
+      }
+    },
+    {
+      "kind": "door",
+      "label": "Garagedeur 1",
+      "name": "sensor_deur_garage_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_deur_garage_1_contact",
+        "tamper": "binary_sensor.sensor_deur_garage_1_tamper",
+        "battery": "sensor.sensor_deur_garage_1_battery"
+      }
+    },
+    {
+      "kind": "door",
+      "label": "Garagedeur 2",
+      "name": "sensor_deur_garage_2",
+      "entities": {
+        "contact": "binary_sensor.sensor_deur_garage_2_contact",
+        "tamper": "binary_sensor.sensor_deur_garage_2_tamper",
+        "battery": "sensor.sensor_deur_garage_2_battery"
+      }
+    },
+    {
+      "kind": "air",
+      "label": "Lucht keuken",
+      "name": "luchtkwaliteit_keuken",
+      "entities": {
+        "co2": "sensor.luchtkwaliteit_keuken_carbon_dioxide",
+        "pm25": "sensor.luchtkwaliteit_keuken_pm2_5",
+        "quality": "sensor.luchtkwaliteit_keuken_air_quality",
+        "temperature": "sensor.luchtkwaliteit_keuken_temperature",
+        "humidity": "sensor.luchtkwaliteit_keuken_humidity"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Voorkamer",
+      "name": "sensor_voorkamer_1",
+      "entities": {
+        "temperature": "sensor.sensor_voorkamer_1_temperature",
+        "humidity": "sensor.sensor_voorkamer_1_humidity",
+        "battery": "sensor.sensor_voorkamer_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Zitkamer achter",
+      "name": "sensor_zitkamer_achter_1",
+      "entities": {
+        "temperature": "sensor.sensor_zitkamer_achter_1_temperature",
+        "humidity": "sensor.sensor_zitkamer_achter_1_humidity",
+        "battery": "sensor.sensor_zitkamer_achter_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Keuken",
+      "name": "sensor_keuken_1",
+      "entities": {
+        "temperature": "sensor.sensor_keuken_1_temperature",
+        "humidity": "sensor.sensor_keuken_1_humidity",
+        "battery": "sensor.sensor_keuken_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Zolder",
+      "name": "sensor_zolder_1",
+      "entities": {
+        "temperature": "sensor.sensor_zolder_1_temperature",
+        "humidity": "sensor.sensor_zolder_1_humidity",
+        "battery": "sensor.sensor_zolder_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Buiten voor",
+      "name": "sensor_buiten_voor_1",
+      "entities": {
+        "temperature": "sensor.sensor_buiten_voor_1_temperature",
+        "humidity": "sensor.sensor_buiten_voor_1_humidity",
+        "battery": "sensor.sensor_buiten_voor_1_battery"
       }
     }
   ],

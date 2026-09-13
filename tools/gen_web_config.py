@@ -282,6 +282,34 @@ APPLIANCE_ENTITIES = {
 }
 
 
+# Sensor card entities by kind: key -> entity id template ({n} = the device name).
+SENSOR_ENTITIES = {
+    "presence": {"presence": "binary_sensor.{n}_presence", "temperature": "sensor.{n}_temperature",
+                 "humidity": "sensor.{n}_humidity", "illuminance": "sensor.{n}_illuminance",
+                 "distance": "sensor.{n}_target_distance", "battery": "sensor.{n}_battery"},
+    "motion": {"occupancy": "binary_sensor.{n}_occupancy", "battery": "sensor.{n}_battery"},
+    "door": {"contact": "binary_sensor.{n}_contact", "tamper": "binary_sensor.{n}_tamper", "battery": "sensor.{n}_battery"},
+    "air": {"co2": "sensor.{n}_carbon_dioxide", "pm25": "sensor.{n}_pm2_5", "quality": "sensor.{n}_air_quality",
+            "temperature": "sensor.{n}_temperature", "humidity": "sensor.{n}_humidity"},
+    "climate": {"temperature": "sensor.{n}_temperature", "humidity": "sensor.{n}_humidity", "battery": "sensor.{n}_battery"},
+}
+
+
+def parse_sensor_cards(src):
+    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, "PANEL_SENSOR_CARDS"))
+    if not rows:
+        fail("PANEL_SENSOR_CARDS is empty or unparsable")
+    out = []
+    for kind, label, name in rows:
+        if kind not in SENSOR_ENTITIES:
+            fail(f"PANEL_SENSOR_CARDS {label!r}: unknown kind {kind!r}")
+        if not re.fullmatch(r"[a-z0-9_]+", name):
+            fail(f"PANEL_SENSOR_CARDS {label!r}: bad name {name!r}")
+        out.append({"kind": kind, "label": label, "name": name,
+                    "entities": {k: t.format(n=name) for k, t in SENSOR_ENTITIES[kind].items()}})
+    return out
+
+
 def parse_appliances(src, media):
     rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, "PANEL_APPLIANCES"))
     if not rows:
@@ -349,15 +377,19 @@ def parse_layout(src, tabs):
     floors = [{"tab": tab_index(t, "PANEL_FLOORS"), "label": l, "name": n}
               for t, l, n in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}',
                                         array_body(src, "PANEL_FLOORS"))]
+    # Tab icon per section kind (name from web/js/icons.js). "tab" is the
+    # garage lights page; adjust here if a different tab is ever added.
+    section_icons = {"floors": "lights", "appliances": "plug", "vacuum": "vacuum",
+                     "car": "car", "sensors": "eye", "tab": "garage"}
     sections = []
     for name, kind, tab in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}',
                                       array_body(src, "PANEL_SECTIONS")):
-        if kind not in ("floors", "appliances", "vacuum", "car", "tab"):
+        if kind not in ("floors", "appliances", "vacuum", "car", "sensors", "tab"):
             fail(f"PANEL_SECTIONS: unknown kind {kind!r}")
         tab_name = c_string_or_null(tab)
         if (kind == "tab") != (tab_name is not None):
             fail(f"PANEL_SECTIONS: {name!r} of kind {kind!r} {'needs' if kind == 'tab' else 'takes no'} tab")
-        sections.append({"name": name, "kind": kind,
+        sections.append({"name": name, "kind": kind, "icon": section_icons.get(kind, "power"),
                          "tab": tab_index(tab_name, "PANEL_SECTIONS") if tab_name else None})
     if not floors or not sections:
         fail("PANEL_FLOORS / PANEL_SECTIONS empty")
@@ -413,6 +445,7 @@ def main():
         "bike": parse_bike(cfg),
         "car": parse_car(cfg),
         "appliances": parse_appliances(cfg, media),
+        "sensorCards": parse_sensor_cards(cfg),
         "media": media,
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),

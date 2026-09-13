@@ -438,6 +438,34 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "tv",         "Samsung TV", "signage_big_ass_tv" },
 };
 
+/* Sensor cards in the web app's "Sensoren" section (the panel's firmware does
+ * not show them): kind selects which entities a device has, name is the
+ * device's part of its entity ids (Zigbee2MQTT names, e.g. "sensor_keuken_1"
+ * in sensor.sensor_keuken_1_temperature); tools/gen_web_config.py derives the
+ * rest. Kinds: presence (mmWave presence with temperature, humidity and light),
+ * motion (PIR), door (contact), air (air quality monitor), climate
+ * (temperature and humidity). Order = display order within each group. */
+typedef struct {
+    const char *kind;
+    const char *label;
+    const char *name;
+} panel_sensor_card_t;
+static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
+    { "presence", "Gang beneden",     "sensor_aanwezigheid_gang_beneden_1" },
+    { "presence", "Garage",           "sensor_aanwezigheid_garage_1" },
+    { "presence", "Aanwezigheid",     "sensor_aanwezigheid_1" },
+    { "motion",   "Beweging",         "bewegingssensor_1" },
+    { "motion",   "Beweging kast",    "bewegingssensor_kast_2" },
+    { "door",     "Garagedeur 1",     "sensor_deur_garage_1" },
+    { "door",     "Garagedeur 2",     "sensor_deur_garage_2" },
+    { "air",      "Lucht keuken",     "luchtkwaliteit_keuken" },
+    { "climate",  "Voorkamer",        "sensor_voorkamer_1" },
+    { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },
+    { "climate",  "Keuken",           "sensor_keuken_1" },
+    { "climate",  "Zolder",           "sensor_zolder_1" },
+    { "climate",  "Buiten voor",      "sensor_buiten_voor_1" },
+};
+
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
  * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */
@@ -463,4 +491,5 @@ static const panel_section_t PANEL_SECTIONS[] = {
     { "Schoonmaak",  "vacuum", NULL },
     { "Garage",      "tab",    "Garage" },
     { "Tesla",       "car",    NULL },
+    { "Sensoren",    "sensors", NULL },
 };

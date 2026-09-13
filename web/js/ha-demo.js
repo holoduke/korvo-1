@@ -219,6 +219,24 @@
       set(a.temp, "22.8", { unit_of_measurement: "°C" });
       set(a.humidity, "55", { unit_of_measurement: "%" });
     });
+    /* Sensor cards: someone in the first presence room, the first door open, a gone outdoor sensor. */
+    const firstOfKind = new Set();
+    (cfg.sensorCards || []).forEach((c, n) => {
+      const e = c.entities;
+      const first = !firstOfKind.has(c.kind);
+      firstOfKind.add(c.kind);
+      const ago = (first ? 2 : 25 + n * 6) * 60e3;
+      const put = (key, state, attributes = {}) => e[key] && !states.has(e[key]) && set(e[key], state, attributes, now - ago);
+      const gone = /buiten/.test(c.name);
+      if (c.kind === "presence") put("presence", first ? "on" : "off");
+      if (c.kind === "motion") put("occupancy", "unavailable");
+      if (c.kind === "door") (put("contact", first ? "on" : "off"), put("tamper", "off"));
+      put("temperature", gone ? "unavailable" : (20.8 + (n % 5) * 0.4).toFixed(1), { unit_of_measurement: "°C" });
+      put("humidity", gone ? "unavailable" : String(58 + (n % 4) * 3), { unit_of_measurement: "%" });
+      put("illuminance", String(first ? 35 : 0), { unit_of_measurement: "lx" });
+      put("distance", "1.4", { unit_of_measurement: "m" });
+      put("battery", gone || c.kind === "motion" ? "unavailable" : String(first ? 90 : 100), { unit_of_measurement: "%" });
+    });
     set(cfg.weather, "partlycloudy", { temperature: 17 });
     cfg.media.forEach((m, i) => {
       if (!states.has(m.id)) set(m.id, i === 0 ? "playing" : "idle", i === 0 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : {});

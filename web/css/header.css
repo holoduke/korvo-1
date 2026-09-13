@@ -98,10 +98,20 @@
   flex: 1;
   font-size: 24px;
   font-weight: 600;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.04em;
   color: var(--text_dim);
   transition: color 0.2s;
 }
 .tab.active { color: var(--accent); }
+/* Section tabs carry an icon next to their label. */
+.tab { display: inline-flex; align-items: center; justify-content: center; gap: .38em; }
+.tab .ic { width: 1.12em; height: 1.12em; flex: 0 0 auto; }
+.tab .tab-label { line-height: 1; }
+/* Too narrow for icons next to six labels: the labels stay. */
+@media (max-width: 860px) {
+  .tab .ic { display: none; }
+}
 .tabind {
   position: absolute;
   left: 0;
@@ -130,6 +140,7 @@
   .clock { font-size: 28px; }
   .gear { font-size: 26px; }
   .hdr-strip { flex: 1 1 100%; padding-bottom: 2px; }
-  /* Five sections: size tabs to their labels instead of equal shares. */
-  .tab { font-size: 13px; flex: 1 1 auto; padding: 0 2px; }
+  /* Six sections: tabs sized to their labels instead of equal shares; 12 px
+   * small caps is what fits them all on a 390 px phone. */
+  .tab { font-size: 12px; flex: 1 1 auto; padding: 0 3px; }
 }

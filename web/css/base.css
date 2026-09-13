@@ -92,7 +92,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   min-width: 0;
 }
 /* Pages without a bottom row. */
-.page.vac-page, .page.car-page, .page.appl-page { grid-template-rows: minmax(0, 1fr); }
+.page.vac-page, .page.car-page, .page.appl-page, .page.sensors-page { grid-template-rows: minmax(0, 1fr); }
 
 /* ---- Overlays ---------------------------------------------------------------- */
 .overlay {
@@ -112,6 +112,17 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .box-title { font-size: 24px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .close-btn { width: 44px; height: 44px; border-radius: 12px; background: var(--tile_off); font-size: 18px; display: grid; place-items: center; flex: none; }
 .close-btn:active { transform: scale(0.94); }
+/* ---- Toast ---------------------------------------------------------------------- */
+.toast {
+  position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); z-index: 70;
+  max-width: min(560px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 14px;
+  font-size: 15px; font-weight: 600; line-height: 1.35; color: #fff;
+  background: color-mix(in srgb, var(--bad) 82%, #000); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  opacity: 0; transform: translate(-50%, 16px); pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s var(--ease-out);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
 @media (max-width: 760px) {
   .box-title { white-space: normal; font-size: 18px; line-height: 1.25; }
 }

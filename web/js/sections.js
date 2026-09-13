@@ -32,7 +32,7 @@
   Panel.on("build", () => {
     $("tabbar").insertAdjacentHTML(
       "afterbegin",
-      cfg.sections.map((s, i) => `<button class="tab${i === 0 ? " active" : ""}" data-tab="${i}">${s.name}</button>`).join("")
+      cfg.sections.map((s, i) => `<button class="tab${i === 0 ? " active" : ""}" data-tab="${i}">${s.icon ? window.icon(s.icon) : ""}<span class="tab-label">${s.name}</span></button>`).join("")
     );
     track.innerHTML = cfg.sections
       .map((sec, si) => {
@@ -139,6 +139,9 @@
     Panel.setSection(Panel.section, false);
     urlReady = true;
     applyHash(false);
-    requestAnimationFrame(() => setIndicator(Panel.section, false));
+    /* Tab widths change once the web font has loaded and on rotation: the
+     * indicator follows them. */
+    const ro = new ResizeObserver(() => setIndicator(Panel.section, false));
+    tabs().forEach((tab) => ro.observe(tab));
   });
 })();

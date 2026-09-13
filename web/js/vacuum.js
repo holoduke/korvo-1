@@ -268,7 +268,7 @@
   Panel.defineAction("vac", (el) => {
     const kind = el.dataset.vac;
     const target = { entity_id: vac.vacuum };
-    const fail = () => {};
+    const fail = Panel.commandFailed(vac.label);
     if (kind === "room") {
       const id = +el.dataset.room;
       if (selected.has(id)) selected.delete(id);

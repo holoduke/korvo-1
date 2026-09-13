@@ -152,7 +152,10 @@
     const asleep = onlineState === "off";
     root.classList.toggle("asleep", asleep || noData);
     q(".cp-banner").hidden = !(asleep || noData);
-    if (noData) {
+    /* Home Assistant wakes the car before a command and gives up after about 30 s. */
+    if ((asleep || noData) && pending.any()) {
+      q(".cp-banner-text").textContent = "De auto wordt gewekt voor de opdracht; dat kan een halve minuut duren.";
+    } else if (noData) {
       q(".cp-banner-text").textContent = "Nog geen gegevens van de auto. Tik op Wekken om ze op te halen.";
     } else if (asleep) {
       const last = lastSeen();
@@ -347,9 +350,10 @@
     const call = (domain, service, data, key) => {
       if (!E[key]) return;
       pending.mark(control, () => snap(s(key)));
-      Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch(() => {
+      Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch((err) => {
         pending.drop(control);
         render();
+        Panel.commandFailed(car.label)(err);
       });
       render();
     };
