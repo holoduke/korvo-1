@@ -187,15 +187,60 @@ def parse_bike(src):
     return dict(zip(keys, vals))
 
 
+# Tesla Fleet entities by role: (key, domain, object id after "<car name>_").
+TESLA_FLEET_ENTITIES = (
+    ("battery", "sensor", "battery_level"), ("usable", "sensor", "usable_battery_level"),
+    ("range", "sensor", "battery_range"), ("estRange", "sensor", "estimate_battery_range"),
+    ("charging", "sensor", "charging"), ("charge", "switch", "charge"),
+    ("chargeLimit", "number", "charge_limit"), ("chargeAmps", "number", "charge_current"),
+    ("chargerPower", "sensor", "charger_power"), ("chargerVoltage", "sensor", "charger_voltage"),
+    ("chargerCurrent", "sensor", "charger_current"), ("chargeRate", "sensor", "charge_rate"),
+    ("energyAdded", "sensor", "charge_energy_added"), ("timeToFull", "sensor", "time_to_full_charge"),
+    ("cable", "binary_sensor", "charge_cable"), ("port", "cover", "charge_port_door"),
+    ("cableLock", "lock", "charge_cable_lock"), ("lock", "lock", "lock"),
+    ("sentry", "switch", "sentry_mode"), ("frunk", "cover", "frunk"), ("trunk", "cover", "trunk"),
+    ("windows", "cover", "windows"),
+    ("doorFL", "binary_sensor", "front_driver_door"), ("doorFR", "binary_sensor", "front_passenger_door"),
+    ("doorRL", "binary_sensor", "rear_driver_door"), ("doorRR", "binary_sensor", "rear_passenger_door"),
+    ("winFL", "binary_sensor", "front_driver_window"), ("winFR", "binary_sensor", "front_passenger_window"),
+    ("winRL", "binary_sensor", "rear_driver_window"), ("winRR", "binary_sensor", "rear_passenger_window"),
+    ("climate", "climate", "climate"), ("inside", "sensor", "inside_temperature"),
+    ("outside", "sensor", "outside_temperature"), ("defrost", "switch", "defrost"),
+    ("seatFL", "select", "seat_heater_front_left"), ("seatFR", "select", "seat_heater_front_right"),
+    ("seatRL", "select", "seat_heater_rear_left"), ("seatRC", "select", "seat_heater_rear_center"),
+    ("seatRR", "select", "seat_heater_rear_right"), ("wheel", "select", "steering_wheel_heater"),
+    ("precond", "binary_sensor", "preconditioning"), ("battHeater", "binary_sensor", "battery_heater"),
+    ("online", "binary_sensor", "status"), ("present", "binary_sensor", "user_present"),
+    ("location", "device_tracker", "location"), ("shift", "sensor", "shift_state"),
+    ("speed", "sensor", "speed"), ("power", "sensor", "power"), ("odometer", "sensor", "odometer"),
+    ("tireFL", "sensor", "tire_pressure_front_left"), ("tireFR", "sensor", "tire_pressure_front_right"),
+    ("tireRL", "sensor", "tire_pressure_rear_left"), ("tireRR", "sensor", "tire_pressure_rear_right"),
+    ("tireWarnFL", "binary_sensor", "tire_pressure_warning_front_left"),
+    ("tireWarnFR", "binary_sensor", "tire_pressure_warning_front_right"),
+    ("tireWarnRL", "binary_sensor", "tire_pressure_warning_rear_left"),
+    ("tireWarnRR", "binary_sensor", "tire_pressure_warning_rear_right"),
+    ("destination", "sensor", "destination"), ("distToArrival", "sensor", "distance_to_arrival"),
+    ("timeToArrival", "sensor", "time_to_arrival"), ("socAtArrival", "sensor", "state_of_charge_at_arrival"),
+    ("trafficDelay", "sensor", "traffic_delay"),
+    ("flash", "button", "flash_lights"), ("honk", "button", "honk_horn"), ("homelink", "button", "homelink"),
+    ("keyless", "button", "keyless_driving"), ("fart", "button", "play_fart"), ("wake", "button", "wake"),
+    ("media", "media_player", "media_player"), ("update", "update", "update"),
+)
+
+
 def parse_car(src):
     m = re.search(r"\bPANEL_CAR\s*=\s*\{(.*?)\};", src, re.S)
     if not m:
         fail("PANEL_CAR not found")
     vals = re.findall(r'"([^"]*)"', m.group(1))
-    keys = ("label", "battery", "range", "charging", "lock")
-    if len(vals) != len(keys):
-        fail(f"PANEL_CAR: expected {len(keys)} strings, found {len(vals)}")
-    return dict(zip(keys, vals))
+    if len(vals) != 2 or not re.fullmatch(r"[a-z0-9_]+", vals[1]):
+        fail(f"PANEL_CAR: expected a label and a car name like \"vlm\", found {vals}")
+    label, name = vals
+    entities = {key: f"{domain}.{name}_{object_id}" for key, domain, object_id in TESLA_FLEET_ENTITIES}
+    return {"label": label, "name": name, "entities": entities,
+            # the header column's four
+            "battery": entities["battery"], "range": entities["range"],
+            "charging": entities["charging"], "lock": entities["lock"]}
 
 
 def parse_layout(src, tabs):
@@ -212,7 +257,7 @@ def parse_layout(src, tabs):
     sections = []
     for name, kind, tab in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}',
                                       array_body(src, "PANEL_SECTIONS")):
-        if kind not in ("floors", "vacuum", "tab"):
+        if kind not in ("floors", "vacuum", "car", "tab"):
             fail(f"PANEL_SECTIONS: unknown kind {kind!r}")
         tab_name = c_string_or_null(tab)
         if (kind == "tab") != (tab_name is not None):

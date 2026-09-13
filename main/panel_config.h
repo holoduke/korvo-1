@@ -373,22 +373,15 @@ static const panel_bike_t PANEL_BIKE = {
     "sensor.st7_bike_speed",
 };
 
-/* Car in the web app's header: battery, range, charging and lock (Tesla Fleet
- * integration; the panel's firmware does not show it). */
+/* Car in the web app (header column and the Tesla section; the panel's
+ * firmware does not show it). Tesla Fleet names every entity after the car,
+ * e.g. sensor.vlm_battery_level; tools/gen_web_config.py derives the full
+ * set from that name. */
 typedef struct {
     const char *label;
-    const char *battery_id;  /* % */
-    const char *range_id;    /* km */
-    const char *charging_id; /* charging / starting / complete / stopped / disconnected / no_power */
-    const char *lock_id;     /* lock entity: locked / unlocked */
+    const char *name; /* the car's name in its entity ids */
 } panel_car_t;
-static const panel_car_t PANEL_CAR = {
-    "Auto",
-    "sensor.vlm_battery_level",
-    "sensor.vlm_battery_range",
-    "sensor.vlm_charging",
-    "lock.vlm_lock",
-};
+static const panel_car_t PANEL_CAR = { "Tesla", "vlm" };
 
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
@@ -406,11 +399,12 @@ static const panel_floor_t PANEL_FLOORS[] = {
 
 typedef struct {
     const char *name;
-    const char *kind; /* "floors", "vacuum", or "tab" (one PANEL_TABS entry) */
+    const char *kind; /* "floors", "vacuum", "car", or "tab" (one PANEL_TABS entry) */
     const char *tab;  /* for "tab": the PANEL_TABS name */
 } panel_section_t;
 static const panel_section_t PANEL_SECTIONS[] = {
     { "Verlichting", "floors", NULL },
     { "Schoonmaak",  "vacuum", NULL },
     { "Garage",      "tab",    "Garage" },
+    { "Tesla",       "car",    NULL },
 };

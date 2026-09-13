@@ -71,7 +71,7 @@
   const bikeIds = new Set(bike ? ["battery", "location", "lock", "speed"].map((k) => bike[k]).filter(Boolean) : []);
   bikeIds.forEach((id) => ids.add(id));
   const car = cfg.car;
-  const carIds = new Set(car ? ["battery", "range", "charging", "lock"].map((k) => car[k]).filter(Boolean) : []);
+  const carIds = new Set(car ? Object.values(car.entities) : []);
   carIds.forEach((id) => ids.add(id));
   const client = demo ? HA.createDemo(cfg) : HA.createClient([...ids]);
   Panel.client = client;
@@ -497,6 +497,9 @@
     if (sec.kind === "vacuum") {
       return `<section class="page vac-page" data-page="${si}"><div id="vacPage" class="vp"></div></section>`;
     }
+    if (sec.kind === "car") {
+      return `<section class="page car-page" data-page="${si}"><div id="carPage" class="cp"></div></section>`;
+    }
     const t = cfg.tabs[sec.tab];
     return `<section class="page tab-page" data-page="${si}">${gridHtml(t, sec.tab)}${rowHtml(t, sec.tab)}</section>`;
   }
@@ -658,7 +661,10 @@
     }
     if (vacChanged && Panel.onVacuum) Panel.onVacuum();
     if (bikeChanged) renderBike();
-    if (carChanged) renderCar();
+    if (carChanged) {
+      renderCar();
+      if (Panel.onCar) Panel.onCar();
+    }
     if (first) {
       newestScenes();
       loadHistory();
@@ -672,6 +678,7 @@
     buildHeader();
     buildSections();
     if (Panel.buildVacuum && $("vacPage")) Panel.buildVacuum($("vacPage"));
+    if (Panel.buildCar && $("carPage")) Panel.buildCar($("carPage"));
     cfg.sensors.forEach((_, i) => renderSensor(i));
     cfg.air.forEach((_, i) => renderAir(i));
     renderBike();

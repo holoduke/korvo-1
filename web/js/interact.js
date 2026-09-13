@@ -198,7 +198,7 @@
   window.addEventListener("pointerdown", () => (swallowClick = false), { capture: true });
 
   function actionTarget(el) {
-    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac]");
+    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac],[data-car]");
   }
 
   function onDown(e, surface) {
@@ -347,6 +347,7 @@
     } else if (t.dataset.all) toggleDrawer();
     else if (t.dataset.floor) Panel.setFloor(+t.dataset.floor, true);
     else if (t.dataset.vac && Panel.vacTap) Panel.vacTap(t);
+    else if (t.dataset.car && Panel.carTap) Panel.carTap(t);
   }
 
   const drawer = $("drawer");

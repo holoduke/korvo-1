@@ -387,11 +387,63 @@
       set(b.speed, "0", { unit_of_measurement: "km/h" });
     }
     if (cfg.car) {
-      const c = cfg.car;
-      set(c.battery, "61", { unit_of_measurement: "%" });
-      set(c.range, "322.2", { unit_of_measurement: "km" });
-      set(c.charging, "no_power", {});
-      set(c.lock, "locked", {});
+      const e = cfg.car.entities;
+      const put = (key, state, attributes = {}) => set(e[key], state, attributes);
+      put("battery", "61", { unit_of_measurement: "%" });
+      put("usable", "60", { unit_of_measurement: "%" });
+      put("range", "322.2", { unit_of_measurement: "km" });
+      put("estRange", "290", { unit_of_measurement: "km" });
+      put("charging", "no_power", { options: ["starting", "charging", "stopped", "complete", "disconnected", "no_power"] });
+      put("charge", "off");
+      put("chargeLimit", "70", { min: 50, max: 100, step: 1, unit_of_measurement: "%" });
+      put("chargeAmps", "24", { min: 0, max: 24, step: 1, unit_of_measurement: "A" });
+      put("chargerPower", "0", { unit_of_measurement: "kW" });
+      put("chargerVoltage", "0", { unit_of_measurement: "V" });
+      put("chargerCurrent", "0", { unit_of_measurement: "A" });
+      put("chargeRate", "0", { unit_of_measurement: "km/h" });
+      put("energyAdded", "0", { unit_of_measurement: "kWh" });
+      put("timeToFull", "unavailable");
+      put("cable", "on");
+      put("port", "open", { supported_features: 3 });
+      put("cableLock", "locked");
+      put("lock", "locked");
+      put("sentry", "off");
+      put("frunk", "closed", { supported_features: 1 });
+      put("trunk", "closed", { supported_features: 3 });
+      put("windows", "closed", { supported_features: 3 });
+      ["doorFL", "doorFR", "doorRL", "doorRR", "winFL", "winFR", "winRL", "winRR"].forEach((k) => put(k, "off"));
+      put("climate", "off", {
+        hvac_modes: ["heat_cool", "off"], min_temp: 15, max_temp: 28, preset_modes: ["off", "keep", "dog", "camp"],
+        current_temperature: 29, temperature: 21.5, preset_mode: "off",
+      });
+      put("inside", "29.1", { unit_of_measurement: "°C" });
+      put("outside", "17.5", { unit_of_measurement: "°C" });
+      put("defrost", "off");
+      ["seatFL", "seatFR", "seatRL", "seatRC", "seatRR"].forEach((k) => put(k, "off", { options: ["off", "low", "medium", "high"] }));
+      put("wheel", "off", { options: ["off", "low", "high"] });
+      put("precond", "off");
+      put("battHeater", "off");
+      put("online", "on");
+      put("present", "off");
+      put("location", "home");
+      put("shift", "unknown");
+      put("speed", "unknown", { unit_of_measurement: "km/h" });
+      put("power", "0", { unit_of_measurement: "kW" });
+      put("odometer", "18342.6", { unit_of_measurement: "km" });
+      put("tireFL", "2.9", { unit_of_measurement: "bar" });
+      put("tireFR", "2.9", { unit_of_measurement: "bar" });
+      put("tireRL", "2.8", { unit_of_measurement: "bar" });
+      put("tireRR", "2.4", { unit_of_measurement: "bar" });
+      ["tireWarnFL", "tireWarnFR", "tireWarnRL"].forEach((k) => put(k, "off"));
+      put("tireWarnRR", "on");
+      put("destination", "unknown");
+      put("distToArrival", "unknown", { unit_of_measurement: "km" });
+      put("timeToArrival", "unavailable");
+      put("socAtArrival", "unknown", { unit_of_measurement: "%" });
+      put("trafficDelay", "unknown", { unit_of_measurement: "min" });
+      ["flash", "honk", "homelink", "keyless", "fart", "wake"].forEach((k) => put(k, "unknown"));
+      put("media", "off");
+      put("update", "off", { installed_version: "2026.32.3", latest_version: "2026.32.3" });
     }
     cfg.air.forEach((a) => {
       set(a.co2, "742", { unit_of_measurement: "ppm" });
@@ -437,6 +489,37 @@
             temperature: 18 + d,
           }));
           return { response: { [cfg.weather]: { forecast } } };
+        }
+        /* Car commands (before the vacuum branch, which also takes buttons). */
+        const carEntities = cfg.car ? Object.values(cfg.car.entities) : [];
+        if (ids.length && ids.every((id) => carEntities.includes(id))) {
+          const t = Date.now();
+          const e = cfg.car.entities;
+          ids.forEach((id) => {
+            const cur = states.get(id) || { state: "unknown", attributes: {} };
+            const a = cur.attributes || {};
+            let next = cur.state;
+            let nextAttrs = a;
+            if (domain === "switch") next = service === "turn_on" ? "on" : "off";
+            else if (domain === "lock") next = service === "lock" ? "locked" : "unlocked";
+            else if (domain === "cover") next = service === "open_cover" ? "open" : "closed";
+            else if (domain === "number") next = String(data.value);
+            else if (domain === "select") next = data.option;
+            else if (domain === "button") next = new Date(t).toISOString();
+            else if (domain === "climate") {
+              if (service === "turn_on") next = "heat_cool";
+              if (service === "turn_off") next = "off";
+              if (service === "set_temperature") nextAttrs = { ...a, temperature: data.temperature };
+              if (service === "set_preset_mode") nextAttrs = { ...a, preset_mode: data.preset_mode };
+            } else if (domain === "media_player") {
+              if (service === "media_play_pause") next = cur.state === "playing" ? "paused" : "playing";
+              if (service === "volume_set") nextAttrs = { ...a, volume_level: data.volume_level };
+            }
+            set(id, next, nextAttrs, t);
+            if (id === e.charge) set(e.charging, next === "on" ? "charging" : "stopped", (states.get(e.charging) || {}).attributes || {}, t);
+          });
+          change([...ids, cfg.car.entities.charging]);
+          return returnResponse ? { response: {} } : null;
         }
         const v = cfg.vacuum;
         if (v && domain === "xiaomi_miot" && service === "get_properties") {
