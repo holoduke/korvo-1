@@ -365,9 +365,11 @@
     const col = e.target.closest("[data-sensor]");
     const air = e.target.closest("[data-air]");
     const vac = e.target.closest("[data-vachdr]");
+    const carCol = e.target.closest("[data-carhdr]");
     if (col) Panel.openClimate(+col.dataset.sensor);
     else if (air) Panel.openAir(+air.dataset.air);
     else if (vac) Panel.setSection(cfg.sections.findIndex((s) => s.kind === "vacuum"), true);
+    else if (carCol) Panel.setSection(cfg.sections.findIndex((s) => s.kind === "car"), true);
   });
   window.addEventListener("resize", () => popupOpen() && draw(1));
 
@@ -556,8 +558,38 @@
     }, Math.max(350, 1100 - (performance.now() - bootAt)));
   };
 
+  /* The splash title spans the width: size it from its measured width at a
+   * reference size. If that would make it taller than MAX_H of the screen, it
+   * keeps that height and wider letter spacing fills the rest. Again once the
+   * web font has loaded (its metrics differ) and on resize or rotation. */
+  const TITLE_SPACING = 0.32; /* em, as in styles.css */
+  const TITLE_MAX_H = 0.08; /* of the viewport height */
+  function fitSplashTitle() {
+    const title = $("splashTitle");
+    if (!title || !$("splash")) return;
+    const target = title.parentElement.clientWidth - parseFloat(getComputedStyle(title.parentElement).paddingLeft) * 2;
+    const chars = title.textContent.length;
+    title.style.fontSize = "100px";
+    title.style.letterSpacing = "0";
+    title.style.marginRight = "0";
+    const perPx = title.getBoundingClientRect().width / 100; /* glyph width per px of font size */
+    let size = target / (perPx + chars * TITLE_SPACING);
+    let spacing = TITLE_SPACING;
+    const cap = window.innerHeight * TITLE_MAX_H;
+    if (size > cap) {
+      size = cap;
+      spacing = Math.max(TITLE_SPACING, (target / size - perPx) / chars);
+    }
+    title.style.fontSize = size.toFixed(2) + "px";
+    title.style.letterSpacing = spacing.toFixed(4) + "em";
+    title.style.marginRight = (-spacing).toFixed(4) + "em";
+  }
+  window.addEventListener("resize", fitSplashTitle);
+
   Panel.initExtras = function () {
     $("splashFill").style.width = "15%";
+    fitSplashTitle();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSplashTitle);
   };
 
   Panel.boot();

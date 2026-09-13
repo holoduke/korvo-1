@@ -206,10 +206,12 @@
             : "") +
           `</div>`
         : "") +
-      /* Car: its own narrow column, battery on top and range or charging below. */
+      /* Car: three lines like the climate columns (name, battery, range or charging). */
       (cfg.car
-        ? `<div class="sensor-col car-col" data-car aria-label="${cfg.car.label}">` +
-          `<span class="vh-batt">${icon("car")}<span>--</span></span><span class="vh-status">...</span></div>`
+        ? `<button class="sensor-col car-col" data-carhdr aria-label="${cfg.car.label}">` +
+          `<div class="s-name"><span>${cfg.car.label}</span></div>` +
+          `<div class="s-temp vh-batt">${icon("car")}<span>--</span></div>` +
+          `<div class="s-hum vh-status">...</div></button>`
         : "");
     $("gear").innerHTML = icon("gear");
   }
@@ -325,7 +327,7 @@
   }
 
   function renderCar() {
-    const row = car && document.querySelector("[data-car]");
+    const row = car && document.querySelector("[data-carhdr]");
     if (!row) return;
     const batt = Panel.num(car.battery);
     const range = Panel.num(car.range);

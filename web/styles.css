@@ -396,6 +396,21 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .splash { position: fixed; inset: 0; z-index: 80; background: #000; transition: opacity 0.5s ease-out; }
 .splash img { width: 100%; height: 100%; object-fit: cover; }
 .splash.gone { opacity: 0; pointer-events: none; }
+/* Brand line above the loader: across the full width (extras.js sizes it to
+ * fit), not taller than about 8% of the screen, cyan with a soft glow. */
+.splash-title { position: absolute; left: 0; right: 0; bottom: calc(8% + 64px); padding: 0 4vw; text-align: center; white-space: nowrap; pointer-events: none; }
+#splashTitle {
+  display: inline-block;
+  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.32em;
+  margin-right: -0.32em; /* the last letter's spacing would push the line off centre */
+  text-transform: uppercase;
+  color: #7ff4ff;
+  text-shadow: 0 0 4px rgba(127, 244, 255, 0.9), 0 0 14px rgba(0, 220, 255, 0.55), 0 0 36px rgba(0, 190, 255, 0.35);
+}
 .splash-bottom { position: absolute; left: 50%; bottom: 8%; width: min(420px, 70vw); transform: translateX(-50%); text-align: center; }
 .splash-status { font-size: 14px; font-weight: 600; color: #9fd8ff; letter-spacing: 0.06em; margin-bottom: 10px; text-shadow: 0 0 12px rgba(80, 180, 255, 0.6); }
 .splash-bar { height: 4px; border-radius: 2px; background: rgba(120, 190, 255, 0.18); overflow: hidden; }
@@ -667,9 +682,12 @@ button.dev-row:active { background: color-mix(in srgb, var(--tile) 70%, transpar
 .vh-status .ic { display: inline-block; font-size: 12px; margin-left: 4px; vertical-align: -1px; }
 .dev-row.busy .vh-status, .dev-row.riding .vh-status, .car-col.riding .vh-status { color: var(--accent); }
 .dev-row.stale { opacity: 0.55; }
-.car-col { align-items: flex-start; gap: 3px; }
-.car-col .vh-batt { min-width: 0; }
-.car-col .vh-status { max-width: 72px; } /* "588 km" and the lock; the battery line sets this column's width anyway */
+/* Car column: the climate columns' three lines (name, value, sub-line), so its
+ * text lines up with theirs. */
+.car-col { align-items: flex-start; text-align: left; }
+.car-col .vh-batt { min-width: 0; font-size: 22px; gap: 5px; line-height: normal; }
+.car-col .vh-batt .ic { font-size: 18px; }
+.car-col .vh-status { font-size: 13px; max-width: 76px; display: block; } /* "588 km" and the lock */
 .clim-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .stat { background: var(--tile_off); border-radius: 12px; padding: 8px 10px; min-width: 0; }
 .stat-v { font-size: 22px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: color 0.4s; }
