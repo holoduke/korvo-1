@@ -383,6 +383,37 @@ typedef struct {
 } panel_car_t;
 static const panel_car_t PANEL_CAR = { "Tesla", "vlm" };
 
+/* Rooms of a floor, as buttons in the web app's bottom row (the panel's
+ * firmware ignores this). "Alle" keeps the floor's scenes; a room offers the
+ * same scenes applied to only its lamps, plus the scenes listed here for that
+ * room alone ("entity_id=Label", underscores in a label become spaces).
+ * Lamps and scenes are space-separated. */
+typedef struct {
+    const char *tab;    /* PANEL_TABS name of the floor */
+    const char *label;
+    const char *lights;
+    const char *scenes;
+} panel_area_t;
+static const panel_area_t PANEL_AREAS[] = {
+    { "Beneden", "Keuken", "light.lamp_keuken_plafond_1 light.lamp_keuken_plafond_2 light.lamp_keuken_plafond_3 light.lamp_keuken_plafond_4 light.lamp_keuken_plafond_5 light.lamp_keuken_plafond_6 light.lamp_keuken_plafond_7 light.lamp_keuken_muur_1 light.lamp_keuken_muur_2 light.lamp_keuken_muur_3", "scene.keuken_voor_knipperen=Knipperen" },
+    { "Beneden", "Eetkamer", "light.lamp_keuken_eettafel_1", "" },
+    { "Beneden", "Zitkamer", "light.lamp_zitkamer_voor_1 light.lamp_zitkamer_voor_2 light.lamp_zitkamer_1 light.lamp_grond_1 light.lamp_woonkamer_kubus_1 light.lamp_valerie_rieten_1", "" },
+    { "Beneden", "Zitk. achter", "light.lamp_zitkamer_achter_1 light.lamp_zitkamer_achter_2 light.lamp_zitkamer_achter_3 light.lamp_zitkamer_achter_muur_1 light.lamp_zitkamer_achter_muur_2", "" },
+    { "Beneden", "Gameroom", "light.lamp_playroom_1 light.lamp_playroom_led_1 light.lamp_playroom_muur_1 light.lamp_playroom_muur_2 light.lamp_playroom_muur_3", "" },
+    { "Beneden", "Gang", "light.lamp_gang_plafond_1 light.lamp_gang_plafond_2 light.lamp_gang_plafond_3 light.lamp_gang_deur_1 light.lamp_gang_trap_beneden_1 light.lamp_wc_beneden_1", "" },
+    { "Beneden", "Buiten", "light.lamp_buiten_1", "" },
+    { "Boven", "Slaapkamer", "light.lamp_slaapkamer_gillis_ilse light.lamp_slaapkamer_staand_ilse_gillis light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje light.lamp_slaapkamer_achter_1 light.lamp_slaapkamer_achter_nachtkast_1 light.lamp_slaapkamer_plafond_achter_1", "" },
+    { "Boven", "Valerie", "light.lamp_valerie_kamer_1", "" },
+    { "Boven", "Jongens", "light.lamp_jongens_kamer_1", "" },
+    { "Boven", "Badkamer", "light.lamp_badkamer_2_plafond_1 light.lamp_badkamer_2_plafond_2 light.lamp_badkamer_2_plafond_3 light.lamp_badkamer_3 light.lamp_badkamer_muur_1 light.lamp_badkamer_muur_2 light.lamp_badkamer_spiegel_1", "" },
+    { "Boven", "Gang", "light.lamp_gang_boven_plafond_1 light.lamp_gang_boven_plafond_2 light.lamp_gang_boven_plafond_3 light.lamp_gang_boven_plafond_4", "" },
+    { "Boven", "Kledingkast", "light.lamp_kledingkast_plafond_1 light.lamp_kledingkast_plafond_2", "" },
+    { "Zolder", "Gang", "light.lamp_zolder_gang light.lamp_zolder_tussengang_1", "" },
+    { "Zolder", "Babykamer", "light.lamp_zolder_baby_kamer_1 light.lamp_zolder_baby_kamer_2", "" },
+    { "Zolder", "Voorkamer", "light.lamp_zolder_voorkamer_1", "" },
+    { "Zolder", "Achterkamer", "light.lamp_zolder_achterkamer_1", "" },
+};
+
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
  * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */

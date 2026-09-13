@@ -52,7 +52,10 @@
   /* ---- Connection ------------------------------------------------------------ */
   const demo = new URLSearchParams(location.search).has("demo");
   const ids = new Set([cfg.weather]);
-  cfg.tabs.forEach((t) => [...t.lights, ...t.devices, ...t.scenes].forEach((e) => ids.add(e.id)));
+  cfg.tabs.forEach((t) => {
+    [...t.lights, ...t.devices, ...t.scenes].forEach((e) => ids.add(e.id));
+    (t.areas || []).forEach((a) => [...a.lights, ...a.scenes.map((s) => s.id)].forEach((id) => ids.add(id)));
+  });
   cfg.sensors.forEach((s) => {
     ids.add(s.temp);
     if (s.humidity) ids.add(s.humidity);
@@ -463,6 +466,7 @@
     );
   }
   Panel.lightTile = lightTile;
+  Panel.gridHtml = (t, ti) => gridHtml(t, ti);
 
   function swatchHtml(sw) {
     if (sw.a === "rainbow") return '<span class="swatch rainbow"></span>';
@@ -508,7 +512,8 @@
 
   function gridHtml(t, ti) {
     if (t.sceneTiles) {
-      const gridN = t.scenes.length - Math.min(t.quick, t.scenes.length);
+      /* With rooms in the row, the quick scenes move into the grid too. */
+      const gridN = (t.areas || []).length ? t.scenes.length : t.scenes.length - Math.min(t.quick, t.scenes.length);
       const compact = gridN > 6;
       let html = `<div class="grid${compact ? " compact" : ""}">`;
       for (let i = 0; i < gridN; i++) {
@@ -525,6 +530,19 @@
   }
 
   function rowHtml(t, ti) {
+    if ((t.areas || []).length) {
+      /* The floor's main switch, Alle and one button per room, then every lamp. */
+      let row = '<div class="row">';
+      if (t.sceneTiles && t.lights.length) row += `<button class="sq" data-light="${t.lights[0].id}" data-group="1">${icon("power")}</button>`;
+      row +=
+        `<div class="areas"><button class="chip area-chip active" data-area="-1">Alle</button>` +
+        t.areas.map((a, i) => `<button class="chip area-chip" data-area="${i}">${a.label}</button>`).join("") +
+        `</div>`;
+      row +=
+        `<button class="allbtn" data-all="${ti}">${icon("list")}<span class="txt">Alle lampen</span>` +
+        `<span class="chev">${icon("chevron-down")}</span></button>`;
+      return row + "</div>";
+    }
     let html = '<div class="row">';
     if (t.sceneTiles) {
       if (t.lights.length) html += `<button class="sq" data-light="${t.lights[0].id}" data-group="1">${icon("power")}</button>`;
@@ -610,7 +628,8 @@
       const v = pct(st(id));
       if (v < 0) return;
       tabBrightness[ti] = v;
-      if (ti === Panel.activeTab() && Panel.onTabBrightness) Panel.onTabBrightness(v);
+      /* The slider shows a chosen room's own brightness instead. */
+      if (ti === Panel.activeTab() && Panel.onTabBrightness && !(Panel.activeArea && Panel.activeArea())) Panel.onTabBrightness(v);
     });
   }
 
@@ -630,6 +649,7 @@
         }
         renderLight(id);
         syncTabBrightness(id);
+        if (Panel.onAreaLight) Panel.onAreaLight(id);
       } else if (id.startsWith("scene.")) {
         if (!first) handleScene(id);
         else sceneSeen.set(id, s ? s.state : undefined);
@@ -669,6 +689,7 @@
     }
     if (first) {
       newestScenes();
+      if (Panel.onAreasReady) Panel.onAreasReady();
       loadHistory();
       loadForecast().then(() => (haveForecast = true));
       if (Panel.onReady) Panel.onReady();

@@ -137,13 +137,18 @@
   const slug = (name) => name.toLowerCase().trim().replace(/\s+/g, "-");
   function hashFor() {
     const s = cfg.sections[Panel.section];
-    return "#" + slug(s.name) + (s.kind === "floors" ? "/" + cfg.floors[Panel.floor].label : "");
+    if (s.kind !== "floors") return "#" + slug(s.name);
+    const floor = cfg.floors[Panel.floor];
+    const ai = Panel.areaIndex ? Panel.areaIndex(Panel.floor) : -1;
+    const area = ai >= 0 ? "/" + Panel.areaSlug(cfg.tabs[floor.tab].areas[ai].label) : "";
+    return "#" + slug(s.name) + "/" + floor.label + area;
   }
   function writeHash() {
     if (!urlReady) return;
     const h = hashFor();
     if (location.hash !== h) history.replaceState(null, "", location.pathname + location.search + h);
   }
+  Panel.writeHash = writeHash;
   function applyHash(animate) {
     let raw = "";
     try {
@@ -151,11 +156,12 @@
     } catch (e) {
       /* malformed escape: treat as no hash */
     }
-    const [sec, floor] = raw.toLowerCase().split("/");
+    const [sec, floor, area] = raw.toLowerCase().split("/");
     const si = cfg.sections.findIndex((s) => slug(s.name) === sec);
     const fi = cfg.floors.findIndex((f) => f.label.toLowerCase() === floor);
     if (si >= 0) Panel.setSection(si, animate);
     if (fi >= 0) Panel.setFloor(fi, animate);
+    if (Panel.setAreaBySlug && cfg.sections[Panel.section].kind === "floors") Panel.setAreaBySlug(Panel.floor, area || "");
     writeHash(); /* normalise an unknown or partial hash */
   }
   window.addEventListener("hashchange", () => applyHash(true));
@@ -198,7 +204,7 @@
   window.addEventListener("pointerdown", () => (swallowClick = false), { capture: true });
 
   function actionTarget(el) {
-    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac],[data-car]");
+    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac],[data-car],[data-area],[data-roomscene]");
   }
 
   function onDown(e, surface) {
@@ -215,6 +221,7 @@
       axis: null,
       cancelled: false,
       inFloorView: !!e.target.closest(".floor-view"),
+      inAreas: e.target.closest(".areas"),
       samples: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }],
       width: surface === "stage" ? stage.clientWidth : drawer.clientWidth,
     };
@@ -262,6 +269,11 @@
         g.d0 = dy;
         g.height = floorView.clientHeight;
       } else {
+        /* A row of room buttons wider than the screen scrolls by itself. */
+        if (g.inAreas && g.inAreas.scrollWidth > g.inAreas.clientWidth + 1) {
+          g.cancelled = true;
+          return;
+        }
         if (g.surface === "drawer" && dx < 0) return; /* the drawer only swipes closed */
         g.axis = "x";
         g.d0 = dx;
@@ -348,6 +360,8 @@
     else if (t.dataset.floor) Panel.setFloor(+t.dataset.floor, true);
     else if (t.dataset.vac && Panel.vacTap) Panel.vacTap(t);
     else if (t.dataset.car && Panel.carTap) Panel.carTap(t);
+    else if (t.dataset.area !== undefined && Panel.areaTap) Panel.areaTap(t);
+    else if (t.dataset.roomscene && Panel.roomSceneTap) Panel.roomSceneTap(t);
   }
 
   const drawer = $("drawer");
@@ -426,14 +440,24 @@
     $("brightLabel").textContent = showLabel ? v + "%" : "";
   }
 
+  /* What the slider sets: a chosen room's lamps (those Home Assistant has), or
+   * the section's lights; null where there are none. */
+  function sliderScope() {
+    const ti = Panel.activeTab();
+    if (ti < 0) return null;
+    const area = Panel.activeArea && Panel.activeArea();
+    if (area) return { ids: area.lights.filter((id) => Panel.st(id)), value: Panel.areaBrightness(area), area: true, ti };
+    return { ids: cfg.tabs[ti].lights.map((l) => l.id), value: Panel.tabBrightness[ti], area: false, ti };
+  }
+
   /* The slider belongs to the active section's lights; hidden where there are none. */
   function syncSlider() {
-    const ti = Panel.activeTab();
-    bright.hidden = ti < 0;
-    if (ti < 0) return;
-    const v = Panel.tabBrightness[ti];
-    setSlider(v >= 0 ? v : 50, v >= 0);
+    const scope = sliderScope();
+    bright.hidden = !scope;
+    if (!scope) return;
+    setSlider(scope.value >= 0 ? scope.value : 50, scope.value >= 0);
   }
+  Panel.syncSlider = syncSlider;
 
   function sliderValue(clientY) {
     const r = vTrack.getBoundingClientRect();
@@ -454,12 +478,12 @@
     if (vDrag !== e.pointerId) return;
     vDrag = null;
     bright.classList.remove("dragging");
-    const ti = Panel.activeTab();
-    if (ti < 0) return;
+    const scope = sliderScope();
+    if (!scope || !scope.ids.length) return;
     const v = +bright.dataset.value;
     vReleasedAt = Date.now();
-    Panel.tabBrightness[ti] = v;
-    Panel.setBrightness(cfg.tabs[ti].lights.map((l) => l.id), v);
+    if (!scope.area) Panel.tabBrightness[scope.ti] = v;
+    Panel.setBrightness(scope.ids, v);
   };
   vTrack.addEventListener("pointerup", vEnd);
   vTrack.addEventListener("pointercancel", vEnd);

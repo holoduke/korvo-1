@@ -243,6 +243,31 @@ def parse_car(src):
             "charging": entities["charging"], "lock": entities["lock"]}
 
 
+def parse_areas(src, tabs):
+    """PANEL_AREAS -> tabs[i]["areas"] = [{label, lights: [ids], scenes: [{id, label}]}]."""
+    names = [t["name"] for t in tabs]
+    for t in tabs:
+        t["areas"] = []
+    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}',
+                      array_body(src, "PANEL_AREAS"))
+    if not rows:
+        fail("PANEL_AREAS is empty or unparsable")
+    for tab, label, lights, scenes in rows:
+        if tab not in names:
+            fail(f"PANEL_AREAS: no tab named {tab!r}")
+        ids = lights.split()
+        bad = [i for i in ids if not re.fullmatch(r"light\.[a-z0-9_]+", i)]
+        if not ids or bad:
+            fail(f"PANEL_AREAS {label!r}: expected light entity ids, got {bad or 'nothing'}")
+        own = []
+        for pair in scenes.split():
+            m = re.fullmatch(r"(scene\.[a-z0-9_]+)=(\S+)", pair)
+            if not m:
+                fail(f"PANEL_AREAS {label!r}: scene {pair!r} is not entity_id=Label")
+            own.append({"id": m.group(1), "label": m.group(2).replace("_", " ")})
+        tabs[names.index(tab)]["areas"].append({"label": label, "lights": ids, "scenes": own})
+
+
 def parse_layout(src, tabs):
     names = [t["name"] for t in tabs]
 
@@ -297,6 +322,7 @@ def parse_themes(src):
 def main():
     cfg = strip_comments(CONFIG_H.read_text())
     tabs = parse_tabs(cfg)
+    parse_areas(cfg, tabs)
     floors, sections = parse_layout(cfg, tabs)
     config = {
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),

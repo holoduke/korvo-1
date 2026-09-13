@@ -167,7 +167,90 @@ window.PANEL_CONFIG = {
         null
       ],
       "quick": 2,
-      "sceneTiles": true
+      "sceneTiles": true,
+      "areas": [
+        {
+          "label": "Keuken",
+          "lights": [
+            "light.lamp_keuken_plafond_1",
+            "light.lamp_keuken_plafond_2",
+            "light.lamp_keuken_plafond_3",
+            "light.lamp_keuken_plafond_4",
+            "light.lamp_keuken_plafond_5",
+            "light.lamp_keuken_plafond_6",
+            "light.lamp_keuken_plafond_7",
+            "light.lamp_keuken_muur_1",
+            "light.lamp_keuken_muur_2",
+            "light.lamp_keuken_muur_3"
+          ],
+          "scenes": [
+            {
+              "id": "scene.keuken_voor_knipperen",
+              "label": "Knipperen"
+            }
+          ]
+        },
+        {
+          "label": "Eetkamer",
+          "lights": [
+            "light.lamp_keuken_eettafel_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Zitkamer",
+          "lights": [
+            "light.lamp_zitkamer_voor_1",
+            "light.lamp_zitkamer_voor_2",
+            "light.lamp_zitkamer_1",
+            "light.lamp_grond_1",
+            "light.lamp_woonkamer_kubus_1",
+            "light.lamp_valerie_rieten_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Zitk. achter",
+          "lights": [
+            "light.lamp_zitkamer_achter_1",
+            "light.lamp_zitkamer_achter_2",
+            "light.lamp_zitkamer_achter_3",
+            "light.lamp_zitkamer_achter_muur_1",
+            "light.lamp_zitkamer_achter_muur_2"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Gameroom",
+          "lights": [
+            "light.lamp_playroom_1",
+            "light.lamp_playroom_led_1",
+            "light.lamp_playroom_muur_1",
+            "light.lamp_playroom_muur_2",
+            "light.lamp_playroom_muur_3"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Gang",
+          "lights": [
+            "light.lamp_gang_plafond_1",
+            "light.lamp_gang_plafond_2",
+            "light.lamp_gang_plafond_3",
+            "light.lamp_gang_deur_1",
+            "light.lamp_gang_trap_beneden_1",
+            "light.lamp_wc_beneden_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Buiten",
+          "lights": [
+            "light.lamp_buiten_1"
+          ],
+          "scenes": []
+        }
+      ]
     },
     {
       "name": "Boven",
@@ -244,7 +327,66 @@ window.PANEL_CONFIG = {
       "icons": null,
       "swatches": null,
       "quick": 0,
-      "sceneTiles": false
+      "sceneTiles": false,
+      "areas": [
+        {
+          "label": "Slaapkamer",
+          "lights": [
+            "light.lamp_slaapkamer_gillis_ilse",
+            "light.lamp_slaapkamer_staand_ilse_gillis",
+            "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje",
+            "light.lamp_slaapkamer_achter_1",
+            "light.lamp_slaapkamer_achter_nachtkast_1",
+            "light.lamp_slaapkamer_plafond_achter_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Valerie",
+          "lights": [
+            "light.lamp_valerie_kamer_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Jongens",
+          "lights": [
+            "light.lamp_jongens_kamer_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Badkamer",
+          "lights": [
+            "light.lamp_badkamer_2_plafond_1",
+            "light.lamp_badkamer_2_plafond_2",
+            "light.lamp_badkamer_2_plafond_3",
+            "light.lamp_badkamer_3",
+            "light.lamp_badkamer_muur_1",
+            "light.lamp_badkamer_muur_2",
+            "light.lamp_badkamer_spiegel_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Gang",
+          "lights": [
+            "light.lamp_gang_boven_plafond_1",
+            "light.lamp_gang_boven_plafond_2",
+            "light.lamp_gang_boven_plafond_3",
+            "light.lamp_gang_boven_plafond_4"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Kledingkast",
+          "lights": [
+            "light.lamp_kledingkast_plafond_1",
+            "light.lamp_kledingkast_plafond_2"
+          ],
+          "scenes": []
+        }
+      ]
     },
     {
       "name": "Zolder",
@@ -280,7 +422,39 @@ window.PANEL_CONFIG = {
       "icons": null,
       "swatches": null,
       "quick": 0,
-      "sceneTiles": false
+      "sceneTiles": false,
+      "areas": [
+        {
+          "label": "Gang",
+          "lights": [
+            "light.lamp_zolder_gang",
+            "light.lamp_zolder_tussengang_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Babykamer",
+          "lights": [
+            "light.lamp_zolder_baby_kamer_1",
+            "light.lamp_zolder_baby_kamer_2"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Voorkamer",
+          "lights": [
+            "light.lamp_zolder_voorkamer_1"
+          ],
+          "scenes": []
+        },
+        {
+          "label": "Achterkamer",
+          "lights": [
+            "light.lamp_zolder_achterkamer_1"
+          ],
+          "scenes": []
+        }
+      ]
     },
     {
       "name": "Garage",
@@ -462,7 +636,8 @@ window.PANEL_CONFIG = {
         }
       ],
       "quick": 0,
-      "sceneTiles": true
+      "sceneTiles": true,
+      "areas": []
     }
   ],
   "floors": [

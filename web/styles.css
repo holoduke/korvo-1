@@ -241,6 +241,11 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .sq.unavail { background: var(--tile_off); opacity: 0.5; }
 .sq.active { background: var(--scene_on); color: var(--scene_text); }
 .chip:active, .sq:active, .allbtn:active { transform: scale(0.96); opacity: 0.8; }
+/* Room buttons: one line between the main switch and "Alle lampen"; a row
+ * wider than the screen scrolls sideways. */
+.areas { flex: 3; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+.areas::-webkit-scrollbar { display: none; }
+.area-chip { flex: 1 0 auto; padding: 0 14px; white-space: nowrap; }
 .pill { flex: 2; background: var(--tile_off); color: var(--text_dim); justify-content: flex-start; padding: 0 18px; white-space: nowrap; overflow: hidden; }
 .pill span { overflow: hidden; text-overflow: ellipsis; }
 .pill b { color: var(--text); font-weight: 600; margin-left: 0.5em; }
