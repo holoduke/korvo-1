@@ -204,7 +204,7 @@
   window.addEventListener("pointerdown", () => (swallowClick = false), { capture: true });
 
   function actionTarget(el) {
-    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac],[data-car],[data-area]");
+    return el.closest("[data-light],[data-scene],[data-all],[data-floor],[data-vac],[data-car],[data-area],[data-appl]");
   }
 
   function onDown(e, surface) {
@@ -221,7 +221,7 @@
       axis: null,
       cancelled: false,
       inFloorView: !!e.target.closest(".floor-view"),
-      inAreas: e.target.closest(".areas"),
+      inAreas: e.target.closest(".areas, .ap-chips"), /* rows that scroll sideways */
       inList: e.target.closest(".split-list"),
       samples: [{ x: e.clientX, y: e.clientY, t: e.timeStamp }],
       width: surface === "stage" ? stage.clientWidth : drawer.clientWidth,
@@ -367,6 +367,7 @@
     else if (t.dataset.vac && Panel.vacTap) Panel.vacTap(t);
     else if (t.dataset.car && Panel.carTap) Panel.carTap(t);
     else if (t.dataset.area !== undefined && Panel.areaTap) Panel.areaTap(t);
+    else if (t.dataset.appl && Panel.applTap) Panel.applTap(t);
   }
 
   const drawer = $("drawer");

@@ -473,6 +473,67 @@
       put("media", "off");
       put("update", "off", { installed_version: "2026.32.3", latest_version: "2026.32.3" });
     }
+    /* Appliances: a washer mid-cycle, a running dishwasher, a hob with two zones on. */
+    (cfg.appliances || []).forEach((ap) => {
+      const e = ap.entities;
+      const put = (key, state, attributes = {}) => e[key] && set(e[key], state, attributes);
+      const soon = (min) => new Date(now + min * 60e3).toISOString();
+      if (ap.kind === "washer" || ap.kind === "dryer") {
+        const washer = ap.kind === "washer";
+        put("state", washer ? "run" : "stop", { options: ["stop", "run", "pause"] });
+        put("machine", washer ? "run" : "stop", { options: ["pause", "run", "stop"] });
+        put("job", washer ? "ai_wash" : "none");
+        put("done", washer ? soon(42) : soon(-95));
+        put("power", washer ? "380" : "0", { unit_of_measurement: "W" });
+        put("energy", washer ? "186.9" : "138.1", { unit_of_measurement: "kWh" });
+        put("water", "9192.4", { unit_of_measurement: "L" });
+        put("remote", "on");
+        put("lock", "off");
+        put("on", washer ? "on" : "off");
+      } else if (ap.kind === "dishwasher") {
+        const programs = ["001", "Auto1", "Auto2", "Auto3", "Eco50", "Kurz60", "LearningDishwasher", "MachineCare", "PreRinse"];
+        put("op", "Run");
+        put("door", "Closed");
+        put("phase", "MainWash");
+        put("selected", "Eco50", { options: programs });
+        put("active", "Eco50", { options: programs });
+        put("remaining", "5400", { unit_of_measurement: "s" });
+        put("progress", "35", { unit_of_measurement: "%" });
+        put("startAllowed", "on");
+        put("abort", "unknown");
+        put("energy", "46");
+        put("water", "40");
+        put("care", "9");
+        ["extradry", "hygiene", "speed", "silence"].forEach((k) => put(k, "off"));
+      } else if (ap.kind === "oven") {
+        put("op", "Inactive");
+        put("door", "Closed");
+        put("temp", "23", { unit_of_measurement: "°C" });
+        ["setpoint", "program", "remaining", "elapsed", "progress"].forEach((k) => put(k, "unknown"));
+        ["pause", "resume", "abort"].forEach((k) => put(k, "unknown"));
+        put("childlock", "off");
+        put("light", "off");
+      } else if (ap.kind === "hob") {
+        const levels = ["Off", "KeepWarm", "10", "20", "30", "40", "50", "60", "70", "80", "90", "Boost1"];
+        put("op", "Run");
+        put("power", "On");
+        put("zone1", "50", { options: levels });
+        put("zone2", "Off", { options: levels });
+        put("zone3", "KeepWarm", { options: levels });
+        put("zone4", "Off", { options: levels });
+        put("childlock", "off");
+        put("filter", "2");
+        put("filterReset", "unknown");
+        put("vent", "Level03", { options: ["Off", "Automatic", "Level01", "Level02", "Level03", "Level04", "Level05", "BoostLevel1", "AfterRun"] });
+        put("airmode", "Recirculation", { options: ["Recirculation", "Extraction"] });
+      } else if (ap.kind === "filter") {
+        Object.keys(e).forEach((k) => put(k, "unavailable"));
+      } else if (ap.kind === "fridge") {
+        put("temp", "4", { unit_of_measurement: "°C" });
+        put("setpoint", "4", { min: 3, max: 9, step: 1, unit_of_measurement: "°C" });
+        ["supercool", "party", "night"].forEach((k) => put(k, "off"));
+      }
+    });
     /* Room lamps that no drawer lists still have to exist in the demo. */
     cfg.tabs.forEach((t) =>
       (t.areas || []).forEach((a) =>
@@ -545,6 +606,32 @@
             temperature: 18 + d,
           }));
           return { response: { [cfg.weather]: { forecast } } };
+        }
+        /* Appliance commands (before the vacuum branch, which also takes buttons). */
+        const applEntities = (cfg.appliances || []).flatMap((ap) => Object.values(ap.entities));
+        if (ids.length && ids.every((id) => applEntities.includes(id))) {
+          const t = Date.now();
+          ids.forEach((id) => {
+            const cur = states.get(id) || { state: "unknown", attributes: {} };
+            let next = cur.state;
+            if (domain === "select") next = data.option;
+            else if (domain === "switch") next = service === "turn_on" ? "on" : "off";
+            else if (domain === "number") next = String(data.value);
+            else if (domain === "button") next = new Date(t).toISOString();
+            set(id, next, cur.attributes, t);
+            (cfg.appliances || []).forEach((ap) => {
+              const e = ap.entities;
+              const also = (key, state) => set(e[key], state, (states.get(e[key]) || {}).attributes || {}, t);
+              if ((ap.kind === "washer" || ap.kind === "dryer") && id === e.state) also("machine", next);
+              if (ap.kind === "dishwasher" && id === e.active) also("op", "Run");
+              if (ap.kind === "dishwasher" && id === e.abort) also("op", "Ready");
+              if (ap.kind === "oven" && id === e.pause) also("op", "Pause");
+              if (ap.kind === "oven" && id === e.resume) also("op", "Run");
+              if (ap.kind === "oven" && id === e.abort) also("op", "Inactive");
+            });
+          });
+          change(applEntities);
+          return returnResponse ? { response: {} } : null;
         }
         /* Car commands (before the vacuum branch, which also takes buttons). */
         const carEntities = cfg.car ? Object.values(cfg.car.entities) : [];

@@ -664,6 +664,11 @@ window.PANEL_CONFIG = {
       "tab": null
     },
     {
+      "name": "Apparaten",
+      "kind": "appliances",
+      "tab": null
+    },
+    {
       "name": "Schoonmaak",
       "kind": "vacuum",
       "tab": null
@@ -860,6 +865,128 @@ window.PANEL_CONFIG = {
     "charging": "sensor.vlm_charging",
     "lock": "lock.vlm_lock"
   },
+  "appliances": [
+    {
+      "kind": "washer",
+      "label": "Wasmachine",
+      "name": "wasruimte_wasmachine",
+      "entities": {
+        "state": "select.wasruimte_wasmachine",
+        "machine": "sensor.wasruimte_wasmachine_machine_state",
+        "job": "sensor.wasruimte_wasmachine_job_state",
+        "done": "sensor.wasruimte_wasmachine_completion_time",
+        "power": "sensor.wasruimte_wasmachine_power",
+        "energy": "sensor.wasruimte_wasmachine_energy",
+        "remote": "binary_sensor.wasruimte_wasmachine_remote_control",
+        "lock": "binary_sensor.wasruimte_wasmachine_child_lock",
+        "on": "binary_sensor.wasruimte_wasmachine_power",
+        "water": "sensor.wasruimte_wasmachine_water_consumption"
+      }
+    },
+    {
+      "kind": "dryer",
+      "label": "Droger",
+      "name": "wasruimte_droger",
+      "entities": {
+        "state": "select.wasruimte_droger",
+        "machine": "sensor.wasruimte_droger_machine_state",
+        "job": "sensor.wasruimte_droger_job_state",
+        "done": "sensor.wasruimte_droger_completion_time",
+        "power": "sensor.wasruimte_droger_power",
+        "energy": "sensor.wasruimte_droger_energy",
+        "remote": "binary_sensor.wasruimte_droger_remote_control",
+        "lock": "binary_sensor.wasruimte_droger_child_lock",
+        "on": "binary_sensor.wasruimte_droger_power"
+      }
+    },
+    {
+      "kind": "dishwasher",
+      "label": "Vaatwasser",
+      "name": "dishwasher",
+      "entities": {
+        "op": "sensor.dishwasher_bsh_common_status_operationstate",
+        "door": "sensor.dishwasher_bsh_common_status_doorstate",
+        "phase": "sensor.dishwasher_dishcare_dishwasher_status_programphase",
+        "selected": "select.dishwasher_bsh_common_root_selectedprogram",
+        "active": "select.dishwasher_bsh_common_root_activeprogram",
+        "remaining": "sensor.dishwasher_bsh_common_option_remainingprogramtime",
+        "progress": "sensor.dishwasher_bsh_common_option_programprogress",
+        "startAllowed": "binary_sensor.dishwasher_bsh_common_status_remotecontrolstartallowed",
+        "abort": "button.dishwasher_bsh_common_command_abortprogram",
+        "energy": "sensor.dishwasher_bsh_common_option_energyforecast",
+        "water": "sensor.dishwasher_bsh_common_option_waterforecast",
+        "care": "sensor.dishwasher_dishcare_dishwasher_status_machinecarereminder_remainingprogramruns",
+        "extradry": "switch.dishwasher_dishcare_dishwasher_setting_extradry",
+        "hygiene": "switch.dishwasher_dishcare_dishwasher_option_hygieneplus",
+        "speed": "switch.dishwasher_dishcare_dishwasher_option_variospeedplus",
+        "silence": "switch.dishwasher_dishcare_dishwasher_option_silenceondemand"
+      }
+    },
+    {
+      "kind": "oven",
+      "label": "Oven",
+      "name": "oven",
+      "entities": {
+        "op": "sensor.oven_bsh_common_status_operationstate",
+        "door": "sensor.oven_bsh_common_status_doorstate",
+        "temp": "sensor.oven_cooking_oven_status_cavity_001_currenttemperature",
+        "setpoint": "sensor.oven_cooking_oven_status_cavity_001_setpointtemperature",
+        "program": "sensor.oven_bsh_common_option_programname",
+        "remaining": "sensor.oven_bsh_common_option_remainingprogramtime",
+        "elapsed": "sensor.oven_bsh_common_option_elapsedprogramtime",
+        "progress": "sensor.oven_bsh_common_option_programprogress",
+        "pause": "button.oven_bsh_common_command_pauseprogram",
+        "resume": "button.oven_bsh_common_command_resumeprogram",
+        "abort": "button.oven_bsh_common_command_abortprogram",
+        "childlock": "switch.oven_bsh_common_setting_childlock",
+        "light": "binary_sensor.oven_bsh_common_status_interiorilluminationactive"
+      }
+    },
+    {
+      "kind": "filter",
+      "label": "Filter",
+      "name": "atag_plasmafilter",
+      "entities": {
+        "active": "binary_sensor.atag_plasmafilter_statisch_4_kv_filter",
+        "mode": "sensor.atag_plasmafilter_modus",
+        "airflow": "sensor.atag_plasmafilter_luchtstroom",
+        "cell1": "sensor.atag_plasmafilter_looptijd_plasmacel_1",
+        "cell2": "sensor.atag_plasmafilter_looptijd_plasmacel_2",
+        "voltage": "sensor.atag_plasmafilter_spanning",
+        "current": "sensor.atag_plasmafilter_stroom"
+      }
+    },
+    {
+      "kind": "hob",
+      "label": "Kookplaat",
+      "name": "hob",
+      "entities": {
+        "op": "sensor.hob_bsh_common_status_operationstate",
+        "power": "sensor.hob_bsh_common_setting_powerstate",
+        "zone1": "sensor.hob_cooking_hob_status_zone_100_powerlevel",
+        "zone2": "sensor.hob_cooking_hob_status_zone_200_powerlevel",
+        "zone3": "sensor.hob_cooking_hob_status_zone_300_powerlevel",
+        "zone4": "sensor.hob_cooking_hob_status_zone_400_powerlevel",
+        "childlock": "binary_sensor.hob_bsh_common_setting_childlock",
+        "filter": "sensor.hob_cooking_hob_status_carbonfiltersaturation",
+        "filterReset": "button.hob_cooking_hob_command_carbonfilterreset",
+        "vent": "select.hob_cooking_hob_setting_ventilation",
+        "airmode": "select.hob_cooking_hob_setting_aircirculationmode"
+      }
+    },
+    {
+      "kind": "fridge",
+      "label": "Koelkast",
+      "name": "koelkast_1",
+      "entities": {
+        "temp": "sensor.koelkast_1",
+        "setpoint": "number.koelkast_1_setpoint",
+        "supercool": "switch.koelkast_1_supercool",
+        "party": "switch.koelkast_1_partymode",
+        "night": "switch.koelkast_1_nightmode"
+      }
+    }
+  ],
   "media": [
     {
       "id": "media_player.living_room",

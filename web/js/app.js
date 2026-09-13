@@ -76,6 +76,8 @@
   const car = cfg.car;
   const carIds = new Set(car ? Object.values(car.entities) : []);
   carIds.forEach((id) => ids.add(id));
+  const applIds = new Set((cfg.appliances || []).flatMap((a) => Object.values(a.entities)));
+  applIds.forEach((id) => ids.add(id));
   const client = demo ? HA.createDemo(cfg) : HA.createClient([...ids]);
   Panel.client = client;
   let loaded = false; /* initial state dump received */
@@ -499,6 +501,9 @@
     if (sec.kind === "vacuum") {
       return `<section class="page vac-page" data-page="${si}"><div id="vacPage" class="vp"></div></section>`;
     }
+    if (sec.kind === "appliances") {
+      return `<section class="page appl-page" data-page="${si}"><div id="applPage" class="ap"></div></section>`;
+    }
     if (sec.kind === "car") {
       return `<section class="page car-page" data-page="${si}"><div id="carPage" class="cp"></div></section>`;
     }
@@ -760,6 +765,7 @@
     let vacChanged = false;
     let bikeChanged = false;
     let carChanged = false;
+    const applChanged = [];
     for (const id of allIds) {
       const s = st(id);
       if (id.startsWith("light.")) {
@@ -781,6 +787,8 @@
         bikeChanged = true;
       } else if (carIds.has(id)) {
         carChanged = true;
+      } else if (applIds.has(id)) {
+        applChanged.push(id);
       } else if (vacIds.has(id)) {
         vacChanged = true;
       } else if (airOf.has(id)) {
@@ -803,6 +811,7 @@
     }
     if (vacChanged && Panel.onVacuum) Panel.onVacuum();
     if (bikeChanged) renderBike();
+    if (applChanged.length && Panel.onAppliances) Panel.onAppliances(applChanged);
     if (carChanged) {
       renderCar();
       if (Panel.onCar) Panel.onCar();
@@ -822,6 +831,7 @@
     buildSections();
     if (Panel.buildVacuum && $("vacPage")) Panel.buildVacuum($("vacPage"));
     if (Panel.buildCar && $("carPage")) Panel.buildCar($("carPage"));
+    if (Panel.buildAppliances && $("applPage")) Panel.buildAppliances($("applPage"));
     if (Panel.initAreas) Panel.initAreas();
     watchLists();
     cfg.sensors.forEach((_, i) => renderSensor(i));

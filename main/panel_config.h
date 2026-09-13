@@ -414,6 +414,27 @@ static const panel_area_t PANEL_AREAS[] = {
     { "Zolder", "Achterkamer", "light.lamp_zolder_achterkamer_1", "" },
 };
 
+/* Appliances in the web app's "Apparaten" section (the panel's firmware does
+ * not show them). kind selects the integration's entity naming, name is the
+ * device's part of its entity ids (e.g. "wasruimte_wasmachine" in
+ * sensor.wasruimte_wasmachine_job_state); tools/gen_web_config.py derives the
+ * rest. Kinds: washer, dryer (SmartThings), dishwasher, oven, hob (Home
+ * Connect via hcpy), filter (ATAG plasma filter over MQTT), fridge (Liebherr). */
+typedef struct {
+    const char *kind;
+    const char *label;
+    const char *name;
+} panel_appliance_t;
+static const panel_appliance_t PANEL_APPLIANCES[] = {
+    { "washer",     "Wasmachine", "wasruimte_wasmachine" },
+    { "dryer",      "Droger",     "wasruimte_droger" },
+    { "dishwasher", "Vaatwasser", "dishwasher" },
+    { "oven",       "Oven",       "oven" },
+    { "filter",     "Filter",     "atag_plasmafilter" },
+    { "hob",        "Kookplaat",  "hob" },
+    { "fridge",     "Koelkast",   "koelkast_1" },
+};
+
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
  * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */
@@ -430,11 +451,12 @@ static const panel_floor_t PANEL_FLOORS[] = {
 
 typedef struct {
     const char *name;
-    const char *kind; /* "floors", "vacuum", "car", or "tab" (one PANEL_TABS entry) */
+    const char *kind; /* "floors", "appliances", "vacuum", "car", or "tab" (one PANEL_TABS entry) */
     const char *tab;  /* for "tab": the PANEL_TABS name */
 } panel_section_t;
 static const panel_section_t PANEL_SECTIONS[] = {
     { "Verlichting", "floors", NULL },
+    { "Apparaten",   "appliances", NULL },
     { "Schoonmaak",  "vacuum", NULL },
     { "Garage",      "tab",    "Garage" },
     { "Tesla",       "car",    NULL },

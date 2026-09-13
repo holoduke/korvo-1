@@ -228,6 +228,73 @@ TESLA_FLEET_ENTITIES = (
 )
 
 
+# Appliance entities by kind: key -> entity id template ({n} = the device name).
+_LAUNDRY = {
+    "state": "select.{n}", "machine": "sensor.{n}_machine_state", "job": "sensor.{n}_job_state",
+    "done": "sensor.{n}_completion_time", "power": "sensor.{n}_power", "energy": "sensor.{n}_energy",
+    "remote": "binary_sensor.{n}_remote_control", "lock": "binary_sensor.{n}_child_lock", "on": "binary_sensor.{n}_power",
+}
+APPLIANCE_ENTITIES = {
+    "washer": {**_LAUNDRY, "water": "sensor.{n}_water_consumption"},
+    "dryer": _LAUNDRY,
+    "dishwasher": {
+        "op": "sensor.{n}_bsh_common_status_operationstate", "door": "sensor.{n}_bsh_common_status_doorstate",
+        "phase": "sensor.{n}_dishcare_dishwasher_status_programphase",
+        "selected": "select.{n}_bsh_common_root_selectedprogram", "active": "select.{n}_bsh_common_root_activeprogram",
+        "remaining": "sensor.{n}_bsh_common_option_remainingprogramtime", "progress": "sensor.{n}_bsh_common_option_programprogress",
+        "startAllowed": "binary_sensor.{n}_bsh_common_status_remotecontrolstartallowed",
+        "abort": "button.{n}_bsh_common_command_abortprogram",
+        "energy": "sensor.{n}_bsh_common_option_energyforecast", "water": "sensor.{n}_bsh_common_option_waterforecast",
+        "care": "sensor.{n}_dishcare_dishwasher_status_machinecarereminder_remainingprogramruns",
+        "extradry": "switch.{n}_dishcare_dishwasher_setting_extradry", "hygiene": "switch.{n}_dishcare_dishwasher_option_hygieneplus",
+        "speed": "switch.{n}_dishcare_dishwasher_option_variospeedplus", "silence": "switch.{n}_dishcare_dishwasher_option_silenceondemand",
+    },
+    "oven": {
+        "op": "sensor.{n}_bsh_common_status_operationstate", "door": "sensor.{n}_bsh_common_status_doorstate",
+        "temp": "sensor.{n}_cooking_oven_status_cavity_001_currenttemperature",
+        "setpoint": "sensor.{n}_cooking_oven_status_cavity_001_setpointtemperature",
+        "program": "sensor.{n}_bsh_common_option_programname",
+        "remaining": "sensor.{n}_bsh_common_option_remainingprogramtime", "elapsed": "sensor.{n}_bsh_common_option_elapsedprogramtime",
+        "progress": "sensor.{n}_bsh_common_option_programprogress",
+        "pause": "button.{n}_bsh_common_command_pauseprogram", "resume": "button.{n}_bsh_common_command_resumeprogram",
+        "abort": "button.{n}_bsh_common_command_abortprogram", "childlock": "switch.{n}_bsh_common_setting_childlock",
+        "light": "binary_sensor.{n}_bsh_common_status_interiorilluminationactive",
+    },
+    "hob": {
+        "op": "sensor.{n}_bsh_common_status_operationstate", "power": "sensor.{n}_bsh_common_setting_powerstate",
+        "zone1": "sensor.{n}_cooking_hob_status_zone_100_powerlevel", "zone2": "sensor.{n}_cooking_hob_status_zone_200_powerlevel",
+        "zone3": "sensor.{n}_cooking_hob_status_zone_300_powerlevel", "zone4": "sensor.{n}_cooking_hob_status_zone_400_powerlevel",
+        "childlock": "binary_sensor.{n}_bsh_common_setting_childlock",
+        "filter": "sensor.{n}_cooking_hob_status_carbonfiltersaturation", "filterReset": "button.{n}_cooking_hob_command_carbonfilterreset",
+        "vent": "select.{n}_cooking_hob_setting_ventilation", "airmode": "select.{n}_cooking_hob_setting_aircirculationmode",
+    },
+    "filter": {
+        "active": "binary_sensor.{n}_statisch_4_kv_filter", "mode": "sensor.{n}_modus", "airflow": "sensor.{n}_luchtstroom",
+        "cell1": "sensor.{n}_looptijd_plasmacel_1", "cell2": "sensor.{n}_looptijd_plasmacel_2",
+        "voltage": "sensor.{n}_spanning", "current": "sensor.{n}_stroom",
+    },
+    "fridge": {
+        "temp": "sensor.{n}", "setpoint": "number.{n}_setpoint", "supercool": "switch.{n}_supercool",
+        "party": "switch.{n}_partymode", "night": "switch.{n}_nightmode",
+    },
+}
+
+
+def parse_appliances(src):
+    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, "PANEL_APPLIANCES"))
+    if not rows:
+        fail("PANEL_APPLIANCES is empty or unparsable")
+    out = []
+    for kind, label, name in rows:
+        if kind not in APPLIANCE_ENTITIES:
+            fail(f"PANEL_APPLIANCES {label!r}: unknown kind {kind!r}")
+        if not re.fullmatch(r"[a-z0-9_]+", name):
+            fail(f"PANEL_APPLIANCES {label!r}: bad name {name!r}")
+        out.append({"kind": kind, "label": label, "name": name,
+                    "entities": {k: t.format(n=name) for k, t in APPLIANCE_ENTITIES[kind].items()}})
+    return out
+
+
 def parse_car(src):
     m = re.search(r"\bPANEL_CAR\s*=\s*\{(.*?)\};", src, re.S)
     if not m:
@@ -282,7 +349,7 @@ def parse_layout(src, tabs):
     sections = []
     for name, kind, tab in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}',
                                       array_body(src, "PANEL_SECTIONS")):
-        if kind not in ("floors", "vacuum", "car", "tab"):
+        if kind not in ("floors", "appliances", "vacuum", "car", "tab"):
             fail(f"PANEL_SECTIONS: unknown kind {kind!r}")
         tab_name = c_string_or_null(tab)
         if (kind == "tab") != (tab_name is not None):
@@ -341,6 +408,7 @@ def main():
         "vacuum": parse_vacuum(cfg),
         "bike": parse_bike(cfg),
         "car": parse_car(cfg),
+        "appliances": parse_appliances(cfg),
         "media": entity_table(cfg, "PANEL_MEDIA_PLAYERS"),
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),
