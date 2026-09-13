@@ -490,15 +490,24 @@
         return returnResponse ? { response: {} } : null;
       },
       async historyFull(ids, start) {
-        /* Past room runs for the vacuum: room 8 today, 5 yesterday, 4 three days ago. */
+        /* Past room runs for the vacuum, shaped like the real robot's history
+         * (a mop-wash trip mid-run, rooms and area kept after docking):
+         * room 8 (19 m²) today, 5 (14 m²) yesterday, 4 (22 m²) three days ago. */
         const out = {};
-        const runs = [[8, 0.2], [5, 1.1], [4, 3.3]];
+        const runs = [[8, 0.2, 19], [5, 1.1, 14], [4, 3.3, 22]];
         ids.forEach((id) => {
-          out[id] = runs.flatMap(([room, daysAgo]) => {
+          out[id] = runs.flatMap(([room, daysAgo, m2]) => {
             const t = now - daysAgo * 86400e3;
+            const at = (values, area, time) => ({
+              "robotic_vacuum.clean_values": values,
+              "robotic_vacuum.clean_area": area,
+              "robotic_vacuum.clean_time": time,
+            });
             return [
-              { s: "cleaning", a: { "robotic_vacuum.clean_values": `[${room}]` }, t },
-              { s: "docked", a: { "robotic_vacuum.clean_values": "[]" }, t: t + 20 * 60e3 },
+              { s: "cleaning", a: at(`[${room}]`, 0, 1), t },
+              { s: "returning", a: at(`[${room}]`, Math.round(m2 * 0.7), 600), t: t + 10 * 60e3 },
+              { s: "cleaning", a: at(`[${room}]`, Math.round(m2 * 0.7), 610), t: t + 13 * 60e3 },
+              { s: "docked", a: at(`[${room}]`, m2, 1000), t: t + 20 * 60e3 },
             ];
           }).filter((r) => r.t >= start.getTime()).sort((x, y) => x.t - y.t);
         });

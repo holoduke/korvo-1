@@ -33,6 +33,12 @@
   Panel.vacRooms = selected;
   let records = null; /* robot's run log, newest first */
   const lastByRoom = new Map(); /* room id -> ms */
+  /* Learned sizes, from finished runs in HA's history: m² per set of rooms
+   * ("5,8"; "" is the whole house). The robot reports the area cleaned so far
+   * but no progress and no room sizes (those live in the Xiaomi cloud map). */
+  const areaBySet = new Map();
+  /* {"5,8": m², ...} as learned so far; part of the diagnostics report. */
+  Panel.vacLearned = () => Object.fromEntries(areaBySet);
   let loadedAt = 0;
   let loading = false;
   let root = null;
@@ -75,7 +81,8 @@
         .map(
           (r) =>
             `<button class="vs-room" data-vac="room" data-room="${r.id}"><span class="vs-rname">${r.label}</span>` +
-            `<span class="vs-rid">#${r.id}</span><span class="vs-rlast">${icon("clock")}<span></span></span><i class="vs-sweep"></i></button>`
+            `<span class="vs-rid">#${r.id}</span><span class="vs-pct"></span>` +
+            `<span class="vs-rlast">${icon("clock")}<span></span></span><i class="vs-sweep"></i><i class="vs-prog"><b></b></i></button>`
         )
         .join("") +
       `</div><div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div></section>` +
@@ -104,8 +111,14 @@
     const busy = ["cleaning", "returning"].includes(vstate);
     const paused = vstate === "paused" || statusRaw === "paused";
     const area = Panel.num(vac.area);
+    const running = !offline && ["cleaning", "paused", "returning"].includes(vstate);
+    const runRooms = running ? parseList(v.attributes["robotic_vacuum.clean_values"]) : [];
+    const done = Number.isFinite(area) ? area : 0;
+    const expected = running ? expectedArea(runRooms) : null;
+    /* Capped below 100: the robot decides when a room is finished, not the estimate. */
+    const pct = expected ? Math.min(99, Math.round((done / expected) * 100)) : null;
     let status = offline ? "Niet bereikbaar" : STATUS_NL[statusRaw] || STATE_NL[vstate] || vstate;
-    if (busy && Number.isFinite(area) && area > 0) status += ` · ${Math.round(area)} m²`;
+    if ((busy || paused) && done > 0) status += pct !== null ? ` · ${pct}%` : ` · ${Math.round(done)} m²`;
     root.classList.toggle("offline", offline);
 
     /* Battery and status live in the header, visible from every section. */
@@ -120,12 +133,23 @@
       hdr.classList.toggle("stale", offline);
     }
 
-    const live = v && ["cleaning", "paused"].includes(vstate) ? parseList(v.attributes["robotic_vacuum.clean_values"]) : [];
+    const minutes = Math.round((Number(v && v.attributes["robotic_vacuum.clean_time"]) || 0) / 60);
     qa(".vs-room").forEach((el) => {
       const id = +el.dataset.room;
+      const live = runRooms.includes(id);
+      const measured = live && pct !== null;
       el.classList.toggle("active", selected.has(id));
-      el.classList.toggle("live", live.includes(id));
-      el.querySelector(".vs-rlast span").textContent = live.includes(id) ? "nu bezig" : ago(lastByRoom.get(id));
+      el.classList.toggle("live", live);
+      el.classList.toggle("measured", measured);
+      el.querySelector(".vs-pct").textContent = measured ? pct + "%" : "";
+      el.querySelector(".vs-prog b").style.width = (measured ? pct : 0) + "%";
+      el.querySelector(".vs-rlast span").textContent = !live
+        ? ago(lastByRoom.get(id))
+        : measured
+          ? `${Math.round(done)} van ~${Math.round(expected)} m²`
+          : done > 0
+            ? `${Math.round(done)} m² · ${minutes} min`
+            : "nu bezig";
     });
 
     for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
@@ -172,6 +196,58 @@
           : `<div class="vs-empty">Nog geen rondes</div>`;
   }
 
+  /* A run's rooms and the largest area it reached. clean_time only counts up
+   * during a run, so a drop marks the start of the next one; trips back to wash
+   * the mop stay in the same run. The rooms are taken from the row where the
+   * area last grew, because the first row of a new job still carries the
+   * previous run's area and time. Runs that cleaned nothing are ignored, and
+   * the largest finished run per set of rooms wins. */
+  function learnRuns(rows) {
+    let run = null;
+    let prevTime = -1;
+    const commit = () => {
+      if (run && run.area > 0) areaBySet.set(run.key, Math.max(areaBySet.get(run.key) || 0, run.area));
+      run = null;
+    };
+    for (const row of rows) {
+      const a = row.a || {};
+      const area = Number(a["robotic_vacuum.clean_area"]);
+      const time = Number(a["robotic_vacuum.clean_time"]);
+      if (!Number.isFinite(area) || !Number.isFinite(time)) continue;
+      const key = parseList(a["robotic_vacuum.clean_values"]).sort((x, y) => x - y).join(",");
+      if (run && time < prevTime) commit();
+      prevTime = time;
+      if (!run) run = { key, area: 0 };
+      if (area > run.area) run = { key, area };
+      else if (run.area === 0) run.key = key;
+    }
+    /* The last run counts only once the robot is back; otherwise it is the current one. */
+    const last = rows[rows.length - 1];
+    if (last && (last.s === "docked" || last.s === "idle")) commit();
+  }
+
+  /* m² expected for a set of rooms: a finished run of exactly that set, or the
+   * sum of the room sizes. A room's size comes from a run of that room alone,
+   * or from a run of several rooms where it was the only unknown one. */
+  function expectedArea(rooms) {
+    const key = [...rooms].sort((x, y) => x - y).join(",");
+    if (areaBySet.has(key)) return areaBySet.get(key);
+    if (!rooms.length) return null;
+    const size = new Map();
+    for (const [k, m2] of areaBySet) if (k && !k.includes(",")) size.set(+k, m2);
+    for (let pass = 0; pass < 3; pass++) {
+      for (const [k, m2] of areaBySet) {
+        if (!k.includes(",")) continue;
+        const ids = k.split(",").map(Number);
+        const unknown = ids.filter((id) => !size.has(id));
+        if (unknown.length !== 1) continue;
+        const rest = m2 - ids.filter((id) => size.has(id)).reduce((sum, id) => sum + size.get(id), 0);
+        if (rest > 0) size.set(unknown[0], rest);
+      }
+    }
+    return rooms.every((id) => size.has(id)) ? rooms.reduce((sum, id) => sum + size.get(id), 0) : null;
+  }
+
   async function load(force) {
     if (loading || (!force && Date.now() - loadedAt < 60e3)) return;
     loading = true;
@@ -193,12 +269,14 @@
     }
     try {
       const hist = await Panel.client.historyFull([vac.vacuum], new Date(Date.now() - 14 * 86400e3));
-      for (const row of hist[vac.vacuum] || []) {
+      const rows = [...(hist[vac.vacuum] || [])].sort((a, b) => a.t - b.t);
+      for (const row of rows) {
         if (row.s !== "cleaning") continue;
         parseList(row.a["robotic_vacuum.clean_values"]).forEach((id) => {
           if (!lastByRoom.has(id) || lastByRoom.get(id) < row.t) lastByRoom.set(id, row.t);
         });
       }
+      learnRuns(rows);
     } catch (e) {
       /* keep what we had */
     }

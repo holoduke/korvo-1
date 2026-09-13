@@ -43,6 +43,7 @@
           dvh: CSS.supports("height", "100dvh"),
           colorMix: CSS.supports("color", "color-mix(in srgb, red 50%, blue)"),
         },
+        vacuumLearned: Panel.vacLearned ? Panel.vacLearned() : null,
         errors: errors.slice(-10),
       })
       .catch(() => {}); /* not an admin, or the socket just dropped */
