@@ -162,6 +162,20 @@ def parse_air_sensors(src):
     return [dict(zip(keys, row)) for row in rows]
 
 
+def parse_vacuum(src):
+    m = re.search(r"\bPANEL_VACUUM\s*=\s*\{(.*?)\};", src, re.S)
+    if not m:
+        fail("PANEL_VACUUM not found")
+    vals = re.findall(r'"([^"]*)"', m.group(1))
+    keys = ("tab", "label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate")
+    if len(vals) != len(keys):
+        fail(f"PANEL_VACUUM: expected {len(keys)} strings, found {len(vals)}")
+    vac = dict(zip(keys, vals))
+    rooms = re.findall(r'\{\s*(\d+)\s*,\s*"([^"]*)"\s*\}', array_body(src, "PANEL_VACUUM_ROOMS"))
+    vac["rooms"] = [{"id": int(i), "label": l} for i, l in rooms]
+    return vac
+
+
 def define(src, name, kind):
     m = re.search(r"#define\s+%s\s+(\S+)" % re.escape(name), src)
     if not m:
@@ -201,6 +215,7 @@ def main():
             "pm25Good": define(cfg, "AIR_PM25_GOOD", "num"),
             "pm25Poor": define(cfg, "AIR_PM25_POOR", "num"),
         },
+        "vacuum": parse_vacuum(cfg),
         "media": entity_table(cfg, "PANEL_MEDIA_PLAYERS"),
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),

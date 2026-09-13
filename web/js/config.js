@@ -521,6 +521,28 @@ window.PANEL_CONFIG = {
     "pm25Good": 15.0,
     "pm25Poor": 35.0
   },
+  "vacuum": {
+    "tab": "Beneden",
+    "label": "Stofzuiger",
+    "vacuum": "vacuum.stofzuiger_xiaomi_robot_cleaner",
+    "status": "sensor.stofzuiger_xiaomi_status",
+    "battery": "sensor.stofzuiger_xiaomi_battery_level",
+    "area": "sensor.stofzuiger_xiaomi_clean_area",
+    "mode": "select.stofzuiger_xiaomi_clean_mode",
+    "fan": "select.stofzuiger_xiaomi_fan_mode",
+    "water": "select.stofzuiger_xiaomi_water_mode",
+    "locate": "button.stofzuiger_xiaomi_seek_robot",
+    "rooms": [
+      {
+        "id": 5,
+        "label": "Kamer 5"
+      },
+      {
+        "id": 8,
+        "label": "Kamer 8"
+      }
+    ]
+  },
   "media": [
     {
       "id": "media_player.living_room",

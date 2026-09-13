@@ -308,3 +308,43 @@ static const panel_air_sensor_t PANEL_AIR_SENSORS[] = {
       "sensor.luchtkwaliteit_keuken_humidity" },
 };
 #define PANEL_AIR_SENSOR_COUNT (sizeof(PANEL_AIR_SENSORS) / sizeof(PANEL_AIR_SENSORS[0]))
+
+/* Robot vacuum: a "Schoonmaak" section on one tab of the web app (the panel's
+ * firmware does not show it). Room cleaning goes straight to the robot via
+ * xiaomi_miot call_action: siid 17 aiid 1 start-clean with clean-type 3
+ * (AreaClean) and clean-values as a JSON list of room ids, e.g. "[8,5]" -- the
+ * value the robot itself reported for a two-room run on 2026-09-13. Room names
+ * live only in the Xiaomi cloud map, so they are set here by hand. */
+typedef struct {
+    int id;            /* room id on the robot's map */
+    const char *label;
+} panel_room_t;
+
+typedef struct {
+    const char *tab;        /* name of the tab that shows the section */
+    const char *label;
+    const char *vacuum_id;  /* vacuum entity (start / pause / return_to_base) */
+    const char *status_id;  /* text status sensor */
+    const char *battery_id; /* % */
+    const char *area_id;    /* m2 cleaned in the current run */
+    const char *mode_id;    /* select: sweep / mop combination */
+    const char *fan_id;     /* select: suction */
+    const char *water_id;   /* select: water flow */
+    const char *locate_id;  /* button: make the robot play a sound */
+} panel_vacuum_t;
+
+static const panel_room_t PANEL_VACUUM_ROOMS[] = {
+    { 5, "Kamer 5" },
+    { 8, "Kamer 8" },
+};
+static const panel_vacuum_t PANEL_VACUUM = {
+    "Beneden", "Stofzuiger",
+    "vacuum.stofzuiger_xiaomi_robot_cleaner",
+    "sensor.stofzuiger_xiaomi_status",
+    "sensor.stofzuiger_xiaomi_battery_level",
+    "sensor.stofzuiger_xiaomi_clean_area",
+    "select.stofzuiger_xiaomi_clean_mode",
+    "select.stofzuiger_xiaomi_fan_mode",
+    "select.stofzuiger_xiaomi_water_mode",
+    "button.stofzuiger_xiaomi_seek_robot",
+};

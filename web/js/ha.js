@@ -341,6 +341,17 @@
       set(s.temp, String(base[i] ?? 21), { unit_of_measurement: "°C" });
       if (s.humidity) set(s.humidity, String(hum[i] ?? 50), { unit_of_measurement: "%" });
     });
+    if (cfg.vacuum) {
+      const v = cfg.vacuum;
+      set(v.vacuum, "docked", {});
+      set(v.status, "charging", {});
+      set(v.battery, "94", { unit_of_measurement: "%" });
+      set(v.area, "0", {});
+      set(v.mode, "BothWork", { options: ["BothWork", "OnlySweep", "OnlyMop", "SweepFirst", "Custom"] });
+      set(v.fan, "Auto", { options: ["Quiet", "Auto", "Strong", "Max"] });
+      set(v.water, "Mid", { options: ["Low", "Mid", "High"] });
+      set(v.locate, "unknown", {});
+    }
     cfg.air.forEach((a) => {
       set(a.co2, "742", { unit_of_measurement: "ppm" });
       set(a.pm25, "4", { unit_of_measurement: "µg/m³" });
@@ -382,6 +393,21 @@
             temperature: 18 + d,
           }));
           return { response: { [cfg.weather]: { forecast } } };
+        }
+        const v = cfg.vacuum;
+        if (v && (domain === "vacuum" || domain === "xiaomi_miot" || (domain === "select" && ids.some((i) => [v.mode, v.fan, v.water].includes(i))) || domain === "button")) {
+          const now2 = Date.now();
+          if (domain === "select") ids.forEach((i) => set(i, data.option, (states.get(i) || {}).attributes, now2));
+          const go = (state, status, area) => {
+            set(v.vacuum, state, {}, now2);
+            set(v.status, status, {}, now2);
+            set(v.area, String(area), {}, now2);
+          };
+          if (domain === "xiaomi_miot" || (domain === "vacuum" && service === "start")) go("cleaning", "sweeping", 3);
+          if (domain === "vacuum" && service === "pause") go("paused", "paused", 3);
+          if (domain === "vacuum" && service === "return_to_base") go("returning", "go charging", 3);
+          change([v.vacuum, v.status, v.area, v.mode, v.fan, v.water]);
+          return returnResponse ? { response: {} } : null;
         }
         const touched = [];
         const members = (id) => {

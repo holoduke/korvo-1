@@ -23,6 +23,12 @@
     "arrow-up": '<path d="M12 19V5M5 12l7-7 7 7"/>',
     "arrow-down": '<path d="M12 5v14M19 12l-7 7-7-7"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
+    vacuum: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="9" r="2.5"/><path d="M7.5 15.5h9"/>',
+    play: '<path d="M7 4.5v15l12-7.5z"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    dock: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M9.5 19.5v-5h5v5"/>',
+    locate: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   };
   window.icon = function (name, cls) {
     const body = P[name] || P.power;

@@ -103,7 +103,7 @@
   window.addEventListener("pointerdown", () => (swallowClick = false), { capture: true });
 
   function actionTarget(el) {
-    return el.closest("[data-light],[data-scene],[data-all]");
+    return el.closest("[data-light],[data-scene],[data-all],[data-vac]");
   }
 
   function onDown(e, surface) {
@@ -215,6 +215,7 @@
       const [tab, idx] = t.dataset.scene.split(":").map(Number);
       Panel.activateScene(tab, idx);
     } else if (t.dataset.all) toggleDrawer();
+    else if (t.dataset.vac && !t.disabled) Panel.vacTap(t);
   }
 
   for (const [el, name] of [

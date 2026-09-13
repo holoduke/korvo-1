@@ -430,6 +430,91 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 @media (max-width: 760px) and (orientation: portrait) {
   .grid { grid-auto-rows: minmax(0, 1fr); }
 }
+/* ---- Vacuum section ("Schoonmaak") ---------------------------------------- */
+.page.has-vac { grid-template-rows: auto minmax(0, 1fr) var(--row-h); }
+.page.has-vac .grid { grid-auto-rows: 64px; padding-bottom: 0; }
+.grid.compact.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.page.has-vac .grid.compact .tile { gap: 12px; }
+.page.has-vac .grid.compact .t-icon { font-size: 24px; }
+.page.has-vac .grid.compact .t-name { font-size: 20px; }
+.vac {
+  margin: 12px var(--lane) 12px var(--pad);
+  background: var(--tile);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  /* A scroll container resets touch-action, so without this the browser would
+   * claim horizontal finger moves here and cancel the tab swipe. */
+  touch-action: pan-y;
+  transition: opacity 0.3s, box-shadow 0.3s;
+}
+.vac.busy { box-shadow: inset 0 0 0 2px var(--accent); }
+.vac.offline { opacity: 0.6; }
+.vac-head { display: flex; align-items: center; gap: 12px; }
+.vac-ic { font-size: 34px; color: var(--accent); display: grid; place-items: center; }
+.vac.busy .vac-ic { animation: vac-spin 3s linear infinite; }
+@keyframes vac-spin { to { transform: rotate(360deg); } }
+.vac-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.vac-title b { font-size: 20px; font-weight: 700; }
+.vac-status { font-size: 16px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vac.busy .vac-status { color: var(--accent); }
+.vac-batt { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; color: var(--text_dim); font-variant-numeric: tabular-nums; }
+.vac-batt i { width: 34px; height: 16px; border-radius: 4px; box-shadow: inset 0 0 0 2px var(--text_dim); padding: 3px; display: block; }
+.vac-batt s { display: block; height: 100%; background: var(--ok); border-radius: 2px; text-decoration: none; transition: width 0.4s; }
+.vac-batt.low s { background: var(--bad); }
+.vac-rooms, .vac-modes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.vlabel { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); margin-right: 2px; }
+.vac-modes .vlabel:not(:first-child) { margin-left: 10px; }
+.vchip { padding: 9px 14px; border-radius: 12px; background: var(--tile_off); font-size: 16px; font-weight: 600; color: var(--text); transition: background-color 0.2s, color 0.2s, transform 0.12s; }
+.vchip.active { background: var(--scene_on); color: var(--scene_text); }
+.vchip.room.active { background: var(--tile_on); color: var(--on_text); }
+.vac-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; }
+.vbtn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 14px; background: var(--tile_off); font-size: 17px; font-weight: 700; transition: background-color 0.2s, opacity 0.2s, transform 0.12s; }
+.vbtn .ic { font-size: 18px; }
+.vbtn.primary { background: var(--accent); color: var(--on_text); }
+.vbtn:disabled { opacity: 0.45; cursor: default; }
+.vbtn.ghost { padding: 10px; background: transparent; font-size: 22px; color: var(--text_dim); }
+.vchip.pressed, .vbtn.pressed { transform: scale(0.95); }
+/* Scene tiles stay compact but grow with the screen height (64 px on a
+ * 480 px screen, about 90-110 px on a tablet). */
+.page.has-vac .grid { grid-auto-rows: clamp(64px, 10vh, 112px); }
+/* Tablets and desktops: larger touch targets that fill the section. */
+@media (min-width: 1000px) and (min-height: 700px) {
+  .vac { padding: 18px 22px; gap: 16px; }
+  .vac-title b { font-size: 22px; }
+  .vac-status { font-size: 18px; }
+  .vchip { padding: 12px 20px; font-size: 18px; border-radius: 14px; }
+  .vbtn { padding: 15px 24px; font-size: 19px; }
+  .vbtn .ic { font-size: 20px; }
+  .vlabel { font-size: 14px; }
+}
+/* Short landscape screens (the panel's own 800x480, phones sideways). */
+@media (max-height: 540px) {
+  .page.has-vac .grid { gap: 8px; padding-top: 10px; }
+  .page.has-vac .grid.compact .tile { padding: 8px 12px; }
+  .page.has-vac .grid.compact .t-name { font-size: 16px; }
+  .vac { margin-top: 8px; margin-bottom: 8px; padding: 8px 12px; gap: 6px; }
+  .vac-ic { font-size: 24px; }
+  .vac-title b { font-size: 16px; }
+  .vac-status { font-size: 13px; }
+  .vchip { padding: 6px 10px; font-size: 14px; }
+  .vbtn { padding: 7px 12px; font-size: 14px; }
+  .vbtn.ghost { padding: 4px; }
+}
+@media (max-width: 760px) {
+  .page.has-vac .grid { grid-auto-rows: 52px; }
+  .grid.compact.c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page.has-vac .grid.compact .t-name { font-size: 15px; }
+  .vac { margin: 10px var(--lane) 10px var(--pad); padding: 12px; gap: 10px; }
+  .vac-modes .vlabel:not(:first-child) { margin-left: 0; flex-basis: 100%; }
+  .vchip { padding: 8px 11px; font-size: 14px; }
+  .vbtn { padding: 10px 14px; font-size: 15px; }
+}
+
 /* ---- Air-quality column and popup ----------------------------------------- */
 .air-col .s-name { gap: 6px; }
 .aq-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tile); flex: none; transition: background-color 0.4s; }
