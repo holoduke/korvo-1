@@ -47,6 +47,20 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   grid-template-rows: auto var(--tabbar-h) minmax(0, 1fr);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
+/* As a home-screen app the page runs under a transparent status bar: paint the
+ * safe area above the header in the header's colour so the bar blends in. */
+#app::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  background: var(--toolbar);
+  z-index: 5;
+  pointer-events: none;
+}
+button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 
 /* ---- Header ---------------------------------------------------------------- */
 #header {
@@ -416,6 +430,47 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 @media (max-width: 760px) and (orientation: portrait) {
   .grid { grid-auto-rows: minmax(0, 1fr); }
 }
+/* ---- Air-quality column and popup ----------------------------------------- */
+.air-col .s-name { gap: 6px; }
+.aq-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tile); flex: none; transition: background-color 0.4s; }
+.aq-txt { font-size: 12px; font-weight: 700; }
+.air-grid { display: grid; grid-template-columns: auto auto; column-gap: 14px; row-gap: 1px; justify-items: center; align-items: baseline; }
+.air-grid .s-temp { transition: color 0.4s; }
+.a-co2 small, .stat-v small { font-size: 0.5em; font-weight: 600; margin-left: 2px; opacity: 0.85; }
+.a-pm { color: var(--text_dim); }
+.air-col.stale { opacity: 0.55; }
+.clim-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.stat { background: var(--tile_off); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.stat-v { font-size: 22px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: color 0.4s; }
+.stat-l { font-size: 13px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clim-box.air .clim-chart-wrap { height: 212px; }
+.clim-range { column-gap: 22px; }
+.clim-range .part { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.stat-l .l-short { display: none; }
+/* The header strip scrolls sideways when it cannot fit; fade the edge while
+ * more columns hide to the right (toggled from app.js). */
+.hdr-strip.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.clim-range .k { font-weight: 700; }
+.aq-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; text-transform: capitalize; }
+.aq-badge i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+@media (max-width: 760px) {
+  .clim-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .clim-box.air .clim-chart-wrap { height: 180px; }
+  .clim-now { font-size: 18px; }
+  .clim-title { white-space: normal; font-size: 18px; line-height: 1.25; }
+  .stat-l .l-long { display: none; }
+  .stat-l .l-short { display: inline; }
+}
+@media (max-height: 540px) {
+  .clim-box.air { padding: 14px 18px; }
+  .clim-box.air .clim-head { margin-bottom: 6px; }
+  .clim-box.air .clim-stats { margin-bottom: 6px; }
+  .clim-box.air .stat { padding: 4px 8px; }
+  .clim-box.air .stat-v { font-size: 18px; }
+  .clim-box.air .clim-chart-wrap { height: 150px; }
+  .clim-box.air .clim-range, .clim-box.air .clim-advice { font-size: 15px; margin-top: 4px; }
+}
+
 /* ---- Density: the panel's own 800x480 and similar small landscapes -------- */
 .tile .t-sub { line-height: 1.25; }
 @media (min-width: 761px) and (max-width: 860px) {
@@ -439,8 +494,6 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   .swatch { width: 30px; height: 30px; }
 }
 @media (max-width: 760px) {
-  /* Fade the scrollable sensor strip so it reads as "more to the right". */
-  .hdr-strip { -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); }
   .drawer-grid { grid-auto-rows: 84px; }
   .drawer .tile .t-icon { font-size: 16px; }
   .drawer .tile .t-name { font-size: 16px; }

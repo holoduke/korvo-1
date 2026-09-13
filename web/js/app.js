@@ -56,6 +56,10 @@
     ids.add(s.temp);
     if (s.humidity) ids.add(s.humidity);
   });
+  /* Air monitors: entity id -> [monitor index, reading kind]. */
+  const AIR_KINDS = ["co2", "pm25", "quality", "temp", "humidity"];
+  const airOf = new Map();
+  cfg.air.forEach((a, i) => AIR_KINDS.forEach((k) => a[k] && (ids.add(a[k]), airOf.set(a[k], [i, k]))));
   cfg.media.forEach((m) => ids.add(m.id));
   const client = demo ? HA.createDemo(cfg) : HA.createClient([...ids]);
   Panel.client = client;
@@ -80,7 +84,14 @@
     const v = s ? parseFloat(s.state) : NaN;
     return Number.isFinite(v) ? v : NaN;
   };
-  Panel.num = (id) => num(st(id));
+  /* A CO2 reading below the valid floor is the sensor warming up, not air. */
+  const co2Valid = (v) => Number.isFinite(v) && v >= cfg.airBands.co2MinValid;
+  Panel.co2Valid = co2Valid;
+  Panel.num = (id) => {
+    const v = num(st(id));
+    const air = airOf.get(id);
+    return air && air[1] === "co2" && !co2Valid(v) ? NaN : v;
+  };
   const esc = (id) => CSS.escape(id);
 
   /* ---- Services ------------------------------------------------------------ */
@@ -143,7 +154,6 @@
     const cl = el.querySelector(".cloud");
     cl.hidden = !cloud;
     cl.style.color = colour;
-    /* A sun-only day sits vertically centred, as on the panel. */
   }
 
   function buildHeader() {
@@ -151,13 +161,25 @@
     fc.innerHTML = Array.from({ length: FC_DAYS }, (_, i) =>
       `<div class="fc-col" id="fc${i}"><div class="fc-day${i === 0 ? " today" : ""}">--</div>${wxIcon()}<div class="fc-temp">--</div></div>`
     ).join("");
-    $("sensors").innerHTML = cfg.sensors
-      .map(
-        (s, i) =>
-          `<button class="sensor-col" data-sensor="${i}"><div class="s-name"><span>${s.label}</span><span class="trend"></span></div>` +
-          `<div class="s-temp">--</div><div class="s-hum">${s.humidity ? icon("drop") + "<span>--</span>" : ""}</div></button>`
-      )
-      .join("");
+    $("sensors").innerHTML =
+      cfg.sensors
+        .map(
+          (s, i) =>
+            `<button class="sensor-col" data-sensor="${i}"><div class="s-name"><span>${s.label}</span><span class="trend"></span></div>` +
+            `<div class="s-temp">--</div><div class="s-hum">${s.humidity ? icon("drop") + "<span>--</span>" : ""}</div></button>`
+        )
+        .join("") +
+      cfg.air
+        .map(
+          (a, i) =>
+            `<div class="rule"></div><button class="sensor-col air-col" data-air="${i}">` +
+            `<div class="s-name"><span>${a.short}</span><span class="aq-dot"></span><span class="aq-txt"></span></div>` +
+            `<div class="air-grid">` +
+            `<div class="s-temp a-co2">--</div><div class="s-temp a-temp">--</div>` +
+            `<div class="s-hum a-pm">PM2.5 --</div><div class="s-hum a-hum">${icon("drop")}<span>--</span></div>` +
+            `</div></button>`
+        )
+        .join("");
     $("gear").innerHTML = icon("gear");
   }
 
@@ -187,6 +209,22 @@
     const off = v < c.humMin ? c.humMin - v : v > c.humMax ? v - c.humMax : 0;
     return off <= 0 ? "var(--ok)" : off > c.humMargin ? "var(--bad)" : "var(--warn)";
   }
+  const b = cfg.airBands;
+  const co2Colour = (v) => (v <= b.co2Good ? "var(--ok)" : v <= b.co2Poor ? "var(--warn)" : "var(--bad)");
+  const pmColour = (v) => (v <= b.pm25Good ? "var(--ok)" : v <= b.pm25Poor ? "var(--warn)" : "var(--bad)");
+  const QUALITY = {
+    good: ["goed", "var(--ok)"],
+    fair: ["redelijk", "var(--warn)"],
+    moderate: ["matig", "var(--warn)"],
+    poor: ["slecht", "var(--bad)"],
+    very_poor: ["zeer slecht", "var(--bad)"],
+    extremely_poor: ["extreem slecht", "var(--bad)"],
+  };
+  Panel.comfortTemp = comfortTemp;
+  Panel.comfortHum = comfortHum;
+  Panel.co2Colour = co2Colour;
+  Panel.pmColour = pmColour;
+  Panel.quality = (id) => QUALITY[(st(id) || {}).state] || null;
 
   function renderSensor(i) {
     const s = cfg.sensors[i];
@@ -203,10 +241,47 @@
     }
   }
 
+  function renderAir(i) {
+    const a = cfg.air[i];
+    const col = document.querySelector(`[data-air="${i}"]`);
+    if (!col) return;
+    const co2 = Panel.num(a.co2);
+    const pm = Panel.num(a.pm25);
+    const t = Panel.num(a.temp);
+    const h = Panel.num(a.humidity);
+    const q = Panel.quality(a.quality);
+    const co2El = col.querySelector(".a-co2");
+    co2El.innerHTML = Number.isFinite(co2) ? `${Math.round(co2)}<small>ppm</small>` : "--";
+    co2El.style.color = Number.isFinite(co2) ? co2Colour(co2) : "var(--text)";
+    const pmEl = col.querySelector(".a-pm");
+    pmEl.textContent = "PM2.5 " + (Number.isFinite(pm) ? Math.round(pm) : "--");
+    pmEl.style.color = Number.isFinite(pm) ? pmColour(pm) : "var(--text_dim)";
+    const tEl = col.querySelector(".a-temp");
+    tEl.textContent = Number.isFinite(t) ? t.toFixed(1) + "°" : "--";
+    tEl.style.color = Number.isFinite(t) ? comfortTemp(t, true) : "var(--text)";
+    const hEl = col.querySelector(".a-hum");
+    hEl.querySelector("span").textContent = Number.isFinite(h) ? Math.round(h) + "%" : "--";
+    hEl.style.color = Number.isFinite(h) ? comfortHum(h, true) : "var(--hum)";
+    const dot = col.querySelector(".aq-dot");
+    dot.style.background = q ? q[1] : "var(--tile)";
+    col.querySelector(".aq-txt").textContent = q ? q[0] : "";
+    col.querySelector(".aq-txt").style.color = q ? q[1] : "";
+    col.classList.toggle("stale", !Number.isFinite(co2) && !Number.isFinite(t));
+  }
+
+  /* The ALPSTUGA's first CO2 and PM2.5 reading after it comes back from
+   * "unavailable" is always exactly 0 (seen in HA history on 2026-09-13):
+   * a startup artefact, kept out of the charts. */
+  const startupGuarded = (id) => {
+    const air = airOf.get(id);
+    return !!air && (air[1] === "co2" || air[1] === "pm25");
+  };
+  const lastRaw = new Map();
+
   /* 24 h readings per sensor entity: [{t, v}] sorted by time (history + live). */
   Panel.hist = {};
   function pushReading(id, s) {
-    const v = num(s);
+    const v = Panel.num(id);
     if (!Number.isFinite(v)) return;
     const arr = (Panel.hist[id] = Panel.hist[id] || []);
     const t = s.lastChanged || Date.now();
@@ -237,14 +312,24 @@
   }
 
   async function loadHistory() {
-    const sensorIds = cfg.sensors.flatMap((s) => [s.temp, s.humidity].filter(Boolean));
+    const co2Ids = new Set(cfg.air.map((a) => a.co2));
+    const histIds = [
+      ...cfg.sensors.flatMap((s) => [s.temp, s.humidity]),
+      ...cfg.air.flatMap((a) => [a.co2, a.pm25, a.temp, a.humidity]),
+    ].filter(Boolean);
     try {
-      const res = await client.history(sensorIds, new Date(Date.now() - 24 * 3600e3));
-      for (const id of sensorIds) {
-        const rows = (res[id] || [])
-          .map((r) => ({ t: r.t, v: parseFloat(r.s) }))
-          .filter((p) => Number.isFinite(p.v))
-          .sort((a, b) => a.t - b.t);
+      const res = await client.history(histIds, new Date(Date.now() - 24 * 3600e3));
+      for (const id of histIds) {
+        const guard = startupGuarded(id);
+        const rows = [];
+        let prevNumeric = true;
+        for (const r of [...(res[id] || [])].sort((x, y) => x.t - y.t)) {
+          const v = parseFloat(r.s);
+          const numeric = Number.isFinite(v);
+          const startupZero = guard && numeric && v === 0 && !prevNumeric;
+          prevNumeric = numeric;
+          if (numeric && !startupZero && (!co2Ids.has(id) || co2Valid(v))) rows.push({ t: r.t, v });
+        }
         const live = (Panel.hist[id] || []).filter((p) => !rows.length || p.t > rows[rows.length - 1].t);
         Panel.hist[id] = rows.concat(live);
       }
@@ -434,6 +519,14 @@
         if (!haveForecast && s) renderForecastDay(0, s.state, s.attributes.temperature);
       } else if (id.startsWith("media_player.")) {
         if (Panel.onMedia) Panel.onMedia();
+      } else if (airOf.has(id)) {
+        const prev = lastRaw.get(id);
+        lastRaw.set(id, s ? s.state : undefined);
+        const startupZero =
+          startupGuarded(id) && s && parseFloat(s.state) === 0 && prev !== undefined && !Number.isFinite(parseFloat(prev));
+        if (s && !startupZero) pushReading(id, s);
+        renderAir(airOf.get(id)[0]);
+        if (Panel.onSensor) Panel.onSensor(id);
       } else {
         cfg.sensors.forEach((sn, i) => {
           if (sn.temp === id || sn.humidity === id) {
@@ -457,6 +550,14 @@
     buildHeader();
     buildTabs();
     cfg.sensors.forEach((_, i) => renderSensor(i));
+    cfg.air.forEach((_, i) => renderAir(i));
+    /* Fade the header strip's right edge only while more columns hide there. */
+    const strip = document.querySelector(".hdr-strip");
+    const fade = () =>
+      strip.classList.toggle("overflowing", strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2);
+    new ResizeObserver(fade).observe(strip);
+    new ResizeObserver(fade).observe($("sensors"));
+    strip.addEventListener("scroll", fade, { passive: true });
     ids.forEach((id) => id.startsWith("light.") && renderLight(id));
     tickClock();
     setInterval(tickClock, 1000);

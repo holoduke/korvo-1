@@ -341,6 +341,13 @@
       set(s.temp, String(base[i] ?? 21), { unit_of_measurement: "°C" });
       if (s.humidity) set(s.humidity, String(hum[i] ?? 50), { unit_of_measurement: "%" });
     });
+    cfg.air.forEach((a) => {
+      set(a.co2, "742", { unit_of_measurement: "ppm" });
+      set(a.pm25, "4", { unit_of_measurement: "µg/m³" });
+      set(a.quality, "good", {});
+      set(a.temp, "22.8", { unit_of_measurement: "°C" });
+      set(a.humidity, "55", { unit_of_measurement: "%" });
+    });
     set(cfg.weather, "partlycloudy", { temperature: 17 });
     cfg.media.forEach((m, i) =>
       set(m.id, i === 0 ? "playing" : "idle", i === 0 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : {})
@@ -412,12 +419,20 @@
         const out = {};
         ids.forEach((id) => {
           const cur = parseFloat((states.get(id) || {}).state);
-          const isHum = /humidity/.test(id);
+          /* Plausible daily shapes: [amplitude, period (h), phase (h), noise]. */
+          const shape = /carbon_dioxide/.test(id)
+            ? [260, 2.6, 5, 40]
+            : /pm2_5/.test(id)
+              ? [4, 1.7, 2, 1.5]
+              : /humidity/.test(id)
+                ? [6, 3.5, 0, 1.5]
+                : [1.4, 3.8, 6, 0.25];
           const rows = [];
           for (let t = start.getTime(); t <= Date.now(); t += 20 * 60e3) {
             const h = (t - start.getTime()) / 3600e3;
-            const wave = isHum ? 6 * Math.sin(h / 3.5) : 1.4 * Math.sin((h - 6) / 3.8);
-            rows.push({ s: String((cur + wave + (rnd() - 0.5) * (isHum ? 1.5 : 0.25)).toFixed(1)), t });
+            const wave = shape[0] * Math.sin((h - shape[2]) / shape[1]);
+            const v = Math.max(0, cur + wave + (rnd() - 0.5) * shape[3]);
+            rows.push({ s: String(v.toFixed(1)), t });
           }
           out[id] = rows;
         });

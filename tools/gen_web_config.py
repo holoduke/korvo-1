@@ -153,6 +153,15 @@ def parse_sensors(src):
             for t, h, l, ab, ind in rows]
 
 
+def parse_air_sensors(src):
+    body = array_body(src, "PANEL_AIR_SENSORS")
+    rows = re.findall(r"\{\s*" + r"\s*,\s*".join([r'"([^"]*)"'] * 8) + r"\s*\}", body, re.S)
+    if not rows:
+        fail("PANEL_AIR_SENSORS is empty or unparsable")
+    keys = ("label", "short", "abbr", "co2", "pm25", "quality", "temp", "humidity")
+    return [dict(zip(keys, row)) for row in rows]
+
+
 def define(src, name, kind):
     m = re.search(r"#define\s+%s\s+(\S+)" % re.escape(name), src)
     if not m:
@@ -184,6 +193,14 @@ def main():
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),
         "tabs": parse_tabs(cfg),
         "sensors": parse_sensors(cfg),
+        "air": parse_air_sensors(cfg),
+        "airBands": {
+            "co2Good": define(cfg, "AIR_CO2_GOOD", "num"),
+            "co2Poor": define(cfg, "AIR_CO2_POOR", "num"),
+            "co2MinValid": define(cfg, "AIR_CO2_MIN_VALID", "num"),
+            "pm25Good": define(cfg, "AIR_PM25_GOOD", "num"),
+            "pm25Poor": define(cfg, "AIR_PM25_POOR", "num"),
+        },
         "media": entity_table(cfg, "PANEL_MEDIA_PLAYERS"),
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),
@@ -202,7 +219,8 @@ def main():
         "window.PANEL_CONFIG = " + json.dumps(config, indent=2, ensure_ascii=False) + ";\n")
     n_dev = sum(len(t["devices"]) for t in config["tabs"])
     print(f"wrote {OUT.relative_to(ROOT)}: {len(config['tabs'])} tabs, {n_dev} drawer devices, "
-          f"{len(config['sensors'])} sensors, {len(config['themes'])} themes")
+          f"{len(config['sensors'])} sensors, {len(config['air'])} air monitors, "
+          f"{len(config['themes'])} themes")
 
 
 if __name__ == "__main__":

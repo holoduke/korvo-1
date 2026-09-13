@@ -4,8 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#0c0e12">
+  <!-- Home-screen web app (iPad/iPhone "Zet op beginscherm", Android install):
+       full screen, own icon, the page runs under a transparent status bar. -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Thuis">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json?v=__VERSION__">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="assets/icon-167.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
   <title>Thuis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -64,6 +72,7 @@
         <div id="climNow" class="clim-now"></div>
         <button id="climClose" class="close-btn" aria-label="Sluiten"></button>
       </div>
+      <div id="climStats" class="clim-stats" hidden></div>
       <div class="clim-chart-wrap"><canvas id="climChart"></canvas></div>
       <div id="climRange" class="clim-range"></div>
       <div id="climAdvice" class="clim-advice"></div>

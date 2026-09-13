@@ -502,6 +502,25 @@ window.PANEL_CONFIG = {
       "indoor": true
     }
   ],
+  "air": [
+    {
+      "label": "Luchtkwaliteit keuken",
+      "short": "Lucht keuken",
+      "abbr": "CO2",
+      "co2": "sensor.luchtkwaliteit_keuken_carbon_dioxide",
+      "pm25": "sensor.luchtkwaliteit_keuken_pm2_5",
+      "quality": "sensor.luchtkwaliteit_keuken_air_quality",
+      "temp": "sensor.luchtkwaliteit_keuken_temperature",
+      "humidity": "sensor.luchtkwaliteit_keuken_humidity"
+    }
+  ],
+  "airBands": {
+    "co2Good": 800.0,
+    "co2Poor": 1200.0,
+    "co2MinValid": 250.0,
+    "pm25Good": 15.0,
+    "pm25Poor": 35.0
+  },
   "media": [
     {
       "id": "media_player.living_room",

@@ -88,6 +88,19 @@
 
   /* ---- Press / long-press / swipe over the pages and the drawer --------------- */
   let g = null; /* active gesture */
+  let swallowClick = false; /* the click synthesized from a long-press's lift */
+  window.addEventListener(
+    "click",
+    (e) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    { capture: true }
+  );
+  /* A mouse long-press produces no click; the next real press starts clean. */
+  window.addEventListener("pointerdown", () => (swallowClick = false), { capture: true });
 
   function actionTarget(el) {
     return el.closest("[data-light],[data-scene],[data-all]");
@@ -115,8 +128,12 @@
         if (!g || g.drag || g.cancelled) return;
         target.classList.remove("pressed");
         /* The popup now owns the finger: end this gesture here, because its
-         * pointerup will land on the popup, not on the surface we listen to. */
+         * pointerup will land on the popup, not on the surface we listen to.
+         * On touch the browser also turns the lift into a click on whatever is
+         * under the finger by then (the popup backdrop, which would close the
+         * popup at once), so that one click is swallowed. */
         g = null;
+        swallowClick = true;
         if (navigator.vibrate) navigator.vibrate(12);
         Panel.openLightPopup(target.dataset.light);
       }, LONG_PRESS_MS);

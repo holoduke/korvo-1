@@ -273,3 +273,38 @@ static const panel_sensor_t PANEL_TEMP_SENSORS[] = {
       "sensor.sensor_zolder_1_humidity",                "Zolder",    "ZOL", true },
 };
 #define PANEL_TEMP_SENSOR_COUNT (sizeof(PANEL_TEMP_SENSORS) / sizeof(PANEL_TEMP_SENSORS[0]))
+
+/* Air-quality monitors: every reading of the device (CO2, PM2.5, the device's
+ * own quality verdict, temperature, humidity). Shown in the web app's header
+ * next to the climate sensors, with a 24 h CO2/PM2.5 chart on tap. The panel's
+ * own 800 px header has no room left, so the firmware does not display these. */
+typedef struct {
+    const char *label;       /* popup title */
+    const char *short_label; /* header column */
+    const char *abbr;        /* screensaver tag */
+    const char *co2_id;      /* ppm */
+    const char *pm25_id;     /* ug/m3 */
+    const char *quality_id;  /* enum: good fair moderate poor very_poor extremely_poor */
+    const char *temp_id;     /* C */
+    const char *humidity_id; /* % */
+} panel_air_sensor_t;
+
+/* Bands: CO2 up to 800 ppm is fresh, above 1200 ppm is stale; PM2.5 up to the
+ * WHO 24 h guideline of 15 ug/m3 is good, above 35 is poor. The ALPSTUGA
+ * reports 0 ppm while its CO2 sensor warms up after a restart, so readings
+ * below AIR_CO2_MIN_VALID are shown as "no value yet". */
+#define AIR_CO2_GOOD       800.0f
+#define AIR_CO2_POOR       1200.0f
+#define AIR_CO2_MIN_VALID  250.0f
+#define AIR_PM25_GOOD      15.0f
+#define AIR_PM25_POOR      35.0f
+static const panel_air_sensor_t PANEL_AIR_SENSORS[] = {
+    /* IKEA ALPSTUGA (Matter over Thread), commissioned 2026-09-13. */
+    { "Luchtkwaliteit keuken", "Lucht keuken", "CO2",
+      "sensor.luchtkwaliteit_keuken_carbon_dioxide",
+      "sensor.luchtkwaliteit_keuken_pm2_5",
+      "sensor.luchtkwaliteit_keuken_air_quality",
+      "sensor.luchtkwaliteit_keuken_temperature",
+      "sensor.luchtkwaliteit_keuken_humidity" },
+};
+#define PANEL_AIR_SENSOR_COUNT (sizeof(PANEL_AIR_SENSORS) / sizeof(PANEL_AIR_SENSORS[0]))
