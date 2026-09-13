@@ -196,26 +196,23 @@
             `</div></button>`
         )
         .join("") +
-      /* Devices: one row each (icon, battery, short status); two rows fit the header. */
-      (cfg.vacuum || cfg.bike
-        ? `<div class="rule"></div><div class="sensor-col dev-col">` +
-          (cfg.vacuum
-            ? `<button class="dev-row" data-vachdr aria-label="${cfg.vacuum.label}">` +
-              `<span class="vh-batt">${icon("vacuum")}<span>--</span></span><span class="vh-status">...</span></button>`
-            : "") +
-          (cfg.bike
-            ? `<div class="dev-row" data-bike aria-label="${cfg.bike.label}">` +
-              `<span class="vh-batt">${icon("bike")}<span>--</span></span><span class="vh-status">...</span></div>`
-            : "") +
-          `</div>`
-        : "") +
-      /* Car: three lines like the climate columns (name, battery, range or charging). */
-      (cfg.car
-        ? `<button class="sensor-col car-col" data-carhdr aria-label="${cfg.car.label}">` +
-          `<div class="s-name"><span>${cfg.car.label}</span></div>` +
-          `<div class="s-temp vh-batt">${icon("car")}<span>--</span></div>` +
-          `<div class="s-hum vh-status">...</div></button>`
-        : "");
+      /* Devices (vacuum, bike, car): the climate columns' three lines each, name
+       * with a small icon, battery, and a short status, so the text lines up. */
+      [
+        cfg.vacuum && ["button", "data-vachdr", cfg.vacuum.label, "vacuum"],
+        cfg.bike && ["div", "data-bike", cfg.bike.label, "bike"],
+        cfg.car && ["button", "data-carhdr", "", "car"], /* icon only: no title (user request) */
+      ]
+        .filter(Boolean)
+        .map(
+          ([tag, attr, label, ic], i) =>
+            (i === 0 ? '<div class="rule"></div>' : "") +
+            `<${tag} class="sensor-col dev-hdr" ${attr} aria-label="${label || (ic === "car" ? cfg.car.label : ic)}">` +
+            `<div class="s-name">${icon(ic)}${label ? `<span>${label}</span>` : ""}</div>` +
+            `<div class="s-temp vh-batt"><span>--</span></div>` +
+            `<div class="s-hum vh-status">...</div></${tag}>`
+        )
+        .join("");
     $("gear").innerHTML = icon("gear");
   }
 

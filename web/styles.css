@@ -73,7 +73,7 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
   gap: 14px;
   /* Spacing between header columns: full on wide screens, tighter on an 11"
    * iPad in landscape (1180-1194 px) so every column fits without scrolling. */
-  --hdr-gap: clamp(7px, 1vw - 4px, 11px);
+  --hdr-gap: clamp(6px, 1vw - 5px, 11px);
   transition: background-color 0.35s, border-color 0.35s;
 }
 .hdr-strip {
@@ -116,11 +116,11 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .daterow { display: flex; gap: 6px; font-size: 13px; font-weight: 600; }
 .dow { color: var(--text_soft); }
 .date { color: var(--text_dim); }
-.status { width: 14px; height: 14px; border-radius: 50%; background: var(--bad); margin-left: 14px; transition: background-color 0.3s; }
+.status { width: 14px; height: 14px; border-radius: 50%; background: var(--bad); margin-left: 10px; transition: background-color 0.3s; }
 .status.connecting { background: var(--warn); animation: pulse 1.2s ease-in-out infinite alternate; }
 .status.connected { background: var(--ok); }
 @keyframes pulse { to { opacity: 0.35; } }
-.gear { width: 56px; height: 56px; border-radius: 12px; margin-left: 10px; font-size: 32px; display: grid; place-items: center; transition: background-color 0.15s; }
+.gear { width: 44px; height: 44px; border-radius: 12px; margin-left: 8px; font-size: 30px; display: grid; place-items: center; transition: background-color 0.15s; }
 .gear:active { background: color-mix(in srgb, var(--tile) 30%, transparent); }
 
 /* ---- Tab bar ----------------------------------------------------------------- */
@@ -677,27 +677,18 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .a-pm { color: var(--text_dim); }
 .sensor-col.stale { opacity: 0.55; }
 
-/* Devices column: a row per device (vacuum, bike) with its icon, battery and a
- * short status. The battery cell has a fixed minimum width so both statuses
- * start on the same line. */
-.dev-col { align-items: stretch; gap: 4px; }
-.dev-col:active { background: none; } /* the rows give their own press feedback */
-.dev-row { display: flex; align-items: center; gap: 6px; text-align: left; border-radius: 8px; transition: background-color 0.15s, opacity 0.3s; }
-button.dev-row:active { background: color-mix(in srgb, var(--tile) 70%, transparent); }
-.vh-batt { display: flex; align-items: center; gap: 5px; min-width: 60px; font-size: 17px; line-height: 1.15; font-weight: 600; font-variant-numeric: tabular-nums; transition: color 0.4s; }
-.vh-batt .ic { font-size: 17px; color: var(--accent); }
-.dev-row.busy .vh-batt .ic { animation: vac-spin 3s linear infinite; }
+/* Device columns (vacuum, bike, car): the climate columns' three lines, so
+ * their text lines up. The icon sits small in the name line. */
+.dev-hdr { align-items: flex-start; text-align: left; transition: background-color 0.15s, opacity 0.3s; }
+.dev-hdr .s-name { gap: 4px; }
+.dev-hdr .s-name .ic { font-size: 13px; color: var(--accent); }
+.dev-hdr.busy .s-name .ic { animation: vac-spin 3s linear infinite; }
 @keyframes vac-spin { to { transform: rotate(360deg); } }
-.vh-status { font-size: 12px; font-weight: 600; color: var(--text_dim); white-space: nowrap; max-width: 60px; overflow: hidden; text-overflow: ellipsis; } /* keeps the header within an 11" iPad */
-.vh-status .ic { display: inline-block; font-size: 12px; margin-left: 4px; vertical-align: -1px; }
-.dev-row.busy .vh-status, .dev-row.riding .vh-status, .car-col.riding .vh-status { color: var(--accent); }
-.dev-row.stale { opacity: 0.55; }
-/* Car column: the climate columns' three lines (name, value, sub-line), so its
- * text lines up with theirs. */
-.car-col { align-items: flex-start; text-align: left; }
-.car-col .vh-batt { min-width: 0; font-size: 22px; gap: 5px; line-height: normal; }
-.car-col .vh-batt .ic { font-size: 18px; }
-.car-col .vh-status { font-size: 13px; max-width: 76px; display: block; } /* "588 km" and the lock */
+.vh-batt { transition: color 0.4s; }
+.vh-status { display: block; color: var(--text_dim); white-space: nowrap; max-width: 60px; overflow: hidden; text-overflow: ellipsis; } /* keeps the header within an 11" iPad */
+.vh-status .ic { display: inline-block; font-size: 11px; margin-left: 2px; vertical-align: -1px; }
+.dev-hdr.busy .vh-status, .dev-hdr.riding .vh-status { color: var(--accent); }
+[data-carhdr] .vh-status { max-width: 68px; } /* "322 km" and the lock; this line sets the column's width */
 .clim-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .stat { background: var(--tile_off); border-radius: 12px; padding: 8px 10px; min-width: 0; }
 .stat-v { font-size: 22px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: color 0.4s; }
