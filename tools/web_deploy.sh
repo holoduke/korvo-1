@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Deploy the web panel to Home Assistant's www folder, served at
-#   http://<ha-host>:8123/local/panel/index.html
+# Deploy the web panel to Home Assistant's www folder (/config/www/panel), served
+# with proper cache headers by the thuispaneel integration at
+#   http://<ha-host>:8123/thuis/
+# (also still reachable under /local/panel/, which HA caches for 31 days).
 #
 # Usage: tools/web_deploy.sh [ssh-target]   (default gillis@192.168.2.111)
 #
@@ -32,7 +34,9 @@ echo "Deploying web panel $VERSION to $TARGET ..."
 tar -C "$STAGE" -cf - . | ssh -o BatchMode=yes "$TARGET" \
   'docker exec -i homeassistant sh -c "set -e; cd /config/www; rm -rf panel.new panel.old; mkdir panel.new; tar -xf - -C panel.new; if [ -d panel ]; then mv panel panel.old; fi; mv panel.new panel; rm -rf panel.old"'
 
-URL="http://$HOST:8123/local/panel/index.html"
+# Served by the thuispaneel integration (ha/custom_components/thuispaneel) with
+# no-cache on the page, so home-screen apps see the deploy on their next open.
+URL="http://$HOST:8123/thuis/"
 if curl -fsS -m 10 "$URL" | grep -q "$VERSION"; then
   echo "OK: $URL serves $VERSION"
 else

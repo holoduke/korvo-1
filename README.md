@@ -48,7 +48,7 @@ Configuration of tabs, scenes and sensors: `main/panel_config.h`.
 ## Web version
 
 The same UI runs in a browser (phone, tablet, desktop), served by Home
-Assistant itself at `http://192.168.2.111:8123/local/panel/index.html`:
+Assistant itself at `http://192.168.2.111:8123/thuis/`:
 finger-following tab swipes, the "Alle lampen" drawer (swipe right to close),
 tap to toggle, long-press for brightness/colour/warmth, the area brightness
 slider, the Klimaat chart, the AI oog screensaver, and all six themes.
@@ -60,6 +60,11 @@ slider, the Klimaat chart, the AI oog screensaver, and all six themes.
 - **Login** uses Home Assistant's own OAuth flow (like the HA app); no token
   is stored in the code. Tokens are kept per browser and refreshed.
 - **Demo**: append `?demo` for a fake backend that never touches real lights.
+- **Updates reach installed apps**: `ha/custom_components/thuispaneel` (enabled
+  with `thuispaneel:` in `configuration.yaml`) serves the files from
+  `/config/www/panel` with `no-cache` on the page and a long cache only on
+  versioned assets. HA's own `/local` caches everything, the page included, for
+  31 days. Open pages also check `version.txt` and reload when idle.
 
 ```sh
 tools/web_deploy.sh              # regenerate config, upload, verify the served version
