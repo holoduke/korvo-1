@@ -37,6 +37,22 @@ window.PANEL_CONFIG = {
           "label": "Cuba"
         },
         {
+          "id": "scene.beneden_dinner",
+          "label": "Diner"
+        },
+        {
+          "id": "scene.beneden_fridge",
+          "label": "Koelkast"
+        },
+        {
+          "id": "scene.beneden_kitchen",
+          "label": "Keuken"
+        },
+        {
+          "id": "scene.beneden_party",
+          "label": "Party"
+        },
+        {
           "id": "scene.woonkamer_min",
           "label": "Min"
         },
@@ -150,6 +166,10 @@ window.PANEL_CONFIG = {
         "drop",
         "power",
         null,
+        null,
+        null,
+        null,
+        null,
         "minus",
         "plus"
       ],
@@ -162,6 +182,22 @@ window.PANEL_CONFIG = {
         {
           "a": "#1fb8a6",
           "b": "#ffc857"
+        },
+        {
+          "a": "#ff8a2a",
+          "b": "#ffc27a"
+        },
+        {
+          "a": "#6b3d17",
+          "b": null
+        },
+        {
+          "a": "#fff1dc",
+          "b": null
+        },
+        {
+          "a": "#a020f0",
+          "b": "#2f50ff"
         },
         null,
         null

@@ -59,6 +59,12 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
     /* Cuba: the garage's cyan/orange/yellow/pink rotation on the ground floor
      * (scene created in HA 2026-09-06). Shown with a colour swatch. */
     { "scene.woonkamer_cuba",        "Cuba" },
+    /* Dinner, fridge (a dim night light), kitchen and party: created in HA's
+     * scene editor on 2026-09-13. Shown with swatches of their light. */
+    { "scene.beneden_dinner",        "Diner" },
+    { "scene.beneden_fridge",        "Koelkast" },
+    { "scene.beneden_kitchen",       "Keuken" },
+    { "scene.beneden_party",         "Party" },
     /* Quick buttons (bottom row): every ground-floor light on at minimum /
      * full brightness. Scenes created in HA's scene editor on 2026-09-06. */
     { "scene.woonkamer_min",         "Min" },
@@ -67,12 +73,16 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
 /* Tile icons, same order as TAB_THUIS_SCENES. */
 static const char *const TAB_THUIS_ICONS[] = {
     LV_SYMBOL_CHARGE, LV_SYMBOL_EYE_CLOSE, LV_SYMBOL_EYE_OPEN, LV_SYMBOL_TINT, LV_SYMBOL_POWER,
-    NULL, LV_SYMBOL_MINUS, LV_SYMBOL_PLUS,
+    NULL, NULL, NULL, NULL, NULL, LV_SYMBOL_MINUS, LV_SYMBOL_PLUS,
 };
 /* Swatches, same order; 0 = use the icon instead. */
 static const panel_swatch_t TAB_THUIS_SWATCHES[] = {
     { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 },
     { 0x1fb8a6, 0xffc857 }, /* Cuba: teal -> gold */
+    { 0xff8a2a, 0xffc27a }, /* Diner: warm white (2200 K) */
+    { 0x6b3d17, 0 },        /* Koelkast: dim warm night light */
+    { 0xfff1dc, 0 },        /* Keuken: neutral white (4000 K) */
+    { 0xa020f0, 0x2f50ff }, /* Party: purple -> blue */
     { 0, 0 }, { 0, 0 },
 };
 /* Drawer: every individual ground-floor light, grouped by room, taken from the

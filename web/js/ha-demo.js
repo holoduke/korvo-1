@@ -273,9 +273,14 @@
       async sceneConfig(sceneEntityId) {
         const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
         if (!tab) return null;
-        const state = /uit/.test(sceneEntityId) ? "off" : "on";
+        const off = /uit/.test(sceneEntityId);
+        const colourful = /party|cuba|paars|regenboog|rood|blauw|groen|oranje|pink/.test(sceneEntityId);
         const lamps = [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
-        return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id) => [id, { state }])) };
+        const stored = (i) =>
+          off ? { state: "off" }
+          : colourful ? { state: "on", brightness: 200, hs_color: [[280, 240, 0, 120][i % 4], 100] }
+          : { state: "on", brightness: 120 + (i % 3) * 40, color_temp_kelvin: 2700 };
+        return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id, i) => [id, stored(i)])) };
       },
       /* Demo states; a tab's "lampen ..." group holds that tab's drawer lamps. */
       async getStates() {

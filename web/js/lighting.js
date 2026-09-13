@@ -158,6 +158,7 @@
 
   /* ---- A tab's lamps ------------------------------------------------------------- */
   const lampsOfTab = new Map(); /* tab index -> [lamp ids], once known */
+  const sceneStates = new Map(); /* scene id -> its stored per-entity states */
   let groupMembers = new Map(); /* light group -> member ids */
   let knownIds = null; /* every entity id HA has */
 
@@ -192,6 +193,7 @@
             } catch (e) {
               entities = null;
             }
+            if (entities) sceneStates.set(sc.id, entities);
             const lit = entities
               ? Object.entries(entities).filter(([, v]) => (typeof v === "string" ? v : v && v.state) !== "off").map(([id]) => id)
               : ((st(sc.id) || {}).attributes || {}).entity_id || []; /* no stored config: every light it lists */
@@ -203,6 +205,17 @@
     );
     Panel.track([...lampsOfTab.values()].flat(), onLights);
     tabs.forEach((ti) => renderTabLamps(ti));
+    renderSceneSwatches();
+  }
+
+  /* Once a scene's stored states are known, its tile shows the colours it sets. */
+  function renderSceneSwatches() {
+    document.querySelectorAll("[data-scene]").forEach((el) => {
+      const [ti, i] = el.dataset.scene.split(":").map(Number);
+      const states = sceneStates.get(cfg.tabs[ti].scenes[i].id);
+      const swatch = states && Panel.sceneSwatch(states);
+      if (swatch) el.querySelector(".scene-lead").outerHTML = swatch;
+    });
   }
 
   /* Rebuild a tab's lamp list: all its lamps, or one room's (area). */
@@ -228,11 +241,12 @@
   Panel.renderLamps = (fi, area) => renderTabLamps(cfg.floors[fi].tab, area);
 
   /* ---- Markup -------------------------------------------------------------------- */
+  /* Until the scene's own colours are known: its configured swatch or icon. */
   function sceneLead(t, i) {
     const sw = t.swatches && t.swatches[i];
-    if (!sw) return `<span class="t-icon">${icon((t.icons && t.icons[i]) || "bolt")}</span>`;
-    if (sw.a === "rainbow") return '<span class="swatch rainbow"></span>';
-    return `<span class="swatch" style="background:${sw.b ? `linear-gradient(90deg, ${sw.a}, ${sw.b})` : sw.a}"></span>`;
+    if (!sw) return `<span class="t-icon scene-lead">${icon((t.icons && t.icons[i]) || "bolt")}</span>`;
+    if (sw.a === "rainbow") return '<span class="swatch scene-lead rainbow"></span>';
+    return `<span class="swatch scene-lead" style="background:${sw.b ? `linear-gradient(90deg, ${sw.a}, ${sw.b})` : sw.a}"></span>`;
   }
 
   /* A tab's page content: scenes left, lamps right (filled once they are known). */
