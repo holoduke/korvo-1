@@ -8,7 +8,12 @@
  * using the controls in Panel.applianceUi. view returns {tone, pill, big, word,
  * unit, sub, progress, extra, stats, controls}; a control marked
  * data-appl="<index>|<action>|<args>" runs actions[action](appliance, args, call).
- * Controls marked for confirmation ask for a second tap. */
+ * Controls marked for confirmation ask for a second tap.
+ *
+ * Product photos live in Home Assistant's www folder, not in this repository
+ * (they are the manufacturers' pictures): /config/www/apparaten/, with
+ * photos.json mapping each appliance's label slug to its file, e.g.
+ * {"wasmachine": "wasmachine.png"}. An appliance without a photo keeps its icon. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -25,6 +30,30 @@
   const pending = Util.pendingSet(PENDING_MS, () => render());
   let root = null;
   let selected = 0;
+
+  const PHOTO_BASE = "/local/apparaten/";
+  const photos = new Map(); /* appliance index -> photo URL, once it has loaded */
+  async function loadPhotos() {
+    if (Panel.client.demo) return; /* the demo has no Home Assistant www folder */
+    let index = {};
+    try {
+      const res = await fetch(`${PHOTO_BASE}photos.json`, { cache: "no-cache" });
+      if (res.ok) index = await res.json();
+    } catch (e) {
+      return; /* no photos: icons stay */
+    }
+    list.forEach((a, i) => {
+      const file = index[Util.slug(a.label)];
+      if (!file) return;
+      const url = PHOTO_BASE + encodeURIComponent(file);
+      const img = new Image();
+      img.onload = () => {
+        photos.set(i, url);
+        render();
+      };
+      img.src = url;
+    });
+  }
 
   /* ---- Controls and state values for the kinds ---------------------------------------- */
   const s = (id) => (id ? Panel.st(id) : undefined);
@@ -77,18 +106,30 @@
       list
         .map(
           (a, i) =>
-            `<button class="ap-item" data-pick="${i}"><span class="ap-badge">${icon(kindOf(a).icon)}</span>` +
+            `<button class="ap-item" data-pick="${i}"><span class="ap-badge"></span>` +
             `<span class="ap-item-text"><b>${esc(a.label)}</b><small></small></span></button>`
         )
         .join("") +
       `</nav>` +
       `<div class="ap-detail"><article class="ap-card">` +
+      `<div class="ap-top"><div class="ap-main">` +
       `<header class="ap-head"><span class="ap-badge"></span><div class="ap-title"><b></b></div><span class="ap-pill"></span></header>` +
       `<div class="ap-body"><div class="ap-hero"><div class="ap-value"><b class="ap-big"></b><span class="ap-unit"></span></div><span class="ap-sub"></span></div>` +
       `<div class="ap-extra"></div></div>` +
+      `</div><figure class="ap-figure" hidden><img alt=""></figure></div>` +
       `<div class="ap-bar"><b></b></div><div class="ap-stats"></div><div class="ap-controls"></div>` +
       `</article></div>`;
     render();
+    loadPhotos();
+  }
+
+  /* A badge shows the appliance's photo when there is one, else its icon. */
+  function renderBadge(badge, a, i) {
+    const want = photos.has(i) ? photos.get(i) : `icon:${a.kind}`;
+    if (badge.dataset.show === want) return;
+    badge.dataset.show = want;
+    badge.classList.toggle("photo", photos.has(i));
+    badge.innerHTML = photos.has(i) ? `<img src="${photos.get(i)}" alt="">` : icon(kindOf(a).icon);
   }
 
   function render() {
@@ -99,6 +140,7 @@
       const item = root.querySelector(`[data-pick="${i}"]`);
       item.className = `ap-item tone-${view.tone}${i === selected ? " active" : ""}`;
       item.querySelector("small").textContent = view.pill || "";
+      renderBadge(item.querySelector(".ap-badge"), a, i);
       if (i === selected) renderCard(a, i, view);
     });
   }
@@ -108,11 +150,16 @@
     card.className = `ap-card tone-${view.tone}`;
     card.dataset.kind = a.kind;
     card.dataset.applCard = i;
-    const badge = card.querySelector(".ap-head .ap-badge");
-    if (badge.dataset.kind !== a.kind) {
-      badge.dataset.kind = a.kind;
-      badge.innerHTML = icon(kindOf(a).icon);
+    /* With a photo, the photo stands beside the header; otherwise the icon leads the title. */
+    const figure = card.querySelector(".ap-figure");
+    figure.hidden = !photos.has(i);
+    if (photos.has(i) && figure.dataset.src !== photos.get(i)) {
+      figure.dataset.src = photos.get(i);
+      figure.querySelector("img").src = photos.get(i);
     }
+    const badge = card.querySelector(".ap-head .ap-badge");
+    badge.hidden = photos.has(i);
+    renderBadge(badge, a, i);
     card.querySelector(".ap-title b").textContent = a.label;
     card.querySelector(".ap-pill").textContent = view.pill || "";
     const bigEl = card.querySelector(".ap-big");

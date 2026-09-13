@@ -30,6 +30,10 @@
 .ap-item.active { background: var(--tile); box-shadow: inset 4px 0 0 var(--ap-tone), 0 8px 22px rgba(0, 0, 0, 0.22); }
 .ap-item.tone-offline { opacity: 0.62; }
 .ap-item .ap-badge { width: 42px; height: 42px; border-radius: 13px; font-size: 22px; }
+/* Product photos sit on a light tile (they are shot on white), ringed in the state's colour. */
+.ap-badge.photo { padding: 3px; background: #f2f3f5; box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ap-tone) 60%, transparent); }
+.ap-badge.photo img { width: 100%; height: 100%; object-fit: contain; border-radius: 9px; }
+.ap-item .ap-badge.photo { width: 52px; height: 52px; border-radius: 14px; }
 .ap-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ap-item-text b { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ap-item-text small { font-size: 13px; font-weight: 600; color: var(--ap-tone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -54,6 +58,14 @@
 .ap-card.tone-offline > * { opacity: 0.62; }
 .tone-run[data-kind] .ap-head .ap-badge .ic { animation: ap-wobble 2.4s ease-in-out infinite; }
 @keyframes ap-wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+/* Header and main value on the left, the product photo on the right at their height. */
+.ap-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: stretch; }
+.ap-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ap-figure {
+  margin: 0; width: 168px; min-height: 130px; padding: 10px; border-radius: 18px; background: #f2f3f5; display: grid; place-items: center;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ap-tone) 55%, transparent), 0 8px 22px rgba(0, 0, 0, 0.25); transition: box-shadow 0.4s;
+}
+.ap-figure img { display: block; width: 100%; height: 100%; max-height: 150px; object-fit: contain; }
 .ap-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .ap-title { min-width: 0; flex: 1; }
 .ap-title b { display: block; font-size: 21px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -140,6 +152,9 @@
 
 /* ---- Smaller screens ------------------------------------------------------- */
 @media (max-height: 540px) {
+  .ap-figure { width: 120px; min-height: 100px; }
+  .ap-figure img { max-height: 110px; }
+  .ap-item .ap-badge.photo { width: 40px; height: 40px; }
   .ap { grid-template-columns: 200px minmax(0, 1fr); gap: 12px; padding: 12px 16px 12px 12px; }
   .ap-item { padding: 6px 10px; gap: 10px; }
   .ap-item .ap-badge { width: 34px; height: 34px; border-radius: 11px; font-size: 18px; }
@@ -155,6 +170,9 @@
   .ap-item { padding: 7px 10px; gap: 8px; }
   .ap-item.active { box-shadow: inset 0 -3px 0 var(--ap-tone); }
   .ap-item .ap-badge { width: 32px; height: 32px; border-radius: 10px; font-size: 18px; }
+  .ap-item .ap-badge.photo { width: 40px; height: 40px; }
+  .ap-figure { width: 96px; min-height: 90px; padding: 6px; }
+  .ap-figure img { max-height: 96px; }
   .ap-item-text b { font-size: 14px; }
   .ap-item-text small { font-size: 12px; }
   .ap-card { padding: 16px; gap: 12px; }
