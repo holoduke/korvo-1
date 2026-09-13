@@ -243,6 +243,7 @@
     const s = cfg.sensors[i];
     const col = document.querySelector(`[data-sensor="${i}"]`);
     const t = Panel.num(s.temp);
+    col.classList.toggle("stale", !Number.isFinite(t)); /* no reading: sensor offline */
     const te = col.querySelector(".s-temp");
     te.textContent = Number.isFinite(t) ? t.toFixed(1) + "°" : "--";
     te.style.color = Number.isFinite(t) ? comfortTemp(t, s.indoor) : "var(--text)";

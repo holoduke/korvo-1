@@ -24,6 +24,9 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 cp -R "$REPO/web/." "$STAGE/"
 sed -i '' "s/__VERSION__/$VERSION/g" "$STAGE/index.html"
+# Read by web/js/update.js past the HTTP cache: HA serves /local with a 31-day
+# max-age, so open pages learn about a deploy from this file, not index.html.
+printf '%s' "$VERSION" > "$STAGE/version.txt"
 
 echo "Deploying web panel $VERSION to $TARGET ..."
 tar -C "$STAGE" -cf - . | ssh -o BatchMode=yes "$TARGET" \

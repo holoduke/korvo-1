@@ -402,6 +402,8 @@
   ["pointerdown", "keydown", "wheel"].forEach((ev) =>
     window.addEventListener(ev, () => (lastActivity = Date.now()), { capture: true, passive: true })
   );
+  /* ms since the last touch, key or wheel; update.js waits for a quiet panel. */
+  Panel.idleFor = () => Date.now() - lastActivity;
 
   function renderSaverTemps() {
     const temps = cfg.sensors.map((s) => {

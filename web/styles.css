@@ -575,7 +575,7 @@ button { touch-action: manipulation; } /* no double-tap zoom delay on iOS */
 .air-grid .s-temp { transition: color 0.4s; }
 .a-co2 small, .stat-v small { font-size: 0.5em; font-weight: 600; margin-left: 2px; opacity: 0.85; }
 .a-pm { color: var(--text_dim); }
-.air-col.stale { opacity: 0.55; }
+.sensor-col.stale { opacity: 0.55; }
 
 /* Vacuum column: battery with the robot icon, status underneath. */
 .vac-col { align-items: flex-start; text-align: left; }
