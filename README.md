@@ -45,6 +45,27 @@ Configuration of tabs, scenes and sensors: `main/panel_config.h`.
 | `GET /api/metrics[?since=t]` | telemetry ring buffer (JSON) |
 | `idf.py coredump-info -p <port>` | read a crash dump from the coredump partition |
 
+## Web version
+
+The same UI runs in a browser (phone, tablet, desktop), served by Home
+Assistant itself at `http://192.168.2.111:8123/local/panel/index.html`:
+finger-following tab swipes, the "Alle lampen" drawer (swipe right to close),
+tap to toggle, long-press for brightness/colour/warmth, the area brightness
+slider, the Klimaat chart, the AI oog screensaver, and all six themes.
+
+- Plain HTML/CSS/JS in `web/`, no build step.
+- **One config for both**: `tools/gen_web_config.py` generates
+  `web/js/config.js` from `main/panel_config.h` and `main/themes.h`, so tabs,
+  scenes, lamps, sensors and themes never drift apart.
+- **Login** uses Home Assistant's own OAuth flow (like the HA app); no token
+  is stored in the code. Tokens are kept per browser and refreshed.
+- **Demo**: append `?demo` for a fake backend that never touches real lights.
+
+```sh
+tools/web_deploy.sh              # regenerate config, upload, verify the served version
+cd web && python3 -m http.server # local preview: http://localhost:8000/index.html?demo
+```
+
 ## Safety nets
 
 - **Full-chip resets**: on this ESP32-S31 (rev v0.0) a software reset leaves

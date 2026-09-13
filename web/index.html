@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0c0e12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Thuis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="styles.css?v=__VERSION__">
+</head>
+<body>
+  <div id="app" hidden>
+    <header id="header">
+      <div class="hdr-strip">
+        <div id="forecast" class="fc"></div>
+        <div class="rule"></div>
+        <div id="sensors" class="sensors"></div>
+      </div>
+      <div class="hdr-right">
+        <div class="timebox">
+          <div id="clock" class="clock">--:--</div>
+          <div class="daterow"><span id="dow" class="dow"></span><span id="date" class="date"></span></div>
+        </div>
+        <div id="status" class="status" title="Verbinding"></div>
+        <button id="gear" class="gear" aria-label="Instellingen"></button>
+      </div>
+    </header>
+    <nav id="tabbar" class="tabbar"><div id="tabind" class="tabind"></div></nav>
+    <main id="stage" class="stage">
+      <div id="track" class="track"></div>
+      <div id="bright" class="vslider" hidden>
+        <div class="vs-label" id="brightLabel"></div>
+        <div class="vs-track"><div class="vs-fill"></div><div class="vs-knob"></div></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="drawer" class="drawer" aria-hidden="true"><div id="drawerGrid" class="drawer-grid"></div></div>
+
+  <div id="popup" class="overlay" hidden>
+    <div class="box popup-box">
+      <div id="popupTitle" class="popup-title"></div>
+      <div class="field-label">Helderheid</div>
+      <div id="popupBright" class="hslider"><div class="hs-fill"></div><div class="hs-knob"></div></div>
+      <div id="popupColorWrap" hidden>
+        <div class="field-label">Kleur</div>
+        <div id="popupColor" class="hslider hue"><div class="hs-knob"></div></div>
+      </div>
+      <div id="popupWarmWrap" hidden>
+        <div class="field-label">Warmte</div>
+        <div id="popupWarm" class="hslider warm"><div class="hs-knob"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="climate" class="overlay" hidden>
+    <div class="box clim-box">
+      <div class="clim-head">
+        <div id="climTitle" class="clim-title"></div>
+        <div id="climNow" class="clim-now"></div>
+        <button id="climClose" class="close-btn" aria-label="Sluiten"></button>
+      </div>
+      <div class="clim-chart-wrap"><canvas id="climChart"></canvas></div>
+      <div id="climRange" class="clim-range"></div>
+      <div id="climAdvice" class="clim-advice"></div>
+    </div>
+  </div>
+
+  <div id="settings" class="overlay" hidden>
+    <div class="box settings-box">
+      <div class="clim-head">
+        <div class="clim-title">Instellingen</div>
+        <button id="settingsClose" class="close-btn" aria-label="Sluiten"></button>
+      </div>
+      <div class="set-row">
+        <div class="set-title">Thema</div>
+        <div id="themeList" class="theme-list"></div>
+      </div>
+      <div class="set-row">
+        <div class="set-title">Screensaver</div>
+        <div class="seg" id="saverMode"></div>
+        <div class="seg" id="saverTime"></div>
+      </div>
+      <div class="set-row">
+        <div class="set-title">Verbinding</div>
+        <div id="connInfo" class="set-value"></div>
+        <button id="logout" class="text-btn"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="saver" class="saver" hidden>
+    <div id="eyeGroup" class="eye-group">
+      <div class="eye-wrap">
+        <img class="eye" src="assets/eye.png" alt="" draggable="false">
+        <div class="eye-glow"></div>
+        <svg class="eye-ring" viewBox="0 0 470 470" aria-hidden="true">
+          <path d="M 235 2 A 233 233 0 0 1 413.5 85.2" fill="none" stroke="#ff8a3d" stroke-opacity=".6" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div id="eyeTemps" class="eye-temps"></div>
+      <div id="eyeMedia" class="eye-media" hidden><div class="where"></div><div class="what"></div></div>
+    </div>
+    <div id="saverClock" class="saver-clock">--:--</div>
+  </div>
+
+  <div id="splash" class="splash">
+    <img src="assets/splash.jpg" alt="">
+    <div class="splash-bottom">
+      <div id="splashStatus" class="splash-status">Verbinden met Home Assistant</div>
+      <div class="splash-bar"><div id="splashFill"></div></div>
+    </div>
+  </div>
+
+  <script src="js/config.js?v=__VERSION__"></script>
+  <script src="js/icons.js?v=__VERSION__"></script>
+  <script src="js/ha.js?v=__VERSION__"></script>
+  <script src="js/app.js?v=__VERSION__"></script>
+  <script src="js/interact.js?v=__VERSION__"></script>
+  <script src="js/extras.js?v=__VERSION__"></script>
+</body>
+</html>
