@@ -831,6 +831,9 @@ window.PANEL_CONFIG = {
     "mode": "select.stofzuiger_xiaomi_clean_mode",
     "fan": "select.stofzuiger_xiaomi_fan_mode",
     "water": "select.stofzuiger_xiaomi_water_mode",
+    "setMode": "select.stofzuiger_xiaomi_set_clean_mode",
+    "setFan": "select.stofzuiger_xiaomi_set_fan_mode",
+    "setWater": "select.stofzuiger_xiaomi_set_water_mode",
     "locate": "button.stofzuiger_xiaomi_seek_robot",
     "roomsDomain": "robotkamers",
     "rooms": [

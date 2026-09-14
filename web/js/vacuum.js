@@ -19,15 +19,22 @@
     sideBrush: "Zijborstel", rollBrush: "Hoofdborstel", filter: "Filter", mop: "Dweil",
     engineSensor: "Sensoren", dustbag: "Stofzak", mopCleaningTrough: "Wasbak",
   };
-  /* A choice (mode, suction, water) shows as pending until Home Assistant reports
-   * it. The robot now and then misses a write, and the integration then only logs
-   * "No response from the device" while the service call succeeds: a choice that
-   * has not landed in time is sent once more, then reported. */
+  /* Commands the robot may miss show as pending until Home Assistant reports
+   * their effect: the integration only logs "No response from the device" while
+   * the service call succeeds. One that has not landed in time is sent once more,
+   * then reported. A choice (mode, suction, water) shows within seconds; stopping
+   * a job takes the robot longer. */
   const CHOICE_MS = 8000;
-  const CHOICE_TRIES = 2;
+  const STOP_MS = 20000;
+  const TRIES = 2;
   const CHOICE_NOUN = { mode: "modus", fan: "zuigkracht", water: "waterstand" };
-  const tries = new Map(); /* "kind|option" -> times sent */
+  /* A choice is read from its property select and written through the robot's
+   * action select (the xm2216 does not answer property writes). */
+  const CHOICE_SETTER = { mode: vac.setMode, fan: vac.setFan, water: vac.setWater };
+  const JOB_STATES = ["cleaning", "paused", "returning"];
+  const commands = new Map(); /* "group|what" -> {send, landed, wait, failed, tries} */
   const pending = Util.pendingSet(CHOICE_MS, () => render());
+  const twoTap = Util.confirmer(3000, () => render());
   const selected = new Set(); /* chosen room ids */
   let records = null; /* robot's run log, newest first */
   const lastByRoom = new Map(); /* room id -> ms */
@@ -81,6 +88,7 @@
       `<button class="vbtn" data-vac="start">${icon("play")}<span>Hele huis</span></button>` +
       `<button class="vbtn" data-vac="pause">${icon("pause")}<span>Pauze</span></button>` +
       `<button class="vbtn" data-vac="resume">${icon("play")}<span>Verder</span></button>` +
+      `<button class="vbtn" data-vac="stop">${icon("stop")}<span>Stop</span></button>` +
       `<button class="vbtn" data-vac="dock">${icon("dock")}<span>Naar dock</span></button>` +
       `<button class="vbtn" data-vac="locate">${icon("locate")}<span>Zoek robot</span></button>` +
       `</div>` +
@@ -145,11 +153,11 @@
     });
 
     for (const key of pending.settle()) {
-      const [kind, option] = key.split("|");
-      if (tries.get(key) < CHOICE_TRIES) sendChoice(kind, option);
-      else Panel.toast(`${vac.label} reageerde niet: ${CHOICE_NOUN[kind]} is niet aangepast`);
+      const c = commands.get(key);
+      if (c.tries < TRIES) command(key, c);
+      else Panel.toast(`${vac.label} reageerde niet: ${c.failed}`);
     }
-    for (const key of [...tries.keys()]) if (!pending.has(key)) tries.delete(key);
+    for (const key of [...commands.keys()]) if (!pending.has(key)) commands.delete(key);
     for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
       const cur = (st(id) || {}).state;
       qa(`[data-vac="${kind}"]`).forEach((c) => {
@@ -163,11 +171,22 @@
     const roomsBtn = q('[data-vac="rooms"]');
     roomsBtn.querySelector("span").textContent = n ? `Start ${n === 1 ? "kamer" : n + " kamers"}` : "Kies kamers";
     roomsBtn.disabled = !n || busy || offline;
-    q('[data-vac="start"]').hidden = busy || paused;
-    roomsBtn.hidden = busy || paused;
+    /* Three tiles at a time. During a job: pause or resume, stop and dock (on the
+     * way home just stop and locate). Otherwise the two starts, plus dock when the
+     * robot stands still away from its dock, else locate. */
+    const job = busy || paused;
+    const away = !job && vstate === "idle" && !["charging", "charged", "breakcharging"].includes(statusRaw);
+    q('[data-vac="start"]').hidden = job;
+    roomsBtn.hidden = job;
     q('[data-vac="pause"]').hidden = !busy || vstate === "returning";
     q('[data-vac="resume"]').hidden = !paused;
-    q('[data-vac="dock"]').hidden = !(busy || paused) || vstate === "returning";
+    const stopBtn = q('[data-vac="stop"]');
+    stopBtn.hidden = !job;
+    stopBtn.classList.toggle("armed", twoTap.armed("stop"));
+    stopBtn.classList.toggle("pending", pending.has("job|stop"));
+    stopBtn.querySelector("span").textContent = twoTap.armed("stop") ? "Nogmaals tikken" : "Stop";
+    q('[data-vac="dock"]').hidden = !(job || away) || vstate === "returning";
+    q('[data-vac="locate"]').hidden = job ? vstate !== "returning" : away;
 
     let cons = [];
     try {
@@ -284,22 +303,23 @@
     render();
   }
 
-  /* Sends a choice and waits for Home Assistant to report it; a newer choice of
-   * the same kind replaces a pending one. */
-  function sendChoice(kind, option) {
-    const key = `${kind}|${option}`;
-    const entity = vac[kind];
-    for (const other of [...tries.keys()]) {
-      if (other.startsWith(kind + "|") && other !== key) {
+  /* Sends a command and waits until landed() is true; a newer command of the same
+   * group (the part of the key before "|") replaces a pending one.
+   * def: {send() -> promise, landed(), wait (ms), failed: what to report}. */
+  function command(key, def) {
+    const group = key.split("|")[0];
+    for (const other of [...commands.keys()]) {
+      if (other !== key && other.split("|")[0] === group) {
         pending.drop(other);
-        tries.delete(other);
+        commands.delete(other);
       }
     }
-    tries.set(key, (tries.get(key) || 0) + 1);
-    pending.mark(key, () => (st(entity) || {}).state === option);
-    Panel.client.callService("select", "select_option", { option }, { entity_id: entity }).catch((err) => {
+    const c = { ...def, tries: ((commands.get(key) || {}).tries || 0) + 1 };
+    commands.set(key, c);
+    pending.mark(key, c.landed, c.wait);
+    c.send().catch((err) => {
       pending.drop(key);
-      tries.delete(key);
+      commands.delete(key);
       render();
       Panel.commandFailed(vac.label)(err);
     });
@@ -316,8 +336,26 @@
       return render();
     }
     if (kind === "mode" || kind === "fan" || kind === "water") {
-      if ((st(vac[kind]) || {}).state === el.dataset.opt) return; /* already set */
-      sendChoice(kind, el.dataset.opt);
+      const option = el.dataset.opt;
+      const current = () => (st(vac[kind]) || {}).state;
+      if (current() === option) return; /* already set */
+      command(`${kind}|${option}`, {
+        send: () => Panel.client.callService("select", "select_option", { option }, { entity_id: CHOICE_SETTER[kind] }),
+        landed: () => current() === option,
+        wait: CHOICE_MS,
+        failed: `${CHOICE_NOUN[kind]} is niet aangepast`,
+      });
+      return render();
+    }
+    /* Ends the running job where the robot is (a second tap confirms). */
+    if (kind === "stop") {
+      if (pending.has("job|stop") || !twoTap.tap("stop", true)) return;
+      command("job|stop", {
+        send: () => Panel.client.callService("vacuum", "stop", null, target),
+        landed: () => !JOB_STATES.includes((st(vac.vacuum) || {}).state),
+        wait: STOP_MS,
+        failed: "de ronde is niet gestopt",
+      });
       return render();
     }
     if (kind === "rooms") {

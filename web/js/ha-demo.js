@@ -53,6 +53,10 @@
       set(v.fan, "Auto", { options: ["Quiet", "Auto", "Strong", "Max"] });
       set(v.water, "Mid", { options: ["Low", "Mid", "High"] });
       set(v.locate, "unknown", {});
+      /* The robot's action selects: they show no option, the property follows. */
+      set(v.setMode, "", { options: ["", "BothWork", "OnlySweep", "OnlyMop", "SweepFirst", "Custom"] });
+      set(v.setFan, "", { options: ["", "Quiet", "Auto", "Strong", "Max"] });
+      set(v.setWater, "", { options: ["", "Low", "Mid", "High"] });
     }
     if (cfg.bike) {
       const b = cfg.bike;
@@ -474,13 +478,14 @@
           };
         }
         const rooms = v && domain === v.roomsDomain;
-        if (v && (domain === "vacuum" || rooms || (domain === "select" && ids.some((i) => [v.mode, v.fan, v.water].includes(i))) || domain === "button")) {
+        const setters = v ? { [v.setMode]: v.mode, [v.setFan]: v.fan, [v.setWater]: v.water } : {};
+        if (v && (domain === "vacuum" || rooms || (domain === "select" && ids.some((i) => i in setters)) || domain === "button")) {
           const now2 = Date.now();
           if (rooms && service === "stofzuig") {
             const vs = states.get(v.vacuum);
             set(v.vacuum, vs.state, { ...vs.attributes, "robotic_vacuum.clean_values": JSON.stringify(data.gebieden) }, now2);
           }
-          if (domain === "select") ids.forEach((i) => set(i, data.option, (states.get(i) || {}).attributes, now2));
+          if (domain === "select") ids.forEach((i) => set(setters[i], data.option, (states.get(setters[i]) || {}).attributes, now2));
           const go = (state, status, area) => {
             set(v.vacuum, state, (states.get(v.vacuum) || {}).attributes || {}, now2);
             set(v.status, status, {}, now2);
@@ -488,6 +493,7 @@
           };
           if ((rooms && service === "stofzuig") || (domain === "vacuum" && service === "start")) go("cleaning", "sweeping", 3);
           if (domain === "vacuum" && service === "pause") go("paused", "paused", 3);
+          if (domain === "vacuum" && service === "stop") go("idle", "idle", 3); /* stands still where it is */
           if ((rooms && service === "naar_station") || (domain === "vacuum" && service === "return_to_base")) go("returning", "go charging", 3);
           change([v.vacuum, v.status, v.area, v.mode, v.fan, v.water]);
           return returnResponse ? { response: {} } : null;

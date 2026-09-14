@@ -50,7 +50,6 @@
 .pl-summary { margin: 0; font-size: 15px; font-weight: 600; color: var(--text_dim); }
 .pl-actions { display: flex; gap: 10px; }
 .pl-actions .vbtn { flex: 1; height: 56px; flex-direction: row; align-items: center; justify-content: center; gap: 10px; }
-.pl-actions .vbtn.armed { background: var(--bad); color: #fff; }
 
 @media (max-width: 760px) {
   .pl-time { font-size: 22px; }

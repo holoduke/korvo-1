@@ -171,7 +171,8 @@ def string_struct(src, name, keys):
 
 def parse_vacuum(src):
     vac = string_struct(src, "PANEL_VACUUM",
-                        ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water", "locate", "roomsDomain"))
+                        ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water",
+                         "setMode", "setFan", "setWater", "locate", "roomsDomain"))
     rooms = re.findall(r'\{\s*(\d+)\s*,\s*"([^"]*)"\s*\}', array_body(src, "PANEL_VACUUM_ROOMS"))
     vac["rooms"] = [{"id": int(i), "label": l} for i, l in rooms]
     return vac

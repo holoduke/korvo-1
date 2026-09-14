@@ -358,6 +358,12 @@ typedef struct {
     const char *mode_id;    /* select: sweep / mop combination */
     const char *fan_id;     /* select: suction */
     const char *water_id;   /* select: water flow */
+    /* selects that change mode, suction and water: xiaomi_miot exposes the
+     * robot's set-*-mode actions for these, because the xm2216 does not answer
+     * writes to the properties above (it only reports them) */
+    const char *set_mode_id;
+    const char *set_fan_id;
+    const char *set_water_id;
     const char *locate_id;  /* button: make the robot play a sound */
     const char *rooms_domain; /* HA integration with stofzuig(gebieden) and naar_station */
 } panel_vacuum_t;
@@ -381,6 +387,9 @@ static const panel_vacuum_t PANEL_VACUUM = {
     "select.stofzuiger_xiaomi_clean_mode",
     "select.stofzuiger_xiaomi_fan_mode",
     "select.stofzuiger_xiaomi_water_mode",
+    "select.stofzuiger_xiaomi_set_clean_mode",
+    "select.stofzuiger_xiaomi_set_fan_mode",
+    "select.stofzuiger_xiaomi_set_water_mode",
     "button.stofzuiger_xiaomi_seek_robot",
     "robotkamers",
 };

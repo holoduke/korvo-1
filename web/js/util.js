@@ -106,9 +106,10 @@
       };
     },
 
-    /* Controls waiting for Home Assistant. mark(key, read) remembers read()'s
+    /* Controls waiting for Home Assistant. mark(key, read, wait) remembers read()'s
      * value (a string, or an array compared item by item); the key settles once
-     * read() returns something else, or after `ms`, when `changed` runs.
+     * read() returns something else, or after `wait` (default `ms`), when
+     * `changed` runs.
      * settle() forgets the settled keys and returns those that ran out of time
      * without a change (a command that did not land). */
     pendingSet(ms, changed) {
@@ -117,9 +118,9 @@
       return {
         has: (key) => items.has(key),
         any: () => items.size > 0,
-        mark(key, read) {
-          items.set(key, { read, value: read(), until: Date.now() + ms });
-          setTimeout(changed, ms + 50);
+        mark(key, read, wait = ms) {
+          items.set(key, { read, value: read(), until: Date.now() + wait });
+          setTimeout(changed, wait + 50);
         },
         drop: (key) => items.delete(key),
         settle() {
