@@ -23,6 +23,25 @@
   const MOP_NL = { off: "Uit", low: "Laag", medium: "Midden", high: "Hoog" };
   const EFFICIENCY_NL = { Careful: "Grondig", Normal: "Normaal", Fast: "Snel" };
   const PARTS = [["edge", "Zijborstel"], ["roll", "Hoofdborstel"], ["filter", "Filter"]];
+  /* Minutes of life a new part has (the V30's Tuya spec), for "x% over". */
+  const LIFE_MAX = { edge: 900, roll: 1800, filter: 900 };
+  /* The fault code is a bitmap (Tuya DP 28), bit 0 first: [what, what to do]. */
+  const FAULTS = [
+    ["bumper", "controleer of de bumper vrij beweegt"], ["obstakelsensor", "maak de sensoren schoon"], ["muursensor", "maak de sensoren schoon"],
+    ["valsensor", "maak de sensoren aan de onderkant schoon"], ["opgetild", "zet de robot plat op de vloer"], ["zwenkwiel", "haal haren en vuil uit het voorwiel"],
+    ["linker zijborstel", "haal haren uit de zijborstel"], ["rechter zijborstel", "haal haren uit de zijborstel"], ["zijborstel", "haal haren uit de zijborstel"],
+    ["linkerwiel", "haal vuil uit het wiel"], ["rechterwiel", "haal vuil uit het wiel"], ["hoofdborstel", "haal haren uit de hoofdborstel"],
+    ["ventilator", null], ["waterpomp", null], ["luchtpomp", null], ["stofbak", "plaats of leeg de stofbak"],
+    ["watertank", "plaats of vul de watertank"], ["filter", "maak het filter schoon of plaats het terug"], ["accu", null],
+    ["gyroscoop", null], ["radar", null], ["camera", null], ["vastgelopen", "haal de robot los en zet hem vrij neer"],
+    ["waterdoorstroming", null], ["overig", null], ["te weinig licht", null], ["water", null], ["water", null], ["verkennen mislukt", null],
+  ];
+  /* During a run the time counter moves every minute; this long without news
+   * means tuya_local stopped receiving (it can, without a sign). */
+  const QUIET_MS = 4 * 60e3;
+  /* A run that starts this soon after the last one ended is the same run resumed
+   * (after a fault or a recharge the robot restarts its counters). */
+  const RESUME_MS = 15 * 60e3;
   const JOB = ["cleaning", "returning", "paused"];
   const JOB_MS = 20000; /* a start or return takes the robot a while to report */
   const CHOICE_MS = 8000;
@@ -40,7 +59,8 @@
   });
 
   /* Runs from the robot's area and time counters: a counter going down is a new
-   * run; each run keeps the most it reached and when it last grew. Newest first. */
+   * run; each run keeps the most it reached and when it last grew, and a run
+   * resumed shortly after the previous one is added to it. Newest first. */
   function runsFrom(areaRows, timeRows) {
     const points = [
       ...areaRows.map((r) => ({ t: r.t, key: "area", v: parseFloat(r.s) })),
@@ -50,13 +70,21 @@
       .sort((a, b) => a.t - b.t);
     const runs = [];
     let run = null;
-    const commit = () => run && (run.area > 0 || run.minutes > 0) && runs.push(run);
+    const commit = () => {
+      if (!run || !(run.area > 0 || run.minutes > 0)) return;
+      const last = runs[runs.length - 1];
+      if (last && run.start - last.end < RESUME_MS) {
+        last.area += run.area;
+        last.minutes += run.minutes;
+        last.end = run.end;
+      } else runs.push(run);
+    };
     for (const p of points) {
       if (run && p.v < run[p.key]) {
         commit();
         run = null;
       }
-      if (!run) run = { area: 0, minutes: 0, end: p.t };
+      if (!run) run = { area: 0, minutes: 0, start: p.t, end: p.t };
       run[p.key] = Math.max(run[p.key], p.v);
       if (p.v > 0) run.end = p.t;
     }
@@ -65,6 +93,14 @@
   }
 
   /* "many": a row that may wrap on a phone. */
+  /* "Storing: vastgelopen, zijborstel. Haal de robot los en zet hem vrij neer." */
+  function faultText(code) {
+    const faults = Number.isFinite(code) && code > 0 ? FAULTS.filter((_, bit) => Math.floor(code / 2 ** bit) % 2 === 1) : [];
+    if (!faults.length) return "Storing: kijk even bij de robot";
+    const tip = (faults.find(([, hint]) => hint) || [])[1];
+    return `Storing: ${faults.map(([what]) => what).join(", ")}.${tip ? ` ${tip[0].toUpperCase()}${tip.slice(1)}.` : ""}`;
+  }
+
   const chips = (kind, labels) =>
     `<div class="vs-chips${Object.keys(labels).length > 4 ? " many" : ""}" style="--n:${Object.keys(labels).length}">` +
     Object.entries(labels).map(([opt, l]) => `<button class="vchip" data-tuyavac="${kind}" data-opt="${opt}">${l}</button>`).join("") +
@@ -75,7 +111,7 @@
     `<section class="vs-map">` +
     `<div class="tv-hero"><div class="tv-head"><b class="tv-status"></b><span class="tv-sub"></span></div>` +
     `<div class="tv-batt">${icon("battery")}<span></span><i><b></b></i></div>` +
-    `<div class="vs-alert" hidden>${icon("warning")}<span></span></div></div>` +
+    `<div class="vs-alert" hidden>${icon("warning")}<span></span>${Panel.reconnectHtml(view.robot.entities.vacuum)}</div></div>` +
     `<div class="tv-stats">` +
     `<div class="tv-stat"><span data-label="run"></span><b data-stat="run"></b></div>` +
     `<div class="tv-stat"><span>Totaal</span><b data-stat="area"></b></div>` +
@@ -94,7 +130,11 @@
     `<div class="vs-group"><span class="vlabel">Dweilen</span>${chips("mop", MOP_NL)}</div>` +
     `<div class="vs-group"><span class="vlabel">Grondigheid</span>${chips("efficiency", EFFICIENCY_NL)}</div>` +
     `<div class="vs-section-title">Onderhoud</div>` +
-    PARTS.map(([part, label]) => `<div class="tv-cons" data-part="${part}"><span>${label}</span><em></em><button class="tv-reset" data-tuyavac="reset" data-part="${part}">Reset</button></div>`).join("") +
+    PARTS.map(
+      ([part, label]) =>
+        `<div class="tv-cons" data-part="${part}"><span>${label}</span><i class="bar"><b></b></i><em></em>` +
+        `<button class="tv-reset" data-tuyavac="reset" data-part="${part}">Reset</button></div>`
+    ).join("") +
     `</section></div></div>`;
 
   function render(view) {
@@ -118,12 +158,20 @@
     const bar = q(".tv-batt i b");
     bar.style.width = (Number.isFinite(battery) ? Util.clamp(battery, 0, 100) : 0) + "%";
     bar.style.background = Util.batteryColour(battery);
-    /* Out of reach, or a fault the robot reports: say so. Out of reach, nothing to tap. */
+    /* Out of reach, a connection gone quiet during a run, or a fault the robot
+     * reports: say so, and offer to reconnect for the first two. Out of reach,
+     * nothing else to tap. */
     const unreachable = offline && Panel.isLoaded();
+    const heard = Math.max(...[e.vacuum, e.time, e.area].map((id) => (st(id) || {}).lastUpdated || 0));
+    const quiet = !unreachable && state === "cleaning" && Panel.isLoaded() && heard > 0 && Date.now() - heard > QUIET_MS;
     const fault = stateOf(e.problem) === "on";
-    const code = ((st(e.problem) || {}).attributes || {}).fault_code;
-    q(".vs-alert").hidden = !(unreachable || fault);
-    q(".vs-alert span").textContent = unreachable ? Panel.unreachableText(v) : `Storing${code ? ` (code ${code})` : ""}: kijk even bij de robot`;
+    let alertText = "";
+    if (unreachable) alertText = Panel.unreachableText(v);
+    else if (quiet) alertText = `Geen nieuwe gegevens sinds ${Util.stamp(heard)}: de verbinding met de robot lijkt stil te liggen.`;
+    else if (fault) alertText = faultText(Number(((st(e.problem) || {}).attributes || {}).fault_code));
+    q(".vs-alert").hidden = !alertText;
+    q(".vs-alert span").textContent = alertText;
+    q(".vs-alert [data-reconnect]").hidden = !(unreachable || quiet);
     root.querySelectorAll(".tv-actions .vbtn, .vchip, .tv-reset").forEach((b) => (b.disabled = unreachable));
 
     const area = Panel.num(e.area);
@@ -161,9 +209,12 @@
       const row = q(`.tv-cons[data-part="${part}"]`);
       const left = Panel.num(e[`${part}Life`]);
       const dirty = stateOf(e[`${part}Dirty`]) === "on";
-      const life = Number.isFinite(left) ? (left >= 60 ? `nog ${fmt(left / 60)} uur` : `nog ${fmt(left)} min`) : "";
+      const pct = Number.isFinite(left) ? Util.clamp(Math.round((left / LIFE_MAX[part]) * 100), 0, 100) : NaN;
+      const tone = dirty || pct < 10 ? "bad" : pct < 25 ? "warn" : "ok";
       row.classList.toggle("dirty", dirty);
-      row.querySelector("em").textContent = [dirty && "schoonmaken", life].filter(Boolean).join(" · ") || "--";
+      row.querySelector(".bar").className = `bar ${tone}`;
+      row.querySelector(".bar b").style.width = (Number.isFinite(pct) ? pct : 0) + "%";
+      row.querySelector("em").textContent = [dirty && "schoonmaken", Number.isFinite(pct) && `${pct}% over`].filter(Boolean).join(" · ") || "--";
       const reset = row.querySelector(".tv-reset");
       reset.classList.toggle("armed", view.twoTap.armed(part));
       reset.textContent = view.twoTap.armed(part) ? "Nogmaals" : "Reset";
@@ -263,4 +314,6 @@
   const shownNow = () => views.forEach((view) => Panel.isLoaded() && Panel.robotOnScreen(view.robot.floor) && load(view, false));
   Panel.on("section", shownNow);
   Panel.on("robot", shownNow);
+  /* "Geen nieuwe gegevens" needs time to pass, not a state change. */
+  Panel.on("minute", () => views.forEach(render));
 })();

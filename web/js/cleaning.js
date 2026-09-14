@@ -24,6 +24,21 @@
   let placeInd = null;
 
   Panel.robotOnScreen = (floor) => cfg.sections[Panel.section].kind === "vacuum" && shown === floor;
+  /* For a robot Home Assistant cannot reach, or whose connection went quiet: reload
+   * its integration (as "Opnieuw laden" in Home Assistant does). Starts hidden. */
+  Panel.reconnectHtml = (entity) => `<button class="vs-alert-btn" data-reconnect="${entity}" hidden>Opnieuw verbinden</button>`;
+  const RECONNECT_BUSY_MS = 20000;
+  Panel.defineAction("reconnect", (el) => {
+    el.disabled = true;
+    el.textContent = "Bezig met verbinden";
+    setTimeout(() => {
+      el.disabled = false;
+      el.textContent = "Opnieuw verbinden";
+    }, RECONNECT_BUSY_MS);
+    Panel.client
+      .callService("homeassistant", "reload_config_entry", null, { entity_id: el.dataset.reconnect })
+      .catch(Panel.commandFailed("Opnieuw verbinden"));
+  });
   /* What a robot's panel says when Home Assistant cannot reach it (its vacuum state). */
   Panel.unreachableText = (s) =>
     `Niet bereikbaar${s && s.lastChanged ? ` sinds ${Util.stamp(s.lastChanged)}` : ""}: Home Assistant krijgt geen verbinding met de robot. Staat hij aan en binnen bereik van de wifi?`;

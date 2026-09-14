@@ -63,8 +63,8 @@
       const e = r.entities;
       set(e.vacuum, "docked", { fan_speed_list: ["Off", "Low", "Medium", "High", "Max"], fan_speed: "Medium", status: "charged", supported_features: 14260 });
       set(e.battery, "100", { unit_of_measurement: "%" });
-      set(e.area, "31", { unit_of_measurement: "m²" });
-      set(e.time, "27", { unit_of_measurement: "min" });
+      set(e.area, "8", { unit_of_measurement: "m²" });
+      set(e.time, "6", { unit_of_measurement: "min" });
       set(e.problem, "off", { fault_code: 0 });
       set(e.mopping, "medium", { options: ["off", "low", "medium", "high"] });
       set(e.efficiency, "Normal", { options: ["Careful", "Normal", "Fast"] });
@@ -401,6 +401,8 @@
           }));
           return { response: { [cfg.weather]: { forecast } } };
         }
+        /* Home Assistant's own actions (reload an integration, refresh an entity): nothing changes. */
+        if (domain === "homeassistant") return returnResponse ? { response: {} } : null;
         if (domain === "automation") {
           ids.forEach((id) => states.has(id) && set(id, service === "turn_off" ? "off" : "on", states.get(id).attributes, Date.now()));
           change(ids);
@@ -624,11 +626,13 @@
         const out = {};
         ids.forEach((id) => {
           if (/_cleaning_(area|time)$/.test(id)) {
-            /* A Tuya robot's counters, reset when a run starts: one yesterday, one this morning. */
+            /* A Tuya robot's counters, reset when a run starts: one yesterday, one this
+             * morning that stopped after 24 min and resumed 12 min later (its counters
+             * start over, so it looks like a third run of 8 m²). */
             if (!states.has(id)) return;
             const area = /area$/.test(id);
             const rows = [{ s: "0", t: start.getTime() }];
-            [[26, 22, 18], [5, 31, 27]].forEach(([hoursAgo, m2, min]) => {
+            [[26, 22, 18], [5, 31, 27], [4.4, 8, 6]].forEach(([hoursAgo, m2, min]) => {
               const t0 = Date.now() - hoursAgo * 3600e3;
               rows.push({ s: "0", t: t0 });
               for (let k = 1; k <= 4; k++) rows.push({ s: String(Math.round(((area ? m2 : min) * k) / 4)), t: t0 + k * 6 * 60e3 });

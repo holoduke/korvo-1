@@ -33,7 +33,8 @@
   const queue = Panel.commandQueue(vac.label, () => render());
   const twoTap = Util.confirmer(3000, () => render());
   const selected = new Set(); /* chosen room ids */
-  let records = null; /* robot's run log, newest first */
+  let records = null; /* robot's own run log, newest first: {when, area, secs} */
+  let historyRuns = null; /* finished runs from HA's history, newest first: {when, area, secs, rooms} */
   const lastByRoom = new Map(); /* room id -> ms */
   /* Learned sizes, from finished runs in HA's history: m² per set of rooms
    * ("5,8"; "" is the whole house). The robot reports the area cleaned so far
@@ -56,7 +57,15 @@
       return [];
     }
   }
-  const { ago } = Util;
+  const { ago, esc } = Util;
+  const roomLabel = new Map(vac.rooms.map((r) => [r.id, r.label]));
+  /* The station's tanks (robot attributes, MIoT siid 17 piid 51-54): value -> notice. */
+  const TANKS = [
+    ["clean_water_cistern-17-51", { 1: "Schoonwatertank ontbreekt", 2: "Schoonwatertank is onbruikbaar", 3: "Schoonwatertank is bijna leeg" }],
+    ["robotic_vacuum.drain_cistern", { 1: "Vuilwatertank ontbreekt", 2: "Vuilwatertank is onbruikbaar" }],
+    ["robotic_vacuum.dust_bag", { 1: "Stofzak ontbreekt" }],
+    ["robotic_vacuum.mop_clean_tank", { 1: "Wasbak ontbreekt" }],
+  ];
 
   /* One row of equal tiles per choice: the grid gets its column count as --n. */
   const chips = (kind, labels) =>
@@ -80,7 +89,7 @@
         .join("") +
       `</div><div class="vs-plan"></div>` +
       `<div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div></section>` +
-      `<section class="vs-side"><div class="vs-alert" hidden>${icon("warning")}<span></span></div><div class="vs-actions">` +
+      `<section class="vs-side"><div class="vs-alert" hidden>${icon("warning")}<span></span>${Panel.reconnectHtml(vac.vacuum)}</div><div class="vs-actions">` +
       `<button class="vbtn primary" data-vac="rooms">${icon("play")}<span>Kies kamers</span></button>` +
       `<button class="vbtn" data-vac="start">${icon("play")}<span>Hele huis</span></button>` +
       `<button class="vbtn" data-vac="pause">${icon("pause")}<span>Pauze</span></button>` +
@@ -150,10 +159,18 @@
     });
 
     queue.settle();
-    /* Out of reach (off, or off the wifi): say so, and nothing to tap until it is back. */
+    /* Out of reach (off, or off the wifi): say so, offer to reconnect, and nothing
+     * else to tap until it is back. Otherwise the robot's own faults and tanks. */
     const unreachable = offline && Panel.isLoaded();
-    q(".vs-alert").hidden = !unreachable;
-    if (unreachable) q(".vs-alert span").textContent = Panel.unreachableText(v);
+    const a = (v && v.attributes) || {};
+    const notices = [
+      Number(a["robotic_vacuum.error"]) > 0 && `Storing (code ${a["robotic_vacuum.error"]})`,
+      Number(a["robotic_vacuum.station_error"]) > 0 && `Storing in het station (code ${a["robotic_vacuum.station_error"]})`,
+      ...TANKS.map(([key, labels]) => labels[a[key]]),
+    ].filter(Boolean);
+    q(".vs-alert").hidden = !(unreachable || notices.length);
+    q(".vs-alert span").textContent = unreachable ? Panel.unreachableText(v) : notices.join(" · ");
+    q(".vs-alert [data-reconnect]").hidden = !unreachable;
     qa(".vs-actions .vbtn, .vchip").forEach((b) => (b.disabled = unreachable));
     for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
       const cur = (st(id) || {}).state;
@@ -202,13 +219,20 @@
           .join("")
       : `<div class="vs-empty">Geen gegevens</div>`;
 
+    /* Runs from Home Assistant's history first (the robot's own log often gets
+     * no answer); its own log when the history has none. */
+    const runs = historyRuns && historyRuns.length ? historyRuns : records;
     q(".vs-rec-list").innerHTML =
-      records === null
+      runs === null
         ? `<div class="vs-empty">Laden...</div>`
-        : records.length
-          ? records
+        : runs.length
+          ? runs
               .slice(0, 5)
-              .map((r) => `<div class="vs-rec"><span>${ago(r.when.getTime())}</span><b>${r.area} m²</b><em>${Math.round(r.secs / 60)} min</em></div>`)
+              .map(
+                (r) =>
+                  `<div class="vs-rec"><span>${ago(r.when)}${r.rooms && r.rooms.length ? ` · ${esc(r.rooms.map((id) => roomLabel.get(id) || `#${id}`).join(", "))}` : ""}</span>` +
+                  `<b>${Math.round(r.area)} m²</b><em>${Math.round(r.secs / 60)} min</em></div>`
+              )
               .join("")
           : `<div class="vs-empty">Nog geen rondes</div>`;
   }
@@ -242,6 +266,37 @@
      * still be going (the robot docks mid-run to wash its mop, at part of the area). */
   }
 
+  /* Finished runs from the vacuum's history, newest first: clean_time drops when
+   * a new job starts; a run keeps the most area and time it reached, its rooms and
+   * when it last grew. The newest run counts once the robot is out of its job. */
+  function runsFrom(rows) {
+    const runs = [];
+    let run = null;
+    let prevTime = -1;
+    for (const row of rows) {
+      const a = row.a || {};
+      const area = Number(a["robotic_vacuum.clean_area"]);
+      const time = Number(a["robotic_vacuum.clean_time"]);
+      if (!Number.isFinite(area) || !Number.isFinite(time)) continue;
+      if (run && time < prevTime) {
+        if (run.area > 0) runs.push(run);
+        run = null;
+      }
+      prevTime = time;
+      if (!run) run = { when: row.t, area: 0, secs: 0, rooms: [] };
+      if (area > run.area || time > run.secs) {
+        run.area = Math.max(run.area, area);
+        run.secs = Math.max(run.secs, time);
+        run.when = row.t;
+        const rooms = parseList(a["robotic_vacuum.clean_values"]);
+        if (rooms.length) run.rooms = rooms;
+      }
+    }
+    const v = st(vac.vacuum);
+    if (run && run.area > 0 && !(v && JOB_STATES.includes(v.state))) runs.push(run);
+    return runs.reverse();
+  }
+
   /* m² expected for a set of rooms: a finished run of exactly that set, or the
    * sum of the room sizes. A room's size comes from a run of that room alone,
    * or from a run of several rooms where it was the only unknown one. */
@@ -268,21 +323,7 @@
     if (loading || (!force && Date.now() - loadedAt < 60e3)) return;
     loading = true;
     loadedAt = Date.now();
-    try {
-      /* Read-only: the robot's run log (the integration does not poll it). */
-      const res = await Panel.client.callService(
-        "xiaomi_miot", "get_properties",
-        { entity_id: vac.vacuum, mapping: { clean_records: { siid: 17, piid: 46 } } },
-        null, true
-      );
-      const list = JSON.parse((((res || {}).response) || {}).clean_records || "[]");
-      records = list
-        .filter((r) => /^20\d\d\//.test(r.d || "")) /* entries logged before the clock was set say 1970 */
-        .map((r) => ({ when: new Date(`${r.d.replace(/\//g, "-")}T${r.t}`), area: r.A, secs: r.T }))
-        .sort((a, b) => b.when - a.when);
-    } catch (e) {
-      records = records || [];
-    }
+    /* The history first: it answers at once, the robot's own log can take seconds. */
     try {
       const hist = await Panel.client.historyFull([vac.vacuum], new Date(Date.now() - 14 * 86400e3));
       const rows = [...(hist[vac.vacuum] || [])].sort((a, b) => a.t - b.t);
@@ -293,8 +334,27 @@
         });
       }
       learnRuns(rows);
+      historyRuns = runsFrom(rows);
     } catch (e) {
-      /* keep what we had */
+      historyRuns = historyRuns || [];
+    }
+    render();
+    try {
+      /* Read-only: the robot's run log (the integration does not poll it). The
+       * robot often does not answer: xiaomi_miot then responds {error}. */
+      const res = await Panel.client.callService(
+        "xiaomi_miot", "get_properties",
+        { entity_id: vac.vacuum, mapping: { clean_records: { siid: 17, piid: 46 } } },
+        null, true
+      );
+      const response = (res || {}).response || {};
+      if (response.error) throw new Error(response.error);
+      records = JSON.parse(response.clean_records || "[]")
+        .filter((r) => /^20\d\d\//.test(r.d || "")) /* entries logged before the clock was set say 1970 */
+        .map((r) => ({ when: new Date(`${r.d.replace(/\//g, "-")}T${r.t}`).getTime(), area: r.A, secs: r.T }))
+        .sort((a, b) => b.when - a.when);
+    } catch (e) {
+      records = records || [];
     }
     loading = false;
     render();

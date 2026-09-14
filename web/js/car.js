@@ -20,14 +20,28 @@
   const { fmt, hm, known, clamp } = Util;
   const CONFIRM_MS = 3000;
   /* Reasons the car gives for refusing a command (Tesla Fleet, passed on by Home
-   * Assistant), in words. "could_not_wake_buses": the car woke up only part way;
-   * the command did not run and is sent once more after a moment. */
+   * Assistant), in words. */
   const REFUSED_NL = { doors_open: "er staat een portier open", door_open: "er staat een portier open", could_not_wake_buses: "de auto werd niet op tijd wakker" };
-  const WAKE_RETRY_MS = 5000;
-  const refusal = (err) =>
-    err && err.reason
-      ? `niet gelukt, ${REFUSED_NL[err.reason] || String(err.reason).replace(/_/g, " ")}`
-      : `opdracht mislukt${err && err.message ? ` (${err.message})` : ""}`;
+  /* A command that can safely run twice (a lock, a switch, a setting; not a horn,
+   * lights or a media toggle) is sent again after these pauses when the car was
+   * not reachable yet, as Tesla advises. */
+  const RETRY_DELAYS_MS = [5000, 15000, 30000];
+  const RETRY_WINDOW_MS = 150000; /* the pauses plus Home Assistant's own 30 s wake per try */
+  /* What went wrong: {text, again (sending later can help), refresh (update the
+   * car's state first), plain (no known reason)}. */
+  function trouble(err) {
+    const reason = err && err.reason;
+    const message = String((err && ((err.placeholders || {}).message || err.message)) || "");
+    if (reason === "could_not_wake_buses") return { text: REFUSED_NL[reason], again: true };
+    if (reason) return { text: REFUSED_NL[reason] || String(reason).replace(/_/g, " ") };
+    if (err && err.translationKey === "wake_up_timeout") return { text: "de auto werd niet wakker" };
+    if (/unknown key|whitelist|key .*(disabled|removed)/i.test(message)) return { text: "de virtuele sleutel van Home Assistant is niet (meer) gekoppeld in de auto" };
+    if (/mobile access/i.test(message)) return { text: "mobiele toegang staat uit in de auto" };
+    /* Home Assistant believed the car was still awake and did not wake it (home-
+     * assistant/core#182023): its state is refreshed before the next try. */
+    if (/offline|asleep|not ['"]?online/i.test(message)) return { text: "de auto was niet bereikbaar", again: true, refresh: true };
+    return { text: `opdracht mislukt${message ? ` (${message})` : ""}`, plain: true };
+  }
   const PENDING_MS = 20000; /* a sleeping car first has to wake up */
 
   const SHIFT_NL = { p: "Geparkeerd", d: "Rijdt", r: "Achteruit", n: "Neutraal" };
@@ -357,17 +371,22 @@
     const action = el.dataset.car;
     const control = keyOf(el);
     if (!twoTap.tap(control, el.hasAttribute("data-confirm"))) return;
-    const call = (domain, service, data, key) => {
+    /* repeatable: the command may be sent again when the car was not reachable. */
+    const call = (domain, service, data, key, repeatable = true) => {
       if (!E[key]) return;
-      pending.mark(control, () => snap(s(key)));
-      const attempt = (retried) =>
-        Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch((err) => {
-          if (err && err.reason === "could_not_wake_buses" && !retried) return setTimeout(() => attempt(true), WAKE_RETRY_MS);
+      pending.mark(control, () => snap(s(key)), repeatable ? RETRY_WINDOW_MS : PENDING_MS);
+      const attempt = (tries) =>
+        Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch(async (err) => {
+          const t = trouble(err);
+          if (t.again && repeatable && tries < RETRY_DELAYS_MS.length) {
+            if (t.refresh) await Panel.client.callService("homeassistant", "update_entity", null, { entity_id: E.online || E[key] }).catch(() => {});
+            return setTimeout(() => attempt(tries + 1), RETRY_DELAYS_MS[tries]);
+          }
           pending.drop(control);
           render();
-          Panel.toast(`${car.label}: ${refusal(err)}`);
+          Panel.toast(`${car.label}: ${t.plain ? t.text : `niet gelukt, ${t.text}`}`);
         });
-      attempt(false);
+      attempt(0);
       render();
     };
     const toggle = (key) => call("switch", on(key) ? "turn_off" : "turn_on", null, key);
@@ -378,7 +397,7 @@
       case "homelink":
       case "keyless":
       case "fart":
-        return call("button", "press", null, action);
+        return call("button", "press", null, action, false);
       case "charge":
         return toggle("charge");
       case "defrost":
@@ -430,7 +449,7 @@
       case "trunk":
         return call("cover", stateOf("trunk") === "open" ? "close_cover" : "open_cover", null, "trunk");
       case "media":
-        return call("media_player", el.dataset.cmd, null, "media");
+        return call("media_player", el.dataset.cmd, null, "media", false);
       case "volume": {
         const current = Number(attrs("media").volume_level);
         const next = clamp(Math.round(((Number.isFinite(current) ? current : 0.3) + Number(el.dataset.step)) * 10) / 10, 0, 1);

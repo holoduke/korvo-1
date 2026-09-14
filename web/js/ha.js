@@ -300,7 +300,9 @@
             const error = msg.error || {};
             const err = new Error(error.message || "request failed");
             err.code = error.code;
-            err.reason = (error.translation_placeholders || {}).reason;
+            err.translationKey = error.translation_key;
+            err.placeholders = error.translation_placeholders || {};
+            err.reason = err.placeholders.reason;
             p.reject(err);
           }
         }
