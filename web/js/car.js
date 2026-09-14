@@ -22,7 +22,7 @@
   /* Reasons the car gives for refusing a command (Tesla Fleet, passed on by Home
    * Assistant), in words. "could_not_wake_buses": the car woke up only part way;
    * the command did not run and is sent once more after a moment. */
-  const REFUSED_NL = { doors_open: "er staat een portier open", could_not_wake_buses: "de auto werd niet op tijd wakker" };
+  const REFUSED_NL = { doors_open: "er staat een portier open", door_open: "er staat een portier open", could_not_wake_buses: "de auto werd niet op tijd wakker" };
   const WAKE_RETRY_MS = 5000;
   const refusal = (err) =>
     err && err.reason

@@ -131,16 +131,37 @@
     let lastPong = 0;
     let retry = 0;
     let stopped = false;
+    let reconnectTimer = 0;
+    let connecting = false; /* from starting a connection until it is authenticated or closed */
+    let authed = false;
+    /* A request made while the connection is down (a tap right after the tablet
+     * wakes up) brings the connection back at once and waits for it, this long. */
+    const WAIT_FOR_CONNECTION_MS = 15000;
+    const waiting = []; /* {flush()} */
 
-    function send(msg) {
+    function transmit(msg) {
       return new Promise((resolve, reject) => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-          reject(new Error("not connected"));
-          return;
-        }
         const id = nextId++;
         pending.set(id, { resolve, reject });
         ws.send(JSON.stringify({ id, ...msg }));
+      });
+    }
+
+    function send(msg) {
+      if (authed && ws && ws.readyState === WebSocket.OPEN) return transmit(msg);
+      return new Promise((resolve, reject) => {
+        const item = {
+          flush() {
+            clearTimeout(timer);
+            transmit(msg).then(resolve, reject);
+          },
+        };
+        const timer = setTimeout(() => {
+          waiting.splice(waiting.indexOf(item), 1);
+          reject(new Error("geen verbinding met Home Assistant"));
+        }, WAIT_FOR_CONNECTION_MS);
+        waiting.push(item);
+        reconnectNow();
       });
     }
 
@@ -198,40 +219,68 @@
       return changed;
     }
 
-    async function connect() {
+    /* The socket is gone: its requests fail, and a new one follows after the backoff. */
+    function closed() {
+      clearInterval(pingTimer);
+      pending.forEach((p) => p.reject && p.reject(new Error("verbinding met Home Assistant verbroken")));
+      pending.clear();
+      authed = false;
+      connecting = false;
       if (stopped) return;
+      ev.emit("status", "disconnected");
+      scheduleReconnect();
+    }
+    /* Gives up on a socket that looks open but no longer answers. */
+    function drop(socket) {
+      if (socket !== ws) return;
+      socket.onmessage = socket.onclose = socket.onerror = null;
+      try {
+        socket.close();
+      } catch (e) {
+        /* already closing */
+      }
+      ws = null;
+      closed();
+    }
+
+    async function connect() {
+      if (stopped || connecting) return;
+      clearTimeout(reconnectTimer);
+      connecting = true;
       ev.emit("status", "connecting");
       let token;
       try {
         token = await getAccessToken();
       } catch (e) {
+        connecting = false;
         scheduleReconnect();
         return;
       }
       const url = hassUrl().replace(/^http/, "ws") + "/api/websocket";
-      ws = new WebSocket(url);
+      const socket = (ws = new WebSocket(url));
       let subscribed = false;
-      ws.onmessage = (e) => {
+      socket.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "auth_required") {
-          ws.send(JSON.stringify({ type: "auth", access_token: token }));
+          socket.send(JSON.stringify({ type: "auth", access_token: token }));
         } else if (msg.type === "auth_invalid") {
           localStorage.removeItem(LS_TOKENS);
           ev.emit("status", "auth-error");
-          ws.close();
+          socket.close();
         } else if (msg.type === "auth_ok") {
+          connecting = false;
+          authed = true;
           retry = 0;
           lastPong = Date.now();
           const id = nextId++;
-          ws.send(JSON.stringify({ id, type: "subscribe_entities", entity_ids: entityIds }));
+          socket.send(JSON.stringify({ id, type: "subscribe_entities", entity_ids: entityIds }));
           pending.set(id, { resolve() {}, reject() {}, subscription: true });
           pingTimer = setInterval(() => {
-            if (Date.now() - lastPong > 45000) {
-              ws.close(); /* no pong: the socket is dead even if the browser hasn't noticed */
-              return;
-            }
-            send({ type: "ping" }).then(() => (lastPong = Date.now())).catch(() => {});
+            /* no pong: the socket is dead even if the browser hasn't noticed */
+            if (Date.now() - lastPong > 45000) return drop(socket);
+            transmit({ type: "ping" }).then(() => (lastPong = Date.now())).catch(() => {});
           }, 20000);
+          waiting.splice(0).forEach((item) => item.flush());
         } else if (msg.type === "event" && msg.event) {
           const changed = applyEntities(msg.event);
           if (!subscribed) {
@@ -256,31 +305,43 @@
           }
         }
       };
-      ws.onclose = () => {
-        clearInterval(pingTimer);
-        pending.forEach((p) => p.reject && p.reject(new Error("connection closed")));
-        pending.clear();
-        if (!stopped) {
-          ev.emit("status", "disconnected");
-          scheduleReconnect();
-        }
+      socket.onclose = () => {
+        if (socket !== ws) return;
+        ws = null;
+        closed();
       };
-      ws.onerror = () => {
+      socket.onerror = () => {
         /* onclose follows and handles the retry */
       };
     }
 
     function scheduleReconnect() {
+      clearTimeout(reconnectTimer);
       const delay = Math.min(30000, 1000 * Math.pow(2, retry++));
-      setTimeout(connect, delay);
+      reconnectTimer = setTimeout(connect, delay);
+    }
+    /* Connects at once instead of after the backoff (never a second socket). */
+    function reconnectNow() {
+      if (stopped || connecting || ws) return;
+      retry = 0;
+      connect();
     }
 
     document.addEventListener("visibilitychange", () => {
-      /* Phones freeze background tabs; reconnect straight away on return. */
-      if (!document.hidden && ws && ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CONNECTING) {
-        retry = 0;
-        connect();
-      }
+      if (document.hidden) return;
+      /* Phones freeze background tabs: reconnect straight away on return, and ping
+       * an open socket, which may have died while the page slept. */
+      if (!ws) return reconnectNow();
+      if (!authed) return;
+      const socket = ws;
+      const probe = setTimeout(() => drop(socket), 4000);
+      transmit({ type: "ping" }).then(
+        () => {
+          clearTimeout(probe);
+          lastPong = Date.now();
+        },
+        () => clearTimeout(probe)
+      );
     });
 
     return {
