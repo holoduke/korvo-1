@@ -12,6 +12,8 @@
 
   const LS_TOKENS = "panel.tokens";
   const LS_HASS = "panel.hassUrl";
+  /* Units statistics are reported in, whatever the sensor itself uses. */
+  const STAT_UNITS = { energy: "kWh", volume: "L" };
 
   /* ---- Auth ---------------------------------------------------------------- */
 
@@ -332,6 +334,29 @@
           out[id] = rows.map((r) => ({ s: r.s, a: r.a || {}, t: (r.lu || r.lc) * 1000 }));
         }
         return out;
+      },
+      /* Use per day since `start` from the long-term statistics, energy in kWh and
+       * water in L: {entity_id: [{t: start of the day in ms, change}]}. */
+      async dailyUse(ids, start) {
+        const res = await send({
+          type: "recorder/statistics_during_period",
+          start_time: start.toISOString(),
+          statistic_ids: ids,
+          period: "day",
+          types: ["change"],
+          units: STAT_UNITS,
+        });
+        const out = {};
+        for (const [id, rows] of Object.entries(res || {})) out[id] = rows.map((r) => ({ t: r.start, change: r.change }));
+        return out;
+      },
+      /* Use so far today per entity (the running hour included, from the
+       * short-term statistics): {entity_id: change | null}. */
+      async useToday(ids) {
+        const one = (id) =>
+          send({ type: "recorder/statistic_during_period", statistic_id: id, calendar: { period: "day" }, types: ["change"], units: STAT_UNITS });
+        const results = await Promise.all(ids.map(one));
+        return Object.fromEntries(ids.map((id, i) => [id, results[i] && Number.isFinite(results[i].change) ? results[i].change : null]));
       },
       /* {entity_id: [{s: number|string, t: ms}]} for the period since `start`. */
       async history(ids, start) {

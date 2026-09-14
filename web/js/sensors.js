@@ -77,48 +77,37 @@
     if (!root) return;
     const c = cards[i];
     const e = c.entities;
-    const card = root.querySelector(`[data-sensor-card="${i}"]`);
     const view = KINDS[c.kind](e);
     const offline = Panel.isLoaded() && Panel.unavailable(st(view.main));
-    card.className = `sn-card tone-${offline ? "offline" : view.tone}`;
-    const chips = offline ? [] : view.chips.filter((chip) => chip && chip[1]);
     const changed = (st(view.main) || {}).lastChanged;
     const battery = reading(e.battery, 0, "%");
-    card.querySelector(".sn-body").innerHTML =
-      `<div class="sn-value"><b${view.colour && !offline ? ` style="color:${view.colour}"` : ""}>${esc(offline ? "Offline" : view.big)}</b>` +
-      (!offline && view.unit ? `<span>${view.unit}</span>` : "") +
-      `</div>` +
-      (chips.length ? `<div class="sn-chips">${chips.map(([ic, text]) => `<span>${icon(ic)}${esc(text)}</span>`).join("")}</div>` : "") +
-      `<footer class="sn-foot"><span>${changed ? esc(Util.since(changed)) : ""}</span>` +
-      (battery ? `<span class="${Panel.num(e.battery) < 20 ? "low" : ""}">${icon("battery")}${battery}</span>` : "") +
-      `</footer>`;
-    if (flash) {
-      void card.offsetWidth; /* restart the animation */
-      card.classList.add("flash");
-    }
+    Panel.fillCard(
+      root.querySelector(`[data-sensor-card="${i}"]`),
+      offline
+        ? { tone: "offline", big: "Offline", foot: [[changed ? esc(Util.since(changed)) : ""]] }
+        : {
+            ...view,
+            foot: [[changed ? esc(Util.since(changed)) : ""], battery && [`${icon("battery")}${battery}`, Panel.num(e.battery) < 20 ? "low" : ""]],
+          },
+      flash
+    );
   }
 
   function build(page) {
-    root = page.querySelector(".sn");
+    root = page.querySelector(".dc-page");
     root.innerHTML = GROUPS.map(([title, kinds]) => {
       const members = cards.map((c, i) => [c, i]).filter(([c]) => kinds.includes(c.kind));
       if (!members.length) return "";
       return (
-        `<section class="sn-group"><h2 class="sn-title">${title}</h2><div class="sn-grid">` +
-        members
-          .map(
-            ([c, i]) =>
-              `<article class="sn-card" data-sensor-card="${i}"><header class="sn-head"><span class="sn-icon">${icon(ICON[c.kind])}</span>` +
-              `<b>${esc(c.label)}</b><i class="sn-dot"></i></header><div class="sn-body"></div></article>`
-          )
-          .join("") +
+        `<section class="dc-group"><h2 class="dc-title">${title}</h2><div class="dc-grid">` +
+        members.map(([c, i]) => Panel.cardHtml(`data-sensor-card="${i}"`, ICON[c.kind], c.label)).join("") +
         `</div></section>`
       );
     }).join("");
     cards.forEach((_, i) => render(i, false));
   }
 
-  Panel.definePage("sensors", { className: "sensors-page", html: () => `<div id="sensorsPage" class="sn"></div>`, build });
+  Panel.definePage("sensors", { className: "sensors-page", html: () => `<div id="sensorsPage" class="dc-page"></div>`, build });
   cards.forEach((c, i) => Panel.track(Object.values(c.entities), (changed, first) => render(i, !first)));
   /* "3 min geleden" moves on. */
   Panel.on("minute", () => cards.forEach((_, i) => render(i, false)));

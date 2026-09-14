@@ -1,7 +1,8 @@
 /* Climate and air readings: which entities are sensors, CO2 validity, a 24 h
- * history per reading (Home Assistant's history at start, live values after)
- * and the comfort and air-quality colour bands that the header, the popups and
- * the screensaver share. Emits "reading" (id) and "history". */
+ * history per reading (Home Assistant's history at start, live values after;
+ * other modules add readings with Panel.keepHistory) and the comfort and
+ * air-quality colour bands that the header, the popups and the screensaver
+ * share. Emits "reading" (id) and "history". */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -107,8 +108,7 @@
     }
   }
 
-  const sensorIds = [...cfg.sensors.flatMap((s) => [s.temp, s.humidity]), ...airKind.keys()].filter(Boolean);
-  Panel.track(sensorIds, (changed) => {
+  function onReadings(changed) {
     for (const id of changed) {
       const s = Panel.st(id);
       const prev = lastRaw.get(id);
@@ -118,7 +118,16 @@
       if (s && !startupZero) pushReading(id, s);
       Panel.emit("reading", id);
     }
-  });
+  }
+  const sensorIds = [...cfg.sensors.flatMap((s) => [s.temp, s.humidity]), ...airKind.keys()].filter(Boolean);
+  Panel.track(sensorIds, onReadings);
+  /* Another module's numeric readings, kept the same way (24 h of history, then
+   * live values) for its own charts. Call before the states arrive. */
+  Panel.keepHistory = function (ids) {
+    const fresh = ids.filter((id) => id && !historyIds.includes(id));
+    historyIds.push(...fresh);
+    Panel.track(fresh, onReadings);
+  };
   Panel.on("loaded", loadHistory);
   setInterval(() => Panel.isLoaded() && loadHistory(), 30 * 60e3);
 })();

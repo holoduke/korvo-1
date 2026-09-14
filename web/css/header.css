@@ -94,8 +94,10 @@
   background: var(--bg);
   transition: background-color 0.35s;
 }
+/* Each tab is as wide as its label plus an equal share of the room left, so
+ * the gaps between labels are even. */
 .tab {
-  flex: 1;
+  flex: 1 1 auto;
   font-size: 24px;
   font-weight: 600;
   font-variant-caps: all-small-caps;
@@ -104,13 +106,19 @@
   transition: color 0.2s;
 }
 .tab.active { color: var(--accent); }
+/* More tabs hide past the right edge (narrow phones). */
+.tabbar.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
 /* Section tabs carry an icon next to their label. */
 .tab { display: inline-flex; align-items: center; justify-content: center; gap: .38em; }
 .tab .ic { width: 1.12em; height: 1.12em; flex: 0 0 auto; }
 .tab .tab-label { line-height: 1; }
-/* Too narrow for icons next to six labels: the labels stay. */
-@media (max-width: 860px) {
+/* Icons only where all seven fit next to their labels with room between them. */
+@media (max-width: 1099px) {
   .tab .ic { display: none; }
+}
+/* The panel's 800x480 and iPad portrait: a size smaller keeps the labels apart. */
+@media (min-width: 761px) and (max-width: 959px) {
+  .tab { font-size: 22px; }
 }
 .tabind {
   position: absolute;
@@ -140,7 +148,13 @@
   .clock { font-size: 28px; }
   .gear { font-size: 26px; }
   .hdr-strip { flex: 1 1 100%; padding-bottom: 2px; }
-  /* Six sections: tabs sized to their labels instead of equal shares; 12 px
-   * small caps is what fits them all on a 390 px phone. */
-  .tab { font-size: 12px; flex: 1 1 auto; padding: 0 3px; }
+  /* Seven sections in small caps, a little tighter: 12 px, and 11 px on the
+   * common 390-420 px phones. A phone narrower still scrolls the bar sideways
+   * (sections.js keeps the active tab in view). */
+  .tabbar { padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
+  .tabbar::-webkit-scrollbar { display: none; }
+  .tab { font-size: 12px; flex: 1 0 auto; padding: 0 3px; letter-spacing: 0.02em; }
+}
+@media (max-width: 420px) {
+  .tab { font-size: 11px; }
 }

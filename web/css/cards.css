@@ -1,0 +1,74 @@
+/* Device cards (js/cards.js), shared by Sensoren and Energie: a scrolling page
+ * of titled groups with a grid of live cards. A card's tone colours its
+ * outline, icon and dot (active and warn pulse); any change can flash it.
+ * .dc-panel is the same surface for other content on such a page. */
+
+.dc-page { display: flex; flex-direction: column; gap: 18px; padding: var(--pad) 20px var(--pad) var(--pad); min-height: 0; overflow-y: auto; touch-action: pan-y; scrollbar-width: none; }
+.dc-page::-webkit-scrollbar { display: none; }
+.dc-title { margin: 0 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.dc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+
+.dc-card, .dc-panel {
+  position: relative; min-width: 0; border-radius: 18px;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--tile) 90%, #fff 10%) 0%, var(--tile_off) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+.dc-card {
+  --dc-tone: var(--text_dim);
+  overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px;
+  transition: box-shadow 0.4s, opacity 0.3s;
+}
+.dc-card.tone-active { --dc-tone: var(--accent); }
+.dc-card.tone-warn { --dc-tone: var(--warn); }
+.dc-card.tone-active, .dc-card.tone-warn { box-shadow: inset 0 0 0 2px var(--dc-tone), 0 8px 28px color-mix(in srgb, var(--dc-tone) 28%, transparent); }
+.dc-card.tone-offline { opacity: 0.55; }
+/* A soft light that fades out after a reading changes. */
+.dc-card::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 70%);
+}
+.dc-card.flash::after { animation: dc-flash 1.4s ease-out; }
+@keyframes dc-flash { from { opacity: 1; } to { opacity: 0; } }
+
+.dc-head { display: flex; align-items: center; gap: 10px; min-width: 0; padding-right: 16px; }
+/* --dc-icon: the card's own colour for its icon (Energie), else the tone's. */
+.dc-icon { flex: none; width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 18px; color: var(--dc-icon, var(--dc-tone)); background: color-mix(in srgb, var(--dc-icon, var(--dc-tone)) 16%, transparent); }
+/* The name may take two lines: room names are the point of the card. */
+.dc-head b { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.dc-dot { position: absolute; top: 14px; right: 14px; width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, var(--text_dim) 40%, transparent); }
+.tone-active .dc-dot, .tone-warn .dc-dot { background: var(--dc-tone); animation: dc-pulse 1.6s ease-out infinite; }
+@keyframes dc-pulse { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dc-tone) 60%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }
+
+.dc-value { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.dc-value b { font-size: 34px; font-weight: 700; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; transition: color 0.4s; }
+.tone-active .dc-value b, .tone-warn .dc-value b { color: var(--dc-tone); }
+.dc-value span { font-size: 14px; font-weight: 700; color: var(--text_dim); white-space: nowrap; }
+.dc-level { height: 6px; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.dc-level i { display: block; height: 100%; border-radius: inherit; transition: width 0.6s var(--ease-out); }
+.dc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dc-chips span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.dc-chips .ic { font-size: 13px; color: var(--text_dim); }
+.dc-chips .warn, .dc-chips .warn .ic { color: var(--warn); }
+.dc-foot { margin-top: auto; display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text_dim); }
+.dc-foot span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.dc-foot b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.dc-foot .ic { font-size: 13px; }
+.dc-foot .low { color: var(--bad); }
+
+@media (max-height: 540px) {
+  .dc-page { padding: 12px 16px 12px 12px; gap: 12px; }
+  .dc-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .dc-icon { width: 28px; height: 28px; border-radius: 9px; font-size: 15px; }
+  .dc-head { gap: 8px; }
+  .dc-value b { font-size: 26px; }
+}
+@media (max-width: 760px) {
+  .dc-page { padding: 12px; gap: 14px; }
+  .dc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .dc-card { padding: 12px; }
+  .dc-icon { width: 28px; height: 28px; border-radius: 9px; font-size: 15px; }
+  .dc-head { gap: 8px; }
+  .dc-head b { font-size: 14px; }
+  .dc-dot { top: 12px; right: 12px; }
+  .dc-value b { font-size: 26px; }
+}

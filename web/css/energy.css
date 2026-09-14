@@ -1,0 +1,77 @@
+/* Energie: the rows of panels above the device cards (css/cards.css): now, the
+ * smart meter and today; the power chart and the week. */
+
+.en-row { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
+.en-row.no-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.en-row.charts { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.en-row .dc-panel { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.en-row .dc-title { margin: 0; }
+
+.en-big { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.en-big b { font-size: 50px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.en-big span { font-size: 18px; font-weight: 700; color: var(--text_dim); }
+.en-sub { font-size: 13px; font-weight: 600; color: var(--text_dim); }
+/* Who uses what share of "nu". */
+.en-share { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.en-share i { flex-basis: 0; min-width: 4px; }
+.en-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; font-weight: 600; }
+.en-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.en-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.en-legend b { font-variant-numeric: tabular-nums; }
+.en-legend .idle { color: var(--text_dim); }
+
+/* Smart meter */
+.en-grid.missing { background: none; box-shadow: none; outline: 2px dashed color-mix(in srgb, var(--text_dim) 35%, transparent); outline-offset: -2px; }
+.en-empty { display: flex; align-items: flex-start; gap: 14px; }
+.en-empty-icon { flex: none; width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; font-size: 22px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.en-empty b { font-size: 18px; }
+.en-empty p { margin: 6px 0 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--text_dim); }
+.en-flow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.en-flow .ic { font-size: 26px; }
+.en-flow.import .ic { color: var(--warn); }
+.en-flow.export .ic { color: var(--ok); }
+.en-flow b { font-size: 34px; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.en-flow span { font-size: 13px; font-weight: 600; color: var(--text_dim); }
+.en-phases { display: grid; gap: 6px; }
+.en-phase { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.en-phase small { margin-left: 6px; font-weight: 600; color: var(--text_dim); }
+.en-bar { height: 8px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.en-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.6s var(--ease-out); }
+.en-meter { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
+.en-meter b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Today per device */
+.en-list { display: flex; flex-direction: column; gap: 7px; margin: 2px 0 0; padding: 0; list-style: none; }
+.en-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+.en-list i { width: 10px; height: 10px; border-radius: 3px; }
+.en-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.en-list b { font-variant-numeric: tabular-nums; }
+
+/* Charts */
+.en-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.en-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.en-pick button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--text_dim); background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.en-pick button i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.en-pick button.active { color: var(--text); box-shadow: inset 0 0 0 2px var(--c); }
+.en-chart { height: 210px; min-width: 0; }
+.en-chart canvas { display: block; width: 100%; height: 100%; }
+.en-power-foot { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
+.en-power-foot b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1000px) {
+  .en-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .en-row:not(.no-grid) .en-now { grid-column: 1 / -1; }
+  .en-row.charts { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 540px) {
+  .en-row { gap: 10px; }
+  .en-row .dc-panel { padding: 12px 14px; gap: 8px; }
+  .en-big b { font-size: 38px; }
+  .en-chart { height: 160px; }
+}
+@media (max-width: 760px) {
+  .en-row, .en-row.no-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .en-row .dc-panel { padding: 14px; }
+  .en-big b { font-size: 40px; }
+  .en-chart { height: 180px; }
+}

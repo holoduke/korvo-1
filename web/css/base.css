@@ -92,7 +92,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   min-width: 0;
 }
 /* Pages without a bottom row. */
-.page.vac-page, .page.car-page, .page.appl-page, .page.sensors-page { grid-template-rows: minmax(0, 1fr); }
+.page.vac-page, .page.car-page, .page.appl-page, .page.sensors-page, .page.energy-page { grid-template-rows: minmax(0, 1fr); }
 
 /* ---- Overlays ---------------------------------------------------------------- */
 .overlay {

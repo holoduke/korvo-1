@@ -65,6 +65,16 @@
     track.style.transform = `translate3d(${-Panel.section * stage.clientWidth + offsetPx}px,0,0)`;
   }
 
+  /* A phone too narrow for every tab scrolls the bar: the active tab is kept in
+   * view (scrollTo, not scrollIntoView, which could also shift the page track). */
+  function revealTab(i, animate) {
+    const bar = $("tabbar");
+    const room = bar.scrollWidth - bar.clientWidth;
+    if (room <= 0) return;
+    const t = tabs()[i];
+    bar.scrollTo({ left: Util.clamp(t.offsetLeft - (bar.clientWidth - t.offsetWidth) / 2, 0, room), behavior: animate ? "smooth" : "auto" });
+  }
+
   Panel.setSection = function (i, animate) {
     i = Util.clamp(i, 0, cfg.sections.length - 1);
     const changed = i !== Panel.section;
@@ -72,6 +82,7 @@
     tabs().forEach((el, k) => el.classList.toggle("active", k === i));
     setTrack(0, animate);
     setIndicator(i, animate);
+    revealTab(i, animate);
     if (changed) Panel.emit("section", i);
     writeHash();
   };
@@ -101,8 +112,8 @@
   let urlReady = false; /* false until the hash has been read at start-up */
   function hashFor() {
     const s = cfg.sections[Panel.section];
-    const route = pages[s.kind].route;
-    return "#" + Util.slug(s.name) + (route ? "/" + route.path() : "");
+    const path = pages[s.kind].route ? pages[s.kind].route.path() : "";
+    return "#" + Util.slug(s.name) + (path ? "/" + path : "");
   }
   function writeHash() {
     if (!urlReady) return;
@@ -148,5 +159,6 @@
      * indicator follows them. */
     const ro = new ResizeObserver(() => setIndicator(Panel.section, false));
     tabs().forEach((tab) => ro.observe(tab));
+    Util.watchOverflow($("tabbar"));
   });
 })();

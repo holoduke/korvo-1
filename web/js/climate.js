@@ -5,7 +5,7 @@
   "use strict";
   const Panel = window.Panel;
   const { cfg, $ } = Panel;
-  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const css = Panel.cssVar;
   const ranges = Panel.chartRanges;
 
   let popup = null; /* {kind: "climate"|"air", idx} */

@@ -237,6 +237,45 @@
       put("distance", "1.4", { unit_of_measurement: "m" });
       put("battery", gone || c.kind === "motion" ? "unavailable" : String(first ? 90 : 100), { unit_of_measurement: "%" });
     });
+    /* Energie: the devices' own states come from the appliances and the car above;
+     * the Stromer's counters, one battery at work and one out of reach. No smart
+     * meter: tests add one with setState. */
+    let batteries = 0;
+    (cfg.energy || []).forEach((d) => {
+      const e = d.entities;
+      const put = (key, state, attributes = {}) => e[key] && !states.has(e[key]) && set(e[key], state, attributes);
+      if (d.kind === "bike") {
+        put("battery", "86", { unit_of_measurement: "%" });
+        put("energy", "27510", { unit_of_measurement: "Wh" });
+        put("average", "14", { unit_of_measurement: "Wh" });
+        put("distance", "1872.3", { unit_of_measurement: "km" });
+      } else if (d.kind === "battery" && batteries++ === 0) {
+        put("soc", "76", { unit_of_measurement: "%" });
+        put("power", "420", { unit_of_measurement: "W" });
+        put("voltage", "13.31", { unit_of_measurement: "V" });
+        ["cell1", "cell2", "cell3", "cell4"].forEach((k, i) => put(k, String(3.326 + i * 0.002), { unit_of_measurement: "V" }));
+        put("delta", "6", { unit_of_measurement: "mV" });
+        put("cycles", "112");
+        put("health", "98", { unit_of_measurement: "%" });
+        put("temp", "27.5", { unit_of_measurement: "°C" });
+        put("charged", "812.4", { unit_of_measurement: "kWh" });
+        put("discharged", "776.9", { unit_of_measurement: "kWh" });
+      } else if (d.kind === "battery") {
+        Object.keys(e).forEach((k) => put(k, "unavailable"));
+      }
+    });
+    /* A plausible day's use per counter: kWh, water in L. */
+    const demoUse = (id) =>
+      /water/.test(id) ? 48
+      : /energy_added/.test(id) ? 14
+      : /energy_used/.test(id) ? 0.25
+      : /charged/.test(id) ? 1.2
+      : /import/.test(id) ? 9
+      : /export/.test(id) ? 3
+      : /droger/.test(id) ? 1.6
+      : 0.9;
+    const WEEK_SHAPE = [0.4, 1.3, 0, 1, 1.6, 0.2];
+
     set(cfg.weather, "partlycloudy", { temperature: 17 });
     cfg.media.forEach((m, i) => {
       if (!states.has(m.id)) set(m.id, i === 0 ? "playing" : "idle", i === 0 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : {});
@@ -512,9 +551,40 @@
         });
         return out;
       },
+      /* Six earlier days of use per counter (today's comes from useToday). */
+      async dailyUse(ids, start) {
+        const out = {};
+        ids.filter((id) => states.has(id)).forEach((id) => {
+          const day = new Date(start);
+          day.setHours(0, 0, 0, 0);
+          out[id] = WEEK_SHAPE.map((f) => {
+            const row = { t: day.getTime(), change: Math.round(demoUse(id) * f * 100) / 100 };
+            day.setDate(day.getDate() + 1);
+            return row;
+          });
+        });
+        return out;
+      },
+      async useToday(ids) {
+        return Object.fromEntries(ids.map((id) => [id, states.has(id) ? Math.round(demoUse(id) * 80) / 100 : null]));
+      },
       async history(ids, start) {
         const out = {};
         ids.forEach((id) => {
+          if (/power(_phase_\d)?$/.test(id)) {
+            /* Power: mostly idle, a cycle at full load every 8 hours (a battery swings both ways). */
+            if (!states.has(id)) return;
+            const kw = (states.get(id).attributes || {}).unit_of_measurement === "kW";
+            const rows = [];
+            for (let t = start.getTime(); t < Date.now(); t += 10 * 60e3) {
+              const h = (t - start.getTime()) / 3600e3;
+              const v = /jk_bms/.test(id) ? Math.round(500 * Math.sin(h / 2.5)) : h % 8 > 6.5 ? (kw ? 7.2 : 1900) : 0;
+              rows.push({ s: String(v), t });
+            }
+            rows.push({ s: states.get(id).state, t: Date.now() });
+            out[id] = rows;
+            return;
+          }
           const cur = parseFloat((states.get(id) || {}).state);
           /* Plausible daily shapes: [amplitude, period (h), phase (h), noise]. */
           const shape = /carbon_dioxide/.test(id)

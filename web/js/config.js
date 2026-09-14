@@ -758,6 +758,12 @@ window.PANEL_CONFIG = {
       "kind": "sensors",
       "icon": "eye",
       "tab": null
+    },
+    {
+      "name": "Energie",
+      "kind": "energy",
+      "icon": "bolt",
+      "tab": null
     }
   ],
   "sensors": [
@@ -1242,6 +1248,113 @@ window.PANEL_CONFIG = {
         "temperature": "sensor.sensor_buiten_voor_1_temperature",
         "humidity": "sensor.sensor_buiten_voor_1_humidity",
         "battery": "sensor.sensor_buiten_voor_1_battery"
+      }
+    }
+  ],
+  "energy": [
+    {
+      "kind": "grid",
+      "label": "Slimme meter",
+      "name": "p1_meter",
+      "entities": {
+        "power": "sensor.p1_meter_power",
+        "import": "sensor.p1_meter_energy_import",
+        "export": "sensor.p1_meter_energy_export",
+        "power1": "sensor.p1_meter_power_phase_1",
+        "power2": "sensor.p1_meter_power_phase_2",
+        "power3": "sensor.p1_meter_power_phase_3",
+        "voltage1": "sensor.p1_meter_voltage_phase_1",
+        "voltage2": "sensor.p1_meter_voltage_phase_2",
+        "voltage3": "sensor.p1_meter_voltage_phase_3",
+        "current1": "sensor.p1_meter_current_phase_1",
+        "current2": "sensor.p1_meter_current_phase_2",
+        "current3": "sensor.p1_meter_current_phase_3"
+      }
+    },
+    {
+      "kind": "washer",
+      "label": "Wasmachine",
+      "name": "wasruimte_wasmachine",
+      "entities": {
+        "power": "sensor.wasruimte_wasmachine_power",
+        "energy": "sensor.wasruimte_wasmachine_energy",
+        "water": "sensor.wasruimte_wasmachine_water_consumption",
+        "machine": "sensor.wasruimte_wasmachine_machine_state"
+      }
+    },
+    {
+      "kind": "dryer",
+      "label": "Droger",
+      "name": "wasruimte_droger",
+      "entities": {
+        "power": "sensor.wasruimte_droger_power",
+        "energy": "sensor.wasruimte_droger_energy",
+        "machine": "sensor.wasruimte_droger_machine_state"
+      }
+    },
+    {
+      "kind": "car",
+      "label": "Tesla",
+      "name": "vlm",
+      "entities": {
+        "battery": "sensor.vlm_battery_level",
+        "charging": "sensor.vlm_charging",
+        "chargerPower": "sensor.vlm_charger_power",
+        "chargerVoltage": "sensor.vlm_charger_voltage",
+        "chargerCurrent": "sensor.vlm_charger_current",
+        "energyAdded": "sensor.vlm_charge_energy_added",
+        "location": "device_tracker.vlm_location"
+      }
+    },
+    {
+      "kind": "bike",
+      "label": "Stromer",
+      "name": "st7",
+      "entities": {
+        "battery": "sensor.st7_battery",
+        "energy": "sensor.st7_energy_used_total",
+        "average": "sensor.st7_energy_used_average",
+        "distance": "sensor.st7_total_distance"
+      }
+    },
+    {
+      "kind": "battery",
+      "label": "Accu 1",
+      "name": "jk_bms_1",
+      "entities": {
+        "soc": "sensor.jk_bms_1_soc",
+        "power": "sensor.jk_bms_1_power",
+        "voltage": "sensor.jk_bms_1_voltage",
+        "cell1": "sensor.jk_bms_1_cell_1",
+        "cell2": "sensor.jk_bms_1_cell_2",
+        "cell3": "sensor.jk_bms_1_cell_3",
+        "cell4": "sensor.jk_bms_1_cell_4",
+        "delta": "sensor.jk_bms_1_cell_delta",
+        "cycles": "sensor.jk_bms_1_cycles",
+        "health": "sensor.jk_bms_1_health",
+        "temp": "sensor.jk_bms_1_mosfet_temp",
+        "charged": "sensor.jk_bms_1_energy_charged",
+        "discharged": "sensor.jk_bms_1_energy_discharged"
+      }
+    },
+    {
+      "kind": "battery",
+      "label": "Accu 2",
+      "name": "jk_bms_2",
+      "entities": {
+        "soc": "sensor.jk_bms_2_soc",
+        "power": "sensor.jk_bms_2_power",
+        "voltage": "sensor.jk_bms_2_voltage",
+        "cell1": "sensor.jk_bms_2_cell_1",
+        "cell2": "sensor.jk_bms_2_cell_2",
+        "cell3": "sensor.jk_bms_2_cell_3",
+        "cell4": "sensor.jk_bms_2_cell_4",
+        "delta": "sensor.jk_bms_2_cell_delta",
+        "cycles": "sensor.jk_bms_2_cycles",
+        "health": "sensor.jk_bms_2_health",
+        "temp": "sensor.jk_bms_2_mosfet_temp",
+        "charged": "sensor.jk_bms_2_energy_charged",
+        "discharged": "sensor.jk_bms_2_energy_discharged"
       }
     }
   ],

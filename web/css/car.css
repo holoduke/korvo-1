@@ -38,7 +38,6 @@
 .cp-label small:empty { display: none; }
 .cp .vbtn.on { background: var(--tile_on); color: var(--on_text); }
 .cp .vbtn.armed { background: var(--bad); color: #fff; }
-.cp .vbtn.pending, .cp .vchip.pending { opacity: 0.55; }
 .cp-dots { position: absolute; top: 14px; right: 14px; display: flex; gap: 4px; }
 .cp-dots s { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.25; text-decoration: none; }
 .cp-dots s.lit { opacity: 1; }

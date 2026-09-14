@@ -494,6 +494,34 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Buiten voor",      "sensor_buiten_voor_1" },
 };
 
+/* The web app's "Energie" section (the panel's firmware does not show it): one
+ * row per meter, device or battery; kind selects which entities it has, name
+ * is the device's part of its entity ids; tools/gen_web_config.py derives the
+ * rest. Kinds:
+ *   grid     the smart meter (P1), with HomeWizard's entity names
+ *            (sensor.<name>_power, _energy_import, _energy_export,
+ *            _power_phase_1 ...). At most one; until it exists in Home
+ *            Assistant the page shows where it will appear.
+ *   washer, dryer   power, energy and water of the laundry appliances
+ *   car      Tesla Fleet charging (name = the car name, as in PANEL_CAR)
+ *   bike     Stromer (name = the bike name)
+ *   battery  a JK BMS on the JKBMS-ESP32 firmware
+ * Order = display order. */
+typedef struct {
+    const char *kind;
+    const char *label;
+    const char *name;
+} panel_energy_t;
+static const panel_energy_t PANEL_ENERGY[] = {
+    { "grid",    "Slimme meter", "p1_meter" },
+    { "washer",  "Wasmachine",   "wasruimte_wasmachine" },
+    { "dryer",   "Droger",       "wasruimte_droger" },
+    { "car",     "Tesla",        "vlm" },
+    { "bike",    "Stromer",      "st7" },
+    { "battery", "Accu 1",       "jk_bms_1" },
+    { "battery", "Accu 2",       "jk_bms_2" },
+};
+
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
  * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */
@@ -510,7 +538,7 @@ static const panel_floor_t PANEL_FLOORS[] = {
 
 typedef struct {
     const char *name;
-    const char *kind; /* "floors", "appliances", "vacuum", "car", or "tab" (one PANEL_TABS entry) */
+    const char *kind; /* "floors", "appliances", "vacuum", "car", "sensors", "energy", or "tab" (one PANEL_TABS entry) */
     const char *tab;  /* for "tab": the PANEL_TABS name */
 } panel_section_t;
 static const panel_section_t PANEL_SECTIONS[] = {
@@ -520,4 +548,5 @@ static const panel_section_t PANEL_SECTIONS[] = {
     { "Garage",      "tab",    "Garage" },
     { "Tesla",       "car",    NULL },
     { "Sensoren",    "sensors", NULL },
+    { "Energie",     "energy", NULL },
 };

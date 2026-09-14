@@ -17,6 +17,8 @@
 .vbtn .ic { font-size: 22px; }
 .vbtn.primary { background: var(--accent); color: var(--on_text); }
 .vbtn:disabled { opacity: 0.45; cursor: default; }
+/* Sent, waiting for Home Assistant to report it. */
+.vchip.pending, .vbtn.pending { opacity: 0.55; }
 .vchip.pressed, .vbtn.pressed { transform: scale(0.95); }
 .vs-chips { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 10px; }
 

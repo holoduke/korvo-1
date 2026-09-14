@@ -11,6 +11,8 @@
   "use strict";
   const Panel = window.Panel;
   const { cfg } = Panel;
+  /* Tesla Fleet's charging states in words (the Energie section shows them too). */
+  const CHARGING_NL = (Panel.CHARGING_NL = { starting: "Start", charging: "Laadt", stopped: "Gestopt", complete: "Vol", disconnected: "Niet aangesloten", no_power: "Geen stroom" });
   const car = cfg.car;
   if (!car) return;
   const E = car.entities;
@@ -19,7 +21,6 @@
   const CONFIRM_MS = 3000;
   const PENDING_MS = 20000; /* a sleeping car first has to wake up */
 
-  const CHARGING_NL = { starting: "Start", charging: "Laadt", stopped: "Gestopt", complete: "Vol", disconnected: "Niet aangesloten", no_power: "Geen stroom" };
   const SHIFT_NL = { p: "Geparkeerd", d: "Rijdt", r: "Achteruit", n: "Neutraal" };
   const PRESET_NL = { off: "Normaal", keep: "Behouden", dog: "Hond", camp: "Kamperen" };
   const LEVEL_NL = { off: "Uit", low: "Laag", medium: "Midden", high: "Hoog" };

@@ -66,6 +66,12 @@ slider, the Klimaat chart, the AI oog screensaver, and all six themes.
 - **Login** uses Home Assistant's own OAuth flow (like the HA app); no token
   is stored in the code. Tokens are kept per browser and refreshed.
 - **Demo**: append `?demo` for a fake backend that never touches real lights.
+- **Energie** (`PANEL_ENERGY`): live power, use per day and per week from Home
+  Assistant's statistics, a 24 h power chart and a card per device (washer,
+  dryer, Tesla charging, Stromer, JK BMS batteries). The smart meter row uses
+  HomeWizard's P1 entity names (`sensor.p1_meter_power`, `_energy_import`,
+  `_energy_export`, `_power_phase_1` ...); until those exist the page shows
+  where it will appear, and once they do it leads the totals.
 - **Appliance photos** are manufacturers' pictures, so they are not in this
   repository: put them in Home Assistant's `/config/www/apparaten/` with a
   `photos.json` that maps each appliance's label slug to its file

@@ -295,19 +295,46 @@ SENSOR_ENTITIES = {
 }
 
 
-def parse_sensor_cards(src):
-    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, "PANEL_SENSOR_CARDS"))
+# Energy section entities by kind: key -> entity id template ({n} = the device name).
+ENERGY_ENTITIES = {
+    # HomeWizard's names for a P1 meter's entities
+    "grid": {"power": "sensor.{n}_power", "import": "sensor.{n}_energy_import", "export": "sensor.{n}_energy_export",
+             **{f"{q}{p}": f"sensor.{{n}}_{q}_phase_{p}" for q in ("power", "voltage", "current") for p in (1, 2, 3)}},
+    "washer": {k: APPLIANCE_ENTITIES["washer"][k] for k in ("power", "energy", "water", "machine")},
+    "dryer": {k: APPLIANCE_ENTITIES["dryer"][k] for k in ("power", "energy", "machine")},
+    "car": {key: f"{domain}.{{n}}_{object_id}" for key, domain, object_id in TESLA_FLEET_ENTITIES
+            if key in ("battery", "charging", "chargerPower", "chargerVoltage", "chargerCurrent", "energyAdded", "location")},
+    "bike": {"battery": "sensor.{n}_battery", "energy": "sensor.{n}_energy_used_total",
+             "average": "sensor.{n}_energy_used_average", "distance": "sensor.{n}_total_distance"},
+    "battery": {"soc": "sensor.{n}_soc", "power": "sensor.{n}_power", "voltage": "sensor.{n}_voltage",
+                **{f"cell{c}": f"sensor.{{n}}_cell_{c}" for c in (1, 2, 3, 4)}, "delta": "sensor.{n}_cell_delta",
+                "cycles": "sensor.{n}_cycles", "health": "sensor.{n}_health", "temp": "sensor.{n}_mosfet_temp",
+                "charged": "sensor.{n}_energy_charged", "discharged": "sensor.{n}_energy_discharged"},
+}
+
+
+def parse_device_table(src, table, kinds):
+    """A table of { kind, label, name } rows -> [{kind, label, name, entities}],
+    the entity ids filled in from the kind's templates."""
+    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, table))
     if not rows:
-        fail("PANEL_SENSOR_CARDS is empty or unparsable")
+        fail(f"{table} is empty or unparsable")
     out = []
     for kind, label, name in rows:
-        if kind not in SENSOR_ENTITIES:
-            fail(f"PANEL_SENSOR_CARDS {label!r}: unknown kind {kind!r}")
+        if kind not in kinds:
+            fail(f"{table} {label!r}: unknown kind {kind!r}")
         if not re.fullmatch(r"[a-z0-9_]+", name):
-            fail(f"PANEL_SENSOR_CARDS {label!r}: bad name {name!r}")
+            fail(f"{table} {label!r}: bad name {name!r}")
         out.append({"kind": kind, "label": label, "name": name,
-                    "entities": {k: t.format(n=name) for k, t in SENSOR_ENTITIES[kind].items()}})
+                    "entities": {k: t.format(n=name) for k, t in kinds[kind].items()}})
     return out
+
+
+def parse_energy(src):
+    devices = parse_device_table(src, "PANEL_ENERGY", ENERGY_ENTITIES)
+    if sum(d["kind"] == "grid" for d in devices) > 1:
+        fail("PANEL_ENERGY: more than one grid meter")
+    return devices
 
 
 def parse_appliances(src, media):
@@ -380,11 +407,11 @@ def parse_layout(src, tabs):
     # Tab icon per section kind (name from web/js/icons.js). "tab" is the
     # garage lights page; adjust here if a different tab is ever added.
     section_icons = {"floors": "lights", "appliances": "plug", "vacuum": "vacuum",
-                     "car": "car", "sensors": "eye", "tab": "garage"}
+                     "car": "car", "sensors": "eye", "energy": "bolt", "tab": "garage"}
     sections = []
     for name, kind, tab in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}',
                                       array_body(src, "PANEL_SECTIONS")):
-        if kind not in ("floors", "appliances", "vacuum", "car", "sensors", "tab"):
+        if kind not in section_icons:
             fail(f"PANEL_SECTIONS: unknown kind {kind!r}")
         tab_name = c_string_or_null(tab)
         if (kind == "tab") != (tab_name is not None):
@@ -445,7 +472,8 @@ def main():
         "bike": parse_bike(cfg),
         "car": parse_car(cfg),
         "appliances": parse_appliances(cfg, media),
-        "sensorCards": parse_sensor_cards(cfg),
+        "sensorCards": parse_device_table(cfg, "PANEL_SENSOR_CARDS", SENSOR_ENTITIES),
+        "energy": parse_energy(cfg),
         "media": media,
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),

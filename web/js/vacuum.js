@@ -19,6 +19,15 @@
     sideBrush: "Zijborstel", rollBrush: "Hoofdborstel", filter: "Filter", mop: "Dweil",
     engineSensor: "Sensoren", dustbag: "Stofzak", mopCleaningTrough: "Wasbak",
   };
+  /* A choice (mode, suction, water) shows as pending until Home Assistant reports
+   * it. The robot now and then misses a write, and the integration then only logs
+   * "No response from the device" while the service call succeeds: a choice that
+   * has not landed in time is sent once more, then reported. */
+  const CHOICE_MS = 8000;
+  const CHOICE_TRIES = 2;
+  const CHOICE_NOUN = { mode: "modus", fan: "zuigkracht", water: "waterstand" };
+  const tries = new Map(); /* "kind|option" -> times sent */
+  const pending = Util.pendingSet(CHOICE_MS, () => render());
   const selected = new Set(); /* chosen room ids */
   let records = null; /* robot's run log, newest first */
   const lastByRoom = new Map(); /* room id -> ms */
@@ -135,9 +144,18 @@
             : "nu bezig";
     });
 
+    for (const key of pending.settle()) {
+      const [kind, option] = key.split("|");
+      if (tries.get(key) < CHOICE_TRIES) sendChoice(kind, option);
+      else Panel.toast(`${vac.label} reageerde niet: ${CHOICE_NOUN[kind]} is niet aangepast`);
+    }
+    for (const key of [...tries.keys()]) if (!pending.has(key)) tries.delete(key);
     for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
       const cur = (st(id) || {}).state;
-      qa(`[data-vac="${kind}"]`).forEach((c) => c.classList.toggle("active", c.dataset.opt === cur));
+      qa(`[data-vac="${kind}"]`).forEach((c) => {
+        c.classList.toggle("active", c.dataset.opt === cur);
+        c.classList.toggle("pending", pending.has(`${kind}|${c.dataset.opt}`));
+      });
     }
     q(".vs-water").hidden = (st(vac.mode) || {}).state === "OnlySweep";
 
@@ -266,6 +284,27 @@
     render();
   }
 
+  /* Sends a choice and waits for Home Assistant to report it; a newer choice of
+   * the same kind replaces a pending one. */
+  function sendChoice(kind, option) {
+    const key = `${kind}|${option}`;
+    const entity = vac[kind];
+    for (const other of [...tries.keys()]) {
+      if (other.startsWith(kind + "|") && other !== key) {
+        pending.drop(other);
+        tries.delete(other);
+      }
+    }
+    tries.set(key, (tries.get(key) || 0) + 1);
+    pending.mark(key, () => (st(entity) || {}).state === option);
+    Panel.client.callService("select", "select_option", { option }, { entity_id: entity }).catch((err) => {
+      pending.drop(key);
+      tries.delete(key);
+      render();
+      Panel.commandFailed(vac.label)(err);
+    });
+  }
+
   Panel.defineAction("vac", (el) => {
     const kind = el.dataset.vac;
     const target = { entity_id: vac.vacuum };
@@ -277,11 +316,9 @@
       return render();
     }
     if (kind === "mode" || kind === "fan" || kind === "water") {
-      const entity = vac[kind];
-      const s = st(entity);
-      if (s) Panel.client.states.set(entity, { ...s, state: el.dataset.opt }); /* optimistic; HA confirms */
-      render();
-      return Panel.client.callService("select", "select_option", { option: el.dataset.opt }, { entity_id: entity }).catch(fail);
+      if ((st(vac[kind]) || {}).state === el.dataset.opt) return; /* already set */
+      sendChoice(kind, el.dataset.opt);
+      return render();
     }
     if (kind === "rooms") {
       if (!selected.size) return;

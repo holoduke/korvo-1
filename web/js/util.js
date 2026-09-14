@@ -108,7 +108,9 @@
 
     /* Controls waiting for Home Assistant. mark(key, read) remembers read()'s
      * value (a string, or an array compared item by item); the key settles once
-     * read() returns something else, or after `ms`, when `changed` runs. */
+     * read() returns something else, or after `ms`, when `changed` runs.
+     * settle() forgets the settled keys and returns those that ran out of time
+     * without a change (a command that did not land). */
     pendingSet(ms, changed) {
       const items = new Map();
       const same = (a, b) => (Array.isArray(a) ? a.length === b.length && a.every((x, i) => x === b[i]) : a === b);
@@ -121,7 +123,14 @@
         },
         drop: (key) => items.delete(key),
         settle() {
-          for (const [key, p] of items) if (Date.now() > p.until || !same(p.read(), p.value)) items.delete(key);
+          const expired = [];
+          for (const [key, p] of items) {
+            const changed = !same(p.read(), p.value);
+            if (!changed && Date.now() <= p.until) continue;
+            items.delete(key);
+            if (!changed) expired.push(key);
+          }
+          return expired;
         },
       };
     },
