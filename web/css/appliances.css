@@ -35,7 +35,8 @@
 .ap-badge.photo img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 9px; }
 .ap-item .ap-badge.photo { width: 52px; height: 52px; border-radius: 14px; }
 .ap-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ap-item-text b { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A longer name ("Stofzuiger beneden") takes two lines in the column list. */
+.ap-item-text b { font-size: 16px; font-weight: 700; line-height: 1.2; overflow: hidden; overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .ap-item-text small { font-size: 13px; font-weight: 600; color: var(--ap-tone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- Card -------------------------------------------------------------------------- */
@@ -174,7 +175,8 @@
   .ap-item .ap-badge { width: 32px; height: 32px; border-radius: 10px; font-size: 18px; }
   .ap-item .ap-badge.photo { width: 40px; height: 40px; }
   .ap-figure { width: 96px; height: 96px; padding: 6px; }
-  .ap-item-text b { font-size: 14px; }
+  /* The phone's sideways strip keeps names on one line. */
+  .ap-item-text b { font-size: 14px; display: block; white-space: nowrap; text-overflow: ellipsis; }
   .ap-item-text small { font-size: 12px; }
   .ap-card { padding: 16px; gap: 12px; }
   .ap-big { font-size: 44px; }

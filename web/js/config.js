@@ -1144,6 +1144,33 @@ window.PANEL_CONFIG = {
         "player": "media_player.signage_big_ass_tv",
         "wake": "button.signage_big_ass_tv_aanzetten"
       }
+    },
+    {
+      "kind": "robot",
+      "label": "Stofzuiger beneden",
+      "name": "0",
+      "floor": "0",
+      "robot": "xiaomi",
+      "entities": {
+        "vacuum": "vacuum.stofzuiger_xiaomi_robot_cleaner",
+        "status": "sensor.stofzuiger_xiaomi_status",
+        "battery": "sensor.stofzuiger_xiaomi_battery_level",
+        "area": "sensor.stofzuiger_xiaomi_clean_area"
+      }
+    },
+    {
+      "kind": "robot",
+      "label": "Stofzuiger boven",
+      "name": "1",
+      "floor": "1",
+      "robot": "tuya",
+      "entities": {
+        "vacuum": "vacuum.stofzuiger",
+        "battery": "sensor.stofzuiger_battery",
+        "area": "sensor.stofzuiger_cleaning_area",
+        "time": "sensor.stofzuiger_cleaning_time",
+        "problem": "binary_sensor.stofzuiger_problem"
+      }
     }
   ],
   "sensorCards": [

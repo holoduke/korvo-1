@@ -474,8 +474,10 @@ static const panel_area_t PANEL_AREAS[] = {
  * rest. Kinds: washer, dryer (SmartThings), dishwasher, oven, hob (Home
  * Connect via hcpy), filter (ATAG plasma filter over MQTT), fridge (Liebherr),
  * tv (a DLNA media player; a Wake on LAN button named button.<name>_aanzetten
- * switches it on) and speakers (WiiM: name lists the players' object ids,
- * each also in PANEL_MEDIA_PLAYERS, which gives their labels). */
+ * switches it on), speakers (WiiM: name lists the players' object ids,
+ * each also in PANEL_MEDIA_PLAYERS, which gives their labels) and robot (a
+ * robot vacuum from the Schoonmaak section, PANEL_VACUUM or
+ * PANEL_TUYA_VACUUMS: name is the PANEL_FLOORS label of the floor it cleans). */
 typedef struct {
     const char *kind;
     const char *label;
@@ -491,6 +493,8 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "fridge",     "Koelkast",   "koelkast_1" },
     { "speakers",   "WiiM",       "living_room kitchen media_room" },
     { "tv",         "Samsung TV", "signage_big_ass_tv" },
+    { "robot",      "Stofzuiger beneden", "0" },
+    { "robot",      "Stofzuiger boven",   "1" },
 };
 
 /* Sensor cards in the web app's "Sensoren" section (the panel's firmware does

@@ -420,7 +420,8 @@
           return returnResponse ? { response: {} } : null;
         }
         /* Appliance commands (before the vacuum branch, which also takes buttons). */
-        const applEntities = (cfg.appliances || []).flatMap((ap) => Object.values(ap.entities));
+        /* The robots' cards act on the robots below, not as appliances. */
+        const applEntities = (cfg.appliances || []).filter((ap) => ap.kind !== "robot").flatMap((ap) => Object.values(ap.entities));
         if (ids.length && ids.every((id) => applEntities.includes(id))) {
           const t = Date.now();
           ids.forEach((id) => {

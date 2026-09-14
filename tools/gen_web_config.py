@@ -375,13 +375,21 @@ def parse_energy(src):
     return devices
 
 
-def parse_appliances(src, media):
+def parse_appliances(src, media, robots):
+    """robots: floor label -> {"type", "entities"} of the Schoonmaak section's robots."""
     rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, "PANEL_APPLIANCES"))
     if not rows:
         fail("PANEL_APPLIANCES is empty or unparsable")
     labels = {m["id"]: m["label"] for m in media}
     out = []
     for kind, label, name in rows:
+        if kind == "robot":
+            # name is the floor of a robot in PANEL_VACUUM / PANEL_TUYA_VACUUMS
+            if name not in robots:
+                fail(f"PANEL_APPLIANCES {label!r}: no robot vacuum on floor {name!r}")
+            out.append({"kind": kind, "label": label, "name": name, "floor": name,
+                        "robot": robots[name]["type"], "entities": robots[name]["entities"]})
+            continue
         if kind == "speakers":
             # name lists the players' object ids; their labels come from PANEL_MEDIA_PLAYERS
             keys = name.split()
@@ -495,6 +503,11 @@ def main():
     vacuum = parse_vacuum(cfg)
     if vacuum["floor"] not in [f["label"] for f in floors]:
         fail(f"PANEL_VACUUM: no floor labelled {vacuum['floor']!r} in PANEL_FLOORS")
+    tuya_vacuums = parse_tuya_vacuums(cfg, floors, {vacuum["floor"]})
+    # The robots by floor, with the entities their Apparaten card shows.
+    robots = {vacuum["floor"]: {"type": "xiaomi", "entities": {k: vacuum[k] for k in ("vacuum", "status", "battery", "area")}}}
+    for r in tuya_vacuums:
+        robots[r["floor"]] = {"type": "tuya", "entities": {k: r["entities"][k] for k in ("vacuum", "battery", "area", "time", "problem")}}
     config = {
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),
         "tabs": tabs,
@@ -510,10 +523,10 @@ def main():
             "pm25Poor": define(cfg, "AIR_PM25_POOR", "num"),
         },
         "vacuum": vacuum,
-        "tuyaVacuums": parse_tuya_vacuums(cfg, floors, {vacuum["floor"]}),
+        "tuyaVacuums": tuya_vacuums,
         "bike": parse_bike(cfg),
         "car": parse_car(cfg),
-        "appliances": parse_appliances(cfg, media),
+        "appliances": parse_appliances(cfg, media, robots),
         "sensorCards": parse_device_table(cfg, "PANEL_SENSOR_CARDS", SENSOR_ENTITIES),
         "energy": parse_energy(cfg),
         "media": media,
