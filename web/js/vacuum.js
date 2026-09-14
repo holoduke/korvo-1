@@ -1,9 +1,10 @@
-/* Schoonmaak section: the robot vacuum's page. Left the rooms as large tiles
- * (tap to choose, a live sweep on the rooms of the current run, when each room
- * was last cleaned) and the robot's recent runs; right the actions, the
- * mode/suction/water choices and the consumables. Battery and status sit in
- * the app header's vacuum column. The robot keeps its map in the Xiaomi cloud;
- * the room tiles are laid out so a real map image can later sit underneath. */
+/* Schoonmaak: the Xiaomi robot vacuum's panel (PANEL_VACUUM, on its floor's
+ * place in cleaning.js). Left the rooms as large tiles (tap to choose, a live
+ * sweep on the rooms of the current run, when each room was last cleaned) and
+ * the robot's recent runs; right the actions, the mode/suction/water choices
+ * and the consumables. Battery and status sit in the app header's vacuum
+ * column. The robot keeps its map in the Xiaomi cloud; the room tiles are laid
+ * out so a real map image can later sit underneath. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -19,21 +20,17 @@
     sideBrush: "Zijborstel", rollBrush: "Hoofdborstel", filter: "Filter", mop: "Dweil",
     engineSensor: "Sensoren", dustbag: "Stofzak", mopCleaningTrough: "Wasbak",
   };
-  /* Commands the robot may miss show as pending until Home Assistant reports
-   * their effect: the integration only logs "No response from the device" while
-   * the service call succeeds. One that has not landed in time is sent once more,
-   * then reported. A choice (mode, suction, water) shows within seconds; stopping
-   * a job takes the robot longer. */
+  /* The robot now and then misses a command (xiaomi_miot then only logs "No
+   * response from the device"), so they go through a command queue. A choice
+   * (mode, suction, water) shows within seconds; stopping a job takes longer. */
   const CHOICE_MS = 8000;
   const STOP_MS = 20000;
-  const TRIES = 2;
   const CHOICE_NOUN = { mode: "modus", fan: "zuigkracht", water: "waterstand" };
   /* A choice is read from its property select and written through the robot's
    * action select (the xm2216 does not answer property writes). */
   const CHOICE_SETTER = { mode: vac.setMode, fan: vac.setFan, water: vac.setWater };
   const JOB_STATES = ["cleaning", "paused", "returning"];
-  const commands = new Map(); /* "group|what" -> {send, landed, wait, failed, tries} */
-  const pending = Util.pendingSet(CHOICE_MS, () => render());
+  const queue = Panel.commandQueue(vac.label, () => render());
   const twoTap = Util.confirmer(3000, () => render());
   const selected = new Set(); /* chosen room ids */
   let records = null; /* robot's run log, newest first */
@@ -67,8 +64,8 @@
     Object.entries(labels).map(([opt, l]) => `<button class="vchip" data-vac="${kind}" data-opt="${opt}">${l}</button>`).join("") +
     `</div>`;
 
-  function build(page) {
-    root = page.querySelector(".vp");
+  function build(panel) {
+    root = panel.querySelector(".vp");
     root.innerHTML =
       `<div class="vs-body">` +
       `<section class="vs-map">` +
@@ -83,7 +80,7 @@
         .join("") +
       `</div><div class="vs-plan"></div>` +
       `<div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div></section>` +
-      `<section class="vs-side"><div class="vs-actions">` +
+      `<section class="vs-side"><div class="vs-alert" hidden>${icon("warning")}<span></span></div><div class="vs-actions">` +
       `<button class="vbtn primary" data-vac="rooms">${icon("play")}<span>Kies kamers</span></button>` +
       `<button class="vbtn" data-vac="start">${icon("play")}<span>Hele huis</span></button>` +
       `<button class="vbtn" data-vac="pause">${icon("pause")}<span>Pauze</span></button>` +
@@ -99,7 +96,7 @@
       `</section></div>`;
     render();
   }
-  Panel.definePage("vacuum", { className: "vac-page", html: () => `<div id="vacPage" class="vp"></div>`, build });
+  Panel.defineRobot({ floor: vac.floor, className: "xiaomi-robot", html: () => `<div id="vacPage" class="vp"></div>`, build });
 
   function render() {
     if (!root) return;
@@ -152,17 +149,17 @@
             : "nu bezig";
     });
 
-    for (const key of pending.settle()) {
-      const c = commands.get(key);
-      if (c.tries < TRIES) command(key, c);
-      else Panel.toast(`${vac.label} reageerde niet: ${c.failed}`);
-    }
-    for (const key of [...commands.keys()]) if (!pending.has(key)) commands.delete(key);
+    queue.settle();
+    /* Out of reach (off, or off the wifi): say so, and nothing to tap until it is back. */
+    const unreachable = offline && Panel.isLoaded();
+    q(".vs-alert").hidden = !unreachable;
+    if (unreachable) q(".vs-alert span").textContent = Panel.unreachableText(v);
+    qa(".vs-actions .vbtn, .vchip").forEach((b) => (b.disabled = unreachable));
     for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
       const cur = (st(id) || {}).state;
       qa(`[data-vac="${kind}"]`).forEach((c) => {
         c.classList.toggle("active", c.dataset.opt === cur);
-        c.classList.toggle("pending", pending.has(`${kind}|${c.dataset.opt}`));
+        c.classList.toggle("pending", queue.has(`${kind}|${c.dataset.opt}`));
       });
     }
     q(".vs-water").hidden = (st(vac.mode) || {}).state === "OnlySweep";
@@ -183,7 +180,7 @@
     const stopBtn = q('[data-vac="stop"]');
     stopBtn.hidden = !job;
     stopBtn.classList.toggle("armed", twoTap.armed("stop"));
-    stopBtn.classList.toggle("pending", pending.has("job|stop"));
+    stopBtn.classList.toggle("pending", queue.has("job|stop"));
     stopBtn.querySelector("span").textContent = twoTap.armed("stop") ? "Nogmaals tikken" : "Stop";
     q('[data-vac="dock"]').hidden = !(job || away) || vstate === "returning";
     q('[data-vac="locate"]').hidden = job ? vstate !== "returning" : away;
@@ -303,28 +300,6 @@
     render();
   }
 
-  /* Sends a command and waits until landed() is true; a newer command of the same
-   * group (the part of the key before "|") replaces a pending one.
-   * def: {send() -> promise, landed(), wait (ms), failed: what to report}. */
-  function command(key, def) {
-    const group = key.split("|")[0];
-    for (const other of [...commands.keys()]) {
-      if (other !== key && other.split("|")[0] === group) {
-        pending.drop(other);
-        commands.delete(other);
-      }
-    }
-    const c = { ...def, tries: ((commands.get(key) || {}).tries || 0) + 1 };
-    commands.set(key, c);
-    pending.mark(key, c.landed, c.wait);
-    c.send().catch((err) => {
-      pending.drop(key);
-      commands.delete(key);
-      render();
-      Panel.commandFailed(vac.label)(err);
-    });
-  }
-
   Panel.defineAction("vac", (el) => {
     const kind = el.dataset.vac;
     const target = { entity_id: vac.vacuum };
@@ -339,7 +314,7 @@
       const option = el.dataset.opt;
       const current = () => (st(vac[kind]) || {}).state;
       if (current() === option) return; /* already set */
-      command(`${kind}|${option}`, {
+      queue.send(`${kind}|${option}`, {
         send: () => Panel.client.callService("select", "select_option", { option }, { entity_id: CHOICE_SETTER[kind] }),
         landed: () => current() === option,
         wait: CHOICE_MS,
@@ -349,8 +324,8 @@
     }
     /* Ends the running job where the robot is (a second tap confirms). */
     if (kind === "stop") {
-      if (pending.has("job|stop") || !twoTap.tap("stop", true)) return;
-      command("job|stop", {
+      if (queue.has("job|stop") || !twoTap.tap("stop", true)) return;
+      queue.send("job|stop", {
         send: () => Panel.client.callService("vacuum", "stop", null, target),
         landed: () => !JOB_STATES.includes((st(vac.vacuum) || {}).state),
         wait: STOP_MS,
@@ -374,16 +349,18 @@
     if (kind === "locate") return Panel.client.callService("button", "press", null, { entity_id: vac.locate }).catch(fail);
   });
 
-  /* The run log and room history are fetched when the page is shown, but only
+  /* The run log and room history are fetched when this robot is shown, but only
    * once HA is connected: after a reload straight onto #schoonmaak the section
    * opens before the socket does, and the first state dump marks the connection. */
-  const onPage = () => cfg.sections[Panel.section].kind === "vacuum";
+  const onScreen = () => Panel.robotOnScreen(vac.floor);
   Panel.track(
     ["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]),
     () => {
       render();
-      if (onPage()) load(false);
+      if (onScreen()) load(false);
     }
   );
-  Panel.on("section", () => Panel.isLoaded() && onPage() && load(false));
+  const shownNow = () => Panel.isLoaded() && onScreen() && load(false);
+  Panel.on("section", shownNow);
+  Panel.on("robot", shownNow);
 })();

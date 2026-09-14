@@ -836,6 +836,7 @@ window.PANEL_CONFIG = {
     "setWater": "select.stofzuiger_xiaomi_set_water_mode",
     "locate": "button.stofzuiger_xiaomi_seek_robot",
     "roomsDomain": "robotkamers",
+    "floor": "0",
     "rooms": [
       {
         "id": 5,
@@ -863,6 +864,34 @@ window.PANEL_CONFIG = {
       }
     ]
   },
+  "tuyaVacuums": [
+    {
+      "label": "Stofzuiger boven",
+      "floor": "1",
+      "name": "stofzuiger",
+      "entities": {
+        "vacuum": "vacuum.stofzuiger",
+        "battery": "sensor.stofzuiger_battery",
+        "area": "sensor.stofzuiger_cleaning_area",
+        "time": "sensor.stofzuiger_cleaning_time",
+        "problem": "binary_sensor.stofzuiger_problem",
+        "mopping": "select.stofzuiger_mopping",
+        "efficiency": "select.stofzuiger_cleaning_efficiency",
+        "edgeLife": "sensor.stofzuiger_edge_brush_life",
+        "edgeDirty": "binary_sensor.stofzuiger_clean_edge_brush",
+        "edgeReset": "button.stofzuiger_reset_edge_brush",
+        "rollLife": "sensor.stofzuiger_roll_brush_life",
+        "rollDirty": "binary_sensor.stofzuiger_clean_roll_brush",
+        "rollReset": "button.stofzuiger_reset_roll_brush",
+        "filterLife": "sensor.stofzuiger_filter_life",
+        "filterDirty": "binary_sensor.stofzuiger_clean_filter",
+        "filterReset": "button.stofzuiger_reset_filter",
+        "totalArea": "sensor.stofzuiger_total_cleaning_area",
+        "totalRuns": "sensor.stofzuiger_total_cleaning_times",
+        "totalTime": "sensor.stofzuiger_total_cleaning_time"
+      }
+    }
+  ],
   "bike": {
     "label": "Fiets",
     "battery": "sensor.st7_battery",

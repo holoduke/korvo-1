@@ -14,17 +14,13 @@
   let page = null;
   let view = null;
   let track = null;
-  let railInd = null;
+  let placeInd = null; /* the rail's indicator (rail.js) */
   const railBtns = () => [...page.querySelectorAll(".rail-btn")];
 
   Panel.definePage("floors", {
     className: "floors-page",
     html: () =>
-      `<nav class="rail" aria-label="Verdieping"><div class="rail-track"><i class="rail-ind"></i>` +
-      Panel.floorOrder
-        .map((fi) => `<button class="rail-btn" data-floor="${fi}"><b>${cfg.floors[fi].label}</b><span>${cfg.floors[fi].name}</span></button>`)
-        .join("") +
-      `</div></nav>` +
+      Panel.railHtml(Panel.floorOrder.map((fi) => ({ key: fi, label: cfg.floors[fi].label, name: cfg.floors[fi].name })), "data-floor") +
       `<div class="floor-view"><div class="floor-track">` +
       Panel.floorOrder.map((fi) => `<div class="floor" data-floor-panel="${fi}">${Panel.lightingPanel(cfg.floors[fi].tab)}</div>`).join("") +
       `</div></div>` +
@@ -35,7 +31,7 @@
       page = el;
       view = el.querySelector(".floor-view");
       track = el.querySelector(".floor-track");
-      railInd = el.querySelector(".rail-ind");
+      placeInd = Panel.railIndicator(el.querySelector(".rail"));
       /* "snapping" lasts as long as the glide into place, so a resize can tell. */
       track.addEventListener("transitionend", (e) => e.target === track && track.classList.remove("snapping"));
     },
@@ -58,18 +54,7 @@
     track.classList.toggle("snapping", !!animate);
     track.style.transform = `translate3d(0,${-pos * view.clientHeight + offPx}px,0)`;
   }
-  /* "snapping" lasts as long as the glide into place, so a resize can tell. */
   const gliding = () => track.classList.contains("snapping");
-  function setRailInd(posFloat, animate) {
-    const btns = railBtns();
-    const i = Util.clamp(Math.floor(posFloat), 0, btns.length - 1);
-    const f = Util.clamp(posFloat - i, 0, 1);
-    const a = btns[i];
-    const b = btns[Math.min(btns.length - 1, i + 1)];
-    railInd.style.transition = animate ? "transform .32s cubic-bezier(.22,.61,.36,1), height .32s" : "none";
-    railInd.style.height = a.offsetHeight + (b.offsetHeight - a.offsetHeight) * f + "px";
-    railInd.style.transform = `translate3d(0,${a.offsetTop + (b.offsetTop - a.offsetTop) * f}px,0)`;
-  }
 
   Panel.setFloor = function (fi, animate) {
     if (!page) return;
@@ -80,7 +65,7 @@
     railBtns().forEach((el) => el.classList.toggle("active", +el.dataset.floor === fi));
     page.querySelectorAll(".floor-row").forEach((el) => el.classList.toggle("active", +el.dataset.floorRow === fi));
     setTrack(pos, 0, animate);
-    setRailInd(pos, animate);
+    placeInd(pos, animate);
     if (changed) {
       Panel.emit("floor", fi);
       Panel.emit("route");
@@ -101,7 +86,7 @@
       const atEdge = (raw > 0 && pos === 0) || (raw < 0 && pos === last);
       const off = atEdge ? raw * 0.3 : Util.clamp(raw, -size, size);
       setTrack(pos, off, false);
-      setRailInd(Util.clamp(pos - off / size, 0, last), false);
+      placeInd(Util.clamp(pos - off / size, 0, last), false);
       return off;
     },
     end(dir) {
@@ -121,13 +106,13 @@
   window.addEventListener("resize", () => {
     if (!page) return;
     setTrack(Panel.floorPos(Panel.floor), 0, gliding());
-    setRailInd(Panel.floorPos(Panel.floor), gliding());
+    placeInd(Panel.floorPos(Panel.floor), gliding());
   });
 
   Panel.on("start", () => {
     if (!page) return;
     Panel.setFloor(Panel.floor, false);
-    requestAnimationFrame(() => setRailInd(Panel.floorPos(Panel.floor), false));
-    new ResizeObserver(() => setRailInd(Panel.floorPos(Panel.floor), false)).observe(page.querySelector(".rail-track"));
+    requestAnimationFrame(() => placeInd(Panel.floorPos(Panel.floor), false));
+    new ResizeObserver(() => placeInd(Panel.floorPos(Panel.floor), false)).observe(page.querySelector(".rail-track"));
   });
 })();

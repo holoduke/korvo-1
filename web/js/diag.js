@@ -35,8 +35,8 @@
         section: Panel.section,
         floor: Panel.floor,
         page: box(document.querySelector(".floors-page")),
-        rail: box(document.querySelector(".rail")),
-        railButtons: [...document.querySelectorAll(".rail-btn")].map((b) => ({ floor: b.dataset.floor, ...box(b) })),
+        rail: box(document.querySelector(".floors-page .rail")),
+        railButtons: [...document.querySelectorAll(".floors-page .rail-btn")].map((b) => ({ floor: b.dataset.floor, ...box(b) })),
         track: track ? track.style.transform : null,
         supports: {
           overflowClip: CSS.supports("overflow", "clip"),

@@ -366,6 +366,7 @@ typedef struct {
     const char *set_water_id;
     const char *locate_id;  /* button: make the robot play a sound */
     const char *rooms_domain; /* HA integration with stofzuig(gebieden) and naar_station */
+    const char *floor;        /* web app: the PANEL_FLOORS label of the floor it cleans */
 } panel_vacuum_t;
 
 /* Room numbers as the robot knows them; the same table lives under
@@ -392,6 +393,21 @@ static const panel_vacuum_t PANEL_VACUUM = {
     "select.stofzuiger_xiaomi_set_water_mode",
     "button.stofzuiger_xiaomi_seek_robot",
     "robotkamers",
+    "0",
+};
+
+/* More robot vacuums in the web app's Schoonmaak section, one per floor next to
+ * PANEL_VACUUM (the panel's firmware does not show them): Tuya Local robots
+ * (ILIFE V30). name is the device's part of its entity ids (vacuum.<name>,
+ * sensor.<name>_battery, ...); floor is the PANEL_FLOORS label of the floor it
+ * cleans, which also picks it on the page's floor rail. */
+typedef struct {
+    const char *label;
+    const char *floor;
+    const char *name;
+} panel_tuya_vacuum_t;
+static const panel_tuya_vacuum_t PANEL_TUYA_VACUUMS[] = {
+    { "Stofzuiger boven", "1", "stofzuiger" },
 };
 
 /* E-bike in the web app's header: battery, where it is, lock and speed

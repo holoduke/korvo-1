@@ -172,10 +172,44 @@ def string_struct(src, name, keys):
 def parse_vacuum(src):
     vac = string_struct(src, "PANEL_VACUUM",
                         ("label", "vacuum", "status", "battery", "area", "mode", "fan", "water",
-                         "setMode", "setFan", "setWater", "locate", "roomsDomain"))
+                         "setMode", "setFan", "setWater", "locate", "roomsDomain", "floor"))
     rooms = re.findall(r'\{\s*(\d+)\s*,\s*"([^"]*)"\s*\}', array_body(src, "PANEL_VACUUM_ROOMS"))
     vac["rooms"] = [{"id": int(i), "label": l} for i, l in rooms]
     return vac
+
+
+# A Tuya Local robot vacuum's entities (ILIFE V30): key -> template ({n} = the device name).
+TUYA_VACUUM_ENTITIES = {
+    "vacuum": "vacuum.{n}", "battery": "sensor.{n}_battery", "area": "sensor.{n}_cleaning_area",
+    "time": "sensor.{n}_cleaning_time", "problem": "binary_sensor.{n}_problem",
+    "mopping": "select.{n}_mopping", "efficiency": "select.{n}_cleaning_efficiency",
+    # per part: minutes of life left, "clean me", and the reset button
+    **{f"{key}{what}": template
+       for key, part in (("edge", "edge_brush"), ("roll", "roll_brush"), ("filter", "filter"))
+       for what, template in (("Life", f"sensor.{{n}}_{part}_life"), ("Dirty", f"binary_sensor.{{n}}_clean_{part}"),
+                              ("Reset", f"button.{{n}}_reset_{part}"))},
+    "totalArea": "sensor.{n}_total_cleaning_area", "totalRuns": "sensor.{n}_total_cleaning_times",
+    "totalTime": "sensor.{n}_total_cleaning_time",
+}
+
+
+def parse_tuya_vacuums(src, floors, taken):
+    """PANEL_TUYA_VACUUMS -> [{label, floor, name, entities}]; one robot per floor
+    (`taken`: floors that already have one)."""
+    labels = [f["label"] for f in floors]
+    out = []
+    for label, floor, name in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}',
+                                         array_body(src, "PANEL_TUYA_VACUUMS")):
+        if floor not in labels:
+            fail(f"PANEL_TUYA_VACUUMS {label!r}: no floor labelled {floor!r} in PANEL_FLOORS")
+        if floor in taken:
+            fail(f"PANEL_TUYA_VACUUMS {label!r}: floor {floor!r} already has a robot")
+        if not re.fullmatch(r"[a-z0-9_]+", name):
+            fail(f"PANEL_TUYA_VACUUMS {label!r}: bad name {name!r}")
+        taken.add(floor)
+        out.append({"label": label, "floor": floor, "name": name,
+                    "entities": {k: t.format(n=name) for k, t in TUYA_VACUUM_ENTITIES.items()}})
+    return out
 
 
 def parse_bike(src):
@@ -455,6 +489,9 @@ def main():
     parse_areas(cfg, tabs)
     floors, sections = parse_layout(cfg, tabs)
     media = entity_table(cfg, "PANEL_MEDIA_PLAYERS")
+    vacuum = parse_vacuum(cfg)
+    if vacuum["floor"] not in [f["label"] for f in floors]:
+        fail(f"PANEL_VACUUM: no floor labelled {vacuum['floor']!r} in PANEL_FLOORS")
     config = {
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),
         "tabs": tabs,
@@ -469,7 +506,8 @@ def main():
             "pm25Good": define(cfg, "AIR_PM25_GOOD", "num"),
             "pm25Poor": define(cfg, "AIR_PM25_POOR", "num"),
         },
-        "vacuum": parse_vacuum(cfg),
+        "vacuum": vacuum,
+        "tuyaVacuums": parse_tuya_vacuums(cfg, floors, {vacuum["floor"]}),
         "bike": parse_bike(cfg),
         "car": parse_car(cfg),
         "appliances": parse_appliances(cfg, media),

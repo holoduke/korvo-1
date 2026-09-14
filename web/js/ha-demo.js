@@ -58,6 +58,25 @@
       set(v.setFan, "", { options: ["", "Quiet", "Auto", "Strong", "Max"] });
       set(v.setWater, "", { options: ["", "Low", "Mid", "High"] });
     }
+    /* The Tuya robot upstairs: charged in its dock, the filter wants cleaning. */
+    (cfg.tuyaVacuums || []).forEach((r) => {
+      const e = r.entities;
+      set(e.vacuum, "docked", { fan_speed_list: ["Off", "Low", "Medium", "High", "Max"], fan_speed: "Medium", status: "charged", supported_features: 14260 });
+      set(e.battery, "100", { unit_of_measurement: "%" });
+      set(e.area, "31", { unit_of_measurement: "m²" });
+      set(e.time, "27", { unit_of_measurement: "min" });
+      set(e.problem, "off", { fault_code: 0 });
+      set(e.mopping, "medium", { options: ["off", "low", "medium", "high"] });
+      set(e.efficiency, "Normal", { options: ["Careful", "Normal", "Fast"] });
+      [["edgeLife", 882], ["rollLife", 1782], ["filterLife", 45]].forEach(([k, v]) => set(e[k], String(v), { unit_of_measurement: "min" }));
+      set(e.edgeDirty, "off");
+      set(e.rollDirty, "off");
+      set(e.filterDirty, "on");
+      ["edgeReset", "rollReset", "filterReset"].forEach((k) => set(e[k], "unknown"));
+      set(e.totalArea, "277", { unit_of_measurement: "m²" });
+      set(e.totalRuns, "12");
+      set(e.totalTime, "316", { unit_of_measurement: "min" });
+    });
     if (cfg.bike) {
       const b = cfg.bike;
       set(b.battery, "86", { unit_of_measurement: "%" });
@@ -463,6 +482,33 @@
           change([...ids, cfg.car.entities.charging]);
           return returnResponse ? { response: {} } : null;
         }
+        /* The Tuya robots (before the Xiaomi branch, which takes every vacuum and button call). */
+        const tuya = (cfg.tuyaVacuums || []).find((r) => ids.some((id) => Object.values(r.entities).includes(id)));
+        if (tuya) {
+          const e = tuya.entities;
+          const t = Date.now();
+          const put = (id, state, extra) => {
+            const cur = states.get(id) || { state: "unknown", attributes: {} };
+            set(id, state === undefined ? cur.state : state, { ...cur.attributes, ...extra }, t);
+          };
+          if (domain === "vacuum" && service === "start") put(e.vacuum, "cleaning", { status: "smart" });
+          if (domain === "vacuum" && service === "pause") put(e.vacuum, "paused", { status: "paused" });
+          if (domain === "vacuum" && service === "return_to_base") put(e.vacuum, "returning", { status: "returning" });
+          if (domain === "vacuum" && service === "set_fan_speed") put(e.vacuum, undefined, { fan_speed: data.fan_speed });
+          if (domain === "select") ids.forEach((id) => put(id, data.option));
+          if (domain === "button") {
+            ids.forEach((id) => {
+              put(id, new Date(t).toISOString());
+              const part = ["edge", "roll", "filter"].find((p) => e[`${p}Reset`] === id);
+              if (part) {
+                put(e[`${part}Life`], "9000");
+                put(e[`${part}Dirty`], "off");
+              }
+            });
+          }
+          change(Object.values(e));
+          return returnResponse ? { response: {} } : null;
+        }
         const v = cfg.vacuum;
         if (v && domain === "xiaomi_miot" && service === "get_properties") {
           const day = (n) => new Date(now - n * 86400e3).toISOString().slice(0, 10).replace(/-/g, "/");
@@ -577,6 +623,19 @@
       async history(ids, start) {
         const out = {};
         ids.forEach((id) => {
+          if (/_cleaning_(area|time)$/.test(id)) {
+            /* A Tuya robot's counters, reset when a run starts: one yesterday, one this morning. */
+            if (!states.has(id)) return;
+            const area = /area$/.test(id);
+            const rows = [{ s: "0", t: start.getTime() }];
+            [[26, 22, 18], [5, 31, 27]].forEach(([hoursAgo, m2, min]) => {
+              const t0 = Date.now() - hoursAgo * 3600e3;
+              rows.push({ s: "0", t: t0 });
+              for (let k = 1; k <= 4; k++) rows.push({ s: String(Math.round(((area ? m2 : min) * k) / 4)), t: t0 + k * 6 * 60e3 });
+            });
+            out[id] = rows;
+            return;
+          }
           if (/power(_phase_\d)?$/.test(id)) {
             /* Power: mostly idle, a cycle at full load every 8 hours (a battery swings both ways). */
             if (!states.has(id)) return;

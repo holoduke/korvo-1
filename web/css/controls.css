@@ -16,7 +16,7 @@
 .vbtn { height: 96px; padding: 12px 14px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; font-size: 17px; }
 .vbtn .ic { font-size: 22px; }
 .vbtn.primary { background: var(--accent); color: var(--on_text); }
-.vbtn:disabled { opacity: 0.45; cursor: default; }
+.vbtn:disabled, .vchip:disabled { opacity: 0.45; cursor: default; }
 /* Sent, waiting for Home Assistant to report it. */
 .vchip.pending, .vbtn.pending { opacity: 0.55; }
 /* Waiting for the second tap that confirms. */

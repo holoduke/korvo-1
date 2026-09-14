@@ -10,7 +10,7 @@
  *     start                the app is visible: measure, bind, animate
  *     status (s)           connection status: connecting, connected, ...
  *     loaded               the first state dump has been handled
- *     section (i), floor (fi), area (fi)   navigation changed
+ *     section (i), floor (fi), area (fi), robot (floor label)   navigation changed
  *     reading (id)         a climate or air reading changed (readings.js)
  *     history              sensor history arrived (readings.js)
  *     minute               the clock turned a minute

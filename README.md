@@ -66,6 +66,10 @@ slider, the Klimaat chart, the AI oog screensaver, and all six themes.
 - **Login** uses Home Assistant's own OAuth flow (like the HA app); no token
   is stored in the code. Tokens are kept per browser and refreshed.
 - **Demo**: append `?demo` for a fake backend that never touches real lights.
+- **Schoonmaak** shows a robot vacuum per floor, picked with a floor rail like
+  Verlichting's: the Xiaomi (`PANEL_VACUUM`, rooms via the `robotkamers`
+  integration) and Tuya Local robots (`PANEL_TUYA_VACUUMS`, e.g. the ILIFE V30).
+  A robot Home Assistant cannot reach says so and its controls turn off.
 - **Energie** (`PANEL_ENERGY`): live power, use per day and per week from Home
   Assistant's statistics, a 24 h power chart and a card per device (washer,
   dryer, Tesla charging, Stromer, JK BMS batteries). The smart meter row uses
