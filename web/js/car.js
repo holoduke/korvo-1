@@ -19,6 +19,15 @@
   const st = Panel.st;
   const { fmt, hm, known, clamp } = Util;
   const CONFIRM_MS = 3000;
+  /* Reasons the car gives for refusing a command (Tesla Fleet, passed on by Home
+   * Assistant), in words. "could_not_wake_buses": the car woke up only part way;
+   * the command did not run and is sent once more after a moment. */
+  const REFUSED_NL = { doors_open: "er staat een portier open", could_not_wake_buses: "de auto werd niet op tijd wakker" };
+  const WAKE_RETRY_MS = 5000;
+  const refusal = (err) =>
+    err && err.reason
+      ? `niet gelukt, ${REFUSED_NL[err.reason] || String(err.reason).replace(/_/g, " ")}`
+      : `opdracht mislukt${err && err.message ? ` (${err.message})` : ""}`;
   const PENDING_MS = 20000; /* a sleeping car first has to wake up */
 
   const SHIFT_NL = { p: "Geparkeerd", d: "Rijdt", r: "Achteruit", n: "Neutraal" };
@@ -351,11 +360,14 @@
     const call = (domain, service, data, key) => {
       if (!E[key]) return;
       pending.mark(control, () => snap(s(key)));
-      Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch((err) => {
-        pending.drop(control);
-        render();
-        Panel.commandFailed(car.label)(err);
-      });
+      const attempt = (retried) =>
+        Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch((err) => {
+          if (err && err.reason === "could_not_wake_buses" && !retried) return setTimeout(() => attempt(true), WAKE_RETRY_MS);
+          pending.drop(control);
+          render();
+          Panel.toast(`${car.label}: ${refusal(err)}`);
+        });
+      attempt(false);
       render();
     };
     const toggle = (key) => call("switch", on(key) ? "turn_off" : "turn_on", null, key);

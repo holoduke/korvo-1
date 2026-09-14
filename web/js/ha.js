@@ -245,7 +245,15 @@
           if (p.subscription) return; /* keep: events keep arriving on this id */
           pending.delete(msg.id);
           if (msg.type === "pong" || msg.success) p.resolve(msg.result);
-          else p.reject(new Error((msg.error && msg.error.message) || "request failed"));
+          else {
+            /* code: Home Assistant's error code; reason: what a device gave as its
+             * reason for refusing (e.g. Tesla Fleet's "doors_open"), when known. */
+            const error = msg.error || {};
+            const err = new Error(error.message || "request failed");
+            err.code = error.code;
+            err.reason = (error.translation_placeholders || {}).reason;
+            p.reject(err);
+          }
         }
       };
       ws.onclose = () => {
