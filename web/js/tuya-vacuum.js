@@ -80,6 +80,7 @@
     `<div class="tv-stat"><span data-label="run"></span><b data-stat="run"></b></div>` +
     `<div class="tv-stat"><span>Totaal</span><b data-stat="area"></b></div>` +
     `<div class="tv-stat"><span>Rondes</span><b data-stat="runs"></b></div></div>` +
+    `<div class="vs-plan"></div>` +
     `<div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div>` +
     `</section>` +
     `<section class="vs-side"><div class="tv-actions">` +
