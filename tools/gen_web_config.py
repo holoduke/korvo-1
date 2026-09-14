@@ -183,6 +183,8 @@ TUYA_VACUUM_ENTITIES = {
     "vacuum": "vacuum.{n}", "battery": "sensor.{n}_battery", "area": "sensor.{n}_cleaning_area",
     "time": "sensor.{n}_cleaning_time", "problem": "binary_sensor.{n}_problem",
     "mopping": "select.{n}_mopping", "efficiency": "select.{n}_cleaning_efficiency",
+    "dnd": "switch.{n}_do_not_disturb", "breakClean": "switch.{n}_break_clean",
+    "autoBoost": "switch.{n}_auto_boost", "yMopping": "switch.{n}_y_mopping",
     # per part: minutes of life left, "clean me", and the reset button
     **{f"{key}{what}": template
        for key, part in (("edge", "edge_brush"), ("roll", "roll_brush"), ("filter", "filter"))

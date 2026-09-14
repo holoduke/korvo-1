@@ -24,6 +24,8 @@
   let placeInd = null;
 
   Panel.robotOnScreen = (floor) => cfg.sections[Panel.section].kind === "vacuum" && shown === floor;
+  /* A setting with an on/off switch; attrs make it an action (its module sets "on"). */
+  Panel.settingHtml = (attrs, label) => `<button class="vs-setting" ${attrs}><span>${label}</span><i class="toggle-pill"></i></button>`;
   /* For a robot Home Assistant cannot reach, or whose connection went quiet: reload
    * its integration (as "Opnieuw laden" in Home Assistant does). Starts hidden. */
   Panel.reconnectHtml = (entity) => `<button class="vs-alert-btn" data-reconnect="${entity}" hidden>Opnieuw verbinden</button>`;

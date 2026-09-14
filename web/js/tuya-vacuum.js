@@ -23,6 +23,8 @@
   const MOP_NL = { off: "Uit", low: "Laag", medium: "Midden", high: "Hoog" };
   const EFFICIENCY_NL = { Careful: "Grondig", Normal: "Normaal", Fast: "Snel" };
   const PARTS = [["edge", "Zijborstel"], ["roll", "Hoofdborstel"], ["filter", "Filter"]];
+  /* The robot's switches: entity key -> label. */
+  const TOGGLES = [["dnd", "Niet storen"], ["breakClean", "Verder na opladen"], ["autoBoost", "Extra zuigkracht op tapijt"], ["yMopping", "Y-dweilen"]];
   /* Minutes of life a new part has (the V30's Tuya spec), for "x% over". */
   const LIFE_MAX = { edge: 900, roll: 1800, filter: 900 };
   /* The fault code is a bitmap (Tuya DP 28), bit 0 first: [what, what to do]. */
@@ -138,6 +140,11 @@
     `<div class="vs-group"><span class="vlabel">Zuigkracht</span>${chips("fan", FAN_NL)}</div>` +
     `<div class="vs-group"><span class="vlabel">Dweilen</span>${chips("mop", MOP_NL)}</div>` +
     `<div class="vs-group"><span class="vlabel">Grondigheid</span>${chips("efficiency", EFFICIENCY_NL)}</div>` +
+    `<div class="vs-group"><span class="vlabel">Andere ronde</span><div class="vs-chips" style="--n:2">` +
+    `<button class="vchip" data-tuyavac="spot">Plek</button><button class="vchip" data-tuyavac="edge">Randen</button></div></div>` +
+    `<div class="vs-section-title">Instellingen</div><div class="vs-settings">` +
+    TOGGLES.map(([key, label]) => Panel.settingHtml(`data-tuyavac="toggle" data-toggle="${key}"`, label)).join("") +
+    `</div>` +
     `<div class="vs-section-title">Onderhoud</div>` +
     PARTS.map(
       ([part, label]) =>
@@ -181,7 +188,7 @@
     q(".vs-alert").hidden = !alertText;
     q(".vs-alert span").textContent = alertText;
     q(".vs-alert [data-reconnect]").hidden = !(unreachable || quiet);
-    root.querySelectorAll(".tv-actions .vbtn, .vchip, .tv-reset").forEach((b) => (b.disabled = unreachable));
+    root.querySelectorAll(".tv-actions .vbtn, .vchip, .tv-reset, .vs-setting").forEach((b) => (b.disabled = unreachable));
 
     const area = Panel.num(e.area);
     const minutes = Panel.num(e.time);
@@ -212,6 +219,18 @@
       const kind = c.dataset.tuyavac;
       c.classList.toggle("active", c.dataset.opt === current[kind]);
       c.classList.toggle("pending", view.queue.has(`${kind}|${c.dataset.opt}`));
+    });
+
+    /* Spot and edge runs start from rest. */
+    ["spot", "edge"].forEach((mode) => {
+      const b = q(`[data-tuyavac="${mode}"]`);
+      b.disabled = unreachable || job;
+      b.classList.toggle("pending", view.queue.has(`job|${mode}`));
+    });
+    TOGGLES.forEach(([key]) => {
+      const el = q(`[data-toggle="${key}"]`);
+      el.classList.toggle("on", stateOf(e[key]) === "on");
+      el.classList.toggle("pending", view.queue.has(`${key}|on`) || view.queue.has(`${key}|off`));
     });
 
     PARTS.forEach(([part]) => {
@@ -299,6 +318,22 @@
         landed: () => stateOf(id) === option,
         wait: CHOICE_MS,
         failed: kind === "mop" ? "dweilen is niet aangepast" : "grondigheid is niet aangepast",
+      });
+    } else if (kind === "spot" || kind === "edge") {
+      view.queue.send(`job|${kind}`, {
+        send: call("vacuum", "send_command", { command: kind === "spot" ? "clean_spot" : "edge" }, vacuum),
+        landed: reaches("cleaning"),
+        wait: JOB_MS,
+        failed: "de ronde is niet gestart",
+      });
+    } else if (kind === "toggle") {
+      const id = e[el.dataset.toggle];
+      const next = stateOf(id) === "on" ? "off" : "on";
+      view.queue.send(`${el.dataset.toggle}|${next}`, {
+        send: call("switch", `turn_${next}`, null, { entity_id: id }),
+        landed: () => stateOf(id) === next,
+        wait: CHOICE_MS,
+        failed: "de instelling is niet aangepast",
       });
     } else if (kind === "reset") {
       /* A second tap confirms: the part's counter starts over. */

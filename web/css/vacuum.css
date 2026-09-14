@@ -47,7 +47,17 @@
 }
 @keyframes vs-sweep { from { background-position: 150% 0; } to { background-position: -100% 0; } }
 /* Three actions always show at once (idle, busy or paused). */
-.vs-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.vs-actions, .vs-station { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+/* Settings: a row per switch. */
+.vs-settings { display: flex; flex-direction: column; gap: 8px; }
+.vs-setting {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 8px 14px;
+  border-radius: 14px; background: var(--tile); text-align: left; font-size: 16px; font-weight: 700;
+  transition: transform 0.12s, opacity 0.2s;
+}
+.vs-setting.pressed { transform: scale(0.98); }
+.vs-setting.pending { opacity: 0.55; }
+.vs-setting:disabled { opacity: 0.45; cursor: default; }
 .vs-group { display: flex; flex-direction: column; gap: 6px; }
 .vs-cons-list, .vs-rec-list { display: flex; flex-direction: column; gap: 8px; }
 .vs-cons { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; }

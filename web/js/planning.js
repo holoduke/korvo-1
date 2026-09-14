@@ -150,7 +150,7 @@
       `<span class="pl-info"><span class="pl-rooms">${esc(roomsText(s.robot, s.rooms))}</span>` +
       `<span class="pl-days">${DAYS.map(([key, label]) => `<i class="${s.days.includes(key) ? "on" : ""}">${label}</i>`).join("")}</span>` +
       `<small>${on ? (next ? `volgende ${when(next)}` : "") : "staat uit"}</small></span></button>` +
-      `<button class="pl-switch${on ? " on" : ""}" data-plan="toggle|${s.id}" aria-label="${on ? "Planning uitzetten" : "Planning aanzetten"}"><i></i></button>` +
+      `<button class="pl-switch${on ? " on" : ""}" data-plan="toggle|${s.id}" aria-label="${on ? "Planning uitzetten" : "Planning aanzetten"}"><i class="toggle-pill"></i></button>` +
       `</div>`
     );
   }

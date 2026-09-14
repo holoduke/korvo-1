@@ -19,13 +19,6 @@
 .pl-main small { font-size: 12px; font-weight: 600; color: var(--text_dim); }
 /* On/off switch */
 .pl-switch { flex: none; width: 64px; border-radius: 14px; display: grid; place-items: center; background: var(--tile); }
-.pl-switch i { position: relative; width: 40px; height: 24px; border-radius: 12px; background: var(--tile_off); transition: background-color 0.2s; }
-.pl-switch i::after {
-  content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
-  background: var(--text_dim); transition: transform 0.2s var(--ease-out), background-color 0.2s;
-}
-.pl-switch.on i { background: var(--accent); }
-.pl-switch.on i::after { transform: translateX(16px); background: var(--on_text); }
 .vbtn.pl-new { height: 56px; flex-direction: row; align-items: center; justify-content: center; gap: 10px; }
 
 /* The room tiles' next planned time. */

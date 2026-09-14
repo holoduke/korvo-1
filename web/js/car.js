@@ -324,7 +324,8 @@
       ? tileState("lock", locked, locked ? "Vergrendeld" : "Ontgrendeld", locked ? "tik om te openen" : "tik om te sluiten", has("lock"))
       : tileState("lock", false, "Slot", "onbekend, tik om te sluiten", has("lock"));
     if (lockTile) lockTile.toggleAttribute("data-confirm", locked); /* unlocking asks for a second tap */
-    tileState("sentry", on("sentry"), "Schildwacht", on("sentry") ? "aan" : "uit", has("sentry"));
+    /* Sentry mode keeps the car awake: about 4-8% of the battery a day. */
+    tileState("sentry", on("sentry"), "Schildwacht", on("sentry") ? "aan · kost 4-8% accu per dag" : "uit", has("sentry"));
     const winOpen = stateOf("windows") === "open";
     const winTile = tileState("windows", winOpen, "Ramen", winOpen ? "op een kier" : known(stateOf("windows")) ? "dicht" : "onbekend", has("windows"));
     if (winTile) winTile.toggleAttribute("data-confirm", !winOpen);

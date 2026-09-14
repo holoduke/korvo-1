@@ -30,6 +30,27 @@
    * action select (the xm2216 does not answer property writes). */
   const CHOICE_SETTER = { mode: vac.setMode, fan: vac.setFan, water: vac.setWater };
   const JOB_STATES = ["cleaning", "paused", "returning"];
+  /* Station and settings: read from the robot's attributes, set through its MIoT
+   * actions (siid 17), as its spec requires. xiaomi_miot polls these every 20-70 s,
+   * so a change can take that long to show. */
+  const SETTING_MS = 90000;
+  const SETTINGS = [
+    { key: "dnd", label: "Niet storen", attr: "robotic_vacuum.disturb_switch", aiid: 24 },
+    { key: "resume", label: "Verder na opladen", attr: "break_clean_switch-17-2", aiid: 25 },
+    { key: "carpet", label: "Extra zuigkracht op tapijt", attr: "carpet_boost_switch-17-7", aiid: 34 },
+    { key: "drying", label: "Dweil drogen na wassen", attr: "robotic_vacuum.drying_switch", aiid: 48 },
+  ];
+  const CHOICES = {
+    dryTime: { label: "Droogtijd", noun: "droogtijd", attr: "robotic_vacuum.drying_time", aiid: 43, options: { 120: "2 uur", 180: "3 uur", 240: "4 uur" } },
+    washFreq: { label: "Dweil wassen elke", noun: "wasfrequentie", attr: "mop_wash_frequency-17-23", aiid: 44, options: { 5: "5 min", 10: "10 min", 15: "15 min" } },
+    count: { label: "Zuigen per ronde", noun: "aantal keer zuigen", attr: "robotic_vacuum.clean_count", aiid: 28, options: { 1: "Eén keer", 2: "Twee keer" } },
+  };
+  const STATION = [
+    { key: "wash", label: "Dweil wassen", aiid: 40, icon: "drop" },
+    { key: "dry", label: "Dweil drogen", aiid: 41, icon: "fan" },
+    { key: "dust", label: "Stof legen", aiid: 42, icon: "vacuum" },
+  ];
+  const switchedOn = (value) => value === true || Number(value) === 1;
   const queue = Panel.commandQueue(vac.label, () => render());
   const twoTap = Util.confirmer(3000, () => render());
   const selected = new Set(); /* chosen room ids */
@@ -73,6 +94,11 @@
     Object.entries(labels).map(([opt, l]) => `<button class="vchip" data-vac="${kind}" data-opt="${opt}">${l}</button>`).join("") +
     `</div>`;
 
+  const choiceChips = (name) =>
+    `<div class="vs-chips" style="--n:${Object.keys(CHOICES[name].options).length}">` +
+    Object.entries(CHOICES[name].options).map(([value, l]) => `<button class="vchip" data-vac="choice" data-choice="${name}" data-opt="${value}">${l}</button>`).join("") +
+    `</div>`;
+
   function build(panel) {
     root = panel.querySelector(".vp");
     root.innerHTML =
@@ -101,6 +127,13 @@
       `<div class="vs-group"><span class="vlabel">Modus</span>${chips("mode", MODE_NL)}</div>` +
       `<div class="vs-group"><span class="vlabel">Zuigkracht</span>${chips("fan", FAN_NL)}</div>` +
       `<div class="vs-group vs-water"><span class="vlabel">Water</span>${chips("water", WATER_NL)}</div>` +
+      `<div class="vs-section-title">Station</div><div class="vs-station">` +
+      STATION.map((s) => `<button class="vbtn" data-vac="station" data-station="${s.key}">${icon(s.icon)}<span>${s.label}</span></button>`).join("") +
+      `</div>` +
+      Object.keys(CHOICES).map((name) => `<div class="vs-group"><span class="vlabel">${CHOICES[name].label}</span>${choiceChips(name)}</div>`).join("") +
+      `<div class="vs-section-title">Instellingen</div><div class="vs-settings">` +
+      SETTINGS.map((s) => Panel.settingHtml(`data-vac="setting" data-setting="${s.key}"`, s.label)).join("") +
+      `</div>` +
       `<div class="vs-section-title">Onderhoud</div><div class="vs-cons-list"></div>` +
       `</section></div>`;
     render();
@@ -171,7 +204,7 @@
     q(".vs-alert").hidden = !(unreachable || notices.length);
     q(".vs-alert span").textContent = unreachable ? Panel.unreachableText(v) : notices.join(" · ");
     q(".vs-alert [data-reconnect]").hidden = !unreachable;
-    qa(".vs-actions .vbtn, .vchip").forEach((b) => (b.disabled = unreachable));
+    qa(".vs-actions .vbtn, .vchip, .vs-setting").forEach((b) => (b.disabled = unreachable));
     for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
       const cur = (st(id) || {}).state;
       qa(`[data-vac="${kind}"]`).forEach((c) => {
@@ -180,6 +213,17 @@
       });
     }
     q(".vs-water").hidden = (st(vac.mode) || {}).state === "OnlySweep";
+    SETTINGS.forEach((s) => {
+      const el = q(`[data-setting="${s.key}"]`);
+      el.classList.toggle("on", switchedOn(a[s.attr]));
+      el.classList.toggle("pending", queue.has(`${s.key}|on`) || queue.has(`${s.key}|off`));
+    });
+    qa('[data-vac="choice"]').forEach((c) => {
+      c.classList.toggle("active", String(a[CHOICES[c.dataset.choice].attr]) === c.dataset.opt);
+      c.classList.toggle("pending", queue.has(`${c.dataset.choice}|${c.dataset.opt}`));
+    });
+    /* The station works with the robot in it. */
+    qa(".vs-station .vbtn").forEach((b) => (b.disabled = unreachable || vstate !== "docked"));
 
     const n = selected.size;
     const roomsBtn = q('[data-vac="rooms"]');
@@ -392,6 +436,36 @@
         failed: "de ronde is niet gestopt",
       });
       return render();
+    }
+    const attrsNow = () => (st(vac.vacuum) || {}).attributes || {};
+    const miotAction = (aiid, value) => () =>
+      Panel.client.callService("xiaomi_miot", "call_action", { entity_id: vac.vacuum, siid: 17, aiid, params: [value] }, null);
+    if (kind === "setting") {
+      const s = SETTINGS.find((x) => x.key === el.dataset.setting);
+      const next = !switchedOn(attrsNow()[s.attr]);
+      queue.send(`${s.key}|${next ? "on" : "off"}`, {
+        send: miotAction(s.aiid, next),
+        landed: () => switchedOn(attrsNow()[s.attr]) === next,
+        wait: SETTING_MS,
+        failed: `${s.label.toLowerCase()} is niet aangepast`,
+      });
+      return render();
+    }
+    if (kind === "choice") {
+      const choice = CHOICES[el.dataset.choice];
+      const value = Number(el.dataset.opt);
+      if (Number(attrsNow()[choice.attr]) === value) return; /* already set */
+      queue.send(`${el.dataset.choice}|${value}`, {
+        send: miotAction(choice.aiid, value),
+        landed: () => Number(attrsNow()[choice.attr]) === value,
+        wait: SETTING_MS,
+        failed: `${choice.noun} is niet aangepast`,
+      });
+      return render();
+    }
+    if (kind === "station") {
+      const action = STATION.find((x) => x.key === el.dataset.station);
+      return miotAction(action.aiid, true)().catch(fail);
     }
     if (kind === "rooms") {
       if (!selected.size) return;

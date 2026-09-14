@@ -40,6 +40,13 @@
       const v = cfg.vacuum;
       set(v.vacuum, "docked", {
         "robotic_vacuum.clean_values": "[]",
+        "robotic_vacuum.disturb_switch": 0,
+        "break_clean_switch-17-2": 1,
+        "carpet_boost_switch-17-7": 0,
+        "robotic_vacuum.drying_switch": 1,
+        "robotic_vacuum.drying_time": 120,
+        "mop_wash_frequency-17-23": 10,
+        "robotic_vacuum.clean_count": 1,
         "robotic_vacuum.consumables": JSON.stringify([
           { type: "sideBrush", used: 3, mode: 1 }, { type: "rollBrush", used: 2, mode: 1 }, { type: "filter", used: 4, mode: 1 },
           { type: "mop", used: 3, mode: 1 }, { type: "engineSensor", used: 14, mode: 1 }, { type: "dustbag", used: 5, mode: 1 },
@@ -72,6 +79,10 @@
       set(e.edgeDirty, "off");
       set(e.rollDirty, "off");
       set(e.filterDirty, "on");
+      set(e.dnd, "off");
+      set(e.breakClean, "on");
+      set(e.autoBoost, "off");
+      set(e.yMopping, "off");
       ["edgeReset", "rollReset", "filterReset"].forEach((k) => set(e[k], "unknown"));
       set(e.totalArea, "277", { unit_of_measurement: "m²" });
       set(e.totalRuns, "12");
@@ -497,6 +508,8 @@
           if (domain === "vacuum" && service === "pause") put(e.vacuum, "paused", { status: "paused" });
           if (domain === "vacuum" && service === "return_to_base") put(e.vacuum, "returning", { status: "returning" });
           if (domain === "vacuum" && service === "set_fan_speed") put(e.vacuum, undefined, { fan_speed: data.fan_speed });
+          if (domain === "vacuum" && service === "send_command") put(e.vacuum, "cleaning", { status: data.command === "edge" ? "edge_cleaning" : "smart" });
+          if (domain === "switch") ids.forEach((id) => put(id, service === "turn_on" ? "on" : "off"));
           if (domain === "select") ids.forEach((id) => put(id, data.option));
           if (domain === "button") {
             ids.forEach((id) => {
@@ -512,6 +525,17 @@
           return returnResponse ? { response: {} } : null;
         }
         const v = cfg.vacuum;
+        /* The Xiaomi's settings through its MIoT actions: the attribute follows. */
+        if (v && domain === "xiaomi_miot" && service === "call_action") {
+          const attr = { 24: "robotic_vacuum.disturb_switch", 25: "break_clean_switch-17-2", 34: "carpet_boost_switch-17-7", 48: "robotic_vacuum.drying_switch", 43: "robotic_vacuum.drying_time", 44: "mop_wash_frequency-17-23", 28: "robotic_vacuum.clean_count" }[data.aiid];
+          if (attr) {
+            const vs = states.get(v.vacuum);
+            const value = data.params[0];
+            set(v.vacuum, vs.state, { ...vs.attributes, [attr]: typeof value === "boolean" ? Number(value) : value }, Date.now());
+            change([v.vacuum]);
+          }
+          return returnResponse ? { response: {} } : null;
+        }
         if (v && domain === "xiaomi_miot" && service === "get_properties") {
           const day = (n) => new Date(now - n * 86400e3).toISOString().slice(0, 10).replace(/-/g, "/");
           return {
