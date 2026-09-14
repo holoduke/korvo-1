@@ -1,4 +1,5 @@
-/* Schoonmaak: Tuya robot vacuums (Tuya Local; the ILIFE V30 upstairs), a panel
+/* Schoonmaak: Tuya robot vacuums (Tuya Local; the ILIFE A30 Pro upstairs, on the
+ * ilife_v30_vacuum config, which has the same data points), a panel
  * per PANEL_TUYA_VACUUMS entry on its floor's place in cleaning.js. Left the
  * robot's state and battery, a fault, this run, its totals and recent runs;
  * right the actions, suction, mopping and thoroughness, and the brushes and
@@ -25,7 +26,7 @@
   const PARTS = [["edge", "Zijborstel"], ["roll", "Hoofdborstel"], ["filter", "Filter"]];
   /* The robot's switches: entity key -> label. */
   const TOGGLES = [["dnd", "Niet storen"], ["breakClean", "Verder na opladen"], ["autoBoost", "Extra zuigkracht op tapijt"], ["yMopping", "Y-dweilen"]];
-  /* Minutes of life a new part has (the V30's Tuya spec), for "x% over". */
+  /* Minutes of life a new part has (ILIFE's Tuya spec for these robots), for "x% over". */
   const LIFE_MAX = { edge: 900, roll: 1800, filter: 900 };
   /* The fault code is a bitmap (Tuya DP 28), bit 0 first: [what, what to do]. */
   const FAULTS = [

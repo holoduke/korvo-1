@@ -398,7 +398,9 @@ static const panel_vacuum_t PANEL_VACUUM = {
 
 /* More robot vacuums in the web app's Schoonmaak section, one per floor next to
  * PANEL_VACUUM (the panel's firmware does not show them): Tuya Local robots
- * (ILIFE V30). name is the device's part of its entity ids (vacuum.<name>,
+ * (the ILIFE A30 Pro upstairs, set up with tuya-local's ilife_v30_vacuum
+ * config: the same data points, and more of them than its A30 Pro config).
+ * name is the device's part of its entity ids (vacuum.<name>,
  * sensor.<name>_battery, ...); floor is the PANEL_FLOORS label of the floor it
  * cleans, which also picks it on the page's floor rail. */
 typedef struct {

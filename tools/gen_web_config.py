@@ -178,7 +178,8 @@ def parse_vacuum(src):
     return vac
 
 
-# A Tuya Local robot vacuum's entities (ILIFE V30): key -> template ({n} = the device name).
+# A Tuya Local robot vacuum's entities, as tuya-local's ilife_v30_vacuum config names
+# them (used for the ILIFE A30 Pro): key -> template ({n} = the device name).
 TUYA_VACUUM_ENTITIES = {
     "vacuum": "vacuum.{n}", "battery": "sensor.{n}_battery", "area": "sensor.{n}_cleaning_area",
     "time": "sensor.{n}_cleaning_time", "problem": "binary_sensor.{n}_problem",

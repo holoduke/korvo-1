@@ -68,7 +68,8 @@ slider, the Klimaat chart, the AI oog screensaver, and all six themes.
 - **Demo**: append `?demo` for a fake backend that never touches real lights.
 - **Schoonmaak** shows a robot vacuum per floor, picked with a floor rail like
   Verlichting's: the Xiaomi (`PANEL_VACUUM`, rooms via the `robotkamers`
-  integration) and Tuya Local robots (`PANEL_TUYA_VACUUMS`, e.g. the ILIFE V30).
+  integration) and Tuya Local robots (`PANEL_TUYA_VACUUMS`, e.g. an ILIFE A30 Pro on
+  tuya-local's ILIFE V30 config).
   A robot Home Assistant cannot reach says so and its controls turn off.
 - **Energie** (`PANEL_ENERGY`): live power, use per day and per week from Home
   Assistant's statistics, a 24 h power chart and a card per device (washer,
