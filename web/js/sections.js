@@ -64,6 +64,8 @@
     track.classList.toggle("snapping", !!animate);
     track.style.transform = `translate3d(${-Panel.section * stage.clientWidth + offsetPx}px,0,0)`;
   }
+  /* "snapping" lasts as long as the glide into place, so a resize can tell. */
+  track.addEventListener("transitionend", (e) => e.target === track && track.classList.remove("snapping"));
 
   /* A phone too narrow for every tab scrolls the bar: the active tab is kept in
    * view (scrollTo, not scrollIntoView, which could also shift the page track). */
@@ -141,9 +143,12 @@
     const b = e.target.closest("[data-tab]");
     if (b) Panel.setSection(+b.dataset.tab, true);
   });
+  /* Safari resizes the viewport when its toolbar changes, also right after a
+   * swipe: a glide still under way is re-aimed, not cut short to its end. */
   window.addEventListener("resize", () => {
-    setTrack(0, false);
-    setIndicator(Panel.section, false);
+    const gliding = track.classList.contains("snapping");
+    setTrack(0, gliding);
+    setIndicator(Panel.section, gliding);
   });
   window.addEventListener("keydown", (e) => {
     if (Panel.overlayOpen()) return;
@@ -157,7 +162,7 @@
     applyHash(false);
     /* Tab widths change once the web font has loaded and on rotation: the
      * indicator follows them. */
-    const ro = new ResizeObserver(() => setIndicator(Panel.section, false));
+    const ro = new ResizeObserver(() => setIndicator(Panel.section, track.classList.contains("snapping")));
     tabs().forEach((tab) => ro.observe(tab));
     Util.watchOverflow($("tabbar"));
   });

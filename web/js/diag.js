@@ -49,9 +49,51 @@
       .catch(() => {}); /* not an admin, or the socket just dropped */
   }
 
+  /* Section swipes: how the glide after release played out on this device, for
+   * the first 3 per page load ("panel_snap"): the track's position in each
+   * painted frame, and the resizes and pointer cancels around it. */
+  function watchSnaps(Panel) {
+    let resizes = [];
+    let cancels = 0;
+    let sent = 0;
+    window.addEventListener("resize", () => resizes.push([performance.now(), innerWidth, innerHeight]), { passive: true });
+    window.addEventListener("pointercancel", () => cancels++, { capture: true });
+    Panel.on("swiping", (on) => {
+      if (on) {
+        resizes = [];
+        cancels = 0;
+        return;
+      }
+      if (sent >= 3) return;
+      sent++;
+      const track = document.getElementById("track");
+      const t0 = performance.now();
+      const frames = [];
+      const step = (t) => {
+        frames.push([Math.round(t - t0), Math.round(new DOMMatrix(getComputedStyle(track).transform).m41), track.classList.contains("snapping") ? 1 : 0]);
+        if (t - t0 < 450) return requestAnimationFrame(step);
+        const meta = document.querySelector('meta[name="panel-version"]');
+        Panel.client
+          .fireEvent("panel_snap", {
+            version: meta ? meta.content : null,
+            ua: navigator.userAgent,
+            standalone: !!navigator.standalone,
+            section: Panel.section,
+            target: -Panel.section * document.getElementById("stage").clientWidth,
+            frames,
+            resizes: resizes.map(([t, w, h]) => [Math.round(t - t0), w, h]),
+            cancels,
+          })
+          .catch(() => {});
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
   window.addEventListener("load", () => {
     const Panel = window.Panel;
     if (!Panel || !Panel.client || Panel.client.demo) return;
+    watchSnaps(Panel);
     /* After the first render; again after every reconnect. */
     Panel.client.on("status", (s) => s === "connected" && setTimeout(report, 1500));
     const dot = document.getElementById("status");

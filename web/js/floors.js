@@ -36,6 +36,8 @@
       view = el.querySelector(".floor-view");
       track = el.querySelector(".floor-track");
       railInd = el.querySelector(".rail-ind");
+      /* "snapping" lasts as long as the glide into place, so a resize can tell. */
+      track.addEventListener("transitionend", (e) => e.target === track && track.classList.remove("snapping"));
     },
     /* "1" or "1/keuken": the floor and the chosen room. */
     route: {
@@ -56,6 +58,8 @@
     track.classList.toggle("snapping", !!animate);
     track.style.transform = `translate3d(0,${-pos * view.clientHeight + offPx}px,0)`;
   }
+  /* "snapping" lasts as long as the glide into place, so a resize can tell. */
+  const gliding = () => track.classList.contains("snapping");
   function setRailInd(posFloat, animate) {
     const btns = railBtns();
     const i = Util.clamp(Math.floor(posFloat), 0, btns.length - 1);
@@ -112,10 +116,12 @@
     if (e.key === "ArrowUp") Panel.setFloor(Panel.floor + 1, true);
     if (e.key === "ArrowDown") Panel.setFloor(Panel.floor - 1, true);
   });
+  /* Safari resizes the viewport when its toolbar changes: a glide under way is
+   * re-aimed, not cut short to its end. */
   window.addEventListener("resize", () => {
     if (!page) return;
-    setTrack(Panel.floorPos(Panel.floor), 0, false);
-    setRailInd(Panel.floorPos(Panel.floor), false);
+    setTrack(Panel.floorPos(Panel.floor), 0, gliding());
+    setRailInd(Panel.floorPos(Panel.floor), gliding());
   });
 
   Panel.on("start", () => {
