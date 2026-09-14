@@ -39,9 +39,11 @@
   /* During a run the time counter moves every minute; this long without news
    * means tuya_local stopped receiving (it can, without a sign). */
   const QUIET_MS = 4 * 60e3;
-  /* A run that starts this soon after the last one ended is the same run resumed
-   * (after a fault or a recharge the robot restarts its counters). */
-  const RESUME_MS = 15 * 60e3;
+  /* A run that starts this soon after the last one, after a fault and without the
+   * robot going home, is that run resumed (the robot restarts its counters). */
+  const RESUME_MS = 30 * 60e3;
+  /* Faster than this, the counters still held an earlier run's area: no run. */
+  const MAX_M2_PER_MIN = 5;
   const JOB = ["cleaning", "returning", "paused"];
   const JOB_MS = 20000; /* a start or return takes the robot a while to report */
   const CHOICE_MS = 8000;
@@ -59,21 +61,28 @@
   });
 
   /* Runs from the robot's area and time counters: a counter going down is a new
-   * run; each run keeps the most it reached and when it last grew, and a run
-   * resumed shortly after the previous one is added to it. Newest first. */
-  function runsFrom(areaRows, timeRows) {
+   * run; each run keeps the most it reached and when it last grew. A run resumed
+   * after a fault (see RESUME_MS) is added to the one before. Newest first. */
+  function runsFrom(areaRows, timeRows, stateRows) {
     const points = [
       ...areaRows.map((r) => ({ t: r.t, key: "area", v: parseFloat(r.s) })),
       ...timeRows.map((r) => ({ t: r.t, key: "minutes", v: parseFloat(r.s) })),
     ]
       .filter((p) => Number.isFinite(p.v))
       .sort((a, b) => a.t - b.t);
+    const states = [...stateRows].sort((a, b) => a.t - b.t);
+    const resumed = (last, next) => {
+      if (next.start - last.end > RESUME_MS) return false;
+      const between = states.filter((x) => x.t > last.end && x.t <= next.start).map((x) => x.s);
+      return between.includes("error") && !between.some((s) => s === "docked" || s === "returning");
+    };
     const runs = [];
     let run = null;
     const commit = () => {
       if (!run || !(run.area > 0 || run.minutes > 0)) return;
+      if (run.minutes > 0 ? run.area / run.minutes > MAX_M2_PER_MIN : run.area > MAX_M2_PER_MIN) return;
       const last = runs[runs.length - 1];
-      if (last && run.start - last.end < RESUME_MS) {
+      if (last && resumed(last, run)) {
         last.area += run.area;
         last.minutes += run.minutes;
         last.end = run.end;
@@ -237,8 +246,8 @@
     view.loadedAt = Date.now();
     const e = view.robot.entities;
     try {
-      const hist = await Panel.client.history([e.area, e.time], new Date(Date.now() - HISTORY_DAYS * 86400e3));
-      view.runs = runsFrom(hist[e.area] || [], hist[e.time] || []);
+      const hist = await Panel.client.history([e.area, e.time, e.vacuum], new Date(Date.now() - HISTORY_DAYS * 86400e3));
+      view.runs = runsFrom(hist[e.area] || [], hist[e.time] || [], hist[e.vacuum] || []);
     } catch (err) {
       view.runs = view.runs || [];
     }

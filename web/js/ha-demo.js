@@ -625,6 +625,22 @@
       async history(ids, start) {
         const out = {};
         ids.forEach((id) => {
+          const tuyaRobot = (cfg.tuyaVacuums || []).find((r) => r.entities.vacuum === id);
+          if (tuyaRobot) {
+            /* Its states around the runs below: this morning's run stops on a fault
+             * and goes on without going home. */
+            const at = (hoursAgo) => Date.now() - hoursAgo * 3600e3;
+            out[id] = [
+              { s: "docked", t: start.getTime() },
+              { s: "cleaning", t: at(26) },
+              { s: "docked", t: at(26) + 26 * 60e3 },
+              { s: "cleaning", t: at(5) },
+              { s: "error", t: at(5) + 25 * 60e3 },
+              { s: "cleaning", t: at(4.4) - 30e3 },
+              { s: "docked", t: at(4.4) + 26 * 60e3 },
+            ];
+            return;
+          }
           if (/_cleaning_(area|time)$/.test(id)) {
             /* A Tuya robot's counters, reset when a run starts: one yesterday, one this
              * morning that stopped after 24 min and resumed 12 min later (its counters
