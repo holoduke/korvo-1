@@ -181,6 +181,11 @@
   .ap-card { padding: 16px; gap: 12px; }
   .ap-big { font-size: 44px; }
   .ap-big.word { font-size: 26px; }
+  /* A long name takes a second line; a wide word value (a speaker's name) keeps its
+   * width and the cover art moves below it. */
+  .ap-title b { white-space: normal; line-height: 1.15; }
+  .ap-body { flex-wrap: wrap; }
+  .ap-hero { flex: 1 1 170px; }
   .ap-chips { margin: 0 -16px; padding: 0 16px; }
   .ap-stat b { white-space: normal; }
   /* Media buttons show only their icons; the volume stepper gets the width. */

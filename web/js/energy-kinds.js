@@ -51,7 +51,7 @@
     stats: ["energyAdded"],
     power: (e) => (stateOf(e.location) === "home" ? E.scaled(e.chargerPower) : 0),
     card(e) {
-      if (E.missing(e.battery) && E.missing(e.charging)) return E.offline("Geen gegevens");
+      if (E.missing(e.battery) && E.missing(e.charging)) return { tone: "offline", big: "--", unit: "geen gegevens" };
       const charging = stateOf(e.charging);
       const active = charging === "charging" || charging === "starting";
       const soc = num(e.battery);

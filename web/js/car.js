@@ -26,6 +26,12 @@
    * lights or a media toggle) is sent again after these pauses when the car was
    * not reachable yet, as Tesla advises. */
   const RETRY_DELAYS_MS = [5000, 15000, 30000];
+  /* Charging time left, short enough for a tile: "45 min", "2 uur", "12 uur", "+24 uur". */
+  const chargeLeft = (seconds) => {
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} min`;
+    return minutes >= 24 * 60 ? "+24 uur" : `${Math.round(minutes / 60)} uur`;
+  };
   const RETRY_WINDOW_MS = 150000; /* the pauses plus Home Assistant's own 30 s wake per try */
   /* What went wrong: {text, again (sending later can help), refresh (update the
    * car's state first), plain (no known reason)}. */
@@ -90,7 +96,7 @@
       `<div class="cp-state"></div><div class="cp-meta"></div>` +
       `</div>` +
       `<div class="cp-card"><div class="vs-section-title">Laden</div>` +
-      `<div class="cp-stats">${stat("charging", "Status")}${stat("power", "Vermogen")}${stat("rate", "Snelheid")}${stat("added", "Toegevoegd")}${stat("full", "Vol om")}${stat("cable", "Kabel")}</div>` +
+      `<div class="cp-stats">${stat("charging", "Status")}${stat("power", "Vermogen")}${stat("rate", "Snelheid")}${stat("added", "Toegevoegd")}${stat("full", "Vol over")}${stat("cable", "Kabel")}</div>` +
       `<div class="cp-tiles">${tile("charge", "bolt", "Laden")}${tile("port", "plug", "Laadklep")}${tile("cablelock", "unlock", "Kabel los", "data-confirm")}</div>` +
       `<div class="cp-row"><span class="vlabel">Laadlimiet</span>${stepper("limit", 5)}</div>` +
       `<div class="vs-chips" style="--n:4">${[70, 80, 90, 100].map((v) => `<button class="vchip" data-car="limit-set" data-value="${v}">${v}%</button>`).join("")}</div>` +
@@ -239,14 +245,14 @@
     setStat("power", Number.isFinite(val("chargerPower")) ? `${fmt(val("chargerPower"), 1)} kW` : "--");
     setStat("rate", Number.isFinite(val("chargeRate")) ? `${fmt(val("chargeRate"))} km/u` : "--");
     setStat("added", Number.isFinite(val("energyAdded")) ? `${fmt(val("energyAdded"), 1)} kWh` : "--");
-    /* When the battery reaches its limit ("morgen 10:05"), and how long that takes. */
+    /* How long until the battery reaches its limit, short enough for a tile. */
     const full = timeOf("timeToFull");
     const secondsToFull = full && isCharging ? Math.max(0, (full.getTime() - Date.now()) / 1000) : NaN;
-    setStat("full", Number.isFinite(secondsToFull) ? Util.soon(full) : "--");
+    setStat("full", Number.isFinite(secondsToFull) ? chargeLeft(secondsToFull) : "--");
     setStat("cable", known((s("cable") || {}).state) ? (on("cable") ? "Aangesloten" : "Los") : "--");
 
     const chargeOn = on("charge");
-    const toFull = Number.isFinite(secondsToFull) ? ` · nog ${Util.duration(secondsToFull).join(" ")}` : "";
+    const toFull = Number.isFinite(secondsToFull) ? ` · nog ${chargeLeft(secondsToFull)}` : "";
     tileState("charge", chargeOn, chargeOn ? "Stop laden" : "Start laden", (CHARGING_NL[charging] || "") + toFull, has("charge"));
     const portOpen = stateOf("port") === "open";
     tileState("port", portOpen, portOpen ? "Klep dicht" : "Klep open", portOpen ? "staat open" : "is dicht", has("port"));
