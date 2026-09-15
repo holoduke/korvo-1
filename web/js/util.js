@@ -86,6 +86,29 @@
       mark();
     },
 
+    /* Moves a value from `from` to `to` over `ms`, easing out, on animation frames:
+     * step(value) each frame, done() at the end. Returns {cancel}. The page and
+     * floor tracks glide this way instead of by a CSS transition: on iPad Safari
+     * a transition on a layer that wide first rendered all of it, which held back
+     * the glide's first frame by about 230 ms (a swipe looked like a jump). */
+    glide(from, to, ms, step, done) {
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches || from === to) {
+        step(to);
+        if (done) done();
+        return { cancel() {} };
+      }
+      let raf = 0;
+      const t0 = performance.now();
+      const frame = (now) => {
+        const p = Math.min(1, Math.max(0, (now - t0) / ms));
+        step(from + (to - from) * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) raf = requestAnimationFrame(frame);
+        else if (done) done();
+      };
+      raf = requestAnimationFrame(frame);
+      return { cancel: () => cancelAnimationFrame(raf) };
+    },
+
     /* Second-tap confirmation. tap(key, needed) is true when the action may run:
      * a key that needs confirming is armed by the first tap for `ms`. `changed`
      * runs when a key arms or its time runs out, to redraw the labels. */

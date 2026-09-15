@@ -58,14 +58,24 @@
     ind.style.transform = `translate3d(${left(a) + (left(b) - left(a)) * f}px,0,0)`;
   }
 
-  /* In pixels, not calc(% + px): Safari does not animate between calc() values,
-   * so a released swipe would jump instead of gliding into place. */
+  /* The track moves frame by frame, under the finger and when it glides into
+   * place (Util.glide; see there why not a CSS transition). */
+  const SNAP_MS = 300;
+  let trackX = 0;
+  let glide = null;
   function setTrack(offsetPx, animate) {
-    track.classList.toggle("snapping", !!animate);
-    track.style.transform = `translate3d(${-Panel.section * stage.clientWidth + offsetPx}px,0,0)`;
+    const to = -Panel.section * stage.clientWidth + offsetPx;
+    if (glide) glide.cancel();
+    glide = null;
+    const place = (x) => {
+      trackX = x;
+      track.style.transform = `translate3d(${x}px,0,0)`;
+    };
+    if (!animate) return place(to);
+    glide = Util.glide(trackX, to, SNAP_MS, place, () => (glide = null));
   }
-  /* "snapping" lasts as long as the glide into place, so a resize can tell. */
-  track.addEventListener("transitionend", (e) => e.target === track && track.classList.remove("snapping"));
+  /* Whether the track is gliding into place (diag.js reports it). */
+  Panel.sectionGliding = () => !!glide;
 
   /* A phone too narrow for every tab scrolls the bar: the active tab is kept in
    * view (scrollTo, not scrollIntoView, which could also shift the page track). */
@@ -146,7 +156,7 @@
   /* Safari resizes the viewport when its toolbar changes, also right after a
    * swipe: a glide still under way is re-aimed, not cut short to its end. */
   window.addEventListener("resize", () => {
-    const gliding = track.classList.contains("snapping");
+    const gliding = !!glide;
     setTrack(0, gliding);
     setIndicator(Panel.section, gliding);
   });
@@ -162,7 +172,7 @@
     applyHash(false);
     /* Tab widths change once the web font has loaded and on rotation: the
      * indicator follows them. */
-    const ro = new ResizeObserver(() => setIndicator(Panel.section, track.classList.contains("snapping")));
+    const ro = new ResizeObserver(() => setIndicator(Panel.section, !!glide));
     tabs().forEach((tab) => ro.observe(tab));
     Util.watchOverflow($("tabbar"));
   });

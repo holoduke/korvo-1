@@ -32,8 +32,6 @@
       view = el.querySelector(".floor-view");
       track = el.querySelector(".floor-track");
       placeInd = Panel.railIndicator(el.querySelector(".rail"));
-      /* "snapping" lasts as long as the glide into place, so a resize can tell. */
-      track.addEventListener("transitionend", (e) => e.target === track && track.classList.remove("snapping"));
     },
     /* "1" or "1/keuken": the floor and the chosen room. */
     route: {
@@ -49,12 +47,23 @@
     },
   });
 
-  /* In pixels, not calc(% + px): Safari does not animate between calc() values. */
+  /* The track moves frame by frame, under the finger and when it glides into
+   * place (Util.glide; see there why not a CSS transition). */
+  const SNAP_MS = 320;
+  let trackY = 0;
+  let glide = null;
   function setTrack(pos, offPx, animate) {
-    track.classList.toggle("snapping", !!animate);
-    track.style.transform = `translate3d(0,${-pos * view.clientHeight + offPx}px,0)`;
+    const to = -pos * view.clientHeight + offPx;
+    if (glide) glide.cancel();
+    glide = null;
+    const place = (y) => {
+      trackY = y;
+      track.style.transform = `translate3d(0,${y}px,0)`;
+    };
+    if (!animate) return place(to);
+    glide = Util.glide(trackY, to, SNAP_MS, place, () => (glide = null));
   }
-  const gliding = () => track.classList.contains("snapping");
+  const gliding = () => !!glide;
 
   Panel.setFloor = function (fi, animate) {
     if (!page) return;

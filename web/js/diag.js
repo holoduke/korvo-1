@@ -70,7 +70,7 @@
       const t0 = performance.now();
       const frames = [];
       const step = (t) => {
-        frames.push([Math.round(t - t0), Math.round(new DOMMatrix(getComputedStyle(track).transform).m41), track.classList.contains("snapping") ? 1 : 0]);
+        frames.push([Math.round(t - t0), Math.round(new DOMMatrix(getComputedStyle(track).transform).m41), Panel.sectionGliding && Panel.sectionGliding() ? 1 : 0]);
         if (t - t0 < 450) return requestAnimationFrame(step);
         const meta = document.querySelector('meta[name="panel-version"]');
         Panel.client
