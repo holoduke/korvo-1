@@ -63,6 +63,12 @@
       if (days < 7) return `${DAYS_SHORT[d.getDay()]} ${Util.hm(d)}`;
       return `${days} dagen geleden`;
     },
+    /* A moment ahead: "vandaag 14:05", "morgen 14:05" or "wo 14:05". */
+    soon(date) {
+      const d = new Date(date);
+      const days = Math.round((new Date(d.toDateString()) - new Date(new Date().toDateString())) / 86400e3);
+      return `${days === 0 ? "vandaag" : days === 1 ? "morgen" : DAYS_SHORT[d.getDay()]} ${Util.hm(d)}`;
+    },
     /* "zojuist", "12 min geleden", then as ago(). */
     since(ms) {
       const minutes = Math.floor((Date.now() - ms) / 60e3);

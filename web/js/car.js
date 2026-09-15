@@ -239,12 +239,15 @@
     setStat("power", Number.isFinite(val("chargerPower")) ? `${fmt(val("chargerPower"), 1)} kW` : "--");
     setStat("rate", Number.isFinite(val("chargeRate")) ? `${fmt(val("chargeRate"))} km/u` : "--");
     setStat("added", Number.isFinite(val("energyAdded")) ? `${fmt(val("energyAdded"), 1)} kWh` : "--");
+    /* When the battery reaches its limit ("morgen 10:05"), and how long that takes. */
     const full = timeOf("timeToFull");
-    setStat("full", full && isCharging ? hm(full) : "--");
+    const secondsToFull = full && isCharging ? Math.max(0, (full.getTime() - Date.now()) / 1000) : NaN;
+    setStat("full", Number.isFinite(secondsToFull) ? Util.soon(full) : "--");
     setStat("cable", known((s("cable") || {}).state) ? (on("cable") ? "Aangesloten" : "Los") : "--");
 
     const chargeOn = on("charge");
-    tileState("charge", chargeOn, chargeOn ? "Stop laden" : "Start laden", CHARGING_NL[charging] || "", has("charge"));
+    const toFull = Number.isFinite(secondsToFull) ? ` · nog ${Util.duration(secondsToFull).join(" ")}` : "";
+    tileState("charge", chargeOn, chargeOn ? "Stop laden" : "Start laden", (CHARGING_NL[charging] || "") + toFull, has("charge"));
     const portOpen = stateOf("port") === "open";
     tileState("port", portOpen, portOpen ? "Klep dicht" : "Klep open", portOpen ? "staat open" : "is dicht", has("port"));
     const cableLocked = stateOf("cableLock") === "locked";

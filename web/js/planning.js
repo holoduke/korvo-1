@@ -135,10 +135,7 @@
     }
     return null;
   }
-  function when(date) {
-    const days = Math.round((new Date(date.toDateString()) - new Date(new Date().toDateString())) / 86400e3);
-    return `${days === 0 ? "vandaag" : days === 1 ? "morgen" : DAYS[(date.getDay() + 6) % 7][1]} ${Util.hm(date)}`;
-  }
+  const when = Util.soon;
 
   /* ---- The lists on the robots' panels ---------------------------------------------- */
   function rowHtml(s) {
