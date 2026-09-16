@@ -5,8 +5,9 @@
  *
  *   Panel.defineAction(name, tap, hold)   controls marked data-<name>
  *   Panel.addSwipe({root, axis, accepts(el, delta), size(), commit,
- *                   begin(), move(raw, size) -> offset, end(dir)})
- *     end gets +1 (towards the next item), -1 (the previous) or 0 (snap back).
+ *                   begin(), move(raw, size) -> offset, end(dir, velocity)})
+ *     end gets +1 (towards the next item), -1 (the previous) or 0 (snap back),
+ *     and the finger's speed along the axis (px/ms) for the glide to set off at.
  *
  * Inside a scroller that can move along the swipe's axis, native scrolling
  * wins (a long lamp list, a row of room buttons wider than the screen). */
@@ -158,12 +159,16 @@
       const dir = gest.off < 0 ? 1 : -1;
       const far = Math.abs(gest.off) > gest.size * gest.swipe.commit;
       const flick = -dir * velocity(gest) > FLICK_VEL && Math.abs(gest.off) > FLICK_MIN;
-      gest.swipe.end(far || flick ? dir : 0);
+      gest.swipe.end(far || flick ? dir : 0, velocity(gest));
       return;
     }
     if (gest.cancelled || e.type === "pointercancel" || !gest.target || gest.target.disabled) return;
     if (Math.hypot(e.clientX - gest.x0, e.clientY - gest.y0) > MOVE_CANCEL) return;
+    /* A tap that opens an overlay: on touch the browser still turns this lift
+     * into a click, which would land on the overlay's backdrop and close it. */
+    const wasOpen = Panel.overlayOpen();
     actionOf(gest.target).tap(gest.target);
+    if (!wasOpen && Panel.overlayOpen()) swallowClick = true;
   }
   /* A release outside the surface (finger slid off, or onto an overlay) must
    * still end the gesture, or the next press would be ignored. */

@@ -63,7 +63,7 @@
   const SNAP_MS = 300;
   let trackX = 0;
   let glide = null;
-  function setTrack(offsetPx, animate) {
+  function setTrack(offsetPx, animate, velocity) {
     const to = -Panel.section * stage.clientWidth + offsetPx;
     if (glide) glide.cancel();
     glide = null;
@@ -72,7 +72,7 @@
       track.style.transform = `translate3d(${x}px,0,0)`;
     };
     if (!animate) return place(to);
-    glide = Util.glide(trackX, to, SNAP_MS, place, () => (glide = null));
+    glide = Util.glide(trackX, to, SNAP_MS, place, () => (glide = null), velocity);
   }
   /* Whether the track is gliding into place (diag.js reports it). */
   Panel.sectionGliding = () => !!glide;
@@ -87,12 +87,13 @@
     bar.scrollTo({ left: Util.clamp(t.offsetLeft - (bar.clientWidth - t.offsetWidth) / 2, 0, room), behavior: animate ? "smooth" : "auto" });
   }
 
-  Panel.setSection = function (i, animate) {
+  /* velocity (px/ms, from a swipe's release) sets the glide's speed. */
+  Panel.setSection = function (i, animate, velocity) {
     i = Util.clamp(i, 0, cfg.sections.length - 1);
     const changed = i !== Panel.section;
     Panel.section = i;
     tabs().forEach((el, k) => el.classList.toggle("active", k === i));
-    setTrack(0, animate);
+    setTrack(0, animate, velocity);
     setIndicator(i, animate);
     revealTab(i, animate);
     if (changed) Panel.emit("section", i);
@@ -113,9 +114,9 @@
       setIndicator(Panel.section - off / size, false);
       return off;
     },
-    end(dir) {
+    end(dir, velocity) {
       Panel.emit("swiping", false);
-      Panel.setSection(Panel.section + dir, true);
+      Panel.setSection(Panel.section + dir, true, velocity);
     },
   });
 

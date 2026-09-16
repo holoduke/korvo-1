@@ -52,7 +52,7 @@
   const SNAP_MS = 320;
   let trackY = 0;
   let glide = null;
-  function setTrack(pos, offPx, animate) {
+  function setTrack(pos, offPx, animate, velocity) {
     const to = -pos * view.clientHeight + offPx;
     if (glide) glide.cancel();
     glide = null;
@@ -61,11 +61,12 @@
       track.style.transform = `translate3d(0,${y}px,0)`;
     };
     if (!animate) return place(to);
-    glide = Util.glide(trackY, to, SNAP_MS, place, () => (glide = null));
+    glide = Util.glide(trackY, to, SNAP_MS, place, () => (glide = null), velocity);
   }
   const gliding = () => !!glide;
 
-  Panel.setFloor = function (fi, animate) {
+  /* velocity (px/ms, from a swipe's release) sets the glide's speed. */
+  Panel.setFloor = function (fi, animate, velocity) {
     if (!page) return;
     fi = Util.clamp(fi, 0, cfg.floors.length - 1);
     const changed = fi !== Panel.floor;
@@ -73,7 +74,7 @@
     const pos = Panel.floorPos(fi);
     railBtns().forEach((el) => el.classList.toggle("active", +el.dataset.floor === fi));
     page.querySelectorAll(".floor-row").forEach((el) => el.classList.toggle("active", +el.dataset.floorRow === fi));
-    setTrack(pos, 0, animate);
+    setTrack(pos, 0, animate, velocity);
     placeInd(pos, animate);
     if (changed) {
       Panel.emit("floor", fi);
@@ -98,10 +99,10 @@
       placeInd(Util.clamp(pos - off / size, 0, last), false);
       return off;
     },
-    end(dir) {
+    end(dir, velocity) {
       /* +1 is the panel below: a lower floor */
       const to = Panel.floorPos(Panel.floor) + dir;
-      Panel.setFloor(to >= 0 && to < cfg.floors.length ? Panel.floorOrder[to] : Panel.floor, true);
+      Panel.setFloor(to >= 0 && to < cfg.floors.length ? Panel.floorOrder[to] : Panel.floor, true, velocity);
     },
   });
 

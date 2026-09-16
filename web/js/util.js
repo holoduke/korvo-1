@@ -97,7 +97,7 @@
      * floor tracks glide this way instead of by a CSS transition: on iPad Safari
      * a transition on a layer that wide first rendered all of it, which held back
      * the glide's first frame by about 230 ms (a swipe looked like a jump). */
-    glide(from, to, ms, step, done) {
+    glide(from, to, ms, step, done, v0) {
       if (matchMedia("(prefers-reduced-motion: reduce)").matches || from === to) {
         step(to);
         if (done) done();
@@ -105,8 +105,32 @@
       }
       let raf = 0;
       const t0 = performance.now();
+      /* Released by a finger (v0 its speed, px/ms): a critically damped spring
+       * that sets off at that speed and eases to rest, as a page does on iOS and
+       * Android, in about the time the finger would have needed for the rest of
+       * the way (within bounds: a slow drag still finishes, a flick still eases).
+       * Without a speed: the ease-out over ms. */
+      const A = from - to;
+      const spring = Number.isFinite(v0);
+      const dur = spring ? Math.min(450, Math.max(160, Math.abs(A) / Math.max(Math.abs(v0), 1.2))) : ms;
+      const w = 6 / dur;
+      const B = spring ? v0 + w * A : 0;
       const frame = (now) => {
-        const p = Math.min(1, Math.max(0, (now - t0) / ms));
+        const t = now - t0;
+        if (spring) {
+          const e = Math.exp(-w * t);
+          const x = to + (A + B * t) * e;
+          const v = (B - w * (A + B * t)) * e;
+          if (t < dur * 3 && (Math.abs(x - to) > 0.4 || Math.abs(v) > 0.02)) {
+            step(x);
+            raf = requestAnimationFrame(frame);
+          } else {
+            step(to);
+            if (done) done();
+          }
+          return;
+        }
+        const p = Math.min(1, Math.max(0, t / ms));
         step(from + (to - from) * (1 - Math.pow(1 - p, 3)));
         if (p < 1) raf = requestAnimationFrame(frame);
         else if (done) done();
