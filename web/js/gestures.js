@@ -125,6 +125,22 @@
     e.preventDefault();
   }
 
+  /* Ends the gesture in progress without a tap or a committed swipe: for a
+   * surface that takes the fingers over (the house on Start, once a second
+   * finger lands on it). A swipe under way snaps back. */
+  Panel.cancelSwipe = function () {
+    if (!g) return;
+    const gest = g;
+    g = null;
+    clearTimeout(gest.lpTimer);
+    if (gest.target) gest.target.classList.remove("pressed");
+    if (!gest.swipe) return;
+    try {
+      gest.root.releasePointerCapture(gest.id);
+    } catch (e) {}
+    gest.swipe.end(0);
+  };
+
   function velocity(gest) {
     const s = gest.samples;
     const a = s.find((p) => s[s.length - 1].t - p.t < 110) || s[0];

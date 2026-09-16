@@ -573,6 +573,7 @@ typedef struct {
     const char *tab;  /* for "tab": the PANEL_TABS name */
 } panel_section_t;
 static const panel_section_t PANEL_SECTIONS[] = {
+    { "Start",       "start",  NULL },
     { "Verlichting", "floors", NULL },
     { "Apparaten",   "appliances", NULL },
     { "Schoonmaak",  "vacuum", NULL },

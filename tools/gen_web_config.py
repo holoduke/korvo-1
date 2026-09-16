@@ -452,7 +452,7 @@ def parse_layout(src, tabs):
                                         array_body(src, "PANEL_FLOORS"))]
     # Tab icon per section kind (name from web/js/icons.js). "tab" is the
     # garage lights page; adjust here if a different tab is ever added.
-    section_icons = {"floors": "lights", "appliances": "plug", "vacuum": "vacuum",
+    section_icons = {"start": "home", "floors": "lights", "appliances": "plug", "vacuum": "vacuum",
                      "car": "car", "sensors": "eye", "energy": "bolt", "tab": "garage"}
     sections = []
     for name, kind, tab in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}',

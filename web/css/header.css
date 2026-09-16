@@ -78,6 +78,12 @@
 .timebox { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .clock { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.05; }
 .daterow { display: flex; gap: 6px; font-size: 13px; font-weight: 600; }
+/* The date line sets the clock box's width on its longest day ("donderdag 17
+ * sep"): a size smaller up to 1300 px keeps every column of an 11" iPad in
+ * landscape (1194 px) in view on every day of the week. */
+@media (max-width: 1300px) {
+  .daterow { font-size: 12px; }
+}
 .dow { color: var(--text_soft); }
 .date { color: var(--text_dim); }
 .status { width: 14px; height: 14px; border-radius: 50%; background: var(--bad); margin-left: 10px; transition: background-color 0.3s; }
@@ -106,19 +112,27 @@
   transition: color 0.2s;
 }
 .tab.active { color: var(--accent); }
+/* Start is its house icon alone, at every width: the first tab reads as "home"
+ * without a word, and the seven named tabs keep their room. */
+.tab[data-kind="start"] .tab-label { display: none; }
+.tab[data-kind="start"] .ic { display: block; width: 1.25em; height: 1.25em; }
 /* More tabs hide past the right edge (narrow phones). */
 .tabbar.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
 /* Section tabs carry an icon next to their label. */
 .tab { display: inline-flex; align-items: center; justify-content: center; gap: .38em; }
 .tab .ic { width: 1.12em; height: 1.12em; flex: 0 0 auto; }
 .tab .tab-label { line-height: 1; }
-/* Icons only where all seven fit next to their labels with room between them. */
+/* Icons only where all seven names fit next to them with room between. */
 @media (max-width: 1099px) {
   .tab .ic { display: none; }
 }
-/* The panel's 800x480 and iPad portrait: a size smaller keeps the labels apart. */
+/* Eight tabs: a size smaller from 1100 px, and again on the panel's 800x480
+ * and iPad portrait, keeps the names apart. */
+@media (min-width: 1100px) {
+  .tab { font-size: 23px; }
+}
 @media (min-width: 761px) and (max-width: 959px) {
-  .tab { font-size: 22px; }
+  .tab { font-size: 20px; }
 }
 .tabind {
   position: absolute;
@@ -148,13 +162,14 @@
   .clock { font-size: 28px; }
   .gear { font-size: 26px; }
   .hdr-strip { flex: 1 1 100%; padding-bottom: 2px; }
-  /* Seven sections in small caps, a little tighter: 12 px, and 11 px on the
-   * common 390-420 px phones. A phone narrower still scrolls the bar sideways
-   * (sections.js keeps the active tab in view). */
+  /* The section names in small caps, a little tighter: 12 px, and 10.5 px on
+   * the common 390-420 px phones. A phone narrower still scrolls the bar
+   * sideways (sections.js keeps the active tab in view). */
   .tabbar { padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
   .tabbar::-webkit-scrollbar { display: none; }
   .tab { font-size: 12px; flex: 1 0 auto; padding: 0 3px; letter-spacing: 0.02em; }
 }
 @media (max-width: 420px) {
-  .tab { font-size: 11px; }
+  .tabbar { padding: 0 4px; }
+  .tab { font-size: 10.5px; }
 }

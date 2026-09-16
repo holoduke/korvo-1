@@ -724,6 +724,12 @@ window.PANEL_CONFIG = {
   ],
   "sections": [
     {
+      "name": "Start",
+      "kind": "start",
+      "icon": "home",
+      "tab": null
+    },
+    {
       "name": "Verlichting",
       "kind": "floors",
       "icon": "lights",

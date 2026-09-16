@@ -32,7 +32,7 @@
   Panel.on("build", () => {
     $("tabbar").insertAdjacentHTML(
       "afterbegin",
-      cfg.sections.map((s, i) => `<button class="tab${i === 0 ? " active" : ""}" data-tab="${i}">${s.icon ? window.icon(s.icon) : ""}<span class="tab-label">${s.name}</span></button>`).join("")
+      cfg.sections.map((s, i) => `<button class="tab${i === 0 ? " active" : ""}" data-tab="${i}" data-kind="${s.kind}" aria-label="${s.name}">${s.icon ? window.icon(s.icon) : ""}<span class="tab-label">${s.name}</span></button>`).join("")
     );
     track.innerHTML = cfg.sections
       .map((sec, si) => {

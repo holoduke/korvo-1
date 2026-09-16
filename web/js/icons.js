@@ -66,6 +66,7 @@
     mute: '<path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6M21 9l-5 6"/>',
     link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     wrench:'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/>',
+    home: '<path d="M3 11.2 12 3.5l9 7.7"/><path d="M5.5 9.6V21h13V9.6"/><path d="M10 21v-6.5h4V21"/>',
     garage: '<path d="M3 10.5 12 4l9 6.5V21H3z"/><rect x="6.5" y="12.5" width="11" height="8.5"/><path d="M6.5 15.5h11M6.5 18.2h11"/>',
   };
   window.icon = function (name, cls) {
