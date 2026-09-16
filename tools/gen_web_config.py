@@ -267,6 +267,9 @@ _LAUNDRY = {
     "remote": "binary_sensor.{n}_remote_control", "lock": "binary_sensor.{n}_child_lock", "on": "binary_sensor.{n}_power",
 }
 APPLIANCE_ENTITIES = {
+    # A Windows pc: a template switch (on = awake; on -> Wake-on-LAN, off -> sleep)
+    # with the Wake-on-LAN and sleep buttons behind it, and a ping sensor.
+    "pc": {"on": "switch.{n}", "online": "binary_sensor.{n}_online", "wake": "button.{n}_aanzetten", "sleep": "button.{n}_sleep"},
     "washer": {**_LAUNDRY, "water": "sensor.{n}_water_consumption"},
     "dryer": _LAUNDRY,
     "dishwasher": {

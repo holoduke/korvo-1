@@ -1,6 +1,7 @@
 /* Household appliances in the Apparaten section: washer and dryer
  * (SmartThings), dishwasher, oven and hob (Home Connect via hcpy), the cooker
- * hood's plasma filter (ATAG over MQTT) and the fridge (Liebherr). */
+ * hood's plasma filter (ATAG over MQTT), the fridge (Liebherr) and the pc (a
+ * template switch: on wakes it over the network, off puts it to sleep). */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -337,6 +338,34 @@
   });
 
   /* ---- Fridge ----------------------------------------------------------------------- */
+  /* ---- PC ------------------------------------------------------------------------ */
+  Panel.defineAppliance("pc", {
+    icon: "pc",
+    view(a, i) {
+      const e = a.entities;
+      if (offline(e.on)) return offlineView("De pc-schakelaar is niet bereikbaar in Home Assistant");
+      const awake = on(e.on);
+      const online = s(e.online) ? on(e.online) : awake;
+      return {
+        tone: awake ? "ready" : "off",
+        pill: awake ? "Aan" : "Uit",
+        big: awake ? "Aan" : "Uit",
+        word: true,
+        sub: awake ? (online ? "Aan en bereikbaar op het netwerk" : "Aangezet, nog niet bereikbaar") : online ? "Nog bereikbaar, gaat slapen" : "Uit of in slaapstand",
+        stats: [],
+        controls:
+          `<div class="ap-row">` +
+          (awake ? btn(i, "sleep", "Slaapstand", { ic: "power", confirm: true }) : btn(i, "wake", "Aanzetten", { primary: true, ic: "power" })) +
+          `</div>` +
+          note(awake ? "Slaapstand zet de pc in de slaapstand; aanzetten kan daarna weer vanaf hier." : "Aanzetten gaat via Wake-on-LAN over het netwerk."),
+      };
+    },
+    actions: {
+      wake: (a, args, call) => call("switch", "turn_on", null, a.entities.on),
+      sleep: (a, args, call) => call("switch", "turn_off", null, a.entities.on),
+    },
+  });
+
   Panel.defineAppliance("fridge", {
     icon: "fridge",
     view(a, i) {

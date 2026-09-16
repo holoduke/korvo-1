@@ -38,9 +38,11 @@
     const short = name.replace(/^lamp\s+/i, "");
     return short.charAt(0).toUpperCase() + short.slice(1);
   };
+  /* A lamp tile: its power button on the left switches it; the rest opens the
+   * popup with its brightness, colour and warmth. */
   Panel.lightTile = (id) =>
-    `<button class="tile" data-light="${id}"><span class="t-icon">${icon("power")}</span>` +
-    `<span class="t-text"><span class="t-name">${Util.esc(Panel.lightLabel(id))}</span><span class="t-sub">...</span></span></button>`;
+    `<div class="tile lamp" data-light="${id}"><button class="t-icon t-power" data-power="${id}" aria-label="Aan of uit">${icon("power")}</button>` +
+    `<button class="t-text" data-lamp="${id}"><span class="t-name">${Util.esc(Panel.lightLabel(id))}</span><span class="t-sub">...</span></button></div>`;
 
   const pending = new Map(); /* light id -> {on, timer}: optimistic toggle */
   function renderLight(id) {
@@ -76,15 +78,23 @@
       pending.delete(id);
       renderLight(id);
     });
+    lampChanged([id]);
   };
   Panel.setBrightness = function (entityIds, value) {
     const off = value <= 0;
     Panel.client
       .callService("light", off ? "turn_off" : "turn_on", off ? null : { brightness_pct: value }, { entity_id: entityIds })
       .catch(() => {});
+    lampChanged(entityIds);
   };
-  Panel.setHue = (id, hue) => Panel.client.callService("light", "turn_on", { hs_color: [hue, 100] }, { entity_id: id }).catch(() => {});
-  Panel.setKelvin = (id, k) => Panel.client.callService("light", "turn_on", { color_temp_kelvin: k }, { entity_id: id }).catch(() => {});
+  Panel.setHue = (id, hue) => {
+    Panel.client.callService("light", "turn_on", { hs_color: [hue, 100] }, { entity_id: id }).catch(() => {});
+    lampChanged([id]);
+  };
+  Panel.setKelvin = (id, k) => {
+    Panel.client.callService("light", "turn_on", { color_temp_kelvin: k }, { entity_id: id }).catch(() => {});
+    lampChanged([id]);
+  };
 
   /* The tab's main light (a group) sets the slider while no room is chosen. */
   Panel.tabBrightness = cfg.tabs.map(() => -1);
@@ -112,7 +122,9 @@
   }
 
   /* ---- Scenes ------------------------------------------------------------------ */
+  const activeScene = new Map(); /* tab index -> index of its scene shown as active */
   function highlightScene(tab, idx) {
+    activeScene.set(tab, idx);
     document.querySelectorAll(`[data-scene^="${tab}:"]`).forEach((el) => {
       const on = +el.dataset.scene.split(":")[1] === idx;
       el.classList.toggle("active", on);
@@ -122,6 +134,7 @@
     if (pill) pill.textContent = idx >= 0 ? cfg.tabs[tab].scenes[idx].label : "-";
   }
   Panel.activateScene = function (tab, idx) {
+    dismissSave(); /* the lamps take the scene's states: nothing to save */
     highlightScene(tab, idx);
     Panel.client.callService("scene", "turn_on", null, { entity_id: cfg.tabs[tab].scenes[idx].id }).catch(() => {});
   };
@@ -140,6 +153,7 @@
       const prev = sceneSeen.get(id);
       sceneSeen.set(id, s.state);
       if (prev !== undefined && prev !== s.state) {
+        dismissSave();
         cfg.tabs.forEach((t, ti) => t.scenes.forEach((sc, i) => sc.id === id && highlightScene(ti, i)));
       }
     }
@@ -155,6 +169,87 @@
       });
     }
   }
+
+  /* ---- Saving a changed scene -------------------------------------------------- */
+  /* A lamp changed by hand while a scene is active on its tab: a bar offers to
+   * store the changed lamps' states in that scene (Home Assistant's scene
+   * config, which the scene editor keeps). It stays until answered; a scene
+   * activated meanwhile clears it. */
+  const saveBar = document.getElementById("sceneSave");
+  let dirty = null; /* {tab, idx, lights: Set of lamp ids} */
+
+  /* The tab a lamp belongs to, with a scene active: the tab on screen first. */
+  function sceneTabOf(id) {
+    const has = (ti) => {
+      const t = cfg.tabs[ti];
+      return t.scenes.length && (activeScene.get(ti) ?? -1) >= 0 && ((lampsOfTab.get(ti) || []).includes(id) || [...t.lights, ...t.devices].some((d) => d.id === id));
+    };
+    const active = Panel.activeTab();
+    if (active >= 0 && has(active)) return active;
+    const ti = cfg.tabs.findIndex((t, i) => has(i));
+    return ti;
+  }
+  function lampChanged(ids) {
+    for (const id of ids) {
+      if (!id.startsWith("light.")) continue;
+      const ti = sceneTabOf(id);
+      if (ti < 0) continue;
+      const idx = activeScene.get(ti);
+      if (!dirty || dirty.tab !== ti || dirty.idx !== idx) dirty = { tab: ti, idx, lights: new Set() };
+      dirty.lights.add(id);
+    }
+    if (!dirty || !saveBar) return;
+    saveBar.querySelector(".ss-text").textContent = `Lampen van scene “${cfg.tabs[dirty.tab].scenes[dirty.idx].label}” veranderd. Scene opslaan?`;
+    syncSaveBar();
+  }
+  /* The offer shows with its own tab: it waits out a visit to another section. */
+  function syncSaveBar() {
+    if (saveBar) saveBar.hidden = !dirty || Panel.activeTab() !== dirty.tab;
+  }
+  Panel.on("section", syncSaveBar);
+  Panel.on("floor", syncSaveBar);
+  function dismissSave() {
+    dirty = null;
+    if (saveBar) saveBar.hidden = true;
+  }
+  /* A lamp's state as a scene stores it: off, or on with its brightness and
+   * the colour it is in (warmth in kelvin, or hue and saturation). */
+  function storedState(s) {
+    if (s.state !== "on") return { state: "off" };
+    const a = s.attributes || {};
+    const out = { state: "on" };
+    if (typeof a.brightness === "number") out.brightness = a.brightness;
+    if (a.color_mode === "color_temp" && a.color_temp_kelvin) out.color_temp_kelvin = a.color_temp_kelvin;
+    else if (["hs", "xy", "rgb", "rgbw", "rgbww"].includes(a.color_mode) && Array.isArray(a.hs_color)) out.hs_color = a.hs_color;
+    return out;
+  }
+  async function saveScene() {
+    const d = dirty;
+    dismissSave();
+    if (!d) return;
+    const sc = cfg.tabs[d.tab].scenes[d.idx];
+    let config = null;
+    try {
+      config = await Panel.client.sceneConfig(sc.id);
+    } catch (e) {
+      config = null;
+    }
+    if (!config) return Panel.toast(`Scene ${sc.label} staat niet in de scene-editor van Home Assistant: opslaan kan niet`);
+    const entities = { ...(config.entities || {}) };
+    for (const id of d.lights) {
+      const s = st(id);
+      if (s && !Panel.unavailable(s)) entities[id] = storedState(s);
+    }
+    try {
+      await Panel.client.saveScene(config.id || ((st(sc.id) || {}).attributes || {}).id, { ...config, entities });
+      sceneStates.set(sc.id, entities);
+      renderSceneSwatches();
+      Panel.toast(`Scene ${sc.label} opgeslagen`);
+    } catch (e) {
+      Panel.toast(`Scene ${sc.label} opslaan lukte niet: ${e.message || e}`);
+    }
+  }
+  Panel.defineAction("ss", (el) => (el.dataset.ss === "yes" ? saveScene() : dismissSave()));
 
   /* ---- A tab's lamps ------------------------------------------------------------- */
   const lampsOfTab = new Map(); /* tab index -> [lamp ids], once known */
@@ -270,7 +365,7 @@
     const t = cfg.tabs[ti];
     const areas = t.areas || [];
     let row = `<div class="row${areas.length ? " has-areas" : ""}">`;
-    if (t.sceneTiles && t.lights.length) row += `<button class="sq" data-light="${t.lights[0].id}">${icon("power")}</button>`;
+    if (t.sceneTiles && t.lights.length) row += `<button class="sq" data-light="${t.lights[0].id}" data-power="${t.lights[0].id}">${icon("power")}</button>`;
     if (areas.length) {
       row +=
         `<div class="areas"><button class="chip area-chip active" data-area="-1">Alle</button>` +
@@ -291,10 +386,11 @@
     list.classList.toggle("scrolls", list.scrollHeight > list.clientHeight + 1);
   }
 
+  Panel.defineAction("power", (el) => Panel.toggleLight(el.dataset.power));
   Panel.defineAction(
-    "light",
-    (el) => Panel.toggleLight(el.dataset.light),
-    (el) => Panel.openLightPopup(el.dataset.light)
+    "lamp",
+    (el) => Panel.openLightPopup(el.dataset.lamp),
+    (el) => Panel.openLightPopup(el.dataset.lamp)
   );
   Panel.defineAction("scene", (el) => {
     const [tab, idx] = el.dataset.scene.split(":").map(Number);

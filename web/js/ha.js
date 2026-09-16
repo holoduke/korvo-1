@@ -363,6 +363,8 @@
         const id = s && s.attributes && s.attributes.id;
         return id ? configApi("GET", `scene/config/${encodeURIComponent(id)}`) : null;
       },
+      /* Replaces a scene's stored config (by its config id); Home Assistant reloads its scenes. */
+      saveScene: (id, config) => configApi("POST", `scene/config/${encodeURIComponent(id)}`, config),
       /* An automation's stored config (by its config id); null when there is none. */
       automationConfig: (id) => configApi("GET", `automation/config/${encodeURIComponent(id)}`),
       /* Creates or replaces an automation; Home Assistant reloads its automations. */

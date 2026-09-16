@@ -1177,6 +1177,17 @@ window.PANEL_CONFIG = {
         "time": "sensor.stofzuiger_cleaning_time",
         "problem": "binary_sensor.stofzuiger_problem"
       }
+    },
+    {
+      "kind": "pc",
+      "label": "PC",
+      "name": "no_defender",
+      "entities": {
+        "on": "switch.no_defender",
+        "online": "binary_sensor.no_defender_online",
+        "wake": "button.no_defender_aanzetten",
+        "sleep": "button.no_defender_sleep"
+      }
     }
   ],
   "sensorCards": [

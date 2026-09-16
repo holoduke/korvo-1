@@ -216,6 +216,11 @@
         put("airmode", "Recirculation", { options: ["Recirculation", "Extraction"] });
       } else if (ap.kind === "filter") {
         Object.keys(e).forEach((k) => put(k, "unavailable"));
+      } else if (ap.kind === "pc") {
+        put("on", "on");
+        put("online", "on", { device_class: "connectivity" });
+        put("wake", "unknown");
+        put("sleep", "unknown");
       } else if (ap.kind === "fridge") {
         put("temp", "4", { unit_of_measurement: "°C" });
         put("setpoint", "4", { min: 3, max: 9, step: 1, unit_of_measurement: "°C" });
@@ -337,6 +342,7 @@
       setTimeout(() => ev.emit("states", ids), 140);
     }
 
+    const savedScenes = new Map(); /* scene id -> config saved from the panel */
     return {
       demo: true,
       states,
@@ -345,8 +351,14 @@
       fireEvent() {
         return Promise.resolve(null); /* nothing to report in demo mode */
       },
-      /* Demo scenes switch every lamp of their tab on, "uit" scenes off. */
+      /* Demo scenes switch every lamp of their tab on, "uit" scenes off; one
+       * saved from the panel is kept as saved. */
+      async saveScene(id, config) {
+        savedScenes.set(id, config);
+        return config;
+      },
       async sceneConfig(sceneEntityId) {
+        if (savedScenes.has(sceneEntityId)) return savedScenes.get(sceneEntityId);
         const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
         if (!tab) return null;
         const off = /uit/.test(sceneEntityId);
@@ -439,6 +451,7 @@
               const e = ap.entities;
               const also = (key, state) => set(e[key], state, (states.get(e[key]) || {}).attributes || {}, t);
               if ((ap.kind === "washer" || ap.kind === "dryer") && id === e.state) also("machine", next);
+              if (ap.kind === "pc" && id === e.on) also("online", next);
               if (ap.kind === "dishwasher" && id === e.active) also("op", "Run");
               if (ap.kind === "dishwasher" && id === e.abort) also("op", "Ready");
               if (ap.kind === "oven" && id === e.pause) also("op", "Pause");

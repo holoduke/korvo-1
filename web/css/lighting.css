@@ -18,6 +18,25 @@
 }
 .tile:active, .tile.pressed { transform: scale(0.97); opacity: 0.9; }
 .tile .t-icon { color: var(--text_dim); transition: color 0.25s; }
+/* A lamp tile's two buttons: the power button on the left, the name (opens
+ * the popup) filling the rest. */
+.tile.lamp .t-power { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, currentColor 9%, transparent); transition: background-color 0.25s, transform 0.12s; }
+.tile.lamp.on .t-power { background: rgba(255, 255, 255, 0.18); }
+.tile.lamp .t-power.pressed { transform: scale(0.9); }
+.tile.lamp .t-text { flex: 1; align-self: stretch; justify-content: center; text-align: left; }
+.tile.lamp .t-text.pressed { opacity: 0.7; }
+/* The offer to save a changed scene, above the bottom row. */
+.scene-save {
+  position: absolute; left: 50%; bottom: calc(var(--row-h) + 12px); transform: translateX(-50%); z-index: 30;
+  display: flex; align-items: center; gap: 14px; max-width: calc(100% - 2 * var(--pad)); padding: 10px 10px 10px 18px; border-radius: 16px;
+  background: color-mix(in srgb, var(--toolbar) 92%, #000); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 0 0 1px color-mix(in srgb, var(--text_dim) 25%, transparent);
+  font-size: 15px; font-weight: 600; animation: pop-in 0.25s ease-out;
+}
+.scene-save .ss-text { min-width: 0; }
+.scene-save .ss-btns { display: flex; gap: 8px; flex: none; }
+.ss-btn { height: 40px; padding: 0 18px; border-radius: 11px; font-weight: 700; background: var(--tile); transition: transform 0.12s; }
+.ss-btn.primary { background: var(--accent); color: var(--on_text); }
+.ss-btn.pressed { transform: scale(0.95); }
 .tile .t-text { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
 .tile .t-name { font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile .t-sub { font-weight: 500; line-height: 1.25; color: var(--text_dim); transition: color 0.25s; }
@@ -160,7 +179,7 @@
 }
 /* Drawer tiles: the icon on top, the name and state at the bottom. */
 .drawer .tile { border-radius: 14px; padding: 12px; }
-.drawer .tile .t-text { margin-top: auto; }
+.drawer .tile .t-text { margin-top: auto; flex: 1; justify-content: flex-end; align-self: stretch; }
 .drawer .tile .t-icon { font-size: 18px; }
 .drawer .tile .t-name { font-size: 18px; }
 .drawer .tile .t-sub { font-size: 16px; }

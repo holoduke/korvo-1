@@ -475,9 +475,11 @@ static const panel_area_t PANEL_AREAS[] = {
  * Connect via hcpy), filter (ATAG plasma filter over MQTT), fridge (Liebherr),
  * tv (a DLNA media player; a Wake on LAN button named button.<name>_aanzetten
  * switches it on), speakers (WiiM: name lists the players' object ids,
- * each also in PANEL_MEDIA_PLAYERS, which gives their labels) and robot (a
+ * each also in PANEL_MEDIA_PLAYERS, which gives their labels), robot (a
  * robot vacuum from the Schoonmaak section, PANEL_VACUUM or
- * PANEL_TUYA_VACUUMS: name is the PANEL_FLOORS label of the floor it cleans). */
+ * PANEL_TUYA_VACUUMS: name is the PANEL_FLOORS label of the floor it cleans)
+ * and pc (a Windows pc behind a template switch switch.<name>: on wakes it
+ * over the network, off puts it to sleep; binary_sensor.<name>_online pings it). */
 typedef struct {
     const char *kind;
     const char *label;
@@ -495,6 +497,7 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "tv",         "Samsung TV", "signage_big_ass_tv" },
     { "robot",      "Stofzuiger beneden", "0" },
     { "robot",      "Stofzuiger boven",   "1" },
+    { "pc",         "PC",         "no_defender" },
 };
 
 /* Sensor cards in the web app's "Sensoren" section (the panel's firmware does
