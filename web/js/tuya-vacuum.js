@@ -121,9 +121,7 @@
   const html = (view) =>
     `<div class="vp tv" data-tuya-robot="${views.indexOf(view)}"><div class="vs-body">` +
     `<section class="vs-map">` +
-    `<div class="tv-hero"><div class="tv-head"><b class="tv-status"></b><span class="tv-sub"></span></div>` +
-    `<div class="tv-batt">${icon("battery")}<span></span><i><b></b></i></div>` +
-    `<div class="vs-alert" hidden>${icon("warning")}<span></span>${Panel.reconnectHtml(view.robot.entities.vacuum)}</div></div>` +
+    Panel.robotHeroHtml(view.robot.entities.vacuum) +
     `<div class="tv-stats">` +
     `<div class="tv-stat"><span data-label="run"></span><b data-stat="run"></b></div>` +
     `<div class="tv-stat"><span>Totaal</span><b data-stat="area"></b></div>` +
@@ -168,11 +166,11 @@
     root.classList.toggle("offline", offline);
 
     const status = offline ? "Offline" : state === "error" ? "Storing" : STATUS_NL[attrs.status] || STATE_NL[state] || state;
-    q(".tv-status").textContent = status;
-    q(".tv-sub").textContent = !offline && STATE_NL[state] && STATE_NL[state] !== status ? STATE_NL[state] : "";
+    q(".vs-status").textContent = status;
+    q(".vs-substatus").textContent = !offline && STATE_NL[state] && STATE_NL[state] !== status ? STATE_NL[state] : "";
     const battery = Panel.num(e.battery);
-    q(".tv-batt span").textContent = Number.isFinite(battery) ? `${fmt(battery)}%` : "--";
-    const bar = q(".tv-batt i b");
+    q(".vs-batt span").textContent = Number.isFinite(battery) ? `${fmt(battery)}%` : "--";
+    const bar = q(".vs-batt i b");
     bar.style.width = (Number.isFinite(battery) ? Util.clamp(battery, 0, 100) : 0) + "%";
     bar.style.background = Util.batteryColour(battery);
     /* Out of reach, a connection gone quiet during a run, or a fault the robot

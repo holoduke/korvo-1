@@ -40,6 +40,7 @@
       const v = cfg.vacuum;
       set(v.vacuum, "docked", {
         "robotic_vacuum.clean_values": "[]",
+        "robotic_vacuum.robot_status": "Charging",
         "robotic_vacuum.disturb_switch": 0,
         "break_clean_switch-17-2": 1,
         "carpet_boost_switch-17-7": 0,
@@ -560,7 +561,9 @@
           }
           if (domain === "select") ids.forEach((i) => set(setters[i], data.option, (states.get(setters[i]) || {}).attributes, now2));
           const go = (state, status, area) => {
-            set(v.vacuum, state, (states.get(v.vacuum) || {}).attributes || {}, now2);
+            /* Away from the dock the station does nothing of its own. */
+            const was = (states.get(v.vacuum) || {}).attributes || {};
+            set(v.vacuum, state, { ...was, "robotic_vacuum.robot_status": "None" }, now2);
             set(v.status, status, {}, now2);
             set(v.area, String(area), {}, now2);
           };

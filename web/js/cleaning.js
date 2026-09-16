@@ -24,6 +24,13 @@
   let placeInd = null;
 
   Panel.robotOnScreen = (floor) => cfg.sections[Panel.section].kind === "vacuum" && shown === floor;
+  /* The status block both robot panels open with: what the robot is doing now,
+   * a line of detail under it and its battery. Its module fills .vs-status,
+   * .vs-substatus and .vs-batt. */
+  Panel.robotHeroHtml = (entity) =>
+    `<div class="vs-hero"><div class="vs-head"><b class="vs-status"></b><span class="vs-substatus"></span></div>` +
+    `<div class="vs-batt">${icon("battery")}<span></span><i><b></b></i></div>` +
+    `<div class="vs-alert" hidden>${icon("warning")}<span></span>${Panel.reconnectHtml(entity)}</div></div>`;
   /* A setting with an on/off switch; attrs make it an action (its module sets "on"). */
   Panel.settingHtml = (attrs, label) => `<button class="vs-setting" ${attrs}><span>${label}</span><i class="toggle-pill"></i></button>`;
   /* For a robot Home Assistant cannot reach, or whose connection went quiet: reload

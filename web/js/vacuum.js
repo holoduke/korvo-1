@@ -13,6 +13,22 @@
   if (!vac) return;
 
   const STATE_NL = { docked: "In dock", idle: "Klaar", paused: "Pauze", error: "Storing" };
+  /* What the robot says it is doing (sensor.<robot>_status / its status_desc). */
+  const STATUS_NL = {
+    sweeping: "Zuigt", mopping: "Dweilt", "sweeping and mopping": "Zuigt en dweilt", paused: "Gepauzeerd",
+    idle: "Staat stil", busy: "Bezig", delay: "Wacht op de starttijd", error: "Storing",
+    charging: "Laadt op", breakcharging: "Laadt tussendoor op", "go charging": "Gaat naar het dock",
+    gochargebreak: "Gaat opladen, gaat daarna verder", charged: "Opgeladen", sleeping: "Slaapt",
+    gowash: "Gaat de dweil wassen", washbreak: "Wast de dweil, gaat daarna verder", godust: "Gaat stof legen",
+    stationworking: "Station is bezig", buildingmap: "Maakt een kaart", mappingpause: "Kaart maken staat stil",
+    relocation: "Zoekt zijn plek op de kaart", updating: "Werkt zijn software bij", "linking device": "Maakt verbinding",
+  };
+  /* What the station or robot is doing on top of that (its robot_status attribute). */
+  const ROBOT_NL = {
+    washmop: "Wast de dweil", backwashmop: "Gaat de dweil wassen", hotdry: "Droogt de dweil",
+    clctdust: "Leegt het stof", backclctdust: "Gaat stof legen", relocate: "Zoekt zijn plek op de kaart",
+    charging: "Laadt op", chargeasleep: "Laadt op en slaapt", asleep: "Slaapt",
+  };
   const MODE_NL = { BothWork: "Zuigen\u00a0+ dweilen" /* breaks as "Zuigen +" / "dweilen" */, OnlySweep: "Zuigen", OnlyMop: "Dweilen", SweepFirst: "Eerst zuigen" };
   const FAN_NL = { Quiet: "Stil", Auto: "Auto", Strong: "Sterk", Max: "Max" };
   const WATER_NL = { Low: "Laag", Mid: "Midden", High: "Hoog" };
@@ -78,15 +94,35 @@
       return [];
     }
   }
-  const { ago, esc } = Util;
+  const { ago, esc, fmt } = Util;
   const roomLabel = new Map(vac.rooms.map((r) => [r.id, r.label]));
-  /* The station's tanks (robot attributes, MIoT siid 17 piid 51-54): value -> notice. */
+  /* The station's tanks (robot attributes, MIoT siid 17 piid 51-54):
+   * value -> [what is wrong, what to do about it]. A fault code on its own says
+   * nothing (Xiaomi documents none of them), so a tank in this state is the
+   * explanation the alert shows beside the code. */
   const TANKS = [
-    ["clean_water_cistern-17-51", { 1: "Schoonwatertank ontbreekt", 2: "Schoonwatertank is onbruikbaar", 3: "Schoonwatertank is bijna leeg" }],
-    ["robotic_vacuum.drain_cistern", { 1: "Vuilwatertank ontbreekt", 2: "Vuilwatertank is onbruikbaar" }],
-    ["robotic_vacuum.dust_bag", { 1: "Stofzak ontbreekt" }],
-    ["robotic_vacuum.mop_clean_tank", { 1: "Wasbak ontbreekt" }],
+    ["clean_water_cistern-17-51", {
+      1: ["Schoonwatertank ontbreekt", "zet de schoonwatertank terug in het station"],
+      2: ["Schoonwatertank is onbruikbaar", "haal de schoonwatertank eruit en zet hem goed terug"],
+      3: ["Schoonwatertank is bijna leeg", "vul de schoonwatertank met schoon water"],
+    }],
+    ["robotic_vacuum.drain_cistern", {
+      1: ["Vuilwatertank ontbreekt", "zet de vuilwatertank terug in het station"],
+      2: ["Vuilwatertank is onbruikbaar", "leeg de vuilwatertank en zet hem goed terug"],
+    }],
+    ["robotic_vacuum.dust_bag", { 1: ["Stofzak ontbreekt", "plaats een stofzak in het station"] }],
+    ["robotic_vacuum.mop_clean_tank", { 1: ["Wasbak ontbreekt", "zet de wasbak terug in het station"] }],
   ];
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+
+  /* What the robot is doing, in words. Its status sensor says most of it; while
+   * the station works, the robot's own robot_status says which job that is. */
+  function doingText(offline, faulted, vstate, statusRaw, robotRaw) {
+    if (offline) return "Niet bereikbaar";
+    if (faulted || vstate === "error" || statusRaw === "error") return "Storing";
+    if (statusRaw === "stationworking") return ROBOT_NL[robotRaw] || "Station is bezig";
+    return STATUS_NL[statusRaw] || ROBOT_NL[robotRaw] || STATE_NL[vstate] || "Klaar";
+  }
 
   /* One row of equal tiles per choice: the grid gets its column count as --n. */
   const chips = (kind, labels) =>
@@ -104,6 +140,7 @@
     root.innerHTML =
       `<div class="vs-body">` +
       `<section class="vs-map">` +
+      Panel.robotHeroHtml(vac.vacuum) +
       `<div class="vs-rooms">` +
       vac.rooms
         .map(
@@ -115,11 +152,11 @@
         .join("") +
       `</div><div class="vs-plan"></div>` +
       `<div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div></section>` +
-      `<section class="vs-side"><div class="vs-alert" hidden>${icon("warning")}<span></span>${Panel.reconnectHtml(vac.vacuum)}</div><div class="vs-actions">` +
+      `<section class="vs-side"><div class="vs-actions">` +
       `<button class="vbtn primary" data-vac="rooms">${icon("play")}<span>Kies kamers</span></button>` +
       `<button class="vbtn" data-vac="start">${icon("play")}<span>Hele huis</span></button>` +
       `<button class="vbtn" data-vac="pause">${icon("pause")}<span>Pauze</span></button>` +
-      `<button class="vbtn" data-vac="resume">${icon("play")}<span>Verder</span></button>` +
+      `<button class="vbtn" data-vac="resume">${icon("play")}<span>Ga verder</span></button>` +
       `<button class="vbtn" data-vac="stop">${icon("stop")}<span>Stop</span></button>` +
       `<button class="vbtn" data-vac="dock">${icon("dock")}<span>Naar dock</span></button>` +
       `<button class="vbtn" data-vac="locate">${icon("locate")}<span>Zoek robot</span></button>` +
@@ -143,7 +180,12 @@
   function render() {
     if (!root) return;
     const v = st(vac.vacuum);
+    const a = (v && v.attributes) || {};
     const statusRaw = ((st(vac.status) || {}).state || "").toLowerCase();
+    const robotRaw = String(a["robotic_vacuum.robot_status"] || "").toLowerCase();
+    /* The robot keeps its state while the station reports a problem, so a fault
+     * is its own flag: it decides the status shown and the "Ga verder" tile. */
+    const faulted = Number(a["robotic_vacuum.error"]) > 0 || Number(a["robotic_vacuum.station_error"]) > 0;
     const vstate = v ? v.state : "unavailable";
     const offline = Panel.unavailable(v);
     const busy = ["cleaning", "returning"].includes(vstate);
@@ -159,7 +201,7 @@
      * During a job that is its progress, including mop-wash trips to the dock. */
     let status;
     if (offline) status = "Offline";
-    else if (vstate === "error" || statusRaw === "error") status = "Storing";
+    else if (faulted || vstate === "error" || statusRaw === "error") status = "Storing";
     else if (running && pct !== null) status = `${pct}%`;
     else if (vstate === "returning") status = "Terug";
     else if (paused) status = "Pauze";
@@ -172,7 +214,26 @@
     /* Battery and status live in the header, visible from every section. */
     Panel.setDevice("vacuum", { battery: Panel.num(vac.battery), status, active: busy, offline });
 
-    const minutes = Math.round((Number(v && v.attributes["robotic_vacuum.clean_time"]) || 0) / 60);
+    const minutes = Math.round((Number(a["robotic_vacuum.clean_time"]) || 0) / 60);
+    /* The page says in words what the header only has room to abbreviate, with
+     * the rooms and the progress of a running job under it. */
+    const doing = doingText(offline, faulted, vstate, statusRaw, robotRaw);
+    /* Where it is, when that is not already what it is doing ("Laadt op · In dock"). */
+    const restState = vstate === "docked" && doing !== STATE_NL.docked ? STATE_NL.docked : "";
+    q(".vs-status").textContent = doing;
+    q(".vs-substatus").textContent = (
+      running
+        ? [runRooms.length ? runRooms.map((id) => roomLabel.get(id) || `#${id}`).join(", ") : "Hele huis", done > 0 ? `${Math.round(done)} m²` : "", minutes > 0 ? `${minutes} min` : ""]
+        : [restState]
+    )
+      .filter(Boolean)
+      .join(" · ");
+    const battery = Panel.num(vac.battery);
+    q(".vs-batt span").textContent = Number.isFinite(battery) ? `${fmt(battery)}%` : "--";
+    const bar = q(".vs-batt i b");
+    bar.style.width = (Number.isFinite(battery) ? Util.clamp(battery, 0, 100) : 0) + "%";
+    bar.style.background = Util.batteryColour(battery);
+
     qa(".vs-room").forEach((el) => {
       const id = +el.dataset.room;
       const live = runRooms.includes(id);
@@ -195,14 +256,16 @@
     /* Out of reach (off, or off the wifi): say so, offer to reconnect, and nothing
      * else to tap until it is back. Otherwise the robot's own faults and tanks. */
     const unreachable = offline && Panel.isLoaded();
-    const a = (v && v.attributes) || {};
-    const notices = [
+    const tanks = TANKS.map(([key, labels]) => labels[a[key]]).filter(Boolean);
+    const faults = [
       Number(a["robotic_vacuum.error"]) > 0 && `Storing (code ${a["robotic_vacuum.error"]})`,
       Number(a["robotic_vacuum.station_error"]) > 0 && `Storing in het station (code ${a["robotic_vacuum.station_error"]})`,
-      ...TANKS.map(([key, labels]) => labels[a[key]]),
     ].filter(Boolean);
+    const notices = [...faults, ...tanks.map(([what]) => what)];
+    /* A tank that needs attention explains the code, and says what to do. */
+    const todo = tanks.length ? `${cap(tanks[0][1])}${faults.length ? ' en tik daarna op "Ga verder"' : ""}.` : "";
     q(".vs-alert").hidden = !(unreachable || notices.length);
-    q(".vs-alert span").textContent = unreachable ? Panel.unreachableText(v) : notices.join(" · ");
+    q(".vs-alert span").textContent = unreachable ? Panel.unreachableText(v) : [notices.join(" · "), todo].filter(Boolean).join(". ");
     q(".vs-alert [data-reconnect]").hidden = !unreachable;
     qa(".vs-actions .vbtn, .vchip, .vs-setting").forEach((b) => (b.disabled = unreachable));
     for (const [kind, id] of [["mode", vac.mode], ["fan", vac.fan], ["water", vac.water]]) {
@@ -234,17 +297,21 @@
      * robot stands still away from its dock, else locate. */
     const job = busy || paused;
     const away = !job && vstate === "idle" && !["charging", "charged", "breakcharging"].includes(statusRaw);
-    q('[data-vac="start"]').hidden = job;
+    /* "Ga verder" whenever the robot can carry on where it stopped: paused, or
+     * standing still on a fault (a full tank, a blocked brush). It takes the
+     * place of "Hele huis", which would start a new round instead. */
+    const stuck = !offline && !job && (faulted || vstate === "error" || statusRaw === "error");
+    q('[data-vac="start"]').hidden = job || stuck;
     roomsBtn.hidden = job;
     q('[data-vac="pause"]').hidden = !busy || vstate === "returning";
-    q('[data-vac="resume"]').hidden = !paused;
+    q('[data-vac="resume"]').hidden = !(paused || stuck);
     const stopBtn = q('[data-vac="stop"]');
     stopBtn.hidden = !job;
     stopBtn.classList.toggle("armed", twoTap.armed("stop"));
     stopBtn.classList.toggle("pending", queue.has("job|stop"));
     stopBtn.querySelector("span").textContent = twoTap.armed("stop") ? "Nogmaals tikken" : "Stop";
-    q('[data-vac="dock"]').hidden = !(job || away) || vstate === "returning";
-    q('[data-vac="locate"]').hidden = job ? vstate !== "returning" : away;
+    q('[data-vac="dock"]').hidden = !(job || away || stuck) || vstate === "returning";
+    q('[data-vac="locate"]').hidden = job ? vstate !== "returning" : away || stuck;
 
     let cons = [];
     try {
