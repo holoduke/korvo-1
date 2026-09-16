@@ -10,10 +10,8 @@
  * data-appl="<index>|<action>|<args>" runs actions[action](appliance, args, call).
  * Controls marked for confirmation ask for a second tap.
  *
- * Product photos live in Home Assistant's www folder, not in this repository
- * (they are the manufacturers' pictures): /config/www/apparaten/, with
- * photos.json mapping each appliance's label slug to its file, e.g.
- * {"wasmachine": "wasmachine.png"}. An appliance without a photo keeps its icon. */
+ * Product photos come from photos.js (Home Assistant's www folder, not this
+ * repository); an appliance without a photo keeps its icon. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -31,29 +29,9 @@
   let root = null;
   let selected = 0;
 
-  const PHOTO_BASE = "/local/apparaten/";
-  const photos = new Map(); /* appliance index -> photo URL, once it has loaded */
-  async function loadPhotos() {
-    if (Panel.client.demo) return; /* the demo has no Home Assistant www folder */
-    let index = {};
-    try {
-      const res = await fetch(`${PHOTO_BASE}photos.json`, { cache: "no-cache" });
-      if (res.ok) index = await res.json();
-    } catch (e) {
-      return; /* no photos: icons stay */
-    }
-    list.forEach((a, i) => {
-      const file = index[Util.slug(a.label)];
-      if (!file) return;
-      const url = PHOTO_BASE + encodeURIComponent(file);
-      const img = new Image();
-      img.onload = () => {
-        photos.set(i, url);
-        render();
-      };
-      img.src = url;
-    });
-  }
+  /* An appliance's product photo, once photos.js has the picture for its name. */
+  const photoOf = (a) => Panel.photoUrl(a.label);
+  Panel.on("photos", () => render());
 
   /* ---- Controls and state values for the kinds ---------------------------------------- */
   const s = (id) => (id ? Panel.st(id) : undefined);
@@ -120,16 +98,16 @@
       `<div class="ap-bar"><b></b></div><div class="ap-stats"></div><div class="ap-controls"></div>` +
       `</article></div>`;
     render();
-    loadPhotos();
   }
 
   /* A badge shows the appliance's photo when there is one, else its icon. */
-  function renderBadge(badge, a, i) {
-    const want = photos.has(i) ? photos.get(i) : `icon:${a.kind}`;
+  function renderBadge(badge, a) {
+    const photo = photoOf(a);
+    const want = photo || `icon:${a.kind}`;
     if (badge.dataset.show === want) return;
     badge.dataset.show = want;
-    badge.classList.toggle("photo", photos.has(i));
-    badge.innerHTML = photos.has(i) ? `<img src="${photos.get(i)}" alt="">` : icon(kindOf(a).icon);
+    badge.classList.toggle("photo", !!photo);
+    badge.innerHTML = photo ? `<img src="${photo}" alt="">` : icon(kindOf(a).icon);
   }
 
   function render() {
@@ -140,7 +118,7 @@
       const item = root.querySelector(`[data-pick="${i}"]`);
       item.className = `ap-item tone-${view.tone}${i === selected ? " active" : ""}`;
       item.querySelector("small").textContent = view.pill || "";
-      renderBadge(item.querySelector(".ap-badge"), a, i);
+      renderBadge(item.querySelector(".ap-badge"), a);
       if (i === selected) renderCard(a, i, view);
     });
   }
@@ -151,15 +129,16 @@
     card.dataset.kind = a.kind;
     card.dataset.applCard = i;
     /* With a photo, the photo stands beside the header; otherwise the icon leads the title. */
+    const photo = photoOf(a);
     const figure = card.querySelector(".ap-figure");
-    figure.hidden = !photos.has(i);
-    if (photos.has(i) && figure.dataset.src !== photos.get(i)) {
-      figure.dataset.src = photos.get(i);
-      figure.querySelector("img").src = photos.get(i);
+    figure.hidden = !photo;
+    if (photo && figure.dataset.src !== photo) {
+      figure.dataset.src = photo;
+      figure.querySelector("img").src = photo;
     }
     const badge = card.querySelector(".ap-head .ap-badge");
-    badge.hidden = photos.has(i);
-    renderBadge(badge, a, i);
+    badge.hidden = !!photo;
+    renderBadge(badge, a);
     card.querySelector(".ap-title b").textContent = a.label;
     card.querySelector(".ap-pill").textContent = view.pill || "";
     const bigEl = card.querySelector(".ap-big");

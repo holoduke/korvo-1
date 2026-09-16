@@ -121,7 +121,7 @@
   const html = (view) =>
     `<div class="vp tv" data-tuya-robot="${views.indexOf(view)}"><div class="vs-body">` +
     `<section class="vs-map">` +
-    Panel.robotHeroHtml(view.robot.entities.vacuum) +
+    Panel.robotHeroHtml(view.robot.entities.vacuum, view.robot.label) +
     `<div class="tv-stats">` +
     `<div class="tv-stat"><span data-label="run"></span><b data-stat="run"></b></div>` +
     `<div class="tv-stat"><span>Totaal</span><b data-stat="area"></b></div>` +

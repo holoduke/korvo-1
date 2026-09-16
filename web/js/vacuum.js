@@ -114,6 +114,9 @@
     ["robotic_vacuum.mop_clean_tank", { 1: ["Wasbak ontbreekt", "zet de wasbak terug in het station"] }],
   ];
   const cap = (s) => s[0].toUpperCase() + s.slice(1);
+  /* Apparaten names this robot as the house does ("Stofzuiger beneden"), which is
+   * also the name its photo is filed under; its own label is just "Stofzuiger". */
+  const photoLabel = ((cfg.appliances || []).find((ap) => ap.kind === "robot" && ap.floor === vac.floor) || {}).label || vac.label;
 
   /* What the robot is doing, in words. Its status sensor says most of it; while
    * the station works, the robot's own robot_status says which job that is. */
@@ -140,7 +143,7 @@
     root.innerHTML =
       `<div class="vs-body">` +
       `<section class="vs-map">` +
-      Panel.robotHeroHtml(vac.vacuum) +
+      Panel.robotHeroHtml(vac.vacuum, photoLabel) +
       `<div class="vs-rooms">` +
       vac.rooms
         .map(
