@@ -1,5 +1,6 @@
-/* The screensaver ("AI oog", or the screen off) after a quiet spell, and the
- * wall tablet's display kept awake while the app is in use. */
+/* The screensaver after a quiet spell (the house of the Start section with the
+ * header and tabs slid away, the "AI oog", or the screen off), and the wall
+ * tablet's display kept awake while the app is in use. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -43,6 +44,53 @@
     lastActivity = Date.now();
     keepAwake(true);
   };
+
+  /* ---- The house as screensaver ----------------------------------------------------- */
+  /* The Start section as it is, the house turning on: only the header and the
+   * tab bar slide away, and back at the first touch, key or mouse move. Their
+   * grid rows animate between their measured height and nothing (an "auto" row
+   * cannot animate), with the rows' content clipped and fading meanwhile. */
+  const CHROME_MS = 600;
+  const app = $("app");
+  let houseSaver = false;
+  let before = ""; /* where the app was (its URL hash) when the house took over */
+  let chromeTimer = 0;
+  let natural = { hdr: 0, tab: 0 }; /* the rows' heights before they slid away */
+  function chrome(show) {
+    clearTimeout(chromeTimer);
+    const rows = (hdr, tab) => {
+      app.style.setProperty("--hdr-row", hdr + "px");
+      app.style.setProperty("--tab-row", tab + "px");
+    };
+    document.body.classList.add("chrome-anim");
+    if (!show) {
+      natural = { hdr: $("header").offsetHeight, tab: $("tabbar").offsetHeight };
+      rows(natural.hdr, natural.tab);
+      void app.offsetHeight; /* the rows start from their measured height */
+      document.body.classList.add("saver-house");
+      rows(0, 0);
+      return;
+    }
+    document.body.classList.remove("saver-house");
+    rows(natural.hdr, natural.tab);
+    chromeTimer = setTimeout(() => {
+      app.style.removeProperty("--hdr-row");
+      app.style.removeProperty("--tab-row");
+      document.body.classList.remove("chrome-anim");
+    }, CHROME_MS + 50);
+  }
+  /* Awake: the header and tabs come back, and so does the place the app was
+   * at (the section, and its floor or device) before the house took over. */
+  function wakeHouse() {
+    if (!houseSaver) return;
+    houseSaver = false;
+    chrome(true);
+    if (before && before !== location.hash) location.hash = before;
+    before = "";
+    Panel.wake();
+  }
+  ["pointerdown", "pointermove", "touchstart", "keydown", "wheel"].forEach((ev) => window.addEventListener(ev, wakeHouse, { capture: true, passive: true }));
+  Panel.houseSaverOn = () => houseSaver;
 
   /* ---- Screensaver ----------------------------------------------------------------- */
   let flickerTimer = 0;
@@ -90,12 +138,20 @@
   }
 
   Panel.showSaver = function () {
-    if (!saver.hidden) return;
+    if (!saver.hidden || houseSaver) return;
+    ["popup", "climate", "settings", "plan"].forEach((id) => ($(id).hidden = true));
+    Panel.closeDrawer();
+    if (Panel.prefs.saverMode === 2) {
+      houseSaver = true;
+      before = location.hash;
+      Panel.showSection("start");
+      chrome(false);
+      keepAwake(true);
+      return;
+    }
     saver.classList.toggle("off", Panel.prefs.saverMode === 0);
     renderTemps();
     renderMedia();
-    ["popup", "climate", "settings", "plan"].forEach((id) => ($(id).hidden = true));
-    Panel.closeDrawer();
     saver.hidden = false;
     if (Panel.prefs.saverMode === 1) scheduleFlicker();
     keepAwake(Panel.prefs.saverMode !== 0);
@@ -108,7 +164,7 @@
   setInterval(() => {
     const limit = Panel.SAVER_TIMES[Panel.prefs.saverIdx] || 300e3;
     /* Not while the splash is still up: the app hasn't been seen yet. */
-    if (saver.hidden && !$("splash") && Date.now() - lastActivity > limit) Panel.showSaver();
+    if (saver.hidden && !houseSaver && !$("splash") && Date.now() - lastActivity > limit) Panel.showSaver();
   }, 1000);
 
   Panel.on("minute", () => {

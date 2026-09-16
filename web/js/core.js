@@ -36,7 +36,7 @@
   }
   Panel.prefs = {
     theme: pref("theme", 0),
-    saverMode: pref("saverMode", 1), /* 0 = scherm uit, 1 = AI oog */
+    saverMode: pref("saverMode", 2), /* 0 = scherm uit, 1 = AI oog, 2 = het huis */
     saverIdx: pref("saverIdx", 1),
   };
   Panel.setPref = (key, v) => {
@@ -47,6 +47,12 @@
       /* private mode: keep it for this session only */
     }
   };
+  /* The house took over from the AI eye as the screensaver (September 2026). A
+   * browser still on the eye had the old default, not a choice: it follows, once. */
+  if (pref("saverGen", 1) < 2) {
+    if (Panel.prefs.saverMode === 1) Panel.setPref("saverMode", 2);
+    Panel.setPref("saverGen", 2);
+  }
 
   /* ---- Theme ---------------------------------------------------------------- */
   Panel.applyTheme = function (idx) {

@@ -15,7 +15,7 @@
       .join("");
     const seg = (el, labels, sel, key) =>
       ($(el).innerHTML = labels.map((l, i) => `<button class="${i === sel ? "selected" : ""}" data-${key}="${i}">${l}</button>`).join(""));
-    seg("saverMode", ["Scherm uit", "AI oog"], Panel.prefs.saverMode, "mode");
+    seg("saverMode", ["Scherm uit", "AI oog", "Huis"], Panel.prefs.saverMode, "mode");
     seg("saverTime", Panel.SAVER_LABELS, Panel.prefs.saverIdx, "time");
     const c = Panel.client;
     const connected = $("status").classList.contains("connected");

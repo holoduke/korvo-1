@@ -52,7 +52,10 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   /* An explicit minmax(0, 1fr) column keeps the app at the viewport width; the
    * implicit column would grow to the header strip's content on phones. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto var(--tabbar-h) minmax(0, 1fr);
+  /* The header and tab rows take explicit heights while they slide away for
+   * the house screensaver (saver.js sets --hdr-row and --tab-row). */
+  grid-template-rows: var(--hdr-row, auto) var(--tab-row, var(--tabbar-h)) minmax(0, 1fr);
+  transition: grid-template-rows 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 /* As a home-screen app the page runs under a transparent status bar: paint the
