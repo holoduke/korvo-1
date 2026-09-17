@@ -78,11 +78,18 @@
       gl_FragColor = vec4(col * a, a * i);
     }`;
   const FACE_VS = `
-    attribute vec3 aPos; attribute vec4 aCol; uniform mat4 uVP; varying vec4 vCol;
-    void main() { gl_Position = uVP * vec4(aPos, 1.0); vCol = aCol; }`;
+    attribute vec3 aPos; attribute vec4 aCol; uniform mat4 uVP; varying vec4 vCol; varying vec3 vPos;
+    void main() { gl_Position = uVP * vec4(aPos, 1.0); vCol = aCol; vPos = aPos; }`;
+  /* uWave 1: a band of light travels over the face (a floor being cleaned). */
   const FACE_FS = `
-    precision mediump float; uniform vec4 uTint; varying vec4 vCol;
-    void main() { vec4 c = vCol * uTint; gl_FragColor = vec4(c.rgb * c.a, c.a); }`;
+    precision mediump float; uniform vec4 uTint; uniform float uWave; uniform float uWaveT;
+    varying vec4 vCol; varying vec3 vPos;
+    void main() {
+      vec4 c = vCol * uTint;
+      float band = 0.5 + 0.5 * sin((vPos.x + vPos.z) * 1.6 - uWaveT);
+      c.a *= mix(1.0, 0.35 + 0.65 * band * band, uWave);
+      gl_FragColor = vec4(c.rgb * c.a, c.a);
+    }`;
   const QUAD_VS = `
     attribute vec2 aPos; varying vec2 vUv;
     void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
@@ -260,10 +267,15 @@
       });
     });
     /* Rooms, as their outline on their floor. */
+    const roomRings = {}; /* "floor:name" -> the room's floor rectangle, for lighting it up */
     Object.entries(plan.rooms).forEach(([floor, rooms]) => {
       const lv = plan.levels.find((l) => l.floor === floor);
       if (!lv) return;
-      rooms.filter((r) => r.outline !== false).forEach((r) => e.rect(ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y), L.room));
+      rooms.forEach((r) => {
+        const corners = ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y);
+        roomRings[`${floor}:${r.name}`] = corners.map(([x, y, z]) => [x, y + 0.02, z]);
+        if (r.outline !== false) e.rect(corners, L.room);
+      });
     });
     /* Inner walls: their outline in their vertical plane. */
     (plan.walls || []).forEach((wl) => {
@@ -303,7 +315,7 @@
     const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
     const centre = [(minX + maxX) / 2, roof.ridgeY * 0.42, (minZ + maxZ) / 2];
     const radius = Math.hypot((maxX - minX) / 2, roof.ridgeY / 2, (maxZ - minZ) / 2);
-    return { house, grid, faces, centre, radius, openings };
+    return { house, grid, faces, centre, radius, openings, rooms: roomRings };
   }
 
   /* Edge list -> the quad vertices the line shader widens. */
@@ -636,6 +648,7 @@
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.useProgram(faceP.p);
       gl.uniformMatrix4fv(faceP.u.uVP, false, vp);
+      gl.uniform1f(faceP.u.uWave, 0);
       drawFaces(faces, [1, 1, 1, 1]);
       gl.useProgram(lineP.p);
       gl.uniformMatrix4fv(lineP.u.uVP, false, vp);
@@ -652,7 +665,9 @@
       for (const m of marks.values()) {
         const p = m.pulse ? 0.5 + 0.5 * Math.sin((now / 1000) * ((2 * Math.PI) / PULSE_S)) : 1;
         gl.useProgram(faceP.p);
-        drawFaces(m.faces, [m.colour[0], m.colour[1], m.colour[2], 0.3 + 0.35 * p]);
+        gl.uniform1f(faceP.u.uWave, m.wave ? 1 : 0);
+        gl.uniform1f(faceP.u.uWaveT, (now / 1000) * WAVE_SPEED);
+        drawFaces(m.faces, [m.colour[0], m.colour[1], m.colour[2], m.alpha[0] + m.alpha[1] * p]);
         gl.useProgram(lineP.p);
         drawLines(vp, m.lines, 0, m.colour.map((c) => c * (0.9 + 0.9 * p)));
       }
@@ -701,21 +716,37 @@
     /* ---- Lit openings --------------------------------------------------------------- */
     const PULSE_S = 1.4;
     const marks = new Map(); /* opening key -> {colour, pulse, lines, faces} */
-    function highlight(key, { colour = [1, 0.3, 0.25], pulse = true } = {}) {
-      const corners = geo.openings[key];
-      if (!corners) return false;
+    const WAVE_SPEED = 2.4; /* rad/s of the band travelling over a lit floor */
+    /* A rectangle (four corners) lit: its face filled, its edges drawn, in
+     * colour; alpha = [base, pulse amplitude] of the fill; wave: the band. */
+    function mark(key, corners, { colour, pulse, wave = false, alpha = [0.3, 0.35] }) {
       clearHighlight(key);
       const [a, b, c, d] = corners;
       const segs = corners.map((p, i) => ({ a: p, b: corners[(i + 1) % 4], level: 1.0 }));
       const lb = lineBuffers(segs);
       const fb = faceBuffers([[a, b, c, [1, 1, 1, 1]], [a, c, d, [1, 1, 1, 1]]]);
       marks.set(key, {
-        colour, pulse,
+        colour, pulse, wave, alpha,
         lines: { vbo: buffer(gl.ARRAY_BUFFER, lb.v), ibo: buffer(gl.ELEMENT_ARRAY_BUFFER, lb.idx), count: lb.count },
         faces: { vbo: buffer(gl.ARRAY_BUFFER, fb.v), count: fb.count },
       });
+    }
+    /* An opening (a plan key) lit, red and pulsing by default. */
+    function highlight(key, { colour = [1, 0.3, 0.25], pulse = true } = {}) {
+      const corners = geo.openings[key];
+      if (!corners) return false;
+      mark(key, corners, { colour, pulse });
       return true;
     }
+    /* A room's floor lit (floor = the level's label, name as in the plan): a
+     * band of light travels over it, for a robot at work there. */
+    function highlightRoom(floor, name, { colour = [0.3, 0.85, 1.0] } = {}) {
+      const corners = geo.rooms[`${floor}:${name}`];
+      if (!corners) return false;
+      mark(`room:${floor}:${name}`, corners, { colour, pulse: false, wave: true, alpha: [0.28, 0] });
+      return true;
+    }
+    const clearRooms = () => [...marks.keys()].filter((k) => k.startsWith("room:")).forEach(clearHighlight);
     function clearHighlight(key) {
       const m = marks.get(key);
       if (!m) return;
@@ -762,6 +793,8 @@
       edges: geo.house.length,
       /* Lights an opening (a keyed one in the plan) up in a colour, pulsing or steady. */
       highlight,
+      highlightRoom,
+      clearRooms,
       clearHighlight,
       highlights: () => [...marks.keys()],
     };

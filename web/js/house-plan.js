@@ -47,7 +47,7 @@ window.HOUSE_PLAN = {
       { name: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
       /* The garage block's part behind the garage wall, open to the big room:
        * the back sitting room (the Gameroom's lamps are in here too). */
-      { name: "Zitk. achter", x: 5.6, z: 12.7, w: 3.75, d: 4.7 },
+      { name: "Zitk. achter", robotRoom: "Zitkamer achter", x: 5.6, z: 12.7, w: 3.75, d: 4.7 } /* robotRoom: the robot's name for it */,
     ],
     /* First floor (plan, page 6): Naomi's room on the neighbour's side with
      * its one window, Valerie's on the garage side with two and reaching
@@ -148,10 +148,10 @@ window.HOUSE_PLAN = {
      * from the landing, 3 and 4 the one on the left, the lower number the left
      * pane seen from inside; then the kitchen's sliding door, and the back
      * sitting room's sliding door at the end of the garage block */
-    { key: "raam_achterkamer_2", sensor: "Raam achterkamer 2", plane: "z", at: 13.0, a: 1.175, w: 0.775, y: 4.0, h: 1.6 },
-    { key: "raam_achterkamer_1", sensor: "Raam achterkamer 1", plane: "z", at: 13.0, a: 1.95, w: 0.775, y: 4.0, h: 1.6 },
-    { key: "raam_achterkamer_4", sensor: "Raam achterkamer 4", plane: "z", at: 13.0, a: 3.265, w: 0.775, y: 4.0, h: 1.6 },
-    { key: "raam_achterkamer_3", sensor: "Raam achterkamer 3", plane: "z", at: 13.0, a: 4.04, w: 0.775, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_2", sensor: "Raam achterkamer Gillis en Ilse 2", plane: "z", at: 13.0, a: 1.175, w: 0.775, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_1", sensor: "Raam achterkamer Gillis en Ilse 1", plane: "z", at: 13.0, a: 1.95, w: 0.775, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_4", sensor: "Raam achterkamer Gillis en Ilse 4", plane: "z", at: 13.0, a: 3.265, w: 0.775, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_3", sensor: "Raam achterkamer Gillis en Ilse 3", plane: "z", at: 13.0, a: 4.04, w: 0.775, y: 4.0, h: 1.6 },
     { key: "schuifpui_keuken", sensor: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.2, w: 3.5, y: 0, h: 2.6 },
     { plane: "z", at: 14.9, a: 2.95, w: 0.02, y: 0, h: 2.6 } /* its mullion */,
     { key: "schuifpui_achterkamer", plane: "z", at: 17.4, a: 5.95, w: 2.3, y: 0, h: 2.6 },

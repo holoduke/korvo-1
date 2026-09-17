@@ -1392,7 +1392,7 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "window",
-      "label": "Raam achterkamer 1",
+      "label": "Raam achterkamer Gillis en Ilse 1",
       "name": "sensor_raam_achterkamer_boven_1",
       "entities": {
         "contact": "binary_sensor.sensor_raam_achterkamer_boven_1_contact",
@@ -1402,7 +1402,7 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "window",
-      "label": "Raam achterkamer 2",
+      "label": "Raam achterkamer Gillis en Ilse 2",
       "name": "sensor_raam_achterkamer_boven_2",
       "entities": {
         "contact": "binary_sensor.sensor_raam_achterkamer_boven_2_contact",
@@ -1412,7 +1412,7 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "window",
-      "label": "Raam achterkamer 3",
+      "label": "Raam achterkamer Gillis en Ilse 3",
       "name": "sensor_raam_achterkamer_boven_3",
       "entities": {
         "contact": "binary_sensor.sensor_raam_achterkamer_boven_3_contact",
@@ -1422,7 +1422,7 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "window",
-      "label": "Raam achterkamer 4",
+      "label": "Raam achterkamer Gillis en Ilse 4",
       "name": "sensor_raam_achterkamer_boven_4",
       "entities": {
         "contact": "binary_sensor.sensor_raam_achterkamer_boven_4_contact",

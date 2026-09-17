@@ -537,10 +537,10 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "window",   "Raam Naomi links",  "sensor_raam_voorkamer_boven_links_1" }, /* idem, the small front bedroom upstairs: */
     { "window",   "Raam Naomi rechts", "sensor_deur_voorkamer_boven_links_1" }, /* the two panes of its window, seen from inside */
     { "window",   "Raam gameroom zij", "sensor_raam_gameroom_zijkant_1" }, /* idem, the side pane of the corner window */
-    { "window",   "Raam achterkamer 1", "sensor_raam_achterkamer_boven_1" }, /* idem, the back bedroom upstairs: */
-    { "window",   "Raam achterkamer 2", "sensor_raam_achterkamer_boven_2" }, /* the two panes of its right-hand window, */
-    { "window",   "Raam achterkamer 3", "sensor_raam_achterkamer_boven_3" }, /* and the two of the left-hand one */
-    { "window",   "Raam achterkamer 4", "sensor_raam_achterkamer_boven_4" },
+    { "window",   "Raam achterkamer Gillis en Ilse 1", "sensor_raam_achterkamer_boven_1" }, /* idem, the back bedroom upstairs: */
+    { "window",   "Raam achterkamer Gillis en Ilse 2", "sensor_raam_achterkamer_boven_2" }, /* the two panes of its right-hand window, */
+    { "window",   "Raam achterkamer Gillis en Ilse 3", "sensor_raam_achterkamer_boven_3" }, /* and the two of the left-hand one */
+    { "window",   "Raam achterkamer Gillis en Ilse 4", "sensor_raam_achterkamer_boven_4" },
     { "air",      "Lucht keuken",     "luchtkwaliteit_keuken" },
     { "climate",  "Voorkamer",        "sensor_voorkamer_1" },
     { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },
