@@ -1282,7 +1282,7 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "door",
-      "label": "Garagedeur 1",
+      "label": "Garage tussendeur",
       "name": "sensor_deur_garage_1",
       "entities": {
         "contact": "binary_sensor.sensor_deur_garage_1_contact",
