@@ -804,8 +804,29 @@ window.PANEL_CONFIG = {
     {
       "temp": "sensor.sensor_zolder_1_temperature",
       "humidity": "sensor.sensor_zolder_1_humidity",
-      "label": "Zolder",
-      "abbr": "ZOL",
+      "label": "Zoldergang",
+      "abbr": "ZGA",
+      "indoor": true
+    },
+    {
+      "temp": "sensor.sensor_zolder_voorkamer_1_temperature",
+      "humidity": "sensor.sensor_zolder_voorkamer_1_humidity",
+      "label": "Zolder voor",
+      "abbr": "ZVO",
+      "indoor": true
+    },
+    {
+      "temp": "sensor.sensor_zolder_achterkamer_1_temperature",
+      "humidity": "sensor.sensor_zolder_achterkamer_1_humidity",
+      "label": "Zolder achter",
+      "abbr": "ZAC",
+      "indoor": true
+    },
+    {
+      "temp": "sensor.sensor_garage_1_temperature",
+      "humidity": "sensor.sensor_garage_1_humidity",
+      "label": "Garage",
+      "abbr": "GAR",
       "indoor": true
     }
   ],
@@ -1363,7 +1384,7 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "climate",
-      "label": "Zolder",
+      "label": "Zoldergang",
       "name": "sensor_zolder_1",
       "entities": {
         "temperature": "sensor.sensor_zolder_1_temperature",

@@ -298,8 +298,15 @@ static const panel_sensor_t PANEL_TEMP_SENSORS[] = {
     /* Z2M "sensor zitkamer achter 1" is the gameroom (playroom). */
     { "sensor.sensor_zitkamer_achter_1_temperature",
       "sensor.sensor_zitkamer_achter_1_humidity",       "Gameroom",  "GAM", true },
+    /* Z2M "sensor zolder 1" hangs on the attic landing. */
     { "sensor.sensor_zolder_1_temperature",
-      "sensor.sensor_zolder_1_humidity",                "Zolder",    "ZOL", true },
+      "sensor.sensor_zolder_1_humidity",                "Zoldergang", "ZGA", true },
+    { "sensor.sensor_zolder_voorkamer_1_temperature",
+      "sensor.sensor_zolder_voorkamer_1_humidity",      "Zolder voor", "ZVO", true },
+    { "sensor.sensor_zolder_achterkamer_1_temperature",
+      "sensor.sensor_zolder_achterkamer_1_humidity",    "Zolder achter", "ZAC", true },
+    { "sensor.sensor_garage_1_temperature",
+      "sensor.sensor_garage_1_humidity",                "Garage",    "GAR", true },
 };
 #define PANEL_TEMP_SENSOR_COUNT (sizeof(PANEL_TEMP_SENSORS) / sizeof(PANEL_TEMP_SENSORS[0]))
 
@@ -529,7 +536,7 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Voorkamer",        "sensor_voorkamer_1" },
     { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },
     { "climate",  "Keuken",           "sensor_keuken_1" },
-    { "climate",  "Zolder",           "sensor_zolder_1" },
+    { "climate",  "Zoldergang",       "sensor_zolder_1" },
     { "climate",  "Zolder voor",      "sensor_zolder_voorkamer_1" },
     { "climate",  "Zolder achter",    "sensor_zolder_achterkamer_1" },
     { "climate",  "Garage",           "sensor_garage_1" },

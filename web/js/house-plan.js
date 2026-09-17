@@ -82,13 +82,14 @@ window.HOUSE_PLAN = {
    * false leaves the floor unmarked across it (an open passage). */
   openings: [
     /* front wall (the plan): on the left the gameroom's pair of doors to the
-     * street, on the right the window that turns the corner: a tilt-and-turn
-     * pane at the front and one in the side wall, a fixed pane between; above,
-     * the three bedroom windows */
+     * street, on the right the window that turns the corner: its tilt-and-turn
+     * pane on the left (the window contact), a fixed pane to the corner, and
+     * another tilt-and-turn pane in the side wall; above, the three bedroom
+     * windows */
     { key: "deur_gameroom", sensor: "Deur gameroom", plane: "z", at: 0, a: 0.45, w: 1.55, y: 0, h: 2.4 },
     { plane: "z", at: 0, a: 1.225, w: 0.02, y: 0, h: 2.4 } /* between the two leaves */,
-    { plane: "z", at: 0, a: 2.6, w: 1.9, y: 0.6, h: 1.8 },
-    { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 4.5, w: 1.0, y: 0.6, h: 1.8 },
+    { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 2.6, w: 1.0, y: 0.6, h: 1.8 },
+    { plane: "z", at: 0, a: 3.6, w: 1.9, y: 0.6, h: 1.8 },
     { plane: "x", at: 5.6, a: 0.1, w: 1.0, y: 0.6, h: 1.8 } /* the side pane of the corner window */,
     { plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
     { plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
