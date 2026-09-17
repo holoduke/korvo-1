@@ -78,7 +78,8 @@ window.HOUSE_PLAN = {
    * opening starts along that wall, y its sill. Read off the plans and the
    * elevations: no openings in the side walls but the front door. A key names
    * an opening the page can light up (house3d's highlight); door names the
-   * PANEL_SENSOR_CARDS door sensor on it, which lights it up while open. */
+   * PANEL_SENSOR_CARDS door sensor on it, which lights it up while open;
+   * floor: false leaves the floor unmarked across it (an open passage). */
   openings: [
     /* front wall: the sitting room's large window and a smaller one */
     { plane: "z", at: 0, a: 0.45, w: 2.4, y: 0.3, h: 2.3 },
@@ -95,7 +96,7 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 3.6, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { key: "garagedeur_binnen", door: "Garagedeur 1", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
-    { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6 },
+    { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6, floor: false } /* open passage: no line on the floor */,
     /* back */
     { plane: "z", at: 13.0, a: 1.15, w: 1.5, y: 3.75, h: 1.35 },
     { plane: "z", at: 13.0, a: 3.25, w: 1.5, y: 3.75, h: 1.35 },

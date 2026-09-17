@@ -152,6 +152,23 @@
         this.rect(t, level);
         c.forEach((p, i) => this.add(p, t[i], level));
       },
+      /* Takes the span [a0, a1] out of every floor edge (y = 0) that runs along
+       * the wall plane ("z": at = z, "x": at = x): an open passage. */
+      cutFloor(plane, at, a0, a1) {
+        const near = (p, q) => Math.abs(p - q) < 0.01;
+        const along = plane === "z" ? 0 : 2;
+        const across = plane === "z" ? 2 : 0;
+        for (const [k, seg] of [...segs]) {
+          const { a, b, level } = seg;
+          if (!(near(a[1], 0) && near(b[1], 0) && near(a[across], at) && near(b[across], at))) continue;
+          const [lo, hi] = [Math.min(a[along], b[along]), Math.max(a[along], b[along])];
+          if (hi <= a0 + 0.01 || lo >= a1 - 0.01) continue;
+          segs.delete(k);
+          const point = (v) => (plane === "z" ? [v, 0, at] : [at, 0, v]);
+          if (a0 - lo > 0.01) this.add(point(lo), point(a0), level);
+          if (hi - a1 > 0.01) this.add(point(a1), point(hi), level);
+        }
+      },
       /* Drops the edges pred is true for; moves the others through fn. */
       prune(pred) {
         for (const [k, seg] of segs) if (pred(seg)) segs.delete(k);
@@ -249,7 +266,13 @@
     plan.openings.forEach((o) => {
       const p = (a, y) => (o.plane === "z" ? [a, y, o.at] : [o.at, y, a]);
       const corners = [p(o.a, o.y), p(o.a + o.w, o.y), p(o.a + o.w, o.y + o.h), p(o.a, o.y + o.h)];
-      e.rect(corners, L.opening);
+      if (o.floor === false) {
+        /* An open passage: its sides and top, nothing on the floor. */
+        e.add(corners[1], corners[2], L.opening);
+        e.add(corners[2], corners[3], L.opening);
+        e.add(corners[3], corners[0], L.opening);
+        e.cutFloor(o.plane, o.at, o.a, o.a + o.w);
+      } else e.rect(corners, L.opening);
       if (o.key) openings[o.key] = corners;
     });
     const house = e.list();
