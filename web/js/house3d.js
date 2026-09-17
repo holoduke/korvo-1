@@ -30,7 +30,7 @@
   const BLOOM = 1.15;
   const SWEEP_PERIOD_S = 14;
   /* How bright each kind of edge is. */
-  const L = { wall: 1.0, rafter: 0.7, room: 0.48, opening: 0.42, grid: 0.26 };
+  const L = { wall: 1.0, inner: 0.7, rafter: 0.7, room: 0.48, opening: 0.42, grid: 0.26 };
 
   const LINE_VS = `
     attribute vec3 aA; attribute vec3 aB; attribute vec2 aP; attribute float aL;
@@ -238,6 +238,11 @@
       const lv = plan.levels.find((l) => l.floor === floor);
       if (!lv) return;
       rooms.forEach((r) => e.rect(ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y), L.room));
+    });
+    /* Inner walls: their outline in their vertical plane. */
+    (plan.walls || []).forEach((wl) => {
+      const p = (a, y) => (wl.plane === "z" ? [a, y, wl.at] : [wl.at, y, a]);
+      e.rect([p(wl.a, 0), p(wl.a + wl.w, 0), p(wl.a + wl.w, wl.h), p(wl.a, wl.h)], L.inner);
     });
     /* Windows and doors on the walls; a keyed one can be lit up later. */
     const openings = {};

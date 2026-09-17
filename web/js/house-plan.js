@@ -37,14 +37,14 @@ window.HOUSE_PLAN = {
   /* Rooms per floor: name (as in PANEL_AREAS), and the rectangle they take. */
   rooms: {
     0: [
-      { name: "Zitkamer", x: 0, z: 0, w: 5.6, d: 3.5 },
-      { name: "Gang", x: 0, z: 3.5, w: 5.6, d: 3.5 },
-      { name: "Keuken", x: 0, z: 7.0, w: 5.6, d: 3.5 },
+      { name: "Zitkamer", x: 0, z: 0, w: 5.6, d: 3.6 },
+      { name: "Gang", x: 0, z: 3.6, w: 5.6, d: 3.45 },
+      { name: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45 },
       { name: "Eetkamer", x: 0, z: 10.5, w: 5.6, d: 4.4 },
-      { name: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 5.55 },
-      /* One room behind the garage, to the garden: the back sitting room (the
-       * Gameroom's lamps are in here too). */
-      { name: "Zitk. achter", x: 5.6, z: 10.5, w: 3.75, d: 6.9 },
+      { name: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
+      /* The garage block's part behind the garage wall, open to the big room:
+       * the back sitting room (the Gameroom's lamps are in here too). */
+      { name: "Zitk. achter", x: 5.6, z: 12.7, w: 3.75, d: 4.7 },
     ],
     1: [
       { name: "Valerie", x: 0, z: 0, w: 2.85, d: 3.7 },
@@ -60,6 +60,17 @@ window.HOUSE_PLAN = {
       { name: "Achterkamer", x: 0, z: 8.74, w: 5.6, d: 2.8 },
     ],
   },
+  /* Inner walls of the ground floor, drawn as walls (floor line, ceiling line
+   * and their ends), each in a vertical plane like the openings: plane "z" runs
+   * along the front (at = its z), plane "x" along the side (at = its x); a is
+   * where it starts, w its length, h its height. */
+  walls: [
+    { plane: "z", at: 3.6, a: 0, w: 5.6, h: 3.0 } /* sitting room | hall */,
+    { plane: "z", at: 7.05, a: 0, w: 5.6, h: 3.0 } /* hall | kitchen */,
+    { plane: "x", at: 3.9, a: 5.75, w: 1.3, h: 3.0 } /* the toilet */,
+    { plane: "z", at: 5.75, a: 3.9, w: 1.7, h: 3.0 },
+    { plane: "z", at: 12.7, a: 5.6, w: 3.75, h: 3.0 } /* garage | back sitting room */,
+  ],
   /* Windows and doors, as rectangles on a wall: plane "z" is a wall along the
    * front (at = its z), plane "x" a side wall (at = its x); a is where the
    * opening starts along that wall, y its sill. Read off the plans and the
@@ -73,8 +84,15 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 0, a: 3.0, w: 0.9, y: 3.75, h: 1.35 },
     { plane: "z", at: 0, a: 4.2, w: 0.9, y: 3.75, h: 1.35 },
     /* the front door: in the side wall, in the recess before the garage door */
-    { key: "voordeur", plane: "x", at: 5.6, a: 3.9, w: 1.0, y: 0, h: 2.4 },
+    { key: "voordeur", plane: "x", at: 5.6, a: 3.95, w: 1.0, y: 0, h: 2.4 },
     { key: "garagedeur", plane: "z", at: 4.95, a: 6.0, w: 2.6, y: 0, h: 2.3 },
+    /* inside: the wide sliding-door openings in the two hall walls, the door
+     * from the big room into the garage, and the open passage into the back
+     * sitting room */
+    { plane: "z", at: 3.6, a: 1.65, w: 1.6, y: 0, h: 2.4 },
+    { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
+    { plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
+    { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6 },
     /* back */
     { plane: "z", at: 13.0, a: 1.15, w: 1.5, y: 3.75, h: 1.35 },
     { plane: "z", at: 13.0, a: 3.25, w: 1.5, y: 3.75, h: 1.35 },
