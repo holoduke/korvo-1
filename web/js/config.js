@@ -1373,6 +1373,36 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "climate",
+      "label": "Zolder voor",
+      "name": "sensor_zolder_voorkamer_1",
+      "entities": {
+        "temperature": "sensor.sensor_zolder_voorkamer_1_temperature",
+        "humidity": "sensor.sensor_zolder_voorkamer_1_humidity",
+        "battery": "sensor.sensor_zolder_voorkamer_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Zolder achter",
+      "name": "sensor_zolder_achterkamer_1",
+      "entities": {
+        "temperature": "sensor.sensor_zolder_achterkamer_1_temperature",
+        "humidity": "sensor.sensor_zolder_achterkamer_1_humidity",
+        "battery": "sensor.sensor_zolder_achterkamer_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Garage",
+      "name": "sensor_garage_1",
+      "entities": {
+        "temperature": "sensor.sensor_garage_1_temperature",
+        "humidity": "sensor.sensor_garage_1_humidity",
+        "battery": "sensor.sensor_garage_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
       "label": "Buiten voor",
       "name": "sensor_buiten_voor_1",
       "entities": {

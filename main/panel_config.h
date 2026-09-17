@@ -530,6 +530,9 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },
     { "climate",  "Keuken",           "sensor_keuken_1" },
     { "climate",  "Zolder",           "sensor_zolder_1" },
+    { "climate",  "Zolder voor",      "sensor_zolder_voorkamer_1" },
+    { "climate",  "Zolder achter",    "sensor_zolder_achterkamer_1" },
+    { "climate",  "Garage",           "sensor_garage_1" },
     { "climate",  "Buiten voor",      "sensor_buiten_voor_1" },
 };
 
