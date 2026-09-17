@@ -264,7 +264,8 @@
     /* Inner walls: their outline in their vertical plane. */
     (plan.walls || []).forEach((wl) => {
       const p = (a, y) => (wl.plane === "z" ? [a, y, wl.at] : [wl.at, y, a]);
-      e.rect([p(wl.a, 0), p(wl.a + wl.w, 0), p(wl.a + wl.w, wl.h), p(wl.a, wl.h)], L.inner);
+      const y0 = wl.y || 0; /* the floor it stands on (0 = the ground floor) */
+      e.rect([p(wl.a, y0), p(wl.a + wl.w, y0), p(wl.a + wl.w, y0 + wl.h), p(wl.a, y0 + wl.h)], L.inner);
     });
     /* Windows and doors on the walls; a keyed one can be lit up later. */
     const openings = {};

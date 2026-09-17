@@ -48,12 +48,16 @@ window.HOUSE_PLAN = {
        * the back sitting room (the Gameroom's lamps are in here too). */
       { name: "Zitk. achter", x: 5.6, z: 12.7, w: 3.75, d: 4.7 },
     ],
+    /* First floor (plan, page 6): Naomi's room on the neighbour's side with
+     * its one window, Valerie's on the garage side with two and reaching
+     * further back, the landing with the stair and a toilet, the bathroom,
+     * and the back bedroom across the full width. Their walls are in walls. */
     1: [
-      { name: "Valerie", x: 0, z: 0, w: 2.85, d: 3.7 },
-      { name: "Naomi", x: 2.85, z: 0, w: 2.75, d: 3.7 },
-      { name: "Gang", x: 0, z: 3.7, w: 2.85, d: 5.0 },
-      { name: "Badkamer", x: 2.85, z: 3.7, w: 2.75, d: 5.0 },
-      { name: "Gillis en Ilse", x: 0, z: 8.7, w: 5.6, d: 4.3 },
+      { name: "Naomi", x: 0, z: 0, w: 2.84, d: 3.77 },
+      { name: "Valerie", x: 2.84, z: 0, w: 2.76, d: 5.0 },
+      { name: "Gang", x: 0, z: 3.77, w: 2.84, d: 5.03 },
+      { name: "Badkamer", x: 2.84, z: 5.0, w: 2.76, d: 3.8 },
+      { name: "Gillis en Ilse", x: 0, z: 8.8, w: 5.6, d: 4.2 },
     ],
     2: [
       { name: "Voorkamer", x: 0, z: 1.44, w: 5.6, d: 4.1 },
@@ -72,6 +76,13 @@ window.HOUSE_PLAN = {
     { plane: "x", at: 3.9, a: 5.75, w: 1.3, h: 3.0 } /* the toilet */,
     { plane: "z", at: 5.75, a: 3.9, w: 1.7, h: 3.0 },
     { plane: "z", at: 12.7, a: 5.6, w: 3.75, h: 3.0 } /* garage | back sitting room */,
+    /* first floor (y: the floor it stands on) */
+    { plane: "x", at: 2.84, a: 0, w: 8.8, y: 3.0, h: 3.0 } /* Naomi, landing | Valerie, bathroom */,
+    { plane: "z", at: 3.77, a: 0, w: 2.84, y: 3.0, h: 3.0 } /* Naomi | landing */,
+    { plane: "z", at: 5.0, a: 2.84, w: 2.76, y: 3.0, h: 3.0 } /* Valerie | bathroom */,
+    { plane: "z", at: 8.8, a: 0, w: 5.6, y: 3.0, h: 3.0 } /* landing, bathroom | back bedroom */,
+    { plane: "z", at: 7.25, a: 0, w: 1.25, y: 3.0, h: 3.0 } /* the toilet off the landing */,
+    { plane: "x", at: 1.25, a: 7.25, w: 1.55, y: 3.0, h: 3.0 },
   ],
   /* Windows and doors, as rectangles on a wall: plane "z" is a wall along the
    * front (at = its z), plane "x" a side wall (at = its x); a is where the
@@ -91,13 +102,19 @@ window.HOUSE_PLAN = {
     { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 2.6, w: 1.0, y: 0.6, h: 1.8 },
     { plane: "z", at: 0, a: 3.6, w: 1.9, y: 0.6, h: 1.8 },
     { key: "raam_gameroom_zij", sensor: "Raam gameroom zij", plane: "x", at: 5.6, a: 0.1, w: 1.0, y: 0.6, h: 1.8 } /* the side pane of the corner window */,
-    /* Valerie's two windows, 1 the left and 2 the right seen from inside */
-    { key: "raam_valerie_1", sensor: "Raam Valerie 1", plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
-    { key: "raam_valerie_2", sensor: "Raam Valerie 2", plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
-    /* Naomi's window (the small front bedroom): two panes, left and right as
-     * seen from inside; both carry a contact */
-    { key: "raam_naomi_links", sensor: "Raam Naomi links", plane: "z", at: 0, a: 4.095, w: 0.425, y: 3.95, h: 1.65 },
-    { key: "raam_naomi_rechts", sensor: "Raam Naomi rechts", plane: "z", at: 0, a: 3.67, w: 0.425, y: 3.95, h: 1.65 },
+    /* upstairs (plan, page 6): Naomi's one window of two panes (left and right
+     * seen from inside), and Valerie's two windows (1 the left, 2 the right) */
+    { key: "raam_naomi_links", sensor: "Raam Naomi links", plane: "z", at: 0, a: 0.43, w: 0.775, y: 3.95, h: 1.65 },
+    { key: "raam_naomi_rechts", sensor: "Raam Naomi rechts", plane: "z", at: 0, a: 1.205, w: 0.775, y: 3.95, h: 1.65 },
+    { key: "raam_valerie_1", sensor: "Raam Valerie 1", plane: "z", at: 0, a: 2.9, w: 1.0, y: 3.95, h: 1.65 },
+    { key: "raam_valerie_2", sensor: "Raam Valerie 2", plane: "z", at: 0, a: 4.15, w: 1.0, y: 3.95, h: 1.65 },
+    /* upstairs, inside: the doors off the landing (Naomi's, Valerie's, the
+     * bathroom's, the toilet's) and the back bedroom's */
+    { plane: "z", at: 3.77, a: 1.8, w: 0.9, y: 3.0, h: 2.3 },
+    { plane: "x", at: 2.84, a: 3.95, w: 0.9, y: 3.0, h: 2.3 },
+    { plane: "x", at: 2.84, a: 6.05, w: 0.9, y: 3.0, h: 2.3 },
+    { plane: "x", at: 1.25, a: 7.85, w: 0.8, y: 3.0, h: 2.3 },
+    { plane: "z", at: 8.8, a: 1.65, w: 0.9, y: 3.0, h: 2.3 },
     /* the front door in the recess, and the garage door */
     { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.98, w: 0.97, y: 0, h: 2.5 },
     { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.05, w: 2.6, y: 0, h: 2.35 },
@@ -108,14 +125,15 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { key: "garagedeur_binnen", sensor: "Garagedeur 1", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
     { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6, floor: false } /* open passage: no line on the floor */,
-    /* back: the bedroom's two windows, each of two opening panes with a contact
-     * (1 and 2 the window on the right coming in from the landing, 3 and 4 the
-     * one on the left), the kitchen's sliding door, and the back sitting room's
-     * sliding door at the end of the garage block */
-    { key: "raam_achterkamer_3", sensor: "Raam achterkamer 3", plane: "z", at: 13.0, a: 1.2, w: 0.7, y: 4.0, h: 1.6 },
-    { key: "raam_achterkamer_4", sensor: "Raam achterkamer 4", plane: "z", at: 13.0, a: 1.9, w: 0.7, y: 4.0, h: 1.6 },
-    { key: "raam_achterkamer_1", sensor: "Raam achterkamer 1", plane: "z", at: 13.0, a: 3.3, w: 0.7, y: 4.0, h: 1.6 },
-    { key: "raam_achterkamer_2", sensor: "Raam achterkamer 2", plane: "z", at: 13.0, a: 4.0, w: 0.7, y: 4.0, h: 1.6 },
+    /* back: the bedroom's two windows (1.55 m each, page 6), each of two
+     * opening panes with a contact: 1 and 2 the window on the right coming in
+     * from the landing, 3 and 4 the one on the left, the lower number the left
+     * pane seen from inside; then the kitchen's sliding door, and the back
+     * sitting room's sliding door at the end of the garage block */
+    { key: "raam_achterkamer_2", sensor: "Raam achterkamer 2", plane: "z", at: 13.0, a: 1.175, w: 0.775, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_1", sensor: "Raam achterkamer 1", plane: "z", at: 13.0, a: 1.95, w: 0.775, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_4", sensor: "Raam achterkamer 4", plane: "z", at: 13.0, a: 3.265, w: 0.775, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_3", sensor: "Raam achterkamer 3", plane: "z", at: 13.0, a: 4.04, w: 0.775, y: 4.0, h: 1.6 },
     { key: "schuifpui_keuken", sensor: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.2, w: 3.5, y: 0, h: 2.6 },
     { plane: "z", at: 14.9, a: 2.95, w: 0.02, y: 0, h: 2.6 } /* its mullion */,
     { key: "schuifpui_achterkamer", plane: "z", at: 17.4, a: 5.95, w: 2.3, y: 0, h: 2.6 },
