@@ -534,7 +534,9 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "window",   "Raam gameroom",    "sensor_raam_gameroom_klapraam_1" }, /* idem, the top-hung window beside it */
     { "window",   "Raam gameroom zij", "sensor_raam_gameroom_zijkant_1" }, /* idem, the side pane of the corner window */
     { "window",   "Raam achterkamer 1", "sensor_raam_achterkamer_boven_1" }, /* idem, the back bedroom upstairs: */
-    { "window",   "Raam achterkamer 2", "sensor_raam_achterkamer_boven_2" }, /* the two panes of its right-hand window */
+    { "window",   "Raam achterkamer 2", "sensor_raam_achterkamer_boven_2" }, /* the two panes of its right-hand window, */
+    { "window",   "Raam achterkamer 3", "sensor_raam_achterkamer_boven_3" }, /* and the two of the left-hand one */
+    { "window",   "Raam achterkamer 4", "sensor_raam_achterkamer_boven_4" },
     { "air",      "Lucht keuken",     "luchtkwaliteit_keuken" },
     { "climate",  "Voorkamer",        "sensor_voorkamer_1" },
     { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },

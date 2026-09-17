@@ -104,12 +104,12 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { key: "garagedeur_binnen", sensor: "Garagedeur 1", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
     { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6, floor: false } /* open passage: no line on the floor */,
-    /* back: the bedroom's two windows, each of two opening panes (the pair on
-     * the right coming in from the landing carries the contact sensors), the
-     * kitchen's sliding door, and the back sitting room's sliding door at the
-     * end of the garage block */
-    { plane: "z", at: 13.0, a: 1.2, w: 0.7, y: 4.0, h: 1.6 },
-    { plane: "z", at: 13.0, a: 1.9, w: 0.7, y: 4.0, h: 1.6 },
+    /* back: the bedroom's two windows, each of two opening panes with a contact
+     * (1 and 2 the window on the right coming in from the landing, 3 and 4 the
+     * one on the left), the kitchen's sliding door, and the back sitting room's
+     * sliding door at the end of the garage block */
+    { key: "raam_achterkamer_3", sensor: "Raam achterkamer 3", plane: "z", at: 13.0, a: 1.2, w: 0.7, y: 4.0, h: 1.6 },
+    { key: "raam_achterkamer_4", sensor: "Raam achterkamer 4", plane: "z", at: 13.0, a: 1.9, w: 0.7, y: 4.0, h: 1.6 },
     { key: "raam_achterkamer_1", sensor: "Raam achterkamer 1", plane: "z", at: 13.0, a: 3.3, w: 0.7, y: 4.0, h: 1.6 },
     { key: "raam_achterkamer_2", sensor: "Raam achterkamer 2", plane: "z", at: 13.0, a: 4.0, w: 0.7, y: 4.0, h: 1.6 },
     { key: "schuifpui_keuken", sensor: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.2, w: 3.5, y: 0, h: 2.6 },

@@ -1371,6 +1371,26 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "window",
+      "label": "Raam achterkamer 3",
+      "name": "sensor_raam_achterkamer_boven_3",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_achterkamer_boven_3_contact",
+        "tamper": "binary_sensor.sensor_raam_achterkamer_boven_3_tamper",
+        "battery": "sensor.sensor_raam_achterkamer_boven_3_battery"
+      }
+    },
+    {
+      "kind": "window",
+      "label": "Raam achterkamer 4",
+      "name": "sensor_raam_achterkamer_boven_4",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_achterkamer_boven_4_contact",
+        "tamper": "binary_sensor.sensor_raam_achterkamer_boven_4_tamper",
+        "battery": "sensor.sensor_raam_achterkamer_boven_4_battery"
+      }
+    },
+    {
       "kind": "air",
       "label": "Lucht keuken",
       "name": "luchtkwaliteit_keuken",
