@@ -1342,6 +1342,26 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "window",
+      "label": "Raam Valerie 1",
+      "name": "sensor_raam_valerie_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_valerie_1_contact",
+        "tamper": "binary_sensor.sensor_raam_valerie_1_tamper",
+        "battery": "sensor.sensor_raam_valerie_1_battery"
+      }
+    },
+    {
+      "kind": "window",
+      "label": "Raam Valerie 2",
+      "name": "sensor_raam_valerie_2",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_valerie_2_contact",
+        "tamper": "binary_sensor.sensor_raam_valerie_2_tamper",
+        "battery": "sensor.sensor_raam_valerie_2_battery"
+      }
+    },
+    {
+      "kind": "window",
       "label": "Raam Naomi links",
       "name": "sensor_raam_voorkamer_boven_links_1",
       "entities": {

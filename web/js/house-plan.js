@@ -91,8 +91,9 @@ window.HOUSE_PLAN = {
     { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 2.6, w: 1.0, y: 0.6, h: 1.8 },
     { plane: "z", at: 0, a: 3.6, w: 1.9, y: 0.6, h: 1.8 },
     { key: "raam_gameroom_zij", sensor: "Raam gameroom zij", plane: "x", at: 5.6, a: 0.1, w: 1.0, y: 0.6, h: 1.8 } /* the side pane of the corner window */,
-    { plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
-    { plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
+    /* Valerie's two windows, 1 the left and 2 the right seen from inside */
+    { key: "raam_valerie_1", sensor: "Raam Valerie 1", plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
+    { key: "raam_valerie_2", sensor: "Raam Valerie 2", plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
     /* Naomi's window (the small front bedroom): two panes, left and right as
      * seen from inside; both carry a contact */
     { key: "raam_naomi_links", sensor: "Raam Naomi links", plane: "z", at: 0, a: 4.095, w: 0.425, y: 3.95, h: 1.65 },
