@@ -30,7 +30,9 @@ window.HOUSE_PLAN = {
    * extension across the back of the main block. */
   flat: [
     { name: "garage", x: 5.6, z: 4.95, w: 3.75, d: 12.45, h: 3.0 },
-    { name: "aanbouw", x: 0, z: 13.0, w: 5.6, d: 1.9, h: 3.0 },
+    /* joined: one space with the room behind the main block's back wall, so
+     * no floor or side lines where the two meet (the ceiling line stays). */
+    { name: "aanbouw", x: 0, z: 13.0, w: 5.6, d: 1.9, h: 3.0, joined: true },
   ],
   /* Rooms per floor: name (as in PANEL_AREAS), and the rectangle they take. */
   rooms: {

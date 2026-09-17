@@ -152,6 +152,13 @@
         this.rect(t, level);
         c.forEach((p, i) => this.add(p, t[i], level));
       },
+      /* Drops the edges pred is true for; moves the others through fn. */
+      prune(pred) {
+        for (const [k, seg] of segs) if (pred(seg)) segs.delete(k);
+      },
+      adjust(fn) {
+        for (const [k, seg] of segs) segs.set(k, fn(seg));
+      },
       list: () => [...segs.values()],
     };
   }
@@ -210,6 +217,21 @@
     (plan.flat || []).forEach((b) => {
       e.box(b.x, 0, b.z, b.x + b.w, b.h, b.z + b.d, L.wall);
       quad(...ring(b.x, b.z, b.x + b.w, b.z + b.d, b.h), floorCol);
+    });
+    /* A block joined to the main block's back wall is one space with the room
+     * there: no floor line or side lines where the two meet (the line where
+     * the block's roof meets the wall stays), and the main block's back
+     * corners start above that roof. */
+    const near = (a, b) => Math.abs(a - b) < 0.01;
+    (plan.flat || []).filter((b) => b.joined).forEach((b) => {
+      const onSeam = (p) => near(p[2], z1) && p[0] >= b.x - 0.01 && p[0] <= b.x + b.w + 0.01 && p[1] <= b.h + 0.01;
+      e.prune((seg) => onSeam(seg.a) && onSeam(seg.b) && !(near(seg.a[1], b.h) && near(seg.b[1], b.h)));
+      e.adjust((seg) => {
+        const vertical = near(seg.a[0], seg.b[0]) && near(seg.a[2], seg.b[2]) && near(seg.a[2], z1);
+        if (!vertical || !(seg.a[0] >= b.x - 0.01 && seg.a[0] <= b.x + b.w + 0.01)) return seg;
+        const lift = (p) => (p[1] < b.h ? [p[0], b.h, p[2]] : p);
+        return { ...seg, a: lift(seg.a), b: lift(seg.b) };
+      });
     });
     /* Rooms, as their outline on their floor. */
     Object.entries(plan.rooms).forEach(([floor, rooms]) => {
