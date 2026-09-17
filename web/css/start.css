@@ -86,6 +86,8 @@ body.saver-house .hud-clock { display: block; }
 .house-label.warn b { color: var(--warn); }
 .house-label.bad b { color: var(--bad); }
 .house-label.lamp b { color: var(--accent); }
+.house-label.out b { color: var(--text); }
+.house-label.out::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text_dim); margin-bottom: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }
 }

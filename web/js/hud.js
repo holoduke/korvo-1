@@ -119,18 +119,30 @@
       const el = document.createElement("div");
       el.className = `house-label ${v.tone}`;
       el.innerHTML = `<b>${esc(v.text)}</b><span>${esc(layer === "lights" ? r.name : r.card.label)}</span>`;
-      el.dataset.room = `${r.floor}:${r.name}`;
+      el.dataset.at = JSON.stringify(r.centre);
       labels.appendChild(el);
     });
+    /* The sensors outside the rooms (the outside temperature on the front wall). */
+    if (layer !== "lights") {
+      (plan.sensors || []).forEach((s) => {
+        const card = climateCards.find((c) => c.label === s.climate);
+        const v = card && Panel.num(layer === "temp" ? card.entities.temperature : card.entities.humidity);
+        if (!Number.isFinite(v)) return;
+        const el = document.createElement("div");
+        el.className = "house-label out";
+        el.innerHTML = `<b>${esc(layer === "temp" ? `${Util.fmt(v, 1)}°` : `${Math.round(v)}%`)}</b><span>${esc(card.label)}</span>`;
+        el.dataset.at = JSON.stringify(s.at);
+        labels.appendChild(el);
+      });
+    }
     place();
   }
-  /* The labels follow their rooms while the house turns. */
+  /* The labels follow their places while the house turns. */
   function place() {
     const house = Panel.house;
     if (!house) return;
     for (const el of labels.children) {
-      const r = rooms.find((x) => `${x.floor}:${x.name}` === el.dataset.room);
-      const p = r && house.project(r.centre);
+      const p = house.project(JSON.parse(el.dataset.at));
       el.hidden = !p;
       if (p) el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
     }

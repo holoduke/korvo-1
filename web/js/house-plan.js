@@ -74,6 +74,9 @@ window.HOUSE_PLAN = {
       { name: "Achterkamer", climate: "Zolder achter", x: 0, z: 8.7, w: 5.6, d: 4.3, outline: false },
     ],
   },
+  /* Sensors outside the rooms, shown on the layers at their place (metres):
+   * the outside sensor hangs on the front wall beside the gameroom's window. */
+  sensors: [{ climate: "Buiten voor", at: [3.1, 1.6, -0.55] }],
   /* Inner walls of the ground floor, drawn as walls (floor line, ceiling line
    * and their ends), each in a vertical plane like the openings: plane "z" runs
    * along the front (at = its z), plane "x" along the side (at = its x); a is
