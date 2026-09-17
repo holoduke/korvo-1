@@ -79,6 +79,10 @@
       app.style.removeProperty("--hdr-row");
       app.style.removeProperty("--tab-row");
       document.body.classList.remove("chrome-anim");
+      /* The stage is shorter again: the sections and floors place themselves
+       * for it, as after a resize (a floor set while the rows were away sat
+       * half out of view). */
+      window.dispatchEvent(new Event("resize"));
     }, CHROME_MS + 50);
   }
   /* Awake: the header and tabs come back, and so does the place the app was

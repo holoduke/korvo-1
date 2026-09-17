@@ -70,18 +70,18 @@
    * popup with its brightness, colour and warmth. */
   Panel.lightTile = (id) =>
     `<div class="tile lamp" data-light="${id}"><button class="t-icon t-power" data-power="${id}" aria-label="Aan of uit">${icon("power")}</button>` +
-    `<button class="t-text" data-lamp="${id}"><span class="t-name">${Util.esc(Panel.lightLabel(id))}</span><span class="t-sub">...</span><i class="t-dot"></i></button></div>`;
+    `<button class="t-text" data-lamp="${id}"><span class="t-name">${Util.esc(Panel.lightLabel(id))}</span><span class="t-sub">...</span></button></div>`;
 
-  /* The colour a lamp gives, as CSS (its rgb, or a tint for its white's
+  /* The colour a lamp gives, as [r, g, b] (its rgb, or a tint for its white's
    * warmth), or null when it is off or plain. */
   Panel.lightColour = function (id) {
     const s = st(id);
     if (!s || s.state !== "on") return null;
     const a = s.attributes || {};
-    if (["hs", "xy", "rgb", "rgbw", "rgbww"].includes(a.color_mode) && Array.isArray(a.rgb_color)) return `rgb(${a.rgb_color.join(" ")})`;
+    if (["hs", "xy", "rgb", "rgbw", "rgbww"].includes(a.color_mode) && Array.isArray(a.rgb_color)) return a.rgb_color.slice(0, 3);
     if (a.color_mode === "color_temp" && a.color_temp_kelvin) {
       const t = Util.clamp((a.color_temp_kelvin - 2200) / 4300, 0, 1) * 255;
-      return `rgb(255 ${Math.round(180 + t / 4)} ${Math.round(110 + t / 2)})`;
+      return [255, Math.round(180 + t / 4), Math.round(110 + t / 2)];
     }
     return null;
   };
@@ -105,11 +105,12 @@
       }
       const sub = el.querySelector(".t-sub");
       if (sub) sub.textContent = !s && !loaded ? "..." : un ? "niet beschikbaar" : on ? "aan" : "uit";
-      const dot = el.querySelector(".t-dot");
-      if (dot) {
+      /* The power button fills with the lamp's colour; its icon goes dark on a light colour. */
+      if (ic.classList.contains("t-power")) {
         const c = !un && on ? Panel.lightColour(id) : null;
-        dot.hidden = !c;
-        dot.style.setProperty("--dot", c || "transparent");
+        ic.classList.toggle("coloured", !!c);
+        ic.classList.toggle("dark-ic", !!c && 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] > 150);
+        ic.style.setProperty("--lampc", c ? `rgb(${c.join(" ")})` : "");
       }
     });
   }

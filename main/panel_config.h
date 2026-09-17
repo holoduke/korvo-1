@@ -493,6 +493,9 @@ typedef struct {
     const char *name;
 } panel_appliance_t;
 static const panel_appliance_t PANEL_APPLIANCES[] = {
+    /* The two PCs first: switched most from the panel. */
+    { "pc",         "PC-Defender", "no_defender" },
+    { "pc",         "PC-430",      "garage430" },
     { "washer",     "Wasmachine", "wasruimte_wasmachine" },
     { "dryer",      "Droger",     "wasruimte_droger" },
     { "dishwasher", "Vaatwasser", "dishwasher" },
@@ -504,8 +507,6 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "tv",         "Samsung TV", "signage_big_ass_tv" },
     { "robot",      "Stofzuiger beneden", "0" },
     { "robot",      "Stofzuiger boven",   "1" },
-    { "pc",         "PC-Defender", "no_defender" },
-    { "pc",         "PC-430",      "garage430" },
 };
 
 /* Sensor cards in the web app's "Sensoren" section (the panel's firmware does
