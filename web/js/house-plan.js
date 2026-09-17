@@ -22,14 +22,17 @@ window.HOUSE_PLAN = {
    * back walls. A dormer on each slope, its flat top at 9.0 m. */
   roof: { eavesY: 6.2, ridgeY: 10.45, overhang: 0.3 },
   dormers: [
-    { side: "front", x: 2.4, w: 2.5, topY: 9.0, setback: 1.2 },
-    { side: "back", x: 1.25, w: 3.25, topY: 9.0, setback: 1.2 },
+    { side: "front", x: 2.5, w: 2.3, topY: 9.0, setback: 1.2 },
+    { side: "back", x: 1.2, w: 3.25, topY: 9.0, setback: 1.2 },
   ],
   /* Single-storey, flat roof at 3.0 m: the garage block beside the house, set
    * back from the front and running 4.4 m past the back wall, and the rear
    * extension across the back of the main block. */
   flat: [
     { name: "garage", x: 5.6, z: 4.95, w: 3.75, d: 12.45, h: 3.0 },
+    /* the low bay at the front corner, with the gameroom's door to the street
+     * in its front and the tall window in its side (right elevation) */
+    { name: "erker", x: 4.6, z: -0.95, w: 1.0, d: 0.95, h: 3.0, joined: "front" },
     /* joined: one space with the room behind the main block's back wall, so
      * no floor or side lines where the two meet (the ceiling line stays). */
     { name: "aanbouw", x: 0, z: 13.0, w: 5.6, d: 1.9, h: 3.0, joined: true },
@@ -38,7 +41,7 @@ window.HOUSE_PLAN = {
    * outline: false leaves the outline undrawn (an open space). */
   rooms: {
     0: [
-      { name: "Zitkamer", x: 0, z: 0, w: 5.6, d: 3.6 },
+      { name: "Gameroom", x: 0, z: 0, w: 5.6, d: 3.6 },
       { name: "Gang", x: 0, z: 3.6, w: 5.6, d: 3.45 },
       /* One open space: no outline of their own, their walls are in walls. */
       { name: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45, outline: false },
@@ -81,17 +84,20 @@ window.HOUSE_PLAN = {
    * PANEL_SENSOR_CARDS contact on it, which lights it up while open; floor:
    * false leaves the floor unmarked across it (an open passage). */
   openings: [
-    /* front wall: the sitting room's two windows (the left one opens) */
-    { plane: "z", at: 0, a: 0.16, w: 1.55, y: 0.3, h: 2.3 },
-    { plane: "z", at: 0, a: 2.63, w: 2.85, y: 0.7, h: 1.9 },
-    { plane: "z", at: 0, a: 0.5, w: 1.5, y: 3.75, h: 1.35 },
-    { plane: "z", at: 0, a: 3.0, w: 0.9, y: 3.75, h: 1.35 },
-    { plane: "z", at: 0, a: 4.2, w: 0.9, y: 3.75, h: 1.35 },
-    /* side wall: the tall window at the front corner (opens), and the front
-     * door in the recess before the garage door */
-    { plane: "x", at: 5.6, a: 0.15, w: 1.0, y: 0.4, h: 2.2 },
-    { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.95, w: 1.0, y: 0, h: 2.4 },
-    { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.0, w: 2.6, y: 0, h: 2.3 },
+    /* front wall: the gameroom's glass wall from the floor up, its narrow
+     * left pane the one that opens (its contact); above, the three bedroom
+     * windows */
+    { plane: "z", at: 0, a: 0.3, w: 2.5, y: 0.05, h: 2.65 },
+    { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 0.3, w: 0.45, y: 0.05, h: 2.65 },
+    { plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
+    { plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
+    { plane: "z", at: 0, a: 3.67, w: 0.85, y: 3.95, h: 1.65 },
+    /* the bay: the gameroom's door out in its front, the tall window in its side */
+    { key: "deur_gameroom", sensor: "Deur gameroom", plane: "z", at: -0.95, a: 4.75, w: 0.8, y: 0, h: 2.7 },
+    { plane: "x", at: 5.6, a: -0.85, w: 0.75, y: 0.2, h: 2.5 },
+    /* the front door in the recess, and the garage door */
+    { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.98, w: 0.97, y: 0, h: 2.5 },
+    { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.05, w: 2.6, y: 0, h: 2.35 },
     /* inside: the wide sliding-door openings in the two hall walls, the door
      * from the big room into the garage, and the open passage into the back
      * sitting room */
@@ -99,13 +105,13 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { key: "garagedeur_binnen", sensor: "Garagedeur 1", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
     { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6, floor: false } /* open passage: no line on the floor */,
-    /* back: the kitchen's sliding door, and at the back of the room behind
-     * the garage its door out with the top-hung window beside it */
-    { plane: "z", at: 13.0, a: 1.15, w: 1.5, y: 3.75, h: 1.35 },
-    { plane: "z", at: 13.0, a: 3.25, w: 1.5, y: 3.75, h: 1.35 },
-    { key: "schuifpui_keuken", sensor: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.1, w: 3.7, y: 0, h: 2.4 },
-    { plane: "z", at: 14.9, a: 2.95, w: 0.02, y: 0, h: 2.4 } /* its mullion */,
-    { key: "deur_gameroom", sensor: "Deur gameroom", plane: "z", at: 17.4, a: 5.85, w: 1.0, y: 0, h: 2.3 },
-    { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 17.4, a: 7.0, w: 1.4, y: 0.9, h: 1.3 },
+    /* back: the bedroom's two windows, the kitchen's sliding door, and the
+     * back sitting room's sliding door at the end of the garage block */
+    { plane: "z", at: 13.0, a: 1.2, w: 1.4, y: 4.0, h: 1.6 },
+    { plane: "z", at: 13.0, a: 3.3, w: 1.4, y: 4.0, h: 1.6 },
+    { key: "schuifpui_keuken", sensor: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.2, w: 3.5, y: 0, h: 2.6 },
+    { plane: "z", at: 14.9, a: 2.95, w: 0.02, y: 0, h: 2.6 } /* its mullion */,
+    { key: "schuifpui_achterkamer", plane: "z", at: 17.4, a: 5.95, w: 2.3, y: 0, h: 2.6 },
+    { plane: "z", at: 17.4, a: 7.1, w: 0.02, y: 0, h: 2.6 } /* its mullion */,
   ],
 };
