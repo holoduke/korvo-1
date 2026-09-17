@@ -40,8 +40,9 @@ window.HOUSE_PLAN = {
       { name: "Keuken", x: 0, z: 5.9, w: 5.6, d: 3.6 },
       { name: "Eetkamer", x: 0, z: 9.5, w: 5.6, d: 5.4 },
       { name: "Garage", x: 5.6, z: 4.95, w: 4.2, d: 5.55 },
-      { name: "Gameroom", x: 5.6, z: 10.5, w: 4.2, d: 4.4 },
-      { name: "Zitk. achter", x: 5.6, z: 14.9, w: 4.2, d: 2.5 },
+      /* One room behind the garage, to the garden: the back sitting room (the
+       * Gameroom's lamps are in here too). */
+      { name: "Zitk. achter", x: 5.6, z: 10.5, w: 4.2, d: 6.9 },
     ],
     1: [
       { name: "Valerie", x: 0, z: 0, w: 2.4, d: 4.46 },
@@ -61,9 +62,10 @@ window.HOUSE_PLAN = {
    * front (at = its z), plane "x" a side wall (at = its x); a is where the
    * opening starts along that wall, y its sill. */
   openings: [
-    /* front */
-    { plane: "z", at: 0, a: 4.3, w: 1.0, y: 0, h: 2.3 } /* front door */,
-    { plane: "z", at: 0, a: 1.0, w: 2.6, y: 0.7, h: 1.7 },
+    /* front; the front door is in the side wall, in the recess before the garage */
+    { plane: "x", at: 5.6, a: 3.6, w: 1.0, y: 0, h: 2.3 } /* front door */,
+    { plane: "z", at: 0, a: 0.8, w: 2.6, y: 0.7, h: 1.7 },
+    { plane: "z", at: 0, a: 4.0, w: 0.9, y: 0.7, h: 1.7 },
     { plane: "z", at: 0, a: 0.4, w: 0.8, y: 3.9, h: 1.3 },
     { plane: "z", at: 0, a: 1.5, w: 0.8, y: 3.9, h: 1.3 },
     { plane: "z", at: 0, a: 3.3, w: 0.8, y: 3.9, h: 1.3 },
@@ -73,7 +75,7 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 13.0, a: 0.5, w: 1.2, y: 3.9, h: 1.3 },
     { plane: "z", at: 13.0, a: 3.9, w: 1.2, y: 3.9, h: 1.3 },
     { plane: "z", at: 14.9, a: 0.5, w: 4.6, y: 0, h: 2.4 } /* garden doors */,
-    { plane: "z", at: 17.4, a: 6.0, w: 3.4, y: 0, h: 2.4 } /* garden doors, back room */,
+    { plane: "z", at: 17.4, a: 6.4, w: 2.6, y: 0.9, h: 1.3 } /* back room window */,
     /* garage side */
     { plane: "x", at: 9.8, a: 13.2, w: 1.5, y: 0.9, h: 1.3 },
   ],
