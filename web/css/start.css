@@ -60,6 +60,32 @@ body.saver-house .hud-clock { display: block; }
 .hr-text { display: flex; flex-direction: column; gap: 2px; }
 .hr-text b { font-size: 13px; font-weight: 600; color: var(--text); }
 .hr-text span { font-size: 10.5px; color: #4dd9ff; }
+/* The layers: a row of buttons in the corner under the readout, and the
+ * rooms' readings floating over their floors (placed by the page each frame). */
+.house-layers {
+  position: absolute; left: 18px; bottom: 16px; display: flex; gap: 6px; flex-wrap: wrap;
+  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+}
+.hl-btn {
+  appearance: none; border: 1px solid color-mix(in srgb, var(--text_dim) 40%, transparent); background: color-mix(in srgb, var(--tile) 70%, transparent);
+  color: var(--text_dim); font: inherit; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 7px 11px; border-radius: 4px; cursor: pointer;
+}
+.hl-btn.active { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.house-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.house-label {
+  position: absolute; left: 0; top: 0; transform: translate(-1000px, -1000px);
+  display: flex; flex-direction: column; align-items: center; gap: 1px; margin: -18px 0 0 0; translate: -50% 0;
+  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 0 8px var(--bg), 0 0 3px var(--bg);
+}
+.house-label b { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; }
+.house-label span { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text_dim); }
+.house-label.cold b { color: var(--cold); }
+.house-label.ok b { color: var(--ok); }
+.house-label.warn b { color: var(--warn); }
+.house-label.bad b { color: var(--bad); }
+.house-label.lamp b { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }
 }

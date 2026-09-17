@@ -432,6 +432,7 @@
     }
     let scene = null, bloomA = null, bloomB = null;
     let W = 0, H = 0, dpr = 1;
+    let lastVP = null; /* the view-projection of the last frame, for project() */
     let seen = ""; /* the size the last frame reported: targets follow a size once it holds still */
     function resize(idle) {
       dpr = idle ? 1 : Math.min(MAX_DPR, window.devicePixelRatio || 1);
@@ -637,6 +638,7 @@
       const c = geo.centre;
       const eye = [c[0] + dist * Math.cos(cam.pitch) * Math.sin(cam.yaw), c[1] + dist * Math.sin(cam.pitch), c[2] + dist * Math.cos(cam.pitch) * Math.cos(cam.yaw)];
       const vp = mul(perspective(FOV, W / H, 1, dist + geo.radius * 4), lookAt(eye, c, [0, 1, 0]));
+      lastVP = vp;
       const sweepY = ((now / 1000) % SWEEP_PERIOD_S) / SWEEP_PERIOD_S * 13 - 2;
 
       /* The scene: faces, then the ground grid, then the house. */
@@ -747,6 +749,25 @@
       return true;
     }
     const clearRooms = () => [...marks.keys()].filter((k) => k.startsWith("room:")).forEach(clearHighlight);
+    /* A room's floor in a colour, still (a layer: its temperature, its lamps). */
+    function tintRoom(floor, name, colour, alpha = 0.22) {
+      const corners = geo.rooms[`${floor}:${name}`];
+      if (!corners) return false;
+      mark(`tint:${floor}:${name}`, corners, { colour, pulse: false, alpha: [alpha, 0] });
+      return true;
+    }
+    const clearTints = () => [...marks.keys()].filter((k) => k.startsWith("tint:")).forEach(clearHighlight);
+    /* Where a point of the plan (metres) sits on the canvas (css px), or null
+     * when it is behind the camera or nothing has been drawn yet. */
+    function project([x, y, z]) {
+      if (!lastVP) return null;
+      const m = lastVP;
+      const cx = m[0] * x + m[4] * y + m[8] * z + m[12];
+      const cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+      const cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+      if (cw <= 0) return null;
+      return { x: (cx / cw * 0.5 + 0.5) * canvas.clientWidth, y: (0.5 - cy / cw * 0.5) * canvas.clientHeight, depth: cw };
+    }
     function clearHighlight(key) {
       const m = marks.get(key);
       if (!m) return;
@@ -795,6 +816,9 @@
       highlight,
       highlightRoom,
       clearRooms,
+      tintRoom,
+      clearTints,
+      project,
       clearHighlight,
       highlights: () => [...marks.keys()],
     };

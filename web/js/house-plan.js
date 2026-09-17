@@ -38,16 +38,20 @@ window.HOUSE_PLAN = {
   /* Rooms per floor: name (as in PANEL_AREAS), and the rectangle they take;
    * outline: false leaves the outline undrawn (an open space). */
   rooms: {
+    /* climate: the PANEL_SENSOR_CARDS climate card that reads in the room (or
+     * whose reading it shares: one open space); areas: the PANEL_AREAS rooms
+     * whose lamps are in it (its own name when left out); tab: a lighting tab
+     * whose lamps are all in it; robotRoom: the robot's name for it. */
     0: [
-      { name: "Gameroom", x: 0, z: 0, w: 5.6, d: 3.6 },
+      { name: "Gameroom", climate: "Voorkamer", x: 0, z: 0, w: 5.6, d: 3.6 },
       { name: "Gang", x: 0, z: 3.6, w: 5.6, d: 3.45 },
       /* One open space: no outline of their own, their walls are in walls. */
-      { name: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45, outline: false },
-      { name: "Eetkamer", x: 0, z: 10.5, w: 5.6, d: 4.4, outline: false },
-      { name: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
+      { name: "Keuken", climate: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45, outline: false },
+      { name: "Eetkamer", climate: "Keuken", areas: ["Eetkamer", "Zitkamer"], x: 0, z: 10.5, w: 5.6, d: 4.4, outline: false },
+      { name: "Garage", climate: "Garage", tab: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
       /* The garage block's part behind the garage wall, open to the big room:
        * the back sitting room (the Gameroom's lamps are in here too). */
-      { name: "Zitk. achter", robotRoom: "Zitkamer achter", x: 5.6, z: 12.7, w: 3.75, d: 4.7 } /* robotRoom: the robot's name for it */,
+      { name: "Zitk. achter", climate: "Zitkamer achter", robotRoom: "Zitkamer achter", x: 5.6, z: 12.7, w: 3.75, d: 4.7 },
     ],
     /* First floor (plan, page 6): Naomi's room on the neighbour's side with
      * its one window, Valerie's on the garage side with two and reaching
@@ -64,10 +68,10 @@ window.HOUSE_PLAN = {
      * neighbour's wall, the front room, a small hall with the baby's room off
      * it, and the back room; their walls are in walls, so no outlines here. */
     2: [
-      { name: "Voorkamer", x: 1.45, z: 1.44, w: 4.15, d: 4.46, outline: false },
-      { name: "Gang", x: 1.45, z: 5.9, w: 1.35, d: 2.8, outline: false },
+      { name: "Voorkamer", climate: "Zolder voor", x: 1.45, z: 1.44, w: 4.15, d: 4.46, outline: false },
+      { name: "Gang", climate: "Zoldergang", x: 1.45, z: 5.9, w: 1.35, d: 2.8, outline: false },
       { name: "Babykamer", x: 2.8, z: 5.9, w: 2.8, d: 2.1, outline: false },
-      { name: "Achterkamer", x: 0, z: 8.7, w: 5.6, d: 4.3, outline: false },
+      { name: "Achterkamer", climate: "Zolder achter", x: 0, z: 8.7, w: 5.6, d: 4.3, outline: false },
     ],
   },
   /* Inner walls of the ground floor, drawn as walls (floor line, ceiling line
