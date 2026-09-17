@@ -1280,6 +1280,16 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "door",
+      "label": "Voordeur",
+      "name": "sensor_deur_voordeur_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_deur_voordeur_1_contact",
+        "tamper": "binary_sensor.sensor_deur_voordeur_1_tamper",
+        "battery": "sensor.sensor_deur_voordeur_1_battery"
+      }
+    },
+    {
       "kind": "air",
       "label": "Lucht keuken",
       "name": "luchtkwaliteit_keuken",

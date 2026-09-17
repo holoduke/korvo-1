@@ -521,6 +521,7 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "motion",   "Beweging kast",    "bewegingssensor_kast_2" },
     { "door",     "Garagedeur 1",     "sensor_deur_garage_1" },
     { "door",     "Garagedeur 2",     "sensor_deur_garage_2" },
+    { "door",     "Voordeur",         "sensor_deur_voordeur_1" }, /* IKEA MYGGBETT over Thread: no tamper contact */
     { "air",      "Lucht keuken",     "luchtkwaliteit_keuken" },
     { "climate",  "Voorkamer",        "sensor_voorkamer_1" },
     { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },

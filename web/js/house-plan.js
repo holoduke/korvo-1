@@ -88,7 +88,7 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 0, a: 3.0, w: 0.9, y: 3.75, h: 1.35 },
     { plane: "z", at: 0, a: 4.2, w: 0.9, y: 3.75, h: 1.35 },
     /* the front door: in the side wall, in the recess before the garage door */
-    { key: "voordeur", plane: "x", at: 5.6, a: 3.95, w: 1.0, y: 0, h: 2.4 },
+    { key: "voordeur", door: "Voordeur", plane: "x", at: 5.6, a: 3.95, w: 1.0, y: 0, h: 2.4 },
     { key: "garagedeur", door: "Garagedeur 2", plane: "z", at: 4.95, a: 6.0, w: 2.6, y: 0, h: 2.3 },
     /* inside: the wide sliding-door openings in the two hall walls, the door
      * from the big room into the garage, and the open passage into the back
