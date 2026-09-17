@@ -34,7 +34,7 @@
   const BLOOM = 1.15;
   const SWEEP_PERIOD_S = 14;
   /* How bright each kind of edge is. */
-  const L = { wall: 1.0, inner: 0.7, rafter: 0.7, room: 0.48, opening: 0.42, grid: 0.26 };
+  const L = { wall: 1.0, inner: 0.38, rafter: 0.7, room: 0.4, opening: 0.42, grid: 0.26 };
 
   const LINE_VS = `
     attribute vec3 aA; attribute vec3 aB; attribute vec2 aP; attribute float aL;
@@ -232,7 +232,11 @@
       e.rect([[dx0, d.topY, bz], [dx1, d.topY, bz], [dx1, d.topY, fz], [dx0, d.topY, fz]], L.wall);
       e.rect([[dx0, fy, fz], [dx1, fy, fz], [dx1, d.topY, fz], [dx0, d.topY, fz]], L.wall);
       [dx0, dx1].forEach((x) => e.add([x, fy, fz], [x, d.topY, bz], L.wall));
-      e.rect([[dx0 + 0.4, fy + 0.3, fz], [dx1 - 0.4, fy + 0.3, fz], [dx1 - 0.4, d.topY - 0.3, fz], [dx0 + 0.4, d.topY - 0.3, fz]], L.opening);
+      /* Its window: where the plan puts it (window: {a, w, mullions}), else inset. */
+      const [wx0, wx1] = d.window ? [d.window.a, d.window.a + d.window.w] : [dx0 + 0.4, dx1 - 0.4];
+      const [wy0, wy1] = [fy + 0.3, d.topY - 0.3];
+      e.rect([[wx0, wy0, fz], [wx1, wy0, fz], [wx1, wy1, fz], [wx0, wy1, fz]], L.opening);
+      ((d.window && d.window.mullions) || []).forEach((x) => e.add([x, wy0, fz], [x, wy1, fz], L.opening));
     });
     /* Single-storey blocks with flat roofs. */
     (plan.flat || []).forEach((b) => {

@@ -22,8 +22,9 @@ window.HOUSE_PLAN = {
    * back walls. A dormer on each slope, its flat top at 9.0 m. */
   roof: { eavesY: 6.2, ridgeY: 10.45, overhang: 0.3 },
   dormers: [
-    { side: "front", x: 2.95, w: 2.35, topY: 9.0, setback: 1.2 },
-    { side: "back", x: 1.1, w: 3.75, topY: 9.0, setback: 1.2 },
+    /* window: where the glass sits in the dormer's face (Merk-U, Merk-V on page 7) */
+    { side: "front", x: 2.95, w: 2.35, topY: 9.0, setback: 1.2, window: { a: 3.07, w: 2.1 } },
+    { side: "back", x: 1.1, w: 3.75, topY: 9.0, setback: 1.2, window: { a: 1.22, w: 3.5, mullions: [2.39, 3.55] } },
   ],
   /* Single-storey, flat roof at 3.0 m: the garage block beside the house, set
    * back from the front and running 4.4 m past the back wall, and the rear
@@ -127,16 +128,11 @@ window.HOUSE_PLAN = {
     { plane: "x", at: 1.25, a: 7.85, w: 0.8, y: 3.0, h: 2.3 },
     { plane: "z", at: 8.8, a: 1.65, w: 0.9, y: 3.0, h: 2.3 },
     /* attic (page 7): the hall's doors to the front room, the baby's room, the
-     * back room and the technical room; the dormer windows in the dormers'
-     * faces, 1.2 m in from the eaves */
+     * back room and the technical room (the dormer windows are in dormers) */
     { plane: "z", at: 5.9, a: 1.7, w: 0.9, y: 6.0, h: 2.1 },
     { plane: "x", at: 2.8, a: 6.0, w: 0.9, y: 6.0, h: 2.1 },
     { plane: "z", at: 8.7, a: 1.7, w: 0.9, y: 6.0, h: 2.1 },
     { plane: "x", at: 1.45, a: 7.6, w: 0.9, y: 6.0, h: 2.1 },
-    { plane: "z", at: 1.2, a: 3.07, w: 2.1, y: 6.9, h: 1.4 } /* Merk-U, front dormer */,
-    { plane: "z", at: 11.8, a: 1.22, w: 3.5, y: 6.9, h: 1.4 } /* Merk-V, back dormer */,
-    { plane: "z", at: 11.8, a: 2.39, w: 0.02, y: 6.9, h: 1.4 } /* its mullions */,
-    { plane: "z", at: 11.8, a: 3.55, w: 0.02, y: 6.9, h: 1.4 },
     /* the front door in the recess, and the garage door */
     { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.98, w: 0.97, y: 0, h: 2.5 },
     { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.05, w: 2.6, y: 0, h: 2.35 },
