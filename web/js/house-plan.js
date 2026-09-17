@@ -90,7 +90,7 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 0, a: 1.225, w: 0.02, y: 0, h: 2.4 } /* between the two leaves */,
     { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 2.6, w: 1.0, y: 0.6, h: 1.8 },
     { plane: "z", at: 0, a: 3.6, w: 1.9, y: 0.6, h: 1.8 },
-    { plane: "x", at: 5.6, a: 0.1, w: 1.0, y: 0.6, h: 1.8 } /* the side pane of the corner window */,
+    { key: "raam_gameroom_zij", sensor: "Raam gameroom zij", plane: "x", at: 5.6, a: 0.1, w: 1.0, y: 0.6, h: 1.8 } /* the side pane of the corner window */,
     { plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
     { plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
     { plane: "z", at: 0, a: 3.67, w: 0.85, y: 3.95, h: 1.65 },
@@ -108,6 +108,8 @@ window.HOUSE_PLAN = {
      * back sitting room's sliding door at the end of the garage block */
     { plane: "z", at: 13.0, a: 1.2, w: 1.4, y: 4.0, h: 1.6 },
     { plane: "z", at: 13.0, a: 3.3, w: 1.4, y: 4.0, h: 1.6 },
+    /* The back dormer's window (the "Achterkamer" on the top floor); the dormer's face is 1.2 m in from the eave. */
+    { key: "raam_zolder_achter", sensor: "Raam zolder achter", plane: "z", at: 11.8, a: 1.55, w: 2.55, y: 6.3, h: 1.5 },
     { key: "schuifpui_keuken", sensor: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.2, w: 3.5, y: 0, h: 2.6 },
     { plane: "z", at: 14.9, a: 2.95, w: 0.02, y: 0, h: 2.6 } /* its mullion */,
     { key: "schuifpui_achterkamer", plane: "z", at: 17.4, a: 5.95, w: 2.3, y: 0, h: 2.6 },

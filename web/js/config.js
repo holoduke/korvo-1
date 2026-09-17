@@ -1341,6 +1341,26 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "window",
+      "label": "Raam gameroom zij",
+      "name": "sensor_raam_gameroom_zijkant_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_gameroom_zijkant_1_contact",
+        "tamper": "binary_sensor.sensor_raam_gameroom_zijkant_1_tamper",
+        "battery": "sensor.sensor_raam_gameroom_zijkant_1_battery"
+      }
+    },
+    {
+      "kind": "window",
+      "label": "Raam zolder achter",
+      "name": "sensor_raam_achterkamer_boven_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_achterkamer_boven_1_contact",
+        "tamper": "binary_sensor.sensor_raam_achterkamer_boven_1_tamper",
+        "battery": "sensor.sensor_raam_achterkamer_boven_1_battery"
+      }
+    },
+    {
       "kind": "air",
       "label": "Lucht keuken",
       "name": "luchtkwaliteit_keuken",
