@@ -546,11 +546,34 @@
     };
     readColours();
 
+    /* Vertex attribute arrays are state of the context, not of a program: a
+     * slot the line program enabled stays enabled for the face program, and if
+     * the buffer it points at was deleted meanwhile (a highlight cleared) the
+     * face draw is refused for that frame, and the fills blink. Each draw
+     * enables only its own slots. */
+    const lineAttribs = () => [lineP.a.aA, lineP.a.aB, lineP.a.aP, lineP.a.aL];
+    const faceAttribs = () => [faceP.a.aPos, faceP.a.aCol];
+    function onlyAttribs(keep) {
+      for (const loc of new Set([...lineAttribs(), ...faceAttribs()])) {
+        if (keep.includes(loc)) gl.enableVertexAttribArray(loc);
+        else gl.disableVertexAttribArray(loc);
+      }
+    }
+    /* The face program is in use (and its uVP set); tint multiplies the colours. */
+    function drawFaces(set, tint) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, set.vbo);
+      onlyAttribs(faceAttribs());
+      gl.vertexAttribPointer(faceP.a.aPos, 3, gl.FLOAT, false, 28, 0);
+      gl.vertexAttribPointer(faceP.a.aCol, 4, gl.FLOAT, false, 28, 12);
+      gl.uniform4f(faceP.u.uTint, tint[0], tint[1], tint[2], tint[3]);
+      gl.drawArrays(gl.TRIANGLES, 0, set.count);
+    }
     function drawLines(vp, set, radial, colour) {
       gl.useProgram(lineP.p);
       gl.bindBuffer(gl.ARRAY_BUFFER, set.vbo);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, set.ibo);
       const stride = 9 * 4;
+      onlyAttribs(lineAttribs());
       gl.enableVertexAttribArray(lineP.a.aA);
       gl.vertexAttribPointer(lineP.a.aA, 3, gl.FLOAT, false, stride, 0);
       gl.enableVertexAttribArray(lineP.a.aB);
@@ -565,7 +588,7 @@
     }
     function drawQuad(prog) {
       gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-      gl.enableVertexAttribArray(prog.a.aPos);
+      onlyAttribs([prog.a.aPos]);
       gl.vertexAttribPointer(prog.a.aPos, 2, gl.FLOAT, false, 0, 0);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
@@ -612,14 +635,8 @@
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.useProgram(faceP.p);
-      gl.bindBuffer(gl.ARRAY_BUFFER, faces.vbo);
-      gl.enableVertexAttribArray(faceP.a.aPos);
-      gl.vertexAttribPointer(faceP.a.aPos, 3, gl.FLOAT, false, 28, 0);
-      gl.enableVertexAttribArray(faceP.a.aCol);
-      gl.vertexAttribPointer(faceP.a.aCol, 4, gl.FLOAT, false, 28, 12);
       gl.uniformMatrix4fv(faceP.u.uVP, false, vp);
-      gl.uniform4f(faceP.u.uTint, 1, 1, 1, 1);
-      gl.drawArrays(gl.TRIANGLES, 0, faces.count);
+      drawFaces(faces, [1, 1, 1, 1]);
       gl.useProgram(lineP.p);
       gl.uniformMatrix4fv(lineP.u.uVP, false, vp);
       gl.uniform2f(lineP.u.uRes, W, H);
@@ -635,11 +652,7 @@
       for (const m of marks.values()) {
         const p = m.pulse ? 0.5 + 0.5 * Math.sin((now / 1000) * ((2 * Math.PI) / PULSE_S)) : 1;
         gl.useProgram(faceP.p);
-        gl.bindBuffer(gl.ARRAY_BUFFER, m.faces.vbo);
-        gl.vertexAttribPointer(faceP.a.aPos, 3, gl.FLOAT, false, 28, 0);
-        gl.vertexAttribPointer(faceP.a.aCol, 4, gl.FLOAT, false, 28, 12);
-        gl.uniform4f(faceP.u.uTint, m.colour[0], m.colour[1], m.colour[2], 0.3 + 0.35 * p);
-        gl.drawArrays(gl.TRIANGLES, 0, m.faces.count);
+        drawFaces(m.faces, [m.colour[0], m.colour[1], m.colour[2], 0.3 + 0.35 * p]);
         gl.useProgram(lineP.p);
         drawLines(vp, m.lines, 0, m.colour.map((c) => c * (0.9 + 0.9 * p)));
       }
