@@ -1341,6 +1341,16 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "door",
+      "label": "Deur Naomi",
+      "name": "sensor_deur_voorkamer_boven_links_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_deur_voorkamer_boven_links_1_contact",
+        "tamper": "binary_sensor.sensor_deur_voorkamer_boven_links_1_tamper",
+        "battery": "sensor.sensor_deur_voorkamer_boven_links_1_battery"
+      }
+    },
+    {
       "kind": "window",
       "label": "Raam gameroom zij",
       "name": "sensor_raam_gameroom_zijkant_1",

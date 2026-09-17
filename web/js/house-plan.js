@@ -94,6 +94,9 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
     { plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
     { plane: "z", at: 0, a: 3.67, w: 0.85, y: 3.95, h: 1.65 },
+    /* upstairs: the door of the small front bedroom (Naomi's, on the left
+     * coming from the landing), in the wall between it and the landing */
+    { key: "deur_naomi", sensor: "Deur Naomi", plane: "z", at: 3.7, a: 2.95, w: 0.9, y: 3.0, h: 2.3 },
     /* the front door in the recess, and the garage door */
     { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.98, w: 0.97, y: 0, h: 2.5 },
     { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.05, w: 2.6, y: 0, h: 2.35 },
