@@ -22,8 +22,8 @@ window.HOUSE_PLAN = {
    * back walls. A dormer on each slope, its flat top at 9.0 m. */
   roof: { eavesY: 6.2, ridgeY: 10.45, overhang: 0.3 },
   dormers: [
-    { side: "front", x: 2.5, w: 2.3, topY: 9.0, setback: 1.2 },
-    { side: "back", x: 1.2, w: 3.25, topY: 9.0, setback: 1.2 },
+    { side: "front", x: 2.95, w: 2.35, topY: 9.0, setback: 1.2 },
+    { side: "back", x: 1.1, w: 3.75, topY: 9.0, setback: 1.2 },
   ],
   /* Single-storey, flat roof at 3.0 m: the garage block beside the house, set
    * back from the front and running 4.4 m past the back wall, and the rear
@@ -59,11 +59,14 @@ window.HOUSE_PLAN = {
       { name: "Badkamer", x: 2.84, z: 5.0, w: 2.76, d: 3.8 },
       { name: "Gillis en Ilse", x: 0, z: 8.8, w: 5.6, d: 4.2 },
     ],
+    /* Attic (plan, page 7): the stair and the technical room along the
+     * neighbour's wall, the front room, a small hall with the baby's room off
+     * it, and the back room; their walls are in walls, so no outlines here. */
     2: [
-      { name: "Voorkamer", x: 0, z: 1.44, w: 5.6, d: 4.1 },
-      { name: "Gang", x: 0, z: 5.54, w: 2.4, d: 3.2 },
-      { name: "Babykamer", x: 2.4, z: 5.54, w: 3.2, d: 3.2 },
-      { name: "Achterkamer", x: 0, z: 8.74, w: 5.6, d: 2.8 },
+      { name: "Voorkamer", x: 1.45, z: 1.44, w: 4.15, d: 4.46, outline: false },
+      { name: "Gang", x: 1.45, z: 5.9, w: 1.35, d: 2.8, outline: false },
+      { name: "Babykamer", x: 2.8, z: 5.9, w: 2.8, d: 2.1, outline: false },
+      { name: "Achterkamer", x: 0, z: 8.7, w: 5.6, d: 4.3, outline: false },
     ],
   },
   /* Inner walls of the ground floor, drawn as walls (floor line, ceiling line
@@ -83,6 +86,14 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 8.8, a: 0, w: 5.6, y: 3.0, h: 3.0 } /* landing, bathroom | back bedroom */,
     { plane: "z", at: 7.25, a: 0, w: 1.25, y: 3.0, h: 3.0 } /* the toilet off the landing */,
     { plane: "x", at: 1.25, a: 7.25, w: 1.55, y: 3.0, h: 3.0 },
+    /* attic */
+    { plane: "x", at: 1.45, a: 3.6, w: 7.0, y: 6.0, h: 2.3 } /* stair, technical room | the rooms */,
+    { plane: "z", at: 7.1, a: 0, w: 1.45, y: 6.0, h: 2.3 } /* stair | technical room */,
+    { plane: "z", at: 10.6, a: 0, w: 1.45, y: 6.0, h: 2.3 } /* technical room | back room */,
+    { plane: "z", at: 5.9, a: 1.45, w: 4.15, y: 6.0, h: 2.3 } /* front room | hall, baby's room */,
+    { plane: "x", at: 2.8, a: 5.9, w: 2.8, y: 6.0, h: 2.3 } /* hall | baby's room, back room */,
+    { plane: "z", at: 8.0, a: 2.8, w: 2.8, y: 6.0, h: 2.3 } /* baby's room | back room */,
+    { plane: "z", at: 8.7, a: 1.45, w: 1.35, y: 6.0, h: 2.3 } /* hall | back room */,
   ],
   /* Windows and doors, as rectangles on a wall: plane "z" is a wall along the
    * front (at = its z), plane "x" a side wall (at = its x); a is where the
@@ -115,6 +126,17 @@ window.HOUSE_PLAN = {
     { plane: "x", at: 2.84, a: 6.05, w: 0.9, y: 3.0, h: 2.3 },
     { plane: "x", at: 1.25, a: 7.85, w: 0.8, y: 3.0, h: 2.3 },
     { plane: "z", at: 8.8, a: 1.65, w: 0.9, y: 3.0, h: 2.3 },
+    /* attic (page 7): the hall's doors to the front room, the baby's room, the
+     * back room and the technical room; the dormer windows in the dormers'
+     * faces, 1.2 m in from the eaves */
+    { plane: "z", at: 5.9, a: 1.7, w: 0.9, y: 6.0, h: 2.1 },
+    { plane: "x", at: 2.8, a: 6.0, w: 0.9, y: 6.0, h: 2.1 },
+    { plane: "z", at: 8.7, a: 1.7, w: 0.9, y: 6.0, h: 2.1 },
+    { plane: "x", at: 1.45, a: 7.6, w: 0.9, y: 6.0, h: 2.1 },
+    { plane: "z", at: 1.2, a: 3.07, w: 2.1, y: 6.9, h: 1.4 } /* Merk-U, front dormer */,
+    { plane: "z", at: 11.8, a: 1.22, w: 3.5, y: 6.9, h: 1.4 } /* Merk-V, back dormer */,
+    { plane: "z", at: 11.8, a: 2.39, w: 0.02, y: 6.9, h: 1.4 } /* its mullions */,
+    { plane: "z", at: 11.8, a: 3.55, w: 0.02, y: 6.9, h: 1.4 },
     /* the front door in the recess, and the garage door */
     { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.98, w: 0.97, y: 0, h: 2.5 },
     { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.05, w: 2.6, y: 0, h: 2.35 },
