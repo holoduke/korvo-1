@@ -75,19 +75,18 @@ body.saver-house .hud-clock { display: block; }
 .house-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .house-label {
   position: absolute; left: 0; top: 0; transform: translate(-1000px, -1000px);
-  display: flex; flex-direction: column; align-items: center; gap: 1px; margin: -18px 0 0 0; translate: -50% 0;
+  display: flex; align-items: baseline; gap: 7px; margin: -9px 0 0 0; translate: -50% 0;
   font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
   font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 0 8px var(--bg), 0 0 3px var(--bg);
 }
 .house-label b { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; }
-.house-label span { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text_dim); }
-.house-label.cold b { color: var(--cold); }
-.house-label.ok b { color: var(--ok); }
-.house-label.warn b { color: var(--warn); }
-.house-label.bad b { color: var(--bad); }
-.house-label.lamp b { color: var(--accent); }
-.house-label.out b { color: var(--text); }
-.house-label.out::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text_dim); margin-bottom: 2px; }
+.house-label i { font-style: normal; font-size: 10.5px; letter-spacing: 0.06em; }
+.house-label .cold { color: var(--cold); }
+.house-label .ok { color: var(--ok); }
+.house-label .warn { color: var(--warn); }
+.house-label .bad { color: var(--bad); }
+.house-label .lamp { color: var(--accent); }
+.house-label.out::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text_dim); align-self: center; }
 @media (prefers-reduced-motion: reduce) {
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }
 }

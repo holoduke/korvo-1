@@ -164,10 +164,11 @@
     writeHash(); /* normalise an unknown or partial hash */
   }
   window.addEventListener("hashchange", () => applyHash(true));
-  /* Go to a place by its hash without a history entry (the screensaver's return). */
-  Panel.goHash = (h) => {
+  /* Go to a place by its hash without a history entry (the screensaver's
+   * return: at once, not gliding there through the sections and floors). */
+  Panel.goHash = (h, animate = true) => {
     history.replaceState(null, "", location.pathname + location.search + h);
-    applyHash(true);
+    applyHash(animate);
   };
   Panel.on("route", writeHash);
 

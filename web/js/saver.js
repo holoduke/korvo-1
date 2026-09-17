@@ -87,7 +87,7 @@
     if (!houseSaver) return;
     houseSaver = false;
     chrome(true);
-    if (before && before !== location.hash) Panel.goHash(before); /* without a history entry, like a swipe */
+    if (before && before !== location.hash) Panel.goHash(before, false); /* back at once: no glide through the sections or floors */
     before = "";
     Panel.wake();
   }

@@ -18,8 +18,7 @@
 
   const LAYERS = [
     ["none", "Huis"],
-    ["temp", "Temperatuur"],
-    ["hum", "Vocht"],
+    ["climate", "Klimaat"],
     ["lights", "Lampen"],
   ];
   const html = () =>
@@ -85,22 +84,31 @@
 
   /* ---- Layers -------------------------------------------------------------------- */
   const TONE_RGB = { cold: [0.4, 0.62, 1.0], ok: [0.3, 0.9, 0.5], warn: [1.0, 0.65, 0.25], bad: [1.0, 0.35, 0.3], lamp: [1.0, 0.78, 0.3] };
-  let layer = ["none", "temp", "hum", "lights"].includes(Panel.prefs.houseLayer) ? Panel.prefs.houseLayer : "none";
+  let layer = ["none", "climate", "lights"].includes(Panel.prefs.houseLayer) ? Panel.prefs.houseLayer : "none";
   let raf = 0;
 
-  /* The room's reading and tone for the layer, or null when it has none. */
+  /* A climate card's temperature and humidity as label markup (each in the
+   * colour of its band), and the temperature's tone; null without a reading. */
+  function climateOf(card) {
+    const t = Panel.num(card.entities.temperature);
+    const h = Panel.num(card.entities.humidity);
+    if (!Number.isFinite(t) && !Number.isFinite(h)) return null;
+    const tone = Number.isFinite(t) ? Panel.bandTone(Panel.bands.temp, t) : "ok";
+    const html =
+      (Number.isFinite(t) ? `<b class="${tone}">${Util.fmt(t, 1)}°</b>` : "") +
+      (Number.isFinite(h) ? `<i class="${Panel.bandTone(Panel.bands.hum, h)}">${Math.round(h)}%</i>` : "");
+    return { tone, html };
+  }
+  /* The room's reading for the layer, or null when it has none. */
   function reading(r) {
-    if (layer === "temp" || layer === "hum") {
-      if (!r.card) return null;
-      const v = Panel.num(layer === "temp" ? r.card.entities.temperature : r.card.entities.humidity);
-      if (!Number.isFinite(v)) return null;
-      const tone = Panel.bandTone(layer === "temp" ? Panel.bands.temp : Panel.bands.hum, v);
-      return { tone, text: layer === "temp" ? `${Util.fmt(v, 1)}°` : `${Math.round(v)}%`, alpha: 0.13 };
+    if (layer === "climate") {
+      const c = r.card && climateOf(r.card);
+      return c && { tone: c.tone, html: c.html, alpha: 0.13 };
     }
     if (layer === "lights") {
       const on = r.lights.filter((id) => state(id) === "on").length;
       if (!on) return null;
-      return { tone: "lamp", text: `${on} aan`, alpha: 0.07 + 0.2 * Math.min(1, on / Math.max(3, r.lights.length)) };
+      return { tone: "lamp", html: `<b class="lamp">${on} aan</b>`, alpha: 0.07 + 0.2 * Math.min(1, on / Math.max(3, r.lights.length)) };
     }
     return null;
   }
@@ -117,20 +125,20 @@
       /* the label: on the room that owns the reading (a shared reading only tints) */
       if ((layer !== "lights" && labelRoom.get(r.card.label) !== r)) return;
       const el = document.createElement("div");
-      el.className = `house-label ${v.tone}`;
-      el.innerHTML = `<b>${esc(v.text)}</b><span>${esc(layer === "lights" ? r.name : r.card.label)}</span>`;
+      el.className = "house-label";
+      el.innerHTML = v.html;
       el.dataset.at = JSON.stringify(r.centre);
       labels.appendChild(el);
     });
     /* The sensors outside the rooms (the outside temperature on the front wall). */
-    if (layer !== "lights") {
+    if (layer === "climate") {
       (plan.sensors || []).forEach((s) => {
         const card = climateCards.find((c) => c.label === s.climate);
-        const v = card && Panel.num(layer === "temp" ? card.entities.temperature : card.entities.humidity);
-        if (!Number.isFinite(v)) return;
+        const c = card && climateOf(card);
+        if (!c) return;
         const el = document.createElement("div");
         el.className = "house-label out";
-        el.innerHTML = `<b>${esc(layer === "temp" ? `${Util.fmt(v, 1)}°` : `${Math.round(v)}%`)}</b><span>${esc(card.label)}</span>`;
+        el.innerHTML = c.html;
         el.dataset.at = JSON.stringify(s.at);
         labels.appendChild(el);
       });
