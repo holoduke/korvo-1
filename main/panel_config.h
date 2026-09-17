@@ -532,7 +532,8 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "door",     "Schuifpui keuken", "sensor_deur_keuken_1" },   /* idem */
     { "door",     "Deur gameroom",    "sensor_deur_gameroom_buiten_1" }, /* idem, the door out at the back */
     { "window",   "Raam gameroom",    "sensor_raam_gameroom_klapraam_1" }, /* idem, the top-hung window beside it */
-    { "door",     "Deur Naomi",       "sensor_deur_voorkamer_boven_links_1" }, /* idem, the small front bedroom upstairs */
+    { "window",   "Raam Naomi links",  "sensor_raam_voorkamer_boven_links_1" }, /* idem, the small front bedroom upstairs: */
+    { "window",   "Raam Naomi rechts", "sensor_deur_voorkamer_boven_links_1" }, /* the two panes of its window, seen from inside */
     { "window",   "Raam gameroom zij", "sensor_raam_gameroom_zijkant_1" }, /* idem, the side pane of the corner window */
     { "window",   "Raam achterkamer 1", "sensor_raam_achterkamer_boven_1" }, /* idem, the back bedroom upstairs: */
     { "window",   "Raam achterkamer 2", "sensor_raam_achterkamer_boven_2" }, /* the two panes of its right-hand window, */
