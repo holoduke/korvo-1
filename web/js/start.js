@@ -24,6 +24,9 @@
         return;
       }
       setTimeout(seen, HINT_MS);
+      /* For now the front door is lit as a trial of the highlight; it is meant
+       * to follow the door sensor. */
+      house.highlight("voordeur", { colour: [1, 0.3, 0.25], pulse: true });
       let swiping = false;
       const onScreen = () => cfg.sections[Panel.section].kind === "start";
       /* While a swipe is under way the page may be partly in view: keep drawing. */

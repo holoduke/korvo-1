@@ -77,8 +77,8 @@
     attribute vec3 aPos; attribute vec4 aCol; uniform mat4 uVP; varying vec4 vCol;
     void main() { gl_Position = uVP * vec4(aPos, 1.0); vCol = aCol; }`;
   const FACE_FS = `
-    precision mediump float; varying vec4 vCol;
-    void main() { gl_FragColor = vec4(vCol.rgb * vCol.a, vCol.a); }`;
+    precision mediump float; uniform vec4 uTint; varying vec4 vCol;
+    void main() { vec4 c = vCol * uTint; gl_FragColor = vec4(c.rgb * c.a, c.a); }`;
   const QUAD_VS = `
     attribute vec2 aPos; varying vec2 vUv;
     void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
@@ -217,10 +217,13 @@
       if (!lv) return;
       rooms.forEach((r) => e.rect(ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y), L.room));
     });
-    /* Windows and doors on the walls. */
+    /* Windows and doors on the walls; a keyed one can be lit up later. */
+    const openings = {};
     plan.openings.forEach((o) => {
       const p = (a, y) => (o.plane === "z" ? [a, y, o.at] : [o.at, y, a]);
-      e.rect([p(o.a, o.y), p(o.a + o.w, o.y), p(o.a + o.w, o.y + o.h), p(o.a, o.y + o.h)], L.opening);
+      const corners = [p(o.a, o.y), p(o.a + o.w, o.y), p(o.a + o.w, o.y + o.h), p(o.a, o.y + o.h)];
+      e.rect(corners, L.opening);
+      if (o.key) openings[o.key] = corners;
     });
     const house = e.list();
 
@@ -240,7 +243,7 @@
     const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
     const centre = [(minX + maxX) / 2, roof.ridgeY * 0.42, (minZ + maxZ) / 2];
     const radius = Math.hypot((maxX - minX) / 2, roof.ridgeY / 2, (maxZ - minZ) / 2);
-    return { house, grid, faces, centre, radius };
+    return { house, grid, faces, centre, radius, openings };
   }
 
   /* Edge list -> the quad vertices the line shader widens. */
@@ -473,7 +476,7 @@
     };
     readColours();
 
-    function drawLines(vp, set, radial) {
+    function drawLines(vp, set, radial, colour) {
       gl.useProgram(lineP.p);
       gl.bindBuffer(gl.ARRAY_BUFFER, set.vbo);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, set.ibo);
@@ -489,7 +492,7 @@
       gl.uniformMatrix4fv(lineP.u.uVP, false, vp);
       gl.uniform2f(lineP.u.uRes, W, H);
       gl.uniform1f(lineP.u.uWidth, LINE_PX * dpr);
-      gl.uniform3fv(lineP.u.uColor, accent);
+      gl.uniform3fv(lineP.u.uColor, colour || accent);
       gl.uniform1f(lineP.u.uRadial, radial);
       gl.uniform2f(lineP.u.uMid, geo.centre[0], geo.centre[2]);
       gl.drawElements(gl.TRIANGLES, set.count, gl.UNSIGNED_SHORT, 0);
@@ -546,6 +549,7 @@
       gl.enableVertexAttribArray(faceP.a.aCol);
       gl.vertexAttribPointer(faceP.a.aCol, 4, gl.FLOAT, false, 28, 12);
       gl.uniformMatrix4fv(faceP.u.uVP, false, vp);
+      gl.uniform4f(faceP.u.uTint, 1, 1, 1, 1);
       gl.drawArrays(gl.TRIANGLES, 0, faces.count);
       gl.useProgram(lineP.p);
       gl.uniform1f(lineP.u.uSweepY, sweepY);
@@ -553,6 +557,19 @@
       gl.uniform1f(lineP.u.uFar, dist + geo.radius * 1.4);
       drawLines(vp, lines[1], 1);
       drawLines(vp, lines[0], 0);
+      /* Lit openings: their face filled in their colour, pulsing when asked,
+       * and their edges in that colour over the house's. */
+      for (const m of marks.values()) {
+        const p = m.pulse ? 0.5 + 0.5 * Math.sin((now / 1000) * ((2 * Math.PI) / PULSE_S)) : 1;
+        gl.useProgram(faceP.p);
+        gl.bindBuffer(gl.ARRAY_BUFFER, m.faces.vbo);
+        gl.vertexAttribPointer(faceP.a.aPos, 3, gl.FLOAT, false, 28, 0);
+        gl.vertexAttribPointer(faceP.a.aCol, 4, gl.FLOAT, false, 28, 12);
+        gl.uniform4f(faceP.u.uTint, m.colour[0], m.colour[1], m.colour[2], 0.3 + 0.35 * p);
+        gl.drawArrays(gl.TRIANGLES, 0, m.faces.count);
+        gl.useProgram(lineP.p);
+        drawLines(vp, m.lines, 0, m.colour.map((c) => c * (0.9 + 0.9 * p)));
+      }
 
       /* The bloom: the scene at half size, blurred twice over, wider the second time. */
       gl.disable(gl.BLEND);
@@ -596,6 +613,31 @@
       }
     }
 
+    /* ---- Lit openings --------------------------------------------------------------- */
+    const PULSE_S = 1.4;
+    const marks = new Map(); /* opening key -> {colour, pulse, lines, faces} */
+    function highlight(key, { colour = [1, 0.3, 0.25], pulse = true } = {}) {
+      const corners = geo.openings[key];
+      if (!corners) return false;
+      clearHighlight(key);
+      const [a, b, c, d] = corners;
+      const segs = corners.map((p, i) => ({ a: p, b: corners[(i + 1) % 4], level: 1.0 }));
+      const lb = lineBuffers(segs);
+      const fb = faceBuffers([[a, b, c, [1, 1, 1, 1]], [a, c, d, [1, 1, 1, 1]]]);
+      marks.set(key, {
+        colour, pulse,
+        lines: { vbo: buffer(gl.ARRAY_BUFFER, lb.v), ibo: buffer(gl.ELEMENT_ARRAY_BUFFER, lb.idx), count: lb.count },
+        faces: { vbo: buffer(gl.ARRAY_BUFFER, fb.v), count: fb.count },
+      });
+      return true;
+    }
+    function clearHighlight(key) {
+      const m = marks.get(key);
+      if (!m) return;
+      [m.lines.vbo, m.lines.ibo, m.faces.vbo].forEach((b) => gl.deleteBuffer(b));
+      marks.delete(key);
+    }
+
     canvas.addEventListener("webglcontextlost", (e) => {
       e.preventDefault();
       cancelAnimationFrame(raf);
@@ -630,6 +672,10 @@
         return !!raf;
       },
       edges: geo.house.length,
+      /* Lights an opening (a keyed one in the plan) up in a colour, pulsing or steady. */
+      highlight,
+      clearHighlight,
+      highlights: () => [...marks.keys()],
     };
   };
 })();
