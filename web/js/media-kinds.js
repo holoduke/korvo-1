@@ -74,6 +74,18 @@
 
   Panel.defineAppliance("speakers", {
     icon: "speaker",
+    /* "Alle apparaten uit": every player that plays or pauses goes off, or
+     * stops where it cannot switch off. */
+    off: {
+      active: (a) => a.players.some((p) => reachable(a.entities[p.key]) && ["playing", "paused"].includes(s(a.entities[p.key]).state)),
+      run(a, call) {
+        a.players.forEach((p) => {
+          const id = a.entities[p.key];
+          if (!reachable(id) || !["playing", "paused"].includes(s(id).state)) return;
+          call("media_player", can(id, F.TURN_OFF) ? "turn_off" : can(id, F.STOP) ? "media_stop" : "media_pause", null, id);
+        });
+      },
+    },
     view(a, i) {
       const players = a.players.map((p) => ({ ...p, id: a.entities[p.key] }));
       const live = players.filter((p) => reachable(p.id));
@@ -113,6 +125,11 @@
   /* ---- TV --------------------------------------------------------------------------- */
   Panel.defineAppliance("tv", {
     icon: "tv",
+    /* "Alle apparaten uit": the screen off (where it takes that). */
+    off: {
+      active: (a) => reachable(a.entities.player) && s(a.entities.player).state !== "off" && can(a.entities.player, F.TURN_OFF),
+      run: (a, call) => call("media_player", "turn_off", null, a.entities.player),
+    },
     view(a, i) {
       const e = a.entities;
       const wake = s(e.wake) ? `<div class="ap-row">${btn(i, "wake", "Aanzetten", { primary: true, ic: "power" })}</div>` : "";

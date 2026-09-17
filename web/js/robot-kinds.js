@@ -14,8 +14,16 @@
   const cleaningSlug = () => Util.slug((cfg.sections.find((s) => s.kind === "vacuum") || { name: "" }).name);
   const openRow = (i) => `<div class="ap-row">${btn(i, "open", "Open in Schoonmaak", { ic: "calendar" })}</div>`;
 
+  /* Home. The Xiaomi goes through robotkamers, which first ends a pending job. */
+  function dock(a, call) {
+    if (a.robot === "xiaomi") return Panel.client.callService(cfg.vacuum.roomsDomain, "naar_station").catch(Panel.commandFailed(a.label));
+    return call("vacuum", "return_to_base", null, a.entities.vacuum);
+  }
+
   Panel.defineAppliance("robot", {
     icon: "vacuum",
+    /* "Alle apparaten uit": a robot at work goes home. */
+    off: { active: (a) => ["cleaning", "paused"].includes(raw(a.entities.vacuum)), run: (a, call) => dock(a, call) },
     view(a, i) {
       const e = a.entities;
       if (offline(e.vacuum)) return { ...offlineView("De stofzuiger is niet bereikbaar"), controls: openRow(i) };
@@ -52,11 +60,7 @@
     actions: {
       start: (a, args, call) => call("vacuum", "start", null, a.entities.vacuum),
       pause: (a, args, call) => call("vacuum", "pause", null, a.entities.vacuum),
-      dock(a, args, call) {
-        /* The Xiaomi goes home through robotkamers, which first ends a pending job. */
-        if (a.robot === "xiaomi") return Panel.client.callService(cfg.vacuum.roomsDomain, "naar_station").catch(Panel.commandFailed(a.label));
-        return call("vacuum", "return_to_base", null, a.entities.vacuum);
-      },
+      dock: (a, args, call) => dock(a, call),
       open: (a) => (location.hash = `#${cleaningSlug()}/${a.floor}`),
     },
   });

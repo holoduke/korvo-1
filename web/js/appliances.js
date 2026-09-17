@@ -8,7 +8,9 @@
  * using the controls in Panel.applianceUi. view returns {tone, pill, big, word,
  * unit, sub, progress, extra, stats, controls}; a control marked
  * data-appl="<index>|<action>|<args>" runs actions[action](appliance, args, call).
- * Controls marked for confirmation ask for a second tap.
+ * Controls marked for confirmation ask for a second tap. A kind that can be
+ * switched off gives off: {active(a), run(a, call)} for the bottom row's
+ * "Alle apparaten uit".
  *
  * Product photos come from photos.js (Home Assistant's www folder, not this
  * repository); an appliance without a photo keeps its icon. */
@@ -113,6 +115,7 @@
   function render() {
     if (!root) return;
     pending.settle();
+    renderRow();
     list.forEach((a, i) => {
       const view = kindOf(a).view(a, i);
       const item = root.querySelector(`[data-pick="${i}"]`);
@@ -167,15 +170,11 @@
 
   /* ---- Actions --------------------------------------------------------------------- */
   Panel.defineAction("pick", (el) => select(+el.dataset.pick));
-  Panel.defineAction("appl", (el) => {
-    const key = el.dataset.appl;
-    const [index, action, ...args] = key.split("|");
-    const a = list[+index];
-    const act = a && (kindOf(a).actions || {})[action];
-    if (!act || !twoTap.tap(key, el.hasAttribute("data-confirm"))) return;
-    /* Settles once any of the appliance's entities reports something new. */
+  /* A service call for an appliance, marked pending under key until any of its
+   * entities reports something new. */
+  function callFor(a, key) {
     const snapshot = () => Object.values(a.entities).map((id) => Panel.st(id));
-    const call = (domain, service, data, entity) => {
+    return (domain, service, data, entity) => {
       if (!entity) return;
       pending.mark(key, snapshot);
       Panel.client.callService(domain, service, data || null, { entity_id: entity }).catch((err) => {
@@ -184,13 +183,47 @@
         Panel.commandFailed(a.label)(err);
       });
     };
-    act(a, args, call);
+  }
+  Panel.defineAction("appl", (el) => {
+    const key = el.dataset.appl;
+    const [index, action, ...args] = key.split("|");
+    const a = list[+index];
+    const act = a && (kindOf(a).actions || {})[action];
+    if (!act || !twoTap.tap(key, el.hasAttribute("data-confirm"))) return;
+    act(a, args, callFor(a, key));
     render();
   });
 
+  /* ---- "Alle apparaten uit" (the bottom row) ---------------------------------------- */
+  /* A kind that can be switched off says so with off: {active(a), run(a, call)}:
+   * the tv and speakers off or silent, a pc to sleep, a running oven or
+   * dishwasher program stopped, a cleaning robot home. Laundry keeps running
+   * and the fridge and hob are left alone. A second tap confirms. */
+  const ALL_OFF = "alloff";
+  const switchable = () => list.filter((a) => kindOf(a).off && kindOf(a).off.active(a));
+  Panel.defineAction(ALL_OFF, () => {
+    if (!twoTap.tap(ALL_OFF, true)) return;
+    const todo = switchable();
+    todo.forEach((a) => kindOf(a).off.run(a, callFor(a, `${list.indexOf(a)}|off`)));
+    Panel.toast(todo.length ? `${todo.length === 1 ? "1 apparaat" : `${todo.length} apparaten`} uitgezet` : "Alles staat al uit");
+    render();
+  });
+  function renderRow() {
+    const row = document.querySelector(".ap-bottom");
+    if (!row) return;
+    const n = switchable().length;
+    row.querySelector(".pill b").textContent = n ? `${n} ${n === 1 ? "apparaat" : "apparaten"}` : "niets";
+    const btn = row.querySelector("[data-alloff]");
+    btn.classList.toggle("armed", twoTap.armed(ALL_OFF));
+    btn.querySelector(".txt").textContent = twoTap.armed(ALL_OFF) ? "Nogmaals tikken" : "Alle apparaten uit";
+  }
+
   Panel.definePage("appliances", {
     className: "appl-page",
-    html: () => `<div id="applPage" class="ap"></div>`,
+    html: () =>
+      `<div id="applPage" class="ap"></div>` +
+      `<div class="row ap-bottom"><div class="pill"><span><span class="lbl">Aan:</span><b>-</b></span></div>` +
+      `<button class="allbtn ap-alloff" data-alloff>${icon("power")}<span class="txt">Alle apparaten uit</span></button></div>`,
     build,
     route: {
       path: () => Util.slug(list[selected].label),

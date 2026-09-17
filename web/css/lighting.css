@@ -132,6 +132,9 @@
 .allbtn .ic { font-size: 20px; }
 .allbtn .chev { transition: transform 0.24s var(--ease-out); }
 .allbtn.open { background: var(--accent); color: var(--on_text); }
+/* Apparaten's "Alle apparaten uit", armed by its first tap. */
+.ap-bottom .allbtn { flex: 1; }
+.allbtn.armed { background: var(--bad); color: #fff; }
 .allbtn.open .chev { transform: rotate(180deg); }
 
 /* ---- Brightness slider (vertical, right lane) ------------------------------- */

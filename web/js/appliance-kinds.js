@@ -79,6 +79,8 @@
   /* ---- Dishwasher -------------------------------------------------------------------- */
   Panel.defineAppliance("dishwasher", {
     icon: "dishwasher",
+    /* "Alle apparaten uit": a running program is stopped. */
+    off: { active: (a) => ["run", "delayedstart", "pause"].includes(low(a.entities.op)), run: (a, call) => call("button", "press", null, a.entities.abort) },
     view(a, i) {
       const e = a.entities;
       if (offline(e.op)) return offlineView("De vaatwasser is niet bereikbaar");
@@ -149,6 +151,15 @@
 
   Panel.defineAppliance("oven", {
     icon: "oven",
+    /* "Alle apparaten uit": a running program is stopped, then standby. */
+    off: {
+      active: (a) => ["run", "delayedstart", "pause"].includes(low(a.entities.op)) || low(a.entities.powerstate) === "on",
+      run(a, call) {
+        const e = a.entities;
+        if (["run", "delayedstart", "pause"].includes(low(e.op))) call("button", "press", null, e.abort);
+        if (s(e.powerstate) && low(e.powerstate) !== "standby") call("select", "select_option", { option: "Standby" }, e.powerstate);
+      },
+    },
     view(a, i) {
       const e = a.entities;
       if (offline(e.op)) return offlineView("De oven is niet bereikbaar");
@@ -341,6 +352,8 @@
   /* ---- PC ------------------------------------------------------------------------ */
   Panel.defineAppliance("pc", {
     icon: "pc",
+    /* "Alle apparaten uit": to sleep. */
+    off: { active: (a) => on(a.entities.on), run: (a, call) => call("switch", "turn_off", null, a.entities.on) },
     view(a, i) {
       const e = a.entities;
       if (offline(e.on)) return offlineView("De pc-schakelaar is niet bereikbaar in Home Assistant");
