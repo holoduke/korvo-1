@@ -1300,6 +1300,26 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "door",
+      "label": "Deur gameroom",
+      "name": "sensor_deur_gameroom_buiten_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_deur_gameroom_buiten_1_contact",
+        "tamper": "binary_sensor.sensor_deur_gameroom_buiten_1_tamper",
+        "battery": "sensor.sensor_deur_gameroom_buiten_1_battery"
+      }
+    },
+    {
+      "kind": "window",
+      "label": "Raam gameroom",
+      "name": "sensor_raam_gameroom_klapraam_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_gameroom_klapraam_1_contact",
+        "tamper": "binary_sensor.sensor_raam_gameroom_klapraam_1_tamper",
+        "battery": "sensor.sensor_raam_gameroom_klapraam_1_battery"
+      }
+    },
+    {
       "kind": "air",
       "label": "Lucht keuken",
       "name": "luchtkwaliteit_keuken",

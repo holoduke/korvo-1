@@ -77,32 +77,35 @@ window.HOUSE_PLAN = {
    * front (at = its z), plane "x" a side wall (at = its x); a is where the
    * opening starts along that wall, y its sill. Read off the plans and the
    * elevations: no openings in the side walls but the front door. A key names
-   * an opening the page can light up (house3d's highlight); door names the
-   * PANEL_SENSOR_CARDS door sensor on it, which lights it up while open;
-   * floor: false leaves the floor unmarked across it (an open passage). */
+   * an opening the page can light up (house3d's highlight); sensor names the
+   * PANEL_SENSOR_CARDS contact on it, which lights it up while open; floor:
+   * false leaves the floor unmarked across it (an open passage). */
   openings: [
-    /* front wall: the sitting room's large window and a smaller one */
-    { plane: "z", at: 0, a: 0.45, w: 2.4, y: 0.3, h: 2.3 },
-    { plane: "z", at: 0, a: 3.6, w: 1.4, y: 0.7, h: 1.7 },
+    /* front wall: the sitting room's two windows (the left one opens) */
+    { plane: "z", at: 0, a: 0.16, w: 1.55, y: 0.3, h: 2.3 },
+    { plane: "z", at: 0, a: 2.63, w: 2.85, y: 0.7, h: 1.9 },
     { plane: "z", at: 0, a: 0.5, w: 1.5, y: 3.75, h: 1.35 },
     { plane: "z", at: 0, a: 3.0, w: 0.9, y: 3.75, h: 1.35 },
     { plane: "z", at: 0, a: 4.2, w: 0.9, y: 3.75, h: 1.35 },
-    /* the front door: in the side wall, in the recess before the garage door */
-    { key: "voordeur", door: "Voordeur", plane: "x", at: 5.6, a: 3.95, w: 1.0, y: 0, h: 2.4 },
-    { key: "garagedeur", door: "Garagedeur 2", plane: "z", at: 4.95, a: 6.0, w: 2.6, y: 0, h: 2.3 },
+    /* side wall: the tall window at the front corner (opens), and the front
+     * door in the recess before the garage door */
+    { plane: "x", at: 5.6, a: 0.15, w: 1.0, y: 0.4, h: 2.2 },
+    { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.95, w: 1.0, y: 0, h: 2.4 },
+    { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.0, w: 2.6, y: 0, h: 2.3 },
     /* inside: the wide sliding-door openings in the two hall walls, the door
      * from the big room into the garage, and the open passage into the back
      * sitting room */
     { plane: "z", at: 3.6, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
-    { key: "garagedeur_binnen", door: "Garagedeur 1", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
+    { key: "garagedeur_binnen", sensor: "Garagedeur 1", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
     { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6, floor: false } /* open passage: no line on the floor */,
-    /* back */
+    /* back: the kitchen's sliding door, and at the back of the room behind
+     * the garage its door out with the top-hung window beside it */
     { plane: "z", at: 13.0, a: 1.15, w: 1.5, y: 3.75, h: 1.35 },
     { plane: "z", at: 13.0, a: 3.25, w: 1.5, y: 3.75, h: 1.35 },
-    { key: "schuifpui_keuken", door: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.1, w: 3.7, y: 0, h: 2.4 } /* sliding door */,
+    { key: "schuifpui_keuken", sensor: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.1, w: 3.7, y: 0, h: 2.4 },
     { plane: "z", at: 14.9, a: 2.95, w: 0.02, y: 0, h: 2.4 } /* its mullion */,
-    { key: "schuifpui_achterkamer", plane: "z", at: 17.4, a: 5.85, w: 2.55, y: 0, h: 2.4 },
-    { plane: "z", at: 17.4, a: 7.1, w: 0.02, y: 0, h: 2.4 } /* its mullion */,
+    { key: "deur_gameroom", sensor: "Deur gameroom", plane: "z", at: 17.4, a: 5.85, w: 1.0, y: 0, h: 2.3 },
+    { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 17.4, a: 7.0, w: 1.4, y: 0.9, h: 1.3 },
   ],
 };

@@ -330,6 +330,7 @@ SENSOR_ENTITIES = {
                  "distance": "sensor.{n}_target_distance", "battery": "sensor.{n}_battery"},
     "motion": {"occupancy": "binary_sensor.{n}_occupancy", "battery": "sensor.{n}_battery"},
     "door": {"contact": "binary_sensor.{n}_contact", "tamper": "binary_sensor.{n}_tamper", "battery": "sensor.{n}_battery"},
+    "window": {"contact": "binary_sensor.{n}_contact", "tamper": "binary_sensor.{n}_tamper", "battery": "sensor.{n}_battery"},
     "air": {"co2": "sensor.{n}_carbon_dioxide", "pm25": "sensor.{n}_pm2_5", "quality": "sensor.{n}_air_quality",
             "temperature": "sensor.{n}_temperature", "humidity": "sensor.{n}_humidity"},
     "climate": {"temperature": "sensor.{n}_temperature", "humidity": "sensor.{n}_humidity", "battery": "sensor.{n}_battery"},

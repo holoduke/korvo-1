@@ -12,10 +12,10 @@
 
   const GROUPS = [
     ["Aanwezigheid en beweging", ["presence", "motion"]],
-    ["Deuren", ["door"]],
+    ["Deuren en ramen", ["door", "window"]],
     ["Lucht en klimaat", ["air", "climate"]],
   ];
-  const ICON = { presence: "person", motion: "motion", door: "door", air: "air", climate: "thermometer" };
+  const ICON = { presence: "person", motion: "motion", door: "door", window: "window", air: "air", climate: "thermometer" };
 
   const st = (id) => (id ? Panel.st(id) : undefined);
   const isOn = (id) => (st(id) || {}).state === "on";
@@ -48,6 +48,9 @@
     door(e) {
       const open = isOn(e.contact);
       return { main: e.contact, tone: open ? "warn" : "idle", big: open ? "Open" : "Dicht", chips: [isOn(e.tamper) && ["warning", "Sabotage"]] };
+    },
+    window(e) {
+      return this.door(e);
     },
     air(e) {
       const co2 = Panel.num(e.co2);

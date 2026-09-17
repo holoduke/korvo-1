@@ -506,7 +506,7 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
  * device's part of its entity ids (Zigbee2MQTT names, e.g. "sensor_keuken_1"
  * in sensor.sensor_keuken_1_temperature); tools/gen_web_config.py derives the
  * rest. Kinds: presence (mmWave presence with temperature, humidity and light),
- * motion (PIR), door (contact), air (air quality monitor), climate
+ * motion (PIR), door (contact), window (a contact on a window), air (air quality monitor), climate
  * (temperature and humidity). Order = display order within each group. */
 typedef struct {
     const char *kind;
@@ -523,6 +523,8 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "door",     "Garagedeur 2",     "sensor_deur_garage_2" },
     { "door",     "Voordeur",         "sensor_deur_voordeur_1" }, /* IKEA MYGGBETT over Thread: no tamper contact */
     { "door",     "Schuifpui keuken", "sensor_deur_keuken_1" },   /* idem */
+    { "door",     "Deur gameroom",    "sensor_deur_gameroom_buiten_1" }, /* idem, the door out at the back */
+    { "window",   "Raam gameroom",    "sensor_raam_gameroom_klapraam_1" }, /* idem, the top-hung window beside it */
     { "air",      "Lucht keuken",     "luchtkwaliteit_keuken" },
     { "climate",  "Voorkamer",        "sensor_voorkamer_1" },
     { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },

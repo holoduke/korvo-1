@@ -270,7 +270,7 @@
       const gone = /buiten/.test(c.name);
       if (c.kind === "presence") put("presence", first ? "on" : "off");
       if (c.kind === "motion") put("occupancy", "unavailable");
-      if (c.kind === "door") (put("contact", first ? "on" : "off"), put("tamper", "off"));
+      if (c.kind === "door" || c.kind === "window") (put("contact", first ? "on" : "off"), put("tamper", "off"));
       put("temperature", gone ? "unavailable" : (20.8 + (n % 5) * 0.4).toFixed(1), { unit_of_measurement: "°C" });
       put("humidity", gone ? "unavailable" : String(58 + (n % 4) * 3), { unit_of_measurement: "%" });
       put("illuminance", String(first ? 35 : 0), { unit_of_measurement: "lx" });

@@ -24,12 +24,12 @@
         return;
       }
       setTimeout(seen, HINT_MS);
-      /* A door with a sensor (door: a PANEL_SENSOR_CARDS label) is lit red,
-       * pulsing, while it stands open. */
+      /* A door or window with a contact sensor (sensor: a PANEL_SENSOR_CARDS
+       * label) is lit red, pulsing, while it stands open. */
       const cards = cfg.sensorCards || [];
       const doors = (window.HOUSE_PLAN.openings || [])
-        .filter((o) => o.key && o.door)
-        .map((o) => ({ key: o.key, id: (cards.find((c) => c.label === o.door) || { entities: {} }).entities.contact }))
+        .filter((o) => o.key && o.sensor)
+        .map((o) => ({ key: o.key, id: (cards.find((c) => c.label === o.sensor) || { entities: {} }).entities.contact }))
         .filter((d) => d.id);
       const syncDoors = () =>
         doors.forEach((d) => {
