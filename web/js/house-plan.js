@@ -30,9 +30,6 @@ window.HOUSE_PLAN = {
    * extension across the back of the main block. */
   flat: [
     { name: "garage", x: 5.6, z: 4.95, w: 3.75, d: 12.45, h: 3.0 },
-    /* the low bay at the front corner, with the gameroom's door to the street
-     * in its front and the tall window in its side (right elevation) */
-    { name: "erker", x: 4.6, z: -0.95, w: 1.0, d: 0.95, h: 3.0, joined: "front" },
     /* joined: one space with the room behind the main block's back wall, so
      * no floor or side lines where the two meet (the ceiling line stays). */
     { name: "aanbouw", x: 0, z: 13.0, w: 5.6, d: 1.9, h: 3.0, joined: true },
@@ -84,17 +81,18 @@ window.HOUSE_PLAN = {
    * PANEL_SENSOR_CARDS contact on it, which lights it up while open; floor:
    * false leaves the floor unmarked across it (an open passage). */
   openings: [
-    /* front wall: the gameroom's glass wall from the floor up, its narrow
-     * left pane the one that opens (its contact); above, the three bedroom
-     * windows */
-    { plane: "z", at: 0, a: 0.3, w: 2.5, y: 0.05, h: 2.65 },
-    { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 0.3, w: 0.45, y: 0.05, h: 2.65 },
+    /* front wall (the plan): on the left the gameroom's pair of doors to the
+     * street, on the right the window that turns the corner: a tilt-and-turn
+     * pane at the front and one in the side wall, a fixed pane between; above,
+     * the three bedroom windows */
+    { key: "deur_gameroom", sensor: "Deur gameroom", plane: "z", at: 0, a: 0.45, w: 1.55, y: 0, h: 2.4 },
+    { plane: "z", at: 0, a: 1.225, w: 0.02, y: 0, h: 2.4 } /* between the two leaves */,
+    { plane: "z", at: 0, a: 2.6, w: 1.9, y: 0.6, h: 1.8 },
+    { key: "raam_gameroom", sensor: "Raam gameroom", plane: "z", at: 0, a: 4.5, w: 1.0, y: 0.6, h: 1.8 },
+    { plane: "x", at: 5.6, a: 0.1, w: 1.0, y: 0.6, h: 1.8 } /* the side pane of the corner window */,
     { plane: "z", at: 0, a: 0.43, w: 0.85, y: 3.95, h: 1.65 },
     { plane: "z", at: 0, a: 1.79, w: 0.85, y: 3.95, h: 1.65 },
     { plane: "z", at: 0, a: 3.67, w: 0.85, y: 3.95, h: 1.65 },
-    /* the bay: the gameroom's door out in its front, the tall window in its side */
-    { key: "deur_gameroom", sensor: "Deur gameroom", plane: "z", at: -0.95, a: 4.75, w: 0.8, y: 0, h: 2.7 },
-    { plane: "x", at: 5.6, a: -0.85, w: 0.75, y: 0.2, h: 2.5 },
     /* the front door in the recess, and the garage door */
     { key: "voordeur", sensor: "Voordeur", plane: "x", at: 5.6, a: 3.98, w: 0.97, y: 0, h: 2.5 },
     { key: "garagedeur", sensor: "Garagedeur 2", plane: "z", at: 4.95, a: 6.05, w: 2.6, y: 0, h: 2.35 },
