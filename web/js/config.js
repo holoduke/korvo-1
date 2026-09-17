@@ -1290,6 +1290,16 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "door",
+      "label": "Schuifpui keuken",
+      "name": "sensor_deur_keuken_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_deur_keuken_1_contact",
+        "tamper": "binary_sensor.sensor_deur_keuken_1_tamper",
+        "battery": "sensor.sensor_deur_keuken_1_battery"
+      }
+    },
+    {
       "kind": "air",
       "label": "Lucht keuken",
       "name": "luchtkwaliteit_keuken",

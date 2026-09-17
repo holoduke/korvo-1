@@ -100,8 +100,9 @@ window.HOUSE_PLAN = {
     /* back */
     { plane: "z", at: 13.0, a: 1.15, w: 1.5, y: 3.75, h: 1.35 },
     { plane: "z", at: 13.0, a: 3.25, w: 1.5, y: 3.75, h: 1.35 },
-    { key: "tuindeuren", plane: "z", at: 14.9, a: 1.1, w: 3.7, y: 0, h: 2.4 },
-    { key: "schuifpui", plane: "z", at: 17.4, a: 5.85, w: 2.55, y: 0, h: 2.4 },
+    { key: "schuifpui_keuken", door: "Schuifpui keuken", plane: "z", at: 14.9, a: 1.1, w: 3.7, y: 0, h: 2.4 } /* sliding door */,
+    { plane: "z", at: 14.9, a: 2.95, w: 0.02, y: 0, h: 2.4 } /* its mullion */,
+    { key: "schuifpui_achterkamer", plane: "z", at: 17.4, a: 5.85, w: 2.55, y: 0, h: 2.4 },
     { plane: "z", at: 17.4, a: 7.1, w: 0.02, y: 0, h: 2.4 } /* its mullion */,
   ],
 };
