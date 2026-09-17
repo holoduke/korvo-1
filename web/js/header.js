@@ -42,6 +42,7 @@
       /* Skip a leftover entry for yesterday; label days from their own dates. */
       const days = fc.filter((d) => new Date(d.datetime).toDateString() === today || new Date(d.datetime) > new Date()).slice(0, FC_DAYS);
       days.forEach((d, i) => renderForecastDay(i, d.condition, d.temperature, new Date(d.datetime)));
+      if (days.length) haveForecast = true;
     } catch (e) {
       /* keep the live current-weather column */
     }
@@ -50,8 +51,10 @@
     const s = Panel.st(cfg.weather);
     if (!haveForecast && s) renderForecastDay(0, s.state, s.attributes.temperature);
   });
-  Panel.on("loaded", () => loadForecast().then(() => (haveForecast = true)));
-  setInterval(() => Panel.isLoaded() && loadForecast(), 30 * 60e3);
+  Panel.on("loaded", loadForecast);
+  /* Again every half hour, and as soon as the connection is back after an outage. */
+  setInterval(() => Panel.isLoaded() && Panel.connected() && loadForecast(), 30 * 60e3);
+  Panel.on("status", (s) => s === "connected" && Panel.isLoaded() && loadForecast());
 
   /* ---- Climate and air columns --------------------------------------------------- */
   const sensorOf = new Map(); /* entity id -> sensor index */
@@ -65,7 +68,7 @@
     const t = Panel.num(s.temp);
     col.classList.toggle("stale", !Number.isFinite(t)); /* no reading: sensor offline */
     const te = col.querySelector(".s-temp");
-    te.textContent = Number.isFinite(t) ? t.toFixed(1) + "°" : "--";
+    te.textContent = Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "--";
     te.style.color = Number.isFinite(t) ? Panel.comfortTemp(t, s.indoor) : "var(--text)";
     if (s.humidity) {
       const h = Panel.num(s.humidity);
@@ -90,7 +93,7 @@
     pmEl.textContent = "PM2.5 " + (Number.isFinite(pm) ? Math.round(pm) : "--");
     pmEl.style.color = Number.isFinite(pm) ? Panel.pmColour(pm) : "var(--text_dim)";
     const tEl = col.querySelector(".a-temp");
-    tEl.textContent = Number.isFinite(t) ? t.toFixed(1) + "°" : "--";
+    tEl.textContent = Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "--";
     tEl.style.color = Number.isFinite(t) ? Panel.comfortTemp(t, true) : "var(--text)";
     const hEl = col.querySelector(".a-hum");
     hEl.querySelector("span").textContent = Number.isFinite(h) ? Math.round(h) + "%" : "--";

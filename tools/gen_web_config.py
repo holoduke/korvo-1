@@ -48,8 +48,20 @@ def fail(msg):
 
 
 def strip_comments(src):
-    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
-    return re.sub(r"//[^\n]*", "", src)
+    """C comments removed; a string literal is kept whole (a "//" inside one is not a comment)."""
+    return re.sub(r'("(?:\\.|[^"\\])*")|/\*.*?\*/|//[^\n]*', lambda m: m.group(1) or "", src, flags=re.S)
+
+
+def table_rows(src, name, pattern):
+    """The {...} rows of a C array, each matched whole against pattern: a row
+    that does not fit fails the build instead of silently dropping out."""
+    rows = []
+    for m in re.finditer(r"\{[^{}]*\}", array_body(src, name)):
+        row = re.fullmatch(pattern, m.group(0), re.S)
+        if not row:
+            fail(f"{name}: row {m.group(0).strip()!r} does not have the expected shape")
+        rows.append(row.groups())
+    return rows
 
 
 def array_body(src, name):
@@ -60,8 +72,7 @@ def array_body(src, name):
 
 
 def entity_table(src, name):
-    body = array_body(src, name)
-    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\}', body)
+    rows = table_rows(src, name, r'\{\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\}')
     if not rows:
         fail(f"entity table {name} is empty or unparsable")
     return [{"id": e, "label": l} for e, l in rows]
@@ -81,9 +92,8 @@ def icon_table(src, name):
 
 
 def swatch_table(src, name):
-    body = array_body(src, name)
     out = []
-    for a, b in re.findall(r"\{\s*([^,{}]+?)\s*,\s*([^,{}]+?)\s*\}", body):
+    for a, b in table_rows(src, name, r"\{\s*([^,{}]+?)\s*,\s*([^,{}]+?)\s*\}"):
         def colour(tok):
             tok = tok.strip()
             if tok == "SWATCH_RAINBOW":
@@ -113,7 +123,7 @@ def split_args(s):
 def parse_tabs(src):
     body = array_body(src, "PANEL_TABS")
     tabs = []
-    for macro, args in re.findall(r"(TAB_ENTRY(?:_SCENES|_NS)?)\s*\((.*?)\)\s*,", body, re.S):
+    for macro, args in re.findall(r"(TAB_ENTRY(?:_SCENES|_NS)?)\s*\((.*?)\)\s*(?=,|\Z)", body, re.S):
         a = split_args(args)
         icons = swatches = "NULL"
         if macro == "TAB_ENTRY":
@@ -201,8 +211,7 @@ def parse_tuya_vacuums(src, floors, taken):
     (`taken`: floors that already have one)."""
     labels = [f["label"] for f in floors]
     out = []
-    for label, floor, name in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}',
-                                         array_body(src, "PANEL_TUYA_VACUUMS")):
+    for label, floor, name in table_rows(src, "PANEL_TUYA_VACUUMS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}'):
         if floor not in labels:
             fail(f"PANEL_TUYA_VACUUMS {label!r}: no floor labelled {floor!r} in PANEL_FLOORS")
         if floor in taken:
@@ -358,7 +367,7 @@ ENERGY_ENTITIES = {
 def parse_device_table(src, table, kinds):
     """A table of { kind, label, name } rows -> [{kind, label, name, entities}],
     the entity ids filled in from the kind's templates."""
-    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, table))
+    rows = table_rows(src, table, r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}')
     if not rows:
         fail(f"{table} is empty or unparsable")
     out = []
@@ -381,7 +390,7 @@ def parse_energy(src):
 
 def parse_appliances(src, media, robots):
     """robots: floor label -> {"type", "entities"} of the Schoonmaak section's robots."""
-    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}', array_body(src, "PANEL_APPLIANCES"))
+    rows = table_rows(src, "PANEL_APPLIANCES", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}')
     if not rows:
         fail("PANEL_APPLIANCES is empty or unparsable")
     labels = {m["id"]: m["label"] for m in media}
@@ -430,7 +439,7 @@ def parse_areas(src, tabs):
     names = [t["name"] for t in tabs]
     for t in tabs:
         t["areas"] = []
-    rows = re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\}', array_body(src, "PANEL_AREAS"))
+    rows = table_rows(src, "PANEL_AREAS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]*)"\s*\}')
     if not rows:
         fail("PANEL_AREAS is empty or unparsable")
     for tab, label, lights in rows:
@@ -452,15 +461,13 @@ def parse_layout(src, tabs):
         return names.index(name)
 
     floors = [{"tab": tab_index(t, "PANEL_FLOORS"), "label": l, "name": n}
-              for t, l, n in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}',
-                                        array_body(src, "PANEL_FLOORS"))]
+              for t, l, n in table_rows(src, "PANEL_FLOORS", r'\{\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}')]
     # Tab icon per section kind (name from web/js/icons.js). "tab" is the
     # garage lights page; adjust here if a different tab is ever added.
     section_icons = {"start": "home", "floors": "lights", "appliances": "plug", "vacuum": "vacuum",
                      "car": "car", "sensors": "eye", "energy": "bolt", "tab": "garage"}
     sections = []
-    for name, kind, tab in re.findall(r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}',
-                                      array_body(src, "PANEL_SECTIONS")):
+    for name, kind, tab in table_rows(src, "PANEL_SECTIONS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}'):
         if kind not in section_icons:
             fail(f"PANEL_SECTIONS: unknown kind {kind!r}")
         tab_name = c_string_or_null(tab)
@@ -480,7 +487,10 @@ def define(src, name, kind):
     tok = m.group(1)
     if kind == "str":
         return c_string_or_null(tok)
-    return float(tok.rstrip("fF"))
+    try:
+        return float(tok.rstrip("fF"))
+    except ValueError:
+        fail(f"#define {name}: expected a number, got {tok!r}")
 
 
 def parse_themes(src):

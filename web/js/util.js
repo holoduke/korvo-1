@@ -21,8 +21,17 @@
         on(ev, cb) {
           (map[ev] = map[ev] || []).push(cb);
         },
+        /* A listener that throws does not stop the others. */
         emit(ev, ...args) {
-          (map[ev] || []).forEach((cb) => cb(...args));
+          (map[ev] || []).forEach((cb) => {
+            try {
+              cb(...args);
+            } catch (e) {
+              setTimeout(() => {
+                throw e;
+              });
+            }
+          });
         },
       };
     },
@@ -30,8 +39,20 @@
     esc: (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]),
     clamp: (v, lo, hi) => Math.min(hi, Math.max(lo, v)),
     /* "14:05" */
+    pad2,
     hm: (d) => pad2(d.getHours()) + ":" + pad2(d.getMinutes()),
     /* 1234.5 -> "1.235" or, with digits = 1, "1.234,5"; "--" when not a number. */
+    /* [lowest, highest] of a (possibly very long) array: a spread into
+     * Math.min/max fails past the engine's argument limit. */
+    minMax(arr) {
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (const v of arr) {
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      return [lo, hi];
+    },
     fmt: (n, digits = 0) =>
       Number.isFinite(n) ? n.toLocaleString("nl-NL", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "--",
     /* A state value that carries information (not unknown, unavailable or empty). */

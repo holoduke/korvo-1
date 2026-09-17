@@ -26,6 +26,7 @@
     $("logout").innerHTML = icon("logout") + (c.demo ? "Demo verlaten" : "Uitloggen");
   }
 
+  Panel.on("status", () => !$("settings").hidden && render()); /* the connection line follows */
   $("gear").addEventListener("click", () => {
     render();
     Panel.openOverlay($("settings"));

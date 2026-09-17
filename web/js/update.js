@@ -72,5 +72,6 @@
 
   window.addEventListener("load", () => Panel.checkForUpdate(true));
   setInterval(() => Panel.checkForUpdate(false), CHECK_EVERY);
-  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && Panel.checkForUpdate(true));
+  /* Back in view: a waiting update is taken once the panel is quiet, not mid-use. */
+  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && Panel.checkForUpdate(false));
 })();

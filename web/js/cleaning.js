@@ -23,7 +23,7 @@
   let shown = null; /* floor label of the robot shown */
   let placeInd = null;
 
-  Panel.robotOnScreen = (floor) => cfg.sections[Panel.section].kind === "vacuum" && shown === floor;
+  Panel.robotOnScreen = (floor) => Panel.onScreen("vacuum") && shown === floor;
   /* The status block both robot panels open with: what the robot is doing now,
    * a line of detail under it and its battery, with the robot's picture beside
    * them at the height of that block (label is the name the photo is filed

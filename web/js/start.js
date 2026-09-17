@@ -30,7 +30,7 @@
       const doors = (window.HOUSE_PLAN.openings || [])
         .filter((o) => o.key && o.sensor)
         .map((o) => ({ key: o.key, id: (cards.find((c) => c.label === o.sensor) || { entities: {} }).entities.contact }))
-        .filter((d) => d.id);
+        .filter((d) => d.id || console.warn(`house: no sensor card "${d.key}" for the plan's ${d.key}`));
       const syncDoors = () =>
         doors.forEach((d) => {
           const open = (Panel.st(d.id) || {}).state === "on";
@@ -39,7 +39,7 @@
         });
       Panel.track(doors.map((d) => d.id), syncDoors);
       let swiping = false;
-      const onScreen = () => cfg.sections[Panel.section].kind === "start";
+      const onScreen = () => Panel.onScreen("start");
       /* While a swipe is under way the page may be partly in view: keep drawing. */
       const sync = () => house.setActive(onScreen() || swiping);
       Panel.on("section", sync);

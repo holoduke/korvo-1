@@ -226,7 +226,7 @@
         unit: "°C",
         sub: busy
           ? [programLabel, !microwave && `naar ${tempText}`, Number.isFinite(num(e.remaining)) && `nog ${left} ${leftUnit}`].filter(Boolean).join(" · ")
-          : standby ? "Stand-by" : [programLabel, !microwave && tempText, timerText].filter(Boolean).join(" · "),
+          : standby ? "Stand-by" : [programLabel, !microwave && tempText, Number.isFinite(timer) && timerText].filter(Boolean).join(" · "),
         progress: busy ? num(e.progress) : null,
         stats: [
           stat("Deur", { open: "Open", locked: "Vergrendeld" }[low(e.door)] || "Dicht"),
@@ -348,7 +348,6 @@
     },
   });
 
-  /* ---- Fridge ----------------------------------------------------------------------- */
   /* ---- PC ------------------------------------------------------------------------ */
   Panel.defineAppliance("pc", {
     icon: "pc",

@@ -18,7 +18,10 @@
   <title>Thuis</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Orbitron:wght@600&display=swap">
+  <!-- The fonts are fetched without blocking the first paint: as a print sheet
+       until loaded (a tablet without internet would otherwise wait for the
+       timeout), the system fonts in the meantime (base.css has the stacks). -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Orbitron:wght@600&display=swap" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="css/base.css?v=__VERSION__">
   <link rel="stylesheet" href="css/header.css?v=__VERSION__">
   <link rel="stylesheet" href="css/rail.css?v=__VERSION__">

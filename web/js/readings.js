@@ -129,5 +129,7 @@
     Panel.track(fresh, onReadings);
   };
   Panel.on("loaded", loadHistory);
-  setInterval(() => Panel.isLoaded() && loadHistory(), 30 * 60e3);
+  /* Again every half hour, and as soon as the connection is back after an outage. */
+  setInterval(() => Panel.isLoaded() && Panel.connected() && loadHistory(), 30 * 60e3);
+  Panel.on("status", (s) => s === "connected" && Panel.isLoaded() && loadHistory());
 })();

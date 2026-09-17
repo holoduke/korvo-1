@@ -7,9 +7,14 @@
  * thrown by the scripts after it. */
 (function () {
   "use strict";
-  const errors = [];
-  window.addEventListener("error", (e) => errors.push(`${e.message} @ ${(e.filename || "").split("/").pop()}:${e.lineno}`));
-  window.addEventListener("unhandledrejection", (e) => errors.push("unhandled: " + ((e.reason && e.reason.message) || e.reason)));
+  const errors = []; /* the last ERRORS_KEPT, for the report */
+  const ERRORS_KEPT = 50;
+  const note = (text) => {
+    errors.push(text);
+    if (errors.length > ERRORS_KEPT) errors.shift();
+  };
+  window.addEventListener("error", (e) => note(`${e.message} @ ${(e.filename || "").split("/").pop()}:${e.lineno}`));
+  window.addEventListener("unhandledrejection", (e) => note("unhandled: " + ((e.reason && e.reason.message) || e.reason)));
 
   function box(el) {
     if (!el) return null;

@@ -90,11 +90,11 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   /* minmax(0, 1fr): without an explicit column the implicit one grows to the
    * row's content and pushes "Alle lampen" off-screen on narrow widths. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) var(--row-h);
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
 }
-/* Pages without a bottom row. */
-.page.vac-page, .page.car-page, .page.sensors-page, .page.energy-page { grid-template-rows: minmax(0, 1fr); }
+/* The pages with a bottom row (lamps, "Alle apparaten uit"); the floors page sets its own grid. */
+.page.tab-page, .page.appl-page { grid-template-rows: minmax(0, 1fr) var(--row-h); }
 
 /* ---- Overlays ---------------------------------------------------------------- */
 .overlay {

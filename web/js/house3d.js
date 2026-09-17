@@ -23,7 +23,11 @@
   const FOV = (36 * Math.PI) / 180;
   const PITCH_MIN = (4 * Math.PI) / 180;
   const PITCH_MAX = (72 * Math.PI) / 180;
-  const ZOOM_MIN = 0.45; /* share of the fitted distance */
+  const ZOOM_MIN = 0.5; /* share of the fitted distance; keeps the ground grid in front of the camera */
+  /* Turning on its own (no finger for IDLE_MS, or as the screensaver) the house
+   * draws at half the frame rate and at 1x resolution: the bloom hides the
+   * difference, and a wall tablet runs it all day. */
+  const IDLE_FRAME_MS = 32;
   const ZOOM_MAX = 2.2;
   const MAX_DPR = 2;
   const LINE_PX = 1.5; /* core width of an edge, css px */
@@ -83,7 +87,7 @@
     attribute vec2 aPos; varying vec2 vUv;
     void main() { vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
   const BLUR_FS = `
-    precision mediump float; uniform sampler2D uTex; uniform vec2 uDir; varying vec2 vUv;
+    precision highp float; uniform sampler2D uTex; uniform vec2 uDir; varying vec2 vUv;
     void main() {
       vec4 c = texture2D(uTex, vUv) * 0.227027;
       c += (texture2D(uTex, vUv + uDir) + texture2D(uTex, vUv - uDir)) * 0.1945946;
@@ -93,7 +97,7 @@
       gl_FragColor = c;
     }`;
   const COMPOSITE_FS = `
-    precision mediump float;
+    precision highp float;
     uniform sampler2D uScene; uniform sampler2D uBloom; uniform vec3 uBg; uniform vec3 uColor; uniform float uBloomK; uniform float uAspect;
     varying vec2 vUv;
     void main() {
@@ -280,7 +284,7 @@
 
     /* The ground: a metre grid, fading away from the house (see uRadial). */
     const grid = [];
-    const R = 18;
+    const R = 14; /* within the nearest the camera can come (ZOOM_MIN), so no line passes it */
     const gx = (x0 + Math.max(x1, ...(plan.flat || []).map((b) => b.x + b.w))) / 2;
     const gz = (z0 + Math.max(z1, ...(plan.flat || []).map((b) => b.z + b.d))) / 2;
     for (let i = -R; i <= R; i++) {
@@ -340,7 +344,7 @@
 
   Panel.house3d = function (canvas, plan, opts) {
     const onInteract = (opts && opts.onInteract) || (() => {});
-    const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: false, premultipliedAlpha: true, powerPreference: "high-performance" });
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: false, premultipliedAlpha: true, powerPreference: "default" });
     if (!gl) return null;
     const geo = buildGeometry(plan);
 
@@ -411,11 +415,20 @@
     }
     let scene = null, bloomA = null, bloomB = null;
     let W = 0, H = 0, dpr = 1;
-    function resize() {
-      dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
+    let seen = ""; /* the size the last frame reported: targets follow a size once it holds still */
+    function resize(idle) {
+      dpr = idle ? 1 : Math.min(MAX_DPR, window.devicePixelRatio || 1);
       const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
       const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
       if (w === W && h === H) return;
+      /* While the header slides away the canvas grows every frame: wait for a
+       * size that repeats, rather than allocate three render targets a frame. */
+      const key = `${w}x${h}`;
+      if (key !== seen && W) {
+        seen = key;
+        return;
+      }
+      seen = key;
       W = canvas.width = w;
       H = canvas.height = h;
       [scene, bloomA, bloomB].forEach((t) => t && (gl.deleteTexture(t.tex), gl.deleteFramebuffer(t.fbo)));
@@ -423,7 +436,7 @@
       bloomA = target(Math.ceil(W / 2), Math.ceil(H / 2));
       bloomB = target(Math.ceil(W / 2), Math.ceil(H / 2));
     }
-    new ResizeObserver(resize).observe(canvas);
+    new ResizeObserver(() => active && resize(idleNow())).observe(canvas);
 
     /* ---- Camera ------------------------------------------------------------------- */
     const cam = { yaw: -0.65, pitch: (24 * Math.PI) / 180, zoom: 0.82 };
@@ -441,6 +454,7 @@
       lastTouch = performance.now();
       onInteract();
     };
+    const idleNow = () => !pinch && !drag && performance.now() - lastTouch > IDLE_MS;
     const finger = (t) => [t.clientX, t.clientY];
     const between = (a, b) => ({ d: Math.hypot(b[0] - a[0], b[1] - a[1]), ang: Math.atan2(b[1] - a[1], b[0] - a[0]), mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2 });
     function pinchStart(e) {
@@ -540,12 +554,8 @@
       gl.vertexAttribPointer(lineP.a.aP, 2, gl.FLOAT, false, stride, 24);
       gl.enableVertexAttribArray(lineP.a.aL);
       gl.vertexAttribPointer(lineP.a.aL, 1, gl.FLOAT, false, stride, 32);
-      gl.uniformMatrix4fv(lineP.u.uVP, false, vp);
-      gl.uniform2f(lineP.u.uRes, W, H);
-      gl.uniform1f(lineP.u.uWidth, LINE_PX * dpr);
       gl.uniform3fv(lineP.u.uColor, colour || accent);
       gl.uniform1f(lineP.u.uRadial, radial);
-      gl.uniform2f(lineP.u.uMid, geo.centre[0], geo.centre[2]);
       gl.drawElements(gl.TRIANGLES, set.count, gl.UNSIGNED_SHORT, 0);
     }
     function drawQuad(prog) {
@@ -567,8 +577,11 @@
     let sampleReq = null; /* resolve() of a pending sample() */
     function frame(now) {
       raf = active ? requestAnimationFrame(frame) : 0;
-      if (!active || Panel.overlayOpen() || !canvas.clientWidth) return;
-      resize();
+      if (!active || lost || Panel.overlayOpen()) return;
+      const idle = idleNow();
+      if (idle && now - lastFrame < IDLE_FRAME_MS) return; /* half rate on its own */
+      if (!canvas.clientWidth) return;
+      resize(idle);
       const dt = Math.min(0.05, (now - lastFrame) / 1000 || 0);
       lastFrame = now;
       if (++frames % 90 === 0) readColours();
@@ -603,6 +616,10 @@
       gl.uniform4f(faceP.u.uTint, 1, 1, 1, 1);
       gl.drawArrays(gl.TRIANGLES, 0, faces.count);
       gl.useProgram(lineP.p);
+      gl.uniformMatrix4fv(lineP.u.uVP, false, vp);
+      gl.uniform2f(lineP.u.uRes, W, H);
+      gl.uniform1f(lineP.u.uWidth, LINE_PX * dpr);
+      gl.uniform2f(lineP.u.uMid, geo.centre[0], geo.centre[2]);
       gl.uniform1f(lineP.u.uSweepY, sweepY);
       gl.uniform1f(lineP.u.uNear, dist - geo.radius);
       gl.uniform1f(lineP.u.uFar, dist + geo.radius * 1.4);
@@ -625,8 +642,7 @@
       /* The bloom: the scene at half size, blurred twice over, wider the second time. */
       gl.disable(gl.BLEND);
       gl.activeTexture(gl.TEXTURE0);
-      blur(scene, bloomA, [0, 0]);
-      blur(bloomA, bloomB, [1, 0]);
+      blur(scene, bloomB, [1, 0]); /* the half-size target's linear filter does the downsample */
       blur(bloomB, bloomA, [0, 1]);
       blur(bloomA, bloomB, [2.5, 0]);
       blur(bloomB, bloomA, [0, 2.5]);
@@ -689,8 +705,10 @@
       marks.delete(key);
     }
 
+    let lost = false;
     canvas.addEventListener("webglcontextlost", (e) => {
       e.preventDefault();
+      lost = true; /* nothing more is drawn until the page reloads on restore */
       cancelAnimationFrame(raf);
       raf = 0;
     });
@@ -709,7 +727,8 @@
           raf = 0;
         }
       },
-      /* Share of the next frame's pixels that the house lights up. */
+      /* Share of the next frame's pixels that the house lights up (the tests'
+       * check that it draws; a readPixels, so not for every frame). */
       sample: () => new Promise((res) => (sampleReq = res)),
       camera: () => ({ yaw: cam.yaw, pitch: cam.pitch, zoom: cam.zoom, orbiting: !reduced && performance.now() - lastTouch > IDLE_MS }),
       setCamera(c) {

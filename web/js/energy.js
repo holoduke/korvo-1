@@ -206,7 +206,7 @@
     q(".en-power .dc-title").textContent = `Vermogen in kW, laatste ${spanH} uur`;
     const vals = series[0].vals;
     foot.innerHTML = vals.length
-      ? `<span>Nu <b>${power(scaled(id)).join(" ")}</b></span><span>Piek <b>${power(Math.max(...vals) * (SCALE[unit] ?? 1)).join(" ")}</b></span>`
+      ? `<span>Nu <b>${power(scaled(id)).join(" ")}</b></span><span>Piek <b>${power(Util.minMax(vals)[1] * (SCALE[unit] ?? 1)).join(" ")}</b></span>`
       : "Nog geen geschiedenis (wordt opgehaald)";
   }
 
@@ -274,16 +274,18 @@
       others.map((d) => Panel.cardHtml(`data-energy-card="${devices.indexOf(d)}" style="--dc-icon:${colour.get(d)}"`, kinds[d.kind].icon, d.label)).join("") +
       `</div></section>`;
 
+    /* The meters tick every few seconds: while another section is shown the
+     * page is not rebuilt for each, but once when it comes back into view. */
     others.forEach((d) =>
-      Panel.track(Object.values(d.entities), () => {
+      Panel.track(Object.values(d.entities), Panel.whenShown("energy", () => {
         renderCard(d);
         if (kinds[d.kind].use) renderNow();
         if (Panel.isLoaded()) renderPick(); /* a power reading may have come or gone */
-      })
+      }))
     );
     let wasLive = false;
     if (grid) {
-      Panel.track(Object.values(grid.entities), () => {
+      Panel.track(Object.values(grid.entities), Panel.whenShown("energy", () => {
         const live = gridLive();
         renderGrid();
         renderNow();
@@ -293,7 +295,7 @@
         renderPick();
         drawCharts();
         if (live && Panel.isLoaded()) loadStats(); /* the meter just appeared */
-      });
+      }));
     }
     Panel.keepHistory(devices.map(chartId).filter(Boolean));
 
@@ -343,11 +345,12 @@
   });
   Panel.on("history", drawCharts);
   Panel.on("reading", (id) => {
-    const d = root && chartDevice();
+    const d = root && Panel.onScreen("energy") && chartDevice();
     if (d && chartId(d) === id) drawPower();
   });
   Panel.on("section", (i) => {
     if (cfg.sections[i].kind !== "energy") return;
+    drawCharts(); /* readings came in while another section was shown */
     reveal(["power", "week"]);
     if (Panel.isLoaded() && Date.now() - statsAt > 60e3) loadStats();
   });

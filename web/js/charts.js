@@ -26,7 +26,7 @@
       const last = cur.length ? cur[cur.length - 1] : prev;
       if (last && p.t - last.t > hold) {
         if (cur.length) cur.push({ t: last.t + hold, v: last.v });
-        segs.push(cur);
+        if (cur.length) segs.push(cur);
         cur = [];
       } else if (last) {
         cur.push({ t: p.t, v: last.v }); /* step: hold, then jump */
@@ -54,19 +54,21 @@
   Panel.chartRanges = {
     temp: (v) => {
       if (!v.length) return [15, 30];
-      const lo = Math.trunc(Math.min(...v)) - 1;
-      const hi = Math.trunc(Math.max(...v)) + 2;
+      const [min, max] = Util.minMax(v);
+      const lo = Math.trunc(min) - 1;
+      const hi = Math.trunc(max) + 2;
       return [lo, Math.max(hi, lo + 4)];
     },
     hum: (v) =>
-      v.length ? [Math.max(0, (Math.trunc(Math.min(...v) / 10) - 1) * 10), Math.min(100, (Math.trunc(Math.max(...v) / 10) + 2) * 10)] : [30, 70],
+      v.length ? [Math.max(0, (Math.trunc(Util.minMax(v)[0] / 10) - 1) * 10), Math.min(100, (Math.trunc(Util.minMax(v)[1] / 10) + 2) * 10)] : [30, 70],
     co2: (v) => {
       if (!v.length) return [400, 1000];
-      const lo = Math.max(300, Math.floor(Math.min(...v) / 100) * 100 - 100);
-      const hi = Math.ceil(Math.max(...v) / 100) * 100 + 100;
+      const [min, max] = Util.minMax(v);
+      const lo = Math.max(300, Math.floor(min / 100) * 100 - 100);
+      const hi = Math.ceil(max / 100) * 100 + 100;
       return [lo, Math.max(hi, lo + 400)];
     },
-    pm: (v) => [0, v.length ? Math.max(20, Math.ceil(Math.max(...v) / 5) * 5 + 5) : 20],
+    pm: (v) => [0, v.length ? Math.max(20, Math.ceil(Util.minMax(v)[1] / 5) * 5 + 5) : 20],
   };
 
   /* A crisp canvas at the device's pixel ratio: {c, W, H} in CSS pixels. */

@@ -14,10 +14,12 @@
    * can switch the display off. The browser drops the lock whenever the page is
    * hidden, so it is taken again on return and on the next touch. */
   let wakeLock = null;
+  let requesting = null; /* the request under way: a second call waits for it instead of taking a second lock */
   async function keepAwake(on) {
     try {
       if (on && !wakeLock && "wakeLock" in navigator && document.visibilityState === "visible") {
-        wakeLock = await navigator.wakeLock.request("screen");
+        if (!requesting) requesting = navigator.wakeLock.request("screen").finally(() => (requesting = null));
+        wakeLock = await requesting;
         wakeLock.addEventListener("release", () => (wakeLock = null));
       } else if (!on && wakeLock) {
         const lock = wakeLock;
@@ -85,7 +87,7 @@
     if (!houseSaver) return;
     houseSaver = false;
     chrome(true);
-    if (before && before !== location.hash) location.hash = before;
+    if (before && before !== location.hash) Panel.goHash(before); /* without a history entry, like a swipe */
     before = "";
     Panel.wake();
   }
@@ -98,7 +100,7 @@
   function renderTemps() {
     const temps = cfg.sensors.map((s) => {
       const t = Panel.num(s.temp);
-      return `<span>${s.abbr}</span><span class="v">${Number.isFinite(t) ? t.toFixed(1) + "°" : "-.-°"}</span>`;
+      return `<span>${s.abbr}</span><span class="v">${Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "-.-°"}</span>`;
     });
     const air = cfg.air.map((a) => {
       const v = Panel.num(a.co2);
@@ -139,7 +141,7 @@
 
   Panel.showSaver = function () {
     if (!saver.hidden || houseSaver) return;
-    ["popup", "climate", "settings", "plan"].forEach((id) => ($(id).hidden = true));
+    Panel.closeDialogs();
     Panel.closeDrawer();
     if (Panel.prefs.saverMode === 2) {
       houseSaver = true;

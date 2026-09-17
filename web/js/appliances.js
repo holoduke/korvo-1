@@ -114,7 +114,8 @@
 
   function render() {
     if (!root) return;
-    pending.settle();
+    /* A command whose entity never answered: say so, like the robots do. */
+    pending.settle().forEach((key) => Panel.toast(`${list[+key.split("|")[0]].label}: geen reactie van het apparaat`));
     renderRow();
     list.forEach((a, i) => {
       const view = kindOf(a).view(a, i);
@@ -129,8 +130,8 @@
   function renderCard(a, i, view) {
     const card = root.querySelector(".ap-card");
     card.className = `ap-card tone-${view.tone}`;
+    card.dataset.applCard = i; /* which appliance the card shows (the tests read it) */
     card.dataset.kind = a.kind;
-    card.dataset.applCard = i;
     /* With a photo, the photo stands beside the header; otherwise the icon leads the title. */
     const photo = photoOf(a);
     const figure = card.querySelector(".ap-figure");
@@ -170,12 +171,16 @@
 
   /* ---- Actions --------------------------------------------------------------------- */
   Panel.defineAction("pick", (el) => select(+el.dataset.pick));
-  /* A service call for an appliance, marked pending under key until any of its
-   * entities reports something new. */
+  /* A service call for an appliance, marked pending under key until the entity
+   * it addresses reports something new (not any of the appliance's entities:
+   * a washer's power meter ticks whether or not the command landed). */
   function callFor(a, key) {
-    const snapshot = () => Object.values(a.entities).map((id) => Panel.st(id));
     return (domain, service, data, entity) => {
       if (!entity) return;
+      const snapshot = () => {
+        const s = Panel.st(entity);
+        return s ? JSON.stringify([s.state, s.attributes]) : "";
+      };
       pending.mark(key, snapshot);
       Panel.client.callService(domain, service, data || null, { entity_id: entity }).catch((err) => {
         pending.drop(key);
@@ -233,10 +238,12 @@
       },
     },
   });
+  /* Not while another section is shown: the page is rebuilt once it comes back. */
+  const shown = Panel.whenShown("appliances", render);
   Panel.track(
     list.flatMap((a) => Object.values(a.entities)),
-    () => render()
+    shown
   );
   /* Time left moves on its own (the washer reports a finish time). */
-  setInterval(render, 30000);
+  setInterval(shown, 30000);
 })();

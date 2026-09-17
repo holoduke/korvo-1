@@ -136,8 +136,21 @@
   Panel.activateScene = function (tab, idx) {
     dismissSave(); /* the lamps take the scene's states: nothing to save */
     highlightScene(tab, idx);
-    Panel.client.callService("scene", "turn_on", null, { entity_id: cfg.tabs[tab].scenes[idx].id }).catch(() => {});
+    Panel.client.callService("scene", "turn_on", null, { entity_id: cfg.tabs[tab].scenes[idx].id }).catch((err) => {
+      highlightNewest(tab); /* not activated after all */
+      Panel.commandFailed(cfg.tabs[tab].scenes[idx].label)(err);
+    });
   };
+  /* The scene activated last (by its timestamp state) is the tab's active one. */
+  function highlightNewest(ti) {
+    let best = -1;
+    let bestT = 0;
+    cfg.tabs[ti].scenes.forEach((sc, i) => {
+      const ts = Date.parse((st(sc.id) || {}).state);
+      if (Number.isFinite(ts) && ts > bestT) [best, bestT] = [i, ts];
+    });
+    highlightScene(ti, best);
+  }
 
   /* A scene's state is its last-activated timestamp: a new one means it was just
    * activated (from anywhere). At start the newest per tab counts as active. */
@@ -157,17 +170,7 @@
         cfg.tabs.forEach((t, ti) => t.scenes.forEach((sc, i) => sc.id === id && highlightScene(ti, i)));
       }
     }
-    if (first) {
-      cfg.tabs.forEach((t, ti) => {
-        let best = -1;
-        let bestT = 0;
-        t.scenes.forEach((sc, i) => {
-          const ts = Date.parse((st(sc.id) || {}).state);
-          if (Number.isFinite(ts) && ts > bestT) [best, bestT] = [i, ts];
-        });
-        if (best >= 0) highlightScene(ti, best);
-      });
-    }
+    if (first) cfg.tabs.forEach((t, ti) => highlightNewest(ti));
   }
 
   /* ---- Saving a changed scene -------------------------------------------------- */
@@ -190,8 +193,8 @@
     return ti;
   }
   function lampChanged(ids) {
-    for (const id of ids) {
-      if (!id.startsWith("light.")) continue;
+    /* A light group set as a whole: its members changed (the scene stores lamps, not groups). */
+    for (const id of expandLights(ids.filter((id) => id.startsWith("light.")))) {
       const ti = sceneTabOf(id);
       if (ti < 0) continue;
       const idx = activeScene.get(ti);

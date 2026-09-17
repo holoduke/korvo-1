@@ -45,8 +45,10 @@
   /* A legend mark: the series' line style in its colour. */
   const mark = (s) => `<i class="lg${s.dashed ? " dashed" : ""}" style="--c:${s.colour}"></i>`;
 
-  const span = (vals, digits, unit) =>
-    `${Math.min(...vals).toFixed(digits)}${unit} - ${Math.max(...vals).toFixed(digits)}${unit}`;
+  const span = (vals, digits, unit) => {
+    const [lo, hi] = Util.minMax(vals);
+    return `${Util.fmt(lo, digits)}${unit} - ${Util.fmt(hi, digits)}${unit}`;
+  };
 
   function draw(progress) {
     if (!popup) return;
@@ -58,17 +60,17 @@
     if (popup.kind === "climate") {
       if (a.vals.length && b && b.vals.length) {
         range.innerHTML =
-          `<span class="part">${mark(a)}Min ${Math.min(...a.vals).toFixed(1)}°&nbsp; Max ${Math.max(...a.vals).toFixed(1)}°</span>` +
+          `<span class="part">${mark(a)}Min ${Util.fmt(Util.minMax(a.vals)[0], 1)}°&nbsp; Max ${Util.fmt(Util.minMax(a.vals)[1], 1)}°</span>` +
           `<span class="part">${mark(b)}${icon("drop")} ${span(b.vals, 0, "%")}</span>`;
       } else if (a.vals.length) {
-        range.innerHTML = `<span class="part">${mark(a)}Min ${Math.min(...a.vals).toFixed(1)}°&nbsp; Max ${Math.max(...a.vals).toFixed(1)}°</span>`;
+        range.innerHTML = `<span class="part">${mark(a)}Min ${Util.fmt(Util.minMax(a.vals)[0], 1)}°&nbsp; Max ${Util.fmt(Util.minMax(a.vals)[1], 1)}°</span>`;
       } else {
         range.textContent = "Nog geen geschiedenis (wordt opgehaald)";
       }
     } else {
       const parts = [];
-      if (a.vals.length) parts.push(`<span class="part">${mark(a)}<b class="k">CO2</b> ${Math.round(Math.min(...a.vals))} - ${Math.round(Math.max(...a.vals))} ppm</span>`);
-      if (b.vals.length) parts.push(`<span class="part">${mark(b)}<b class="k">PM2.5</b> ${Math.round(Math.min(...b.vals))} - ${Math.round(Math.max(...b.vals))} µg/m³</span>`);
+      if (a.vals.length) parts.push(`<span class="part">${mark(a)}<b class="k">CO2</b> ${Math.round(Util.minMax(a.vals)[0])} - ${Math.round(Util.minMax(a.vals)[1])} ppm</span>`);
+      if (b.vals.length) parts.push(`<span class="part">${mark(b)}<b class="k">PM2.5</b> ${Math.round(Util.minMax(b.vals)[0])} - ${Math.round(Util.minMax(b.vals)[1])} µg/m³</span>`);
       range.innerHTML = parts.length ? parts.join("") : "Nog geen geschiedenis (wordt opgehaald)";
     }
   }
@@ -83,10 +85,10 @@
     const s = cfg.sensors[i];
     const t = Panel.num(s.temp);
     const h = s.humidity ? Panel.num(s.humidity) : NaN;
-    $("climNow").innerHTML = Number.isFinite(t) ? `${t.toFixed(1)}°` + (Number.isFinite(h) ? `&ensp;${icon("drop")}${Math.round(h)}%` : "") : "--";
+    $("climNow").innerHTML = Number.isFinite(t) ? `${Util.fmt(t, 1)}°` + (Number.isFinite(h) ? `&ensp;${icon("drop")}${Math.round(h)}%` : "") : "--";
 
     if (!s.indoor) {
-      setAdvice("dim", Number.isFinite(t) && Number.isFinite(h) ? `Buitenlucht bevat ${absHumidity(t, h).toFixed(1)} g/m³ vocht` : "");
+      setAdvice("dim", Number.isFinite(t) && Number.isFinite(h) ? `Buitenlucht bevat ${Util.fmt(absHumidity(t, h), 1)} g/m³ vocht` : "");
       return;
     }
     const out = cfg.sensors.find((x) => !x.indoor);
@@ -98,11 +100,11 @@
     const d = ahIn - ahOut;
     const c = cfg.comfort;
     if (h <= c.humMax && h >= c.humMin && d < 1) {
-      setAdvice("ok", `Vochtigheid is goed (${ahIn.toFixed(1)} g/m³ binnen, ${ahOut.toFixed(1)} buiten)`);
+      setAdvice("ok", `Vochtigheid is goed (${Util.fmt(ahIn, 1)} g/m³ binnen, ${Util.fmt(ahOut, 1)} buiten)`);
     } else if (d >= 1) {
-      setAdvice("ok", `${icon("check")} Ventileren helpt: buitenlucht is droger (${ahOut.toFixed(1)} vs ${ahIn.toFixed(1)} g/m³)`);
+      setAdvice("ok", `${icon("check")} Ventileren helpt: buitenlucht is droger (${Util.fmt(ahOut, 1)} vs ${Util.fmt(ahIn, 1)} g/m³)`);
     } else if (d <= -1) {
-      setAdvice("warn", `${icon("warning")} Niet ventileren: buitenlucht is vochtiger (${ahOut.toFixed(1)} vs ${ahIn.toFixed(1)} g/m³)`);
+      setAdvice("warn", `${icon("warning")} Niet ventileren: buitenlucht is vochtiger (${Util.fmt(ahOut, 1)} vs ${Util.fmt(ahIn, 1)} g/m³)`);
     } else {
       setAdvice("dim", "Ventileren maakt nu weinig verschil");
     }
@@ -127,7 +129,7 @@
       stat("CO2", fin(co2) ? `${Math.round(co2)}<small>ppm</small>` : "--", fin(co2) ? Panel.co2Colour(co2) : "var(--text_dim)") +
       stat("PM2.5", fin(pm) ? `${Math.round(pm)}<small>µg/m³</small>` : "--", fin(pm) ? Panel.pmColour(pm) : "var(--text_dim)") +
       stat("Kwaliteit", q ? q[0] : "--", q ? q[1] : "var(--text_dim)") +
-      stat(["Temperatuur", "Temp"], fin(t) ? `${t.toFixed(1)}°` : "--", fin(t) ? Panel.comfortTemp(t, true) : "var(--text_dim)") +
+      stat(["Temperatuur", "Temp"], fin(t) ? `${Util.fmt(t, 1)}°` : "--", fin(t) ? Panel.comfortTemp(t, true) : "var(--text_dim)") +
       stat(["Vochtigheid", "Vocht"], fin(h) ? `${Math.round(h)}%` : "--", fin(h) ? Panel.comfortHum(h, true) : "var(--text_dim)");
 
     const ab = cfg.airBands;
@@ -178,8 +180,11 @@
   $("climate").addEventListener("click", (e) => e.target === $("climate") && close());
   window.addEventListener("resize", () => isOpen() && draw(1));
 
-  Panel.on("reading", () => {
+  Panel.on("reading", (id) => {
     if (!isOpen()) return;
+    const s = spec();
+    const out = cfg.sensors.find((x) => !x.indoor) || {}; /* the advice compares with outdoors */
+    if (![s.left, s.right].some((line) => line && line.id === id) && ![out.temp, out.humidity].includes(id)) return; /* another sensor */
     renderText();
     draw(1);
   });

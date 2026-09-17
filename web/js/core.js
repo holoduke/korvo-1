@@ -60,7 +60,9 @@
     const root = document.documentElement.style;
     for (const [k, v] of Object.entries(t)) if (k !== "name") root.setProperty("--" + k, v);
     document.querySelector('meta[name="theme-color"]').setAttribute("content", t.toolbar);
-    document.documentElement.style.colorScheme = t.name === "Licht" ? "light" : "dark";
+    /* Light or dark form controls and scrollbars follow the background's brightness. */
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(t.bg.slice(i, i + 2), 16) / 255);
+    document.documentElement.style.colorScheme = 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5 ? "light" : "dark";
   };
   Panel.applyTheme(Panel.prefs.theme);
 
@@ -70,6 +72,9 @@
   const validators = new Map(); /* entity id -> (number) => usable */
   let client = null;
   let loaded = false;
+  let connected = false;
+  /* Whether the socket to Home Assistant is up right now (timers skip their work otherwise). */
+  Panel.connected = () => connected;
 
   Panel.track = function (ids, fn) {
     if (!order.includes(fn)) order.push(fn);
@@ -96,7 +101,16 @@
         idsOf.get(fn).push(id);
       }
     }
-    order.forEach((fn) => idsOf.has(fn) && fn(idsOf.get(fn), first));
+    /* One module's handler throwing must not stop the others, nor the "loaded"
+     * that lets the rest of the app start (diag.js records the error). */
+    order.forEach((fn) => {
+      if (!idsOf.has(fn)) return;
+      try {
+        fn(idsOf.get(fn), first);
+      } catch (e) {
+        window.dispatchEvent(new ErrorEvent("error", { message: `state handler: ${e.message}`, filename: "core.js" }));
+      }
+    });
     if (first) bus.emit("loaded");
   }
 
@@ -114,22 +128,38 @@
 
   /* ---- Overlays ------------------------------------------------------------------- */
   const OVERLAYS = ["popup", "climate", "settings", "plan", "saver"];
+  const DIALOGS = ["popup", "climate", "settings", "plan"]; /* the overlays a tap or Escape closes */
   Panel.overlayOpen = () => OVERLAYS.some((id) => !$(id).hidden);
+  const closeTimers = new Map(); /* overlay -> the timer that hides it after its closing animation */
   Panel.openOverlay = function (el) {
+    clearTimeout(closeTimers.get(el)); /* reopened during its closing animation: stay open */
+    closeTimers.delete(el);
     el.classList.remove("closing");
     el.hidden = false;
   };
   Panel.closeOverlay = function (el) {
     if (el.hidden || el.classList.contains("closing")) return;
     el.classList.add("closing");
-    setTimeout(() => {
-      el.hidden = true;
-      el.classList.remove("closing");
-    }, 160);
+    closeTimers.set(
+      el,
+      setTimeout(() => {
+        closeTimers.delete(el);
+        el.hidden = true;
+        el.classList.remove("closing");
+      }, 160)
+    );
   };
+  /* Every dialog at once, without animation (the screensaver, a hard reset). */
+  Panel.closeDialogs = () => DIALOGS.forEach((id) => {
+    const el = $(id);
+    clearTimeout(closeTimers.get(el));
+    closeTimers.delete(el);
+    el.classList.remove("closing");
+    el.hidden = true;
+  });
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    ["popup", "climate", "settings", "plan"].forEach((id) => Panel.closeOverlay($(id)));
+    DIALOGS.forEach((id) => Panel.closeOverlay($(id)));
     bus.emit("escape");
   });
 
@@ -141,6 +171,7 @@
     $("app").hidden = false; /* before anything measures the layout */
     bus.emit("start");
     client.on("status", (s) => {
+      connected = s === "connected";
       $("status").className = "status " + (s === "connected" ? "connected" : s === "connecting" ? "connecting" : "");
       bus.emit("status", s);
     });

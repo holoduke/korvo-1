@@ -44,7 +44,6 @@
 
   /* ---- Schedules <-> automations ------------------------------------------------ */
   const enabled = (s) => (Panel.st(s.entity) || {}).state === "on";
-  const pad2 = (n) => String(n).padStart(2, "0");
 
   function parse(entity, config) {
     const list = (x, y) => [].concat(x || y || []);
@@ -88,9 +87,11 @@
     };
   }
 
-  async function load() {
-    if (loading) return;
+  let loadedAt = 0;
+  async function load(force = true) {
+    if (loading || (!force && Date.now() - loadedAt < 5 * 60e3)) return;
     loading = true;
+    loadedAt = Date.now();
     try {
       const all = await Panel.client.getStates();
       const found = all.filter((s) => s.entity_id.startsWith("automation.") && String((s.attributes || {}).id || "").startsWith(ID_PREFIX));
@@ -103,10 +104,7 @@
         )
       );
       schedules = parsed.filter(Boolean).sort((a, b) => a.time.localeCompare(b.time));
-      Panel.track(
-        schedules.map((s) => s.entity),
-        () => render()
-      );
+      Panel.track(schedules.map((s) => s.entity), render); /* the same handler each load: registered once */
     } catch (e) {
       schedules = schedules || [];
     }
@@ -211,7 +209,7 @@
   function shift(time, minutes) {
     const [h, m] = time.split(":").map(Number);
     const total = (((Math.round((h * 60 + m + minutes) / STEP_MIN) * STEP_MIN) % 1440) + 1440) % 1440;
-    return `${pad2(Math.floor(total / 60))}:${pad2(total % 60)}`;
+    return `${Util.pad2(Math.floor(total / 60))}:${Util.pad2(total % 60)}`;
   }
 
   function renderEditor() {
@@ -291,7 +289,9 @@
   });
 
   Panel.on("build", render);
-  Panel.on("loaded", load);
-  Panel.on("section", () => Panel.isLoaded() && cfg.sections[Panel.section].kind === "vacuum" && load());
+  Panel.on("loaded", () => load());
+  /* A visit re-reads the schedules now and then (made or changed in HA itself);
+   * on/off changes come through the tracked automation entities. */
+  Panel.on("section", () => Panel.isLoaded() && Panel.onScreen("vacuum") && load(false));
   Panel.on("minute", render); /* "vandaag" becomes "morgen" */
 })();

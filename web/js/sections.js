@@ -18,6 +18,22 @@
   Panel.definePage = (kind, def) => (pages[kind] = def);
   Panel.section = 0;
   Panel.sectionIndex = (kind) => cfg.sections.findIndex((s) => s.kind === kind);
+  /* Whether the section of this kind is the one on screen. */
+  Panel.onScreen = (kind) => cfg.sections[Panel.section].kind === kind;
+  /* fn deferred while its section is off screen: a page that is not shown does
+   * not re-render on every reading, but once, when it comes into view. */
+  Panel.whenShown = function (kind, fn) {
+    let stale = false;
+    Panel.on("section", () => {
+      if (!stale || !Panel.onScreen(kind)) return;
+      stale = false;
+      fn();
+    });
+    return (...args) => {
+      if (Panel.onScreen(kind)) fn(...args);
+      else stale = true;
+    };
+  };
   Panel.showSection = function (kind) {
     const i = Panel.sectionIndex(kind);
     if (i >= 0) Panel.setSection(i, true);
@@ -148,6 +164,11 @@
     writeHash(); /* normalise an unknown or partial hash */
   }
   window.addEventListener("hashchange", () => applyHash(true));
+  /* Go to a place by its hash without a history entry (the screensaver's return). */
+  Panel.goHash = (h) => {
+    history.replaceState(null, "", location.pathname + location.search + h);
+    applyHash(true);
+  };
   Panel.on("route", writeHash);
 
   $("tabbar").addEventListener("click", (e) => {

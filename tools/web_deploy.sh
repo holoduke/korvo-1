@@ -19,16 +19,21 @@ HOST="${TARGET#*@}"
 python3 "$REPO/tools/gen_web_config.py"
 
 SHA="$(git -C "$REPO" rev-parse --short HEAD)"
-git -C "$REPO" diff --quiet -- web tools/gen_web_config.py main/panel_config.h main/themes.h || SHA="$SHA-dirty"
+# Uncommitted work (unstaged, staged or untracked) deploys as "-dirty".
+[ -z "$(git -C "$REPO" status --porcelain -- web tools/gen_web_config.py main/panel_config.h main/themes.h)" ] || SHA="$SHA-dirty"
 VERSION="$SHA-$(date +%Y%m%d%H%M%S)"
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 cp -R "$REPO/web/." "$STAGE/"
-sed -i '' "s/__VERSION__/$VERSION/g" "$STAGE/index.html"
+sed "s/__VERSION__/$VERSION/g" "$REPO/web/index.html" > "$STAGE/index.html"
 # Read by web/js/update.js past the HTTP cache: HA serves /local with a 31-day
 # max-age, so open pages learn about a deploy from this file, not index.html.
 printf '%s' "$VERSION" > "$STAGE/version.txt"
+# A .gz next to each text asset: aiohttp's FileResponse (behind /thuis/ and
+# /local/) serves it to a browser that accepts gzip, so the 550 KB of scripts
+# and styles cross the Wi-Fi as about 130 KB. The originals stay for the rest.
+find "$STAGE" -type f \( -name '*.js' -o -name '*.css' -o -name '*.html' -o -name '*.json' -o -name '*.svg' \) -exec gzip -9 -k -n {} +
 
 echo "Deploying web panel $VERSION to $TARGET ..."
 tar -C "$STAGE" -cf - . | ssh -o BatchMode=yes "$TARGET" \

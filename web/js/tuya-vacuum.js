@@ -104,7 +104,6 @@
     return runs.reverse();
   }
 
-  /* "many": a row that may wrap on a phone. */
   /* "Storing: vastgelopen, zijborstel. Haal de robot los en zet hem vrij neer." */
   function faultText(code) {
     const faults = Number.isFinite(code) && code > 0 ? FAULTS.filter((_, bit) => Math.floor(code / 2 ** bit) % 2 === 1) : [];
@@ -113,6 +112,7 @@
     return `Storing: ${faults.map(([what]) => what).join(", ")}.${tip ? ` ${tip[0].toUpperCase()}${tip.slice(1)}.` : ""}`;
   }
 
+  /* "many": a row that may wrap on a phone. */
   const chips = (kind, labels) =>
     `<div class="vs-chips${Object.keys(labels).length > 4 ? " many" : ""}" style="--n:${Object.keys(labels).length}">` +
     Object.entries(labels).map(([opt, l]) => `<button class="vchip" data-tuyavac="${kind}" data-opt="${opt}">${l}</button>`).join("") +
@@ -343,20 +343,21 @@
     render(view);
   });
 
-  /* Runs are read when the robot is shown, and again when a job ends. */
+  /* Runs are read when the robot is shown (or, after a reload straight onto
+   * it, on the first state dump), and again when a job ends. */
   views.forEach((view) => {
     let wasJob = false;
     Panel.track(Object.values(view.robot.entities), () => {
       const job = JOB.includes(stateOf(view.robot.entities.vacuum));
-      if (wasJob && !job && Panel.isLoaded()) load(view, true);
+      if (wasJob && !job && Panel.isLoaded() && Panel.robotOnScreen(view.robot.floor)) load(view, true);
       wasJob = job;
       render(view);
-      if (Panel.robotOnScreen(view.robot.floor)) load(view, false);
     });
   });
   const shownNow = () => views.forEach((view) => Panel.isLoaded() && Panel.robotOnScreen(view.robot.floor) && load(view, false));
   Panel.on("section", shownNow);
   Panel.on("robot", shownNow);
+  Panel.on("loaded", shownNow);
   /* "Geen nieuwe gegevens" needs time to pass, not a state change. */
   Panel.on("minute", () => views.forEach(render));
 })();

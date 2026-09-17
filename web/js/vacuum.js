@@ -553,18 +553,23 @@
     if (kind === "locate") return Panel.client.callService("button", "press", null, { entity_id: vac.locate }).catch(fail);
   });
 
-  /* The run log and room history are fetched when this robot is shown, but only
-   * once HA is connected: after a reload straight onto #schoonmaak the section
-   * opens before the socket does, and the first state dump marks the connection. */
+  /* The run log and room history are fetched when this robot is shown (after a
+   * reload straight onto #schoonmaak the section opens before the socket does:
+   * then on the first state dump), and again when a run ends. */
   const onScreen = () => Panel.robotOnScreen(vac.floor);
+  let wasJob = false;
   Panel.track(
     ["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]),
     () => {
       render();
-      if (onScreen()) load(false);
+      /* A run that ended is new history (two weeks of it: not for every state change). */
+      const job = JOB_STATES.includes((st(vac.vacuum) || {}).state);
+      if (wasJob && !job && Panel.isLoaded() && onScreen()) load(true);
+      wasJob = job;
     }
   );
   const shownNow = () => Panel.isLoaded() && onScreen() && load(false);
   Panel.on("section", shownNow);
   Panel.on("robot", shownNow);
+  Panel.on("loaded", shownNow);
 })();

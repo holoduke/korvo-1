@@ -253,6 +253,7 @@
         token = await getAccessToken();
       } catch (e) {
         connecting = false;
+        ev.emit("status", "disconnected"); /* not "connecting" for the whole backoff */
         scheduleReconnect();
         return;
       }
@@ -379,7 +380,10 @@
         const fresh = more.filter((id) => !entityIds.includes(id));
         if (!fresh.length) return;
         entityIds.push(...fresh);
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        /* Only once authenticated: during the auth handshake Home Assistant
+         * answers any other message with auth_invalid (which would log us out).
+         * The reconnect's own subscribe covers the socket that is still opening. */
+        if (authed && ws && ws.readyState === WebSocket.OPEN) {
           const id = nextId++;
           pending.set(id, { resolve() {}, reject() {}, subscription: true });
           ws.send(JSON.stringify({ id, type: "subscribe_entities", entity_ids: fresh }));
