@@ -60,14 +60,14 @@
     }`;
   const LINE_FS = `
     precision highp float;
-    uniform float uWidth; uniform vec3 uColor; uniform float uSweepY; uniform float uNear; uniform float uFar; uniform float uRadial;
+    uniform float uWidth; uniform vec3 uColor; uniform float uSweepY; uniform float uNear; uniform float uFar; uniform float uRadial; uniform vec2 uMid;
     varying float vAcross; varying float vAlong; varying float vLen; varying float vL; varying float vDepth; varying vec3 vWorld;
     void main() {
       float dx = max(max(-vAlong, vAlong - vLen), 0.0);
       float d = length(vec2(dx, vAcross));
       float a = 1.0 - smoothstep(uWidth * 0.5 - 0.7, uWidth * 0.5 + 0.7, d);
       float depth = mix(0.32, 1.0, smoothstep(uFar, uNear, vDepth));
-      float radial = mix(1.0, 1.0 - smoothstep(7.0, 15.0, length(vWorld.xz)), uRadial);
+      float radial = mix(1.0, 1.0 - smoothstep(8.0, 17.0, length(vWorld.xz - uMid)), uRadial);
       float sweep = exp(-pow((vWorld.y - uSweepY) * 1.7, 2.0));
       float i = vL * depth * radial;
       vec3 col = uColor * i * (1.0 + 1.6 * sweep) + vec3(0.35) * sweep * i;
@@ -158,23 +158,31 @@
 
   function buildGeometry(plan) {
     const e = collect();
+    const faces = [];
+    const quad = (a, b, c, dd, col) => faces.push([a, b, c, col], [a, c, dd, col]);
+    const floorCol = [0.35, 0.8, 1.0, 0.05];
+    const roofCol = [0.35, 0.8, 1.0, 0.07];
     const m = plan.main;
     const [x0, z0, x1, z1] = [m.x, m.z, m.x + m.w, m.z + m.d];
     const roof = plan.roof;
-    const g = plan.garage;
-
-    /* Floors of the main block, as rings, and its corners up to the eaves. */
-    plan.levels.forEach((lv) => e.rect([[x0, lv.y, z0], [x1, lv.y, z0], [x1, lv.y, z1], [x0, lv.y, z1]], L.wall));
-    [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].forEach(([x, z]) => e.add([x, 0, z], [x, roof.eavesY, z], L.wall));
-    /* The gable ends: eaves corners up to the ridge. */
     const zm = (z0 + z1) / 2;
+    const slope = (roof.ridgeY - roof.eavesY) / (m.d / 2);
+    const roofY = (z) => roof.ridgeY - Math.abs(z - zm) * slope;
+    const ring = (ax, az, bx, bz, y) => [[ax, y, az], [bx, y, az], [bx, y, bz], [ax, y, bz]];
+
+    /* The main block: its floors as rings (and translucent slabs), the corners
+     * up to the eaves, the gable ends up to the ridge. */
+    plan.levels.forEach((lv) => {
+      e.rect(ring(x0, z0, x1, z1, lv.y), L.wall);
+      quad(...ring(x0, z0, x1, z1, lv.y), floorCol);
+    });
+    [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].forEach(([x, z]) => e.add([x, 0, z], [x, roof.eavesY, z], L.wall));
     [x0, x1].forEach((x) => {
       e.add([x, roof.eavesY, z0], [x, roof.ridgeY, zm], L.wall);
       e.add([x, roof.eavesY, z1], [x, roof.ridgeY, zm], L.wall);
     });
-    /* The roof itself, with its overhang: ridge, eaves and the outer rafters. */
+    /* The roof with its overhang: ridge, eaves and the outer rafters. */
     const ov = roof.overhang;
-    const slope = (roof.ridgeY - roof.eavesY) / (m.d / 2);
     const ey = roof.eavesY - ov * slope;
     e.add([x0 - ov, roof.ridgeY, zm], [x1 + ov, roof.ridgeY, zm], L.wall);
     e.add([x0 - ov, ey, z0 - ov], [x1 + ov, ey, z0 - ov], L.wall);
@@ -183,54 +191,55 @@
       e.add([x, ey, z0 - ov], [x, roof.ridgeY, zm], L.rafter);
       e.add([x, ey, z1 + ov], [x, roof.ridgeY, zm], L.rafter);
     });
-    /* The dormer on the back slope: a flat top, a front wall down to the roof
-     * and side walls that follow the slope. */
-    const d = roof.dormer;
-    const roofY = (z) => roof.ridgeY - Math.abs(z - zm) * slope;
-    const dz1 = zm + (roof.ridgeY - d.topY) / slope; /* where the top meets the slope */
-    const dx0 = d.x, dx1 = d.x + d.w, fz = d.frontZ, fy = roofY(fz);
-    e.rect([[dx0, d.topY, dz1], [dx1, d.topY, dz1], [dx1, d.topY, fz], [dx0, d.topY, fz]], L.wall);
-    e.rect([[dx0, fy, fz], [dx1, fy, fz], [dx1, d.topY, fz], [dx0, d.topY, fz]], L.wall);
-    [dx0, dx1].forEach((x) => e.add([x, fy, fz], [x, d.topY, dz1], L.wall));
-    e.rect([[dx0 + 0.5, fy + 0.3, fz], [dx1 - 0.5, fy + 0.3, fz], [dx1 - 0.5, d.topY - 0.3, fz], [dx0 + 0.5, d.topY - 0.3, fz]], L.opening);
-    /* The garage. */
-    e.box(g.x, 0, g.z, g.x + g.w, g.h, g.z + g.d, L.wall);
+    quad([x0 - ov, ey, z0 - ov], [x1 + ov, ey, z0 - ov], [x1 + ov, roof.ridgeY, zm], [x0 - ov, roof.ridgeY, zm], roofCol);
+    quad([x0 - ov, ey, z1 + ov], [x1 + ov, ey, z1 + ov], [x1 + ov, roof.ridgeY, zm], [x0 - ov, roof.ridgeY, zm], roofCol);
+    /* Dormers: a flat top from the face back to where it meets the slope, the
+     * face down to the roof, side walls along the slope, a window in the face. */
+    (plan.dormers || []).forEach((d) => {
+      const front = d.side === "front";
+      const fz = front ? z0 + d.setback : z1 - d.setback;
+      const fy = roofY(fz);
+      const bz = zm + (front ? -1 : 1) * ((roof.ridgeY - d.topY) / slope);
+      const [dx0, dx1] = [d.x, d.x + d.w];
+      e.rect([[dx0, d.topY, bz], [dx1, d.topY, bz], [dx1, d.topY, fz], [dx0, d.topY, fz]], L.wall);
+      e.rect([[dx0, fy, fz], [dx1, fy, fz], [dx1, d.topY, fz], [dx0, d.topY, fz]], L.wall);
+      [dx0, dx1].forEach((x) => e.add([x, fy, fz], [x, d.topY, bz], L.wall));
+      e.rect([[dx0 + 0.4, fy + 0.3, fz], [dx1 - 0.4, fy + 0.3, fz], [dx1 - 0.4, d.topY - 0.3, fz], [dx0 + 0.4, d.topY - 0.3, fz]], L.opening);
+    });
+    /* Single-storey blocks with flat roofs. */
+    (plan.flat || []).forEach((b) => {
+      e.box(b.x, 0, b.z, b.x + b.w, b.h, b.z + b.d, L.wall);
+      quad(...ring(b.x, b.z, b.x + b.w, b.z + b.d, b.h), floorCol);
+    });
     /* Rooms, as their outline on their floor. */
     Object.entries(plan.rooms).forEach(([floor, rooms]) => {
       const lv = plan.levels.find((l) => l.floor === floor);
       if (!lv) return;
-      rooms.forEach((r) => e.rect([[r.x, lv.y, r.z], [r.x + r.w, lv.y, r.z], [r.x + r.w, lv.y, r.z + r.d], [r.x, lv.y, r.z + r.d]], L.room));
+      rooms.forEach((r) => e.rect(ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y), L.room));
     });
     /* Windows and doors on the walls. */
     plan.openings.forEach((o) => {
-      const y0 = o.y, y1 = o.y + o.h, a0 = o.a, a1 = o.a + o.w;
-      const on = { front: (a, y) => [a, y, z0], back: (a, y) => [a, y, z1], garage: (a, y) => [a, y, g.z], left: (a, y) => [x0, y, a], right: (a, y) => [x1, y, a] }[o.face];
-      if (on) e.rect([on(a0, y0), on(a1, y0), on(a1, y1), on(a0, y1)], L.opening);
+      const p = (a, y) => (o.plane === "z" ? [a, y, o.at] : [o.at, y, a]);
+      e.rect([p(o.a, o.y), p(o.a + o.w, o.y), p(o.a + o.w, o.y + o.h), p(o.a, o.y + o.h)], L.opening);
     });
     const house = e.list();
 
     /* The ground: a metre grid, fading away from the house (see uRadial). */
     const grid = [];
-    const R = 16;
+    const R = 18;
+    const gx = (x0 + Math.max(x1, ...(plan.flat || []).map((b) => b.x + b.w))) / 2;
+    const gz = (z0 + Math.max(z1, ...(plan.flat || []).map((b) => b.z + b.d))) / 2;
     for (let i = -R; i <= R; i++) {
-      grid.push({ a: [i, -0.02, -R], b: [i, -0.02, R], level: L.grid });
-      grid.push({ a: [-R, -0.02, i], b: [R, -0.02, i], level: L.grid });
+      grid.push({ a: [gx + i, -0.02, gz - R], b: [gx + i, -0.02, gz + R], level: L.grid });
+      grid.push({ a: [gx - R, -0.02, gz + i], b: [gx + R, -0.02, gz + i], level: L.grid });
     }
 
-    /* Translucent planes: the floors, the roof and the garage roof. */
-    const faces = [];
-    const quad = (a, b, c, dd, col) => faces.push([a, b, c, col], [a, c, dd, col]);
-    const floorCol = [0.35, 0.8, 1.0, 0.05];
-    plan.levels.forEach((lv) => quad([x0, lv.y, z0], [x1, lv.y, z0], [x1, lv.y, z1], [x0, lv.y, z1], floorCol));
-    quad([g.x, g.h, g.z], [g.x + g.w, g.h, g.z], [g.x + g.w, g.h, g.z + g.d], [g.x, g.h, g.z + g.d], floorCol);
-    const roofCol = [0.35, 0.8, 1.0, 0.07];
-    quad([x0 - ov, ey, z0 - ov], [x1 + ov, ey, z0 - ov], [x1 + ov, roof.ridgeY, zm], [x0 - ov, roof.ridgeY, zm], roofCol);
-    quad([x0 - ov, ey, z1 + ov], [x1 + ov, ey, z1 + ov], [x1 + ov, roof.ridgeY, zm], [x0 - ov, roof.ridgeY, zm], roofCol);
-
     /* Where the camera looks, and how far away it fits the whole house. */
-    const minX = x0 - ov, maxX = Math.max(x1 + ov, g.x + g.w);
-    const centre = [(minX + maxX) / 2, roof.ridgeY * 0.42, zm];
-    const radius = Math.hypot((maxX - minX) / 2, roof.ridgeY / 2, (z1 - z0) / 2 + ov);
+    const xs = [x0 - ov, x1 + ov, ...(plan.flat || []).flatMap((b) => [b.x, b.x + b.w])];
+    const zs = [z0 - ov, z1 + ov, ...(plan.flat || []).flatMap((b) => [b.z, b.z + b.d])];
+    const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+    const centre = [(minX + maxX) / 2, roof.ridgeY * 0.42, (minZ + maxZ) / 2];
+    const radius = Math.hypot((maxX - minX) / 2, roof.ridgeY / 2, (maxZ - minZ) / 2);
     return { house, grid, faces, centre, radius };
   }
 
@@ -482,6 +491,7 @@
       gl.uniform1f(lineP.u.uWidth, LINE_PX * dpr);
       gl.uniform3fv(lineP.u.uColor, accent);
       gl.uniform1f(lineP.u.uRadial, radial);
+      gl.uniform2f(lineP.u.uMid, geo.centre[0], geo.centre[2]);
       gl.drawElements(gl.TRIANGLES, set.count, gl.UNSIGNED_SHORT, 0);
     }
     function drawQuad(prog) {
