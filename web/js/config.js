@@ -1352,12 +1352,22 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "window",
-      "label": "Raam zolder achter",
+      "label": "Raam achterkamer 1",
       "name": "sensor_raam_achterkamer_boven_1",
       "entities": {
         "contact": "binary_sensor.sensor_raam_achterkamer_boven_1_contact",
         "tamper": "binary_sensor.sensor_raam_achterkamer_boven_1_tamper",
         "battery": "sensor.sensor_raam_achterkamer_boven_1_battery"
+      }
+    },
+    {
+      "kind": "window",
+      "label": "Raam achterkamer 2",
+      "name": "sensor_raam_achterkamer_boven_2",
+      "entities": {
+        "contact": "binary_sensor.sensor_raam_achterkamer_boven_2_contact",
+        "tamper": "binary_sensor.sensor_raam_achterkamer_boven_2_tamper",
+        "battery": "sensor.sensor_raam_achterkamer_boven_2_battery"
       }
     },
     {
