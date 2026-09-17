@@ -4,6 +4,7 @@
 (function () {
   "use strict";
 
+  const demoNames = new Map(); /* renames made in the demo, kept for the session */
   function createDemo(cfg) {
     const ev = Util.emitter();
     const states = new Map();
@@ -387,6 +388,13 @@
         return { result: "ok" };
       },
       /* Demo states; a tab's "lampen ..." group holds that tab's drawer lamps. */
+      async registryNames() {
+        return demoNames;
+      },
+      async renameEntity(entityId, name) {
+        if (name) demoNames.set(entityId, name);
+        else demoNames.delete(entityId);
+      },
       async getStates() {
         const groups = new Map(cfg.tabs.filter((t) => t.lights[0] && /^light\.lampen_/.test(t.lights[0].id)).map((t) => [t.lights[0].id, t.devices.map((d) => d.id)]));
         return [...states.entries()].map(([id, s]) => ({

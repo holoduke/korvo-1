@@ -276,12 +276,18 @@
           const id = nextId++;
           socket.send(JSON.stringify({ id, type: "subscribe_entities", entity_ids: entityIds }));
           pending.set(id, { resolve() {}, reject() {}, subscription: true });
+          /* Renames (the entity registry) reach every open panel. */
+          const rid = nextId++;
+          socket.send(JSON.stringify({ id: rid, type: "subscribe_events", event_type: "entity_registry_updated" }));
+          pending.set(rid, { resolve() {}, reject() {}, subscription: true });
           pingTimer = setInterval(() => {
             /* no pong: the socket is dead even if the browser hasn't noticed */
             if (Date.now() - lastPong > 45000) return drop(socket);
             transmit({ type: "ping" }).then(() => (lastPong = Date.now())).catch(() => {});
           }, 20000);
           waiting.splice(0).forEach((item) => item.flush());
+        } else if (msg.type === "event" && msg.event && msg.event.event_type === "entity_registry_updated") {
+          ev.emit("registry", msg.event.data);
         } else if (msg.type === "event" && msg.event) {
           const changed = applyEntities(msg.event);
           if (!subscribed) {
@@ -375,6 +381,14 @@
       getStates() {
         return send({ type: "get_states" });
       },
+      /* The names given to entities in Home Assistant's entity registry (a
+       * Map, only the entities that have one). */
+      async registryNames() {
+        const list = await send({ type: "config/entity_registry/list" });
+        return new Map(list.filter((e) => e.name).map((e) => [e.entity_id, e.name]));
+      },
+      /* Names an entity in the registry (empty: back to its own name); admins only. */
+      renameEntity: (entityId, name) => send({ type: "config/entity_registry/update", entity_id: entityId, name: name || null }),
       /* Also follow these entities, now and after every reconnect. */
       addEntities(more) {
         const fresh = more.filter((id) => !entityIds.includes(id));

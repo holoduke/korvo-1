@@ -23,7 +23,13 @@
 .tile.lamp .t-power { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, currentColor 9%, transparent); transition: background-color 0.25s, transform 0.12s; }
 .tile.lamp.on .t-power { background: rgba(255, 255, 255, 0.18); }
 .tile.lamp .t-power.pressed { transform: scale(0.9); }
-.tile.lamp .t-text { flex: 1; align-self: stretch; justify-content: center; text-align: left; }
+.tile.lamp .t-text { flex: 1; align-self: stretch; justify-content: center; text-align: left; position: relative; padding-right: 26px; }
+/* The colour the lamp gives, as a dot at the right (only while it is on). */
+.tile.lamp .t-dot {
+  position: absolute; right: 10px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
+  background: var(--dot); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25) inset, 0 0 8px var(--dot);
+}
+.tile.lamp .t-dot[hidden] { display: none; }
 .tile.lamp .t-text.pressed { opacity: 0.7; }
 /* The offer to save a changed scene, above the bottom row. */
 .scene-save {
@@ -190,6 +196,18 @@
 /* ---- Light popup --------------------------------------------------------------- */
 .popup-box { max-width: 480px; display: flex; flex-direction: column; gap: 8px; }
 .popup-title { font-size: 24px; font-weight: 600; text-align: center; padding-bottom: 12px; }
+/* The lamp's name, editable: saved to Home Assistant. */
+.popup-name { display: flex; gap: 8px; }
+.popup-name input {
+  flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; color: var(--text);
+  background: color-mix(in srgb, var(--tile) 80%, transparent); border: 1px solid color-mix(in srgb, var(--text_dim) 35%, transparent);
+}
+.popup-name input:focus { outline: none; border-color: var(--accent); }
+.popup-name button {
+  font: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--accent); color: #111;
+}
+.popup-name button:disabled { opacity: 0.35; cursor: default; }
 .field-label { font-size: 18px; font-weight: 500; color: var(--text_dim); padding-top: 6px; }
 .hslider { position: relative; height: 40px; border-radius: 20px; background: var(--tile_off); touch-action: none; cursor: ew-resize; margin: 2px 0 6px; }
 .hs-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 20px; background: var(--tile_on); }

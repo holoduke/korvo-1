@@ -29,7 +29,35 @@
 
   const nameOf = new Map(); /* entity id -> friendly name, from Home Assistant */
   /* The configured label, else Home Assistant's name without a leading "lamp". */
+  /* A lamp named in Home Assistant (the entity registry) shows that name
+   * here too, on every panel; the config's label is the default. */
+  const names = new Map();
+  let namesTimer = 0;
+  async function loadNames() {
+    try {
+      const fresh = await Panel.client.registryNames();
+      names.clear();
+      fresh.forEach((v, k) => names.set(k, v));
+    } catch (e) {
+      /* not an admin, or offline: the config's labels */
+    }
+    document.querySelectorAll("[data-light] .t-name").forEach((el) => (el.textContent = Panel.lightLabel(el.closest("[data-light]").dataset.light)));
+  }
+  Panel.on("loaded", loadNames);
+  Panel.on("registry", () => {
+    clearTimeout(namesTimer);
+    namesTimer = setTimeout(loadNames, 400);
+  });
+  Panel.on("status", (s) => s === "connected" && Panel.isLoaded() && loadNames());
+  /* Renames the lamp in Home Assistant; the tiles follow through the registry event. */
+  Panel.renameLight = async function (id, name) {
+    await Panel.client.renameEntity(id, name.trim());
+    if (name.trim()) names.set(id, name.trim());
+    else names.delete(id);
+    document.querySelectorAll(`[data-light="${CSS.escape(id)}"] .t-name`).forEach((el) => (el.textContent = Panel.lightLabel(id)));
+  };
   Panel.lightLabel = function (id) {
+    if (names.has(id)) return names.get(id);
     for (const t of cfg.tabs) {
       const known = [...t.devices, ...t.lights].find((d) => d.id === id);
       if (known) return known.label;
@@ -42,7 +70,21 @@
    * popup with its brightness, colour and warmth. */
   Panel.lightTile = (id) =>
     `<div class="tile lamp" data-light="${id}"><button class="t-icon t-power" data-power="${id}" aria-label="Aan of uit">${icon("power")}</button>` +
-    `<button class="t-text" data-lamp="${id}"><span class="t-name">${Util.esc(Panel.lightLabel(id))}</span><span class="t-sub">...</span></button></div>`;
+    `<button class="t-text" data-lamp="${id}"><span class="t-name">${Util.esc(Panel.lightLabel(id))}</span><span class="t-sub">...</span><i class="t-dot"></i></button></div>`;
+
+  /* The colour a lamp gives, as CSS (its rgb, or a tint for its white's
+   * warmth), or null when it is off or plain. */
+  Panel.lightColour = function (id) {
+    const s = st(id);
+    if (!s || s.state !== "on") return null;
+    const a = s.attributes || {};
+    if (["hs", "xy", "rgb", "rgbw", "rgbww"].includes(a.color_mode) && Array.isArray(a.rgb_color)) return `rgb(${a.rgb_color.join(" ")})`;
+    if (a.color_mode === "color_temp" && a.color_temp_kelvin) {
+      const t = Util.clamp((a.color_temp_kelvin - 2200) / 4300, 0, 1) * 255;
+      return `rgb(255 ${Math.round(180 + t / 4)} ${Math.round(110 + t / 2)})`;
+    }
+    return null;
+  };
 
   const pending = new Map(); /* light id -> {on, timer}: optimistic toggle */
   function renderLight(id) {
@@ -63,6 +105,12 @@
       }
       const sub = el.querySelector(".t-sub");
       if (sub) sub.textContent = !s && !loaded ? "..." : un ? "niet beschikbaar" : on ? "aan" : "uit";
+      const dot = el.querySelector(".t-dot");
+      if (dot) {
+        const c = !un && on ? Panel.lightColour(id) : null;
+        dot.hidden = !c;
+        dot.style.setProperty("--dot", c || "transparent");
+      }
     });
   }
   Panel.renderLight = renderLight;
@@ -155,6 +203,7 @@
   /* A scene's state is its last-activated timestamp: a new one means it was just
    * activated (from anywhere). At start the newest per tab counts as active. */
   const sceneSeen = new Map();
+  let sceneQuietUntil = 0; /* after a save: the scenes reload, their states churn */
   function onScenes(changed, first) {
     for (const id of changed) {
       const s = st(id);
@@ -165,10 +214,12 @@
       if (!s) continue;
       const prev = sceneSeen.get(id);
       sceneSeen.set(id, s.state);
-      if (prev !== undefined && prev !== s.state) {
-        dismissSave();
-        cfg.tabs.forEach((t, ti) => t.scenes.forEach((sc, i) => sc.id === id && highlightScene(ti, i)));
-      }
+      /* Only a real activation (a new timestamp) moves the highlight; the
+       * reload after a save takes every scene through unknown and back, and
+       * highlights then belong to the newest per tab, not to the last change. */
+      if (prev === undefined || prev === s.state || !Number.isFinite(Date.parse(s.state)) || Date.now() < sceneQuietUntil) continue;
+      dismissSave();
+      cfg.tabs.forEach((t, ti) => t.scenes.some((sc) => sc.id === id) && highlightNewest(ti));
     }
     if (first) cfg.tabs.forEach((t, ti) => highlightNewest(ti));
   }
@@ -245,6 +296,8 @@
     }
     try {
       await Panel.client.saveScene(config.id || ((st(sc.id) || {}).attributes || {}).id, { ...config, entities });
+      sceneQuietUntil = Date.now() + 8000;
+      highlightScene(d.tab, d.idx); /* the saved scene stays the active one */
       sceneStates.set(sc.id, entities);
       renderSceneSwatches();
       Panel.toast(`Scene ${sc.label} opgeslagen`);

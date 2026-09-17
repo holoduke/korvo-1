@@ -176,6 +176,7 @@
       bus.emit("status", s);
     });
     client.on("states", dispatch);
+    client.on("registry", (data) => bus.emit("registry", data));
     client.start();
   };
 })();

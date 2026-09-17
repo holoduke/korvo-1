@@ -136,6 +136,8 @@
     if (!s || s.state === "unavailable") return;
     popupLight = id;
     $("popupTitle").textContent = Panel.lightLabel(id);
+    $("popupName").value = Panel.lightLabel(id);
+    $("popupRename").disabled = true;
     const b = Panel.brightnessPct(id);
     const caps = Panel.caps(id);
     $("popupColorWrap").hidden = !caps.color;
@@ -161,4 +163,23 @@
   };
 
   $("popup").addEventListener("click", (e) => e.target === $("popup") && Panel.closeOverlay($("popup")));
+
+  /* The lamp's name: saved to Home Assistant, so every panel shows it. */
+  $("popupName").addEventListener("input", () => ($("popupRename").disabled = $("popupName").value.trim() === Panel.lightLabel(popupLight)));
+  $("popupName").addEventListener("keydown", (e) => e.key === "Enter" && !$("popupRename").disabled && $("popupRename").click());
+  $("popupRename").addEventListener("click", async () => {
+    const id = popupLight;
+    const name = $("popupName").value.trim();
+    if (!name) return;
+    $("popupRename").disabled = true;
+    try {
+      await Panel.renameLight(id, name);
+      $("popupTitle").textContent = Panel.lightLabel(id);
+      $("popupName").blur();
+      Panel.toast(`Lamp heet nu ${name}`);
+    } catch (err) {
+      $("popupRename").disabled = false;
+      Panel.toast(`Naam opslaan lukte niet: ${(err && err.message) || err}`);
+    }
+  });
 })();
