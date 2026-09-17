@@ -14,6 +14,40 @@
 .house-hint .ic { font-size: 16px; }
 .house-hint.seen { opacity: 0; }
 .house-none { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; font-size: 16px; color: var(--text_dim); }
+
+/* The readout in the corner: the system's state in a few lines, in the
+ * display face the screensaver clock uses, with a thin rail down its side. */
+.hud {
+  position: absolute; left: 18px; top: 16px; max-width: min(46vw, 420px);
+  padding: 4px 0 4px 14px; border-left: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.5;
+  color: var(--text_dim); pointer-events: none; font-variant-numeric: tabular-nums;
+}
+.hud::before {
+  content: ""; position: absolute; left: -1px; top: 0; width: 1px; height: 14px; background: var(--accent);
+}
+.hud-clock { display: none; font-size: 22px; letter-spacing: 0.08em; color: var(--text); margin-bottom: 6px; white-space: pre; }
+body.saver-house .hud-clock { display: block; }
+.hud-title { font-size: 9.5px; letter-spacing: 0.24em; opacity: 0.7; }
+.hud-verdict { font-size: 15px; font-weight: 600; letter-spacing: 0.14em; color: var(--ok); margin: 2px 0 8px; }
+.hud-verdict[data-tone="warn"] { color: var(--warn); }
+.hud-verdict[data-tone="bad"] { color: var(--bad); }
+.hud-rows { display: grid; grid-template-columns: auto auto 1fr; column-gap: 12px; row-gap: 2px; align-items: start; }
+.hud-row { display: contents; }
+.hud-k { opacity: 0.6; }
+.hud-v { color: var(--text); overflow-wrap: anywhere; }
+.hud-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text_dim); opacity: 0.5; margin-top: 5px; }
+.hud-dot.ok { background: var(--ok); opacity: 1; }
+.hud-dot.warn { background: var(--warn); opacity: 1; }
+.hud-dot.bad { background: var(--bad); opacity: 1; animation: hud-blink 1.2s steps(2, jump-none) infinite; }
+@keyframes hud-blink { to { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .hud-dot.bad { animation: none; } }
+@media (max-width: 700px) {
+  .hud { max-width: calc(100% - 36px); font-size: 10px; }
+  .hud-rows { display: none; }
+  .hud-verdict { margin-bottom: 0; }
+}
 @media (pointer: fine) and (hover: hover) {
   .house-hint { display: none; }
 }

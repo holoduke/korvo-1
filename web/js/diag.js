@@ -15,6 +15,8 @@
   };
   window.addEventListener("error", (e) => note(`${e.message} @ ${(e.filename || "").split("/").pop()}:${e.lineno}`));
   window.addEventListener("unhandledrejection", (e) => note("unhandled: " + ((e.reason && e.reason.message) || e.reason)));
+  /* For the readout on the house (this runs before Panel exists). */
+  window.Diag = { errorCount: () => errors.length };
 
   function box(el) {
     if (!el) return null;

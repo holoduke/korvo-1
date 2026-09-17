@@ -77,6 +77,8 @@
 
   const UNKNOWN = { icon: "power", view: () => ui.offlineView("Onbekend soort apparaat") };
   const kindOf = (a) => kinds[a.kind] || UNKNOWN;
+  /* Every appliance's label and tone (run, paused, error, off, ...) for the readout on the house. */
+  Panel.applianceTones = () => list.map((a, i) => ({ label: a.label, tone: kindOf(a).view(a, i).tone }));
 
   /* ---- Build and render ------------------------------------------------------------ */
   function build(page) {
