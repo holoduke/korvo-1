@@ -191,7 +191,9 @@
     };
   }
 
-  function buildGeometry(plan) {
+  /* inner: false leaves the rooms' outlines and the inner walls out (the
+   * shell with its windows and doors, the doors inside included). */
+  function buildGeometry(plan, { inner = true } = {}) {
     const e = collect();
     const faces = [];
     const quad = (a, b, c, dd, col) => faces.push([a, b, c, col], [a, c, dd, col]);
@@ -274,11 +276,11 @@
       rooms.forEach((r) => {
         const corners = ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y);
         roomRings[`${floor}:${r.name}`] = corners.map(([x, y, z]) => [x, y + 0.02, z]);
-        if (r.outline !== false) e.rect(corners, L.room);
+        if (inner && r.outline !== false) e.rect(corners, L.room);
       });
     });
     /* Inner walls: their outline in their vertical plane. */
-    (plan.walls || []).forEach((wl) => {
+    (inner ? plan.walls || [] : []).forEach((wl) => {
       const p = (a, y) => (wl.plane === "z" ? [a, y, wl.at] : [wl.at, y, a]);
       const y0 = wl.y || 0; /* the floor it stands on (0 = the ground floor) */
       e.rect([p(wl.a, y0), p(wl.a + wl.w, y0), p(wl.a + wl.w, y0 + wl.h), p(wl.a, y0 + wl.h)], L.inner);
@@ -363,7 +365,7 @@
     const onInteract = (opts && opts.onInteract) || (() => {});
     const gl = canvas.getContext("webgl", { antialias: false, alpha: false, depth: false, premultipliedAlpha: true, powerPreference: "default" });
     if (!gl) return null;
-    const geo = buildGeometry(plan);
+    let geo = buildGeometry(plan);
 
     function program(vs, fs) {
       const compile = (type, src) => {
@@ -407,10 +409,17 @@
       gl.bufferData(target, data, gl.STATIC_DRAW);
       return b;
     };
-    const lines = [geo.house, geo.grid].map((segs) => {
+    const lineSet = (segs) => {
       const lb = lineBuffers(segs);
       return { vbo: buffer(gl.ARRAY_BUFFER, lb.v), ibo: buffer(gl.ELEMENT_ARRAY_BUFFER, lb.idx), count: lb.count };
-    });
+    };
+    const lines = [geo.house, geo.grid].map(lineSet);
+    /* The house's edges again, with or without the inner walls and room outlines. */
+    function setInnerWalls(on) {
+      geo = buildGeometry(plan, { inner: on });
+      [lines[0].vbo, lines[0].ibo].forEach((b) => gl.deleteBuffer(b));
+      lines[0] = lineSet(geo.house);
+    }
     const fb = faceBuffers(geo.faces);
     const faces = { vbo: buffer(gl.ARRAY_BUFFER, fb.v), count: fb.count };
     const quad = buffer(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]));
@@ -819,8 +828,10 @@
       tintRoom,
       clearTints,
       project,
+      setInnerWalls,
       clearHighlight,
-      highlights: () => [...marks.keys()],
+      /* The openings lit right now (the rooms' floors are not counted). */
+      highlights: () => [...marks.keys()].filter((k) => !k.includes(":")),
     };
   };
 })();

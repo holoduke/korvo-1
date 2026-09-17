@@ -72,6 +72,13 @@ body.saver-house .hud-clock { display: block; }
   padding: 7px 11px; border-radius: 4px; cursor: pointer;
 }
 .hl-btn.active { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* The inner-walls toggle, in the other corner. */
+.house-walls {
+  position: absolute; right: 18px; bottom: 16px;
+  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+}
+.house-walls .hl-btn { display: flex; align-items: center; gap: 7px; }
+.house-walls .ic { width: 14px; height: 14px; }
 .house-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .house-label {
   position: absolute; left: 0; top: 0; transform: translate(-1000px, -1000px);

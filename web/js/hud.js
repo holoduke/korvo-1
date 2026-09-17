@@ -25,7 +25,8 @@
     `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-rows" data-hud-rows></div></div>` +
     `<div class="house-robot" data-robot hidden><span class="hr-icon">${icon("vacuum")}</span><span class="hr-text"><b data-robot-label></b><span data-robot-where></span></span></div>` +
     `<div class="house-labels" data-labels></div>` +
-    `<div class="house-layers">${LAYERS.map(([k, l]) => `<button class="hl-btn" data-layer="${k}">${l}</button>`).join("")}</div>`;
+    `<div class="house-layers">${LAYERS.map(([k, l]) => `<button class="hl-btn" data-layer="${k}">${l}</button>`).join("")}</div>` +
+    `<div class="house-walls"><button class="hl-btn" data-walls>${icon("home")}<span>Binnenmuren</span></button></div>`;
 
   /* ---- What is wrong ------------------------------------------------------------ */
   const state = (id) => (Panel.st(id) || {}).state;
@@ -84,7 +85,20 @@
 
   /* ---- Layers -------------------------------------------------------------------- */
   const TONE_RGB = { cold: [0.4, 0.62, 1.0], ok: [0.3, 0.9, 0.5], warn: [1.0, 0.65, 0.25], bad: [1.0, 0.35, 0.3], lamp: [1.0, 0.78, 0.3] };
-  let layer = ["none", "climate", "lights"].includes(Panel.prefs.houseLayer) ? Panel.prefs.houseLayer : "none";
+  let layer = ["none", "climate", "lights"].includes(Panel.prefs.houseLayer) ? Panel.prefs.houseLayer : "climate";
+  /* The inner walls (and the rooms' outlines) can go, for a clear view of the
+   * shell with its windows and doors; a choice kept per tablet. */
+  let innerWalls = Panel.prefs.houseWalls !== false;
+  function renderWalls() {
+    const b = document.querySelector("[data-walls]");
+    if (b) b.classList.toggle("active", innerWalls);
+    if (Panel.house) Panel.house.setInnerWalls(innerWalls);
+  }
+  Panel.defineAction("walls", () => {
+    innerWalls = !innerWalls;
+    Panel.setPref("houseWalls", innerWalls);
+    renderWalls();
+  });
   let raf = 0;
 
   /* A climate card's temperature and humidity as label markup (each in the
@@ -243,6 +257,7 @@
     badge = house.querySelector("[data-robot]");
     labels = house.querySelector("[data-labels]");
     clock();
+    renderWalls();
     render();
   });
   Panel.on("status", (s) => {
