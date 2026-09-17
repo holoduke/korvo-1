@@ -497,7 +497,8 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "tv",         "Samsung TV", "signage_big_ass_tv" },
     { "robot",      "Stofzuiger beneden", "0" },
     { "robot",      "Stofzuiger boven",   "1" },
-    { "pc",         "PC",         "no_defender" },
+    { "pc",         "PC-Defender", "no_defender" },
+    { "pc",         "PC-430",      "garage430" },
 };
 
 /* Sensor cards in the web app's "Sensoren" section (the panel's firmware does

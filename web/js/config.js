@@ -1180,13 +1180,24 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "pc",
-      "label": "PC",
+      "label": "PC-Defender",
       "name": "no_defender",
       "entities": {
         "on": "switch.no_defender",
         "online": "binary_sensor.no_defender_online",
         "wake": "button.no_defender_aanzetten",
         "sleep": "button.no_defender_sleep"
+      }
+    },
+    {
+      "kind": "pc",
+      "label": "PC-430",
+      "name": "garage430",
+      "entities": {
+        "on": "switch.garage430",
+        "online": "binary_sensor.garage430_online",
+        "wake": "button.garage430_aanzetten",
+        "sleep": "button.garage430_sleep"
       }
     }
   ],
