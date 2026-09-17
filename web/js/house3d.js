@@ -237,7 +237,7 @@
     Object.entries(plan.rooms).forEach(([floor, rooms]) => {
       const lv = plan.levels.find((l) => l.floor === floor);
       if (!lv) return;
-      rooms.forEach((r) => e.rect(ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y), L.room));
+      rooms.filter((r) => r.outline !== false).forEach((r) => e.rect(ring(r.x, r.z, r.x + r.w, r.z + r.d, lv.y), L.room));
     });
     /* Inner walls: their outline in their vertical plane. */
     (plan.walls || []).forEach((wl) => {
@@ -402,7 +402,7 @@
     new ResizeObserver(resize).observe(canvas);
 
     /* ---- Camera ------------------------------------------------------------------- */
-    const cam = { yaw: -0.65, pitch: (24 * Math.PI) / 180, zoom: 1 };
+    const cam = { yaw: -0.65, pitch: (24 * Math.PI) / 180, zoom: 0.82 };
     let yawVel = 0;
     let lastTouch = -Infinity;
     let pinch = null; /* two fingers: where they started and the camera then */

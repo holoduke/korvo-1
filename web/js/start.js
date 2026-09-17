@@ -24,9 +24,20 @@
         return;
       }
       setTimeout(seen, HINT_MS);
-      /* For now the front door is lit as a trial of the highlight; it is meant
-       * to follow the door sensor. */
-      house.highlight("voordeur", { colour: [1, 0.3, 0.25], pulse: true });
+      /* A door with a sensor (door: a PANEL_SENSOR_CARDS label) is lit red,
+       * pulsing, while it stands open. */
+      const cards = cfg.sensorCards || [];
+      const doors = (window.HOUSE_PLAN.openings || [])
+        .filter((o) => o.key && o.door)
+        .map((o) => ({ key: o.key, id: (cards.find((c) => c.label === o.door) || { entities: {} }).entities.contact }))
+        .filter((d) => d.id);
+      const syncDoors = () =>
+        doors.forEach((d) => {
+          const open = (Panel.st(d.id) || {}).state === "on";
+          if (open && !house.highlights().includes(d.key)) house.highlight(d.key, { colour: [1, 0.3, 0.25], pulse: true });
+          if (!open) house.clearHighlight(d.key);
+        });
+      Panel.track(doors.map((d) => d.id), syncDoors);
       let swiping = false;
       const onScreen = () => cfg.sections[Panel.section].kind === "start";
       /* While a swipe is under way the page may be partly in view: keep drawing. */

@@ -34,13 +34,15 @@ window.HOUSE_PLAN = {
      * no floor or side lines where the two meet (the ceiling line stays). */
     { name: "aanbouw", x: 0, z: 13.0, w: 5.6, d: 1.9, h: 3.0, joined: true },
   ],
-  /* Rooms per floor: name (as in PANEL_AREAS), and the rectangle they take. */
+  /* Rooms per floor: name (as in PANEL_AREAS), and the rectangle they take;
+   * outline: false leaves the outline undrawn (an open space). */
   rooms: {
     0: [
       { name: "Zitkamer", x: 0, z: 0, w: 5.6, d: 3.6 },
       { name: "Gang", x: 0, z: 3.6, w: 5.6, d: 3.45 },
-      { name: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45 },
-      { name: "Eetkamer", x: 0, z: 10.5, w: 5.6, d: 4.4 },
+      /* One open space: no outline of their own, their walls are in walls. */
+      { name: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45, outline: false },
+      { name: "Eetkamer", x: 0, z: 10.5, w: 5.6, d: 4.4, outline: false },
       { name: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
       /* The garage block's part behind the garage wall, open to the big room:
        * the back sitting room (the Gameroom's lamps are in here too). */
@@ -75,7 +77,8 @@ window.HOUSE_PLAN = {
    * front (at = its z), plane "x" a side wall (at = its x); a is where the
    * opening starts along that wall, y its sill. Read off the plans and the
    * elevations: no openings in the side walls but the front door. A key names
-   * an opening the page can light up (house3d's highlight). */
+   * an opening the page can light up (house3d's highlight); door names the
+   * PANEL_SENSOR_CARDS door sensor on it, which lights it up while open. */
   openings: [
     /* front wall: the sitting room's large window and a smaller one */
     { plane: "z", at: 0, a: 0.45, w: 2.4, y: 0.3, h: 2.3 },
@@ -85,13 +88,13 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 0, a: 4.2, w: 0.9, y: 3.75, h: 1.35 },
     /* the front door: in the side wall, in the recess before the garage door */
     { key: "voordeur", plane: "x", at: 5.6, a: 3.95, w: 1.0, y: 0, h: 2.4 },
-    { key: "garagedeur", plane: "z", at: 4.95, a: 6.0, w: 2.6, y: 0, h: 2.3 },
+    { key: "garagedeur", door: "Garagedeur 2", plane: "z", at: 4.95, a: 6.0, w: 2.6, y: 0, h: 2.3 },
     /* inside: the wide sliding-door openings in the two hall walls, the door
      * from the big room into the garage, and the open passage into the back
      * sitting room */
     { plane: "z", at: 3.6, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
-    { plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
+    { key: "garagedeur_binnen", door: "Garagedeur 1", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
     { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6 },
     /* back */
     { plane: "z", at: 13.0, a: 1.15, w: 1.5, y: 3.75, h: 1.35 },
