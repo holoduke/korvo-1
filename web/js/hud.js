@@ -95,8 +95,10 @@
     if (!Number.isFinite(t) && !Number.isFinite(h)) return null;
     const tone = Number.isFinite(t) ? Panel.bandTone(Panel.bands.temp, t) : "ok";
     const html =
+      `<span class="hl-vals">` +
       (Number.isFinite(t) ? `<b class="${tone}">${Util.fmt(t, 1)}°</b>` : "") +
-      (Number.isFinite(h) ? `<i class="${Panel.bandTone(Panel.bands.hum, h)}">${Math.round(h)}%</i>` : "");
+      (Number.isFinite(h) ? `<i class="${Panel.bandTone(Panel.bands.hum, h)}">${Math.round(h)}%</i>` : "") +
+      `</span><span class="hl-name">${esc(card.label)}</span>`;
     return { tone, html };
   }
   /* The room's reading for the layer, or null when it has none. */
@@ -108,7 +110,7 @@
     if (layer === "lights") {
       const on = r.lights.filter((id) => state(id) === "on").length;
       if (!on) return null;
-      return { tone: "lamp", html: `<b class="lamp">${on} aan</b>`, alpha: 0.07 + 0.2 * Math.min(1, on / Math.max(3, r.lights.length)) };
+      return { tone: "lamp", html: `<span class="hl-vals"><b class="lamp">${on} aan</b></span><span class="hl-name">${esc(r.name)}</span>`, alpha: 0.07 + 0.2 * Math.min(1, on / Math.max(3, r.lights.length)) };
     }
     return null;
   }
