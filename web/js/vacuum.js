@@ -139,46 +139,17 @@
     Object.entries(CHOICES[name].options).map(([value, l]) => `<button class="vchip" data-vac="choice" data-choice="${name}" data-opt="${value}">${l}</button>`).join("") +
     `</div>`;
 
-  /* The rooms as the floor plan (js/house-plan.js), seen from above with
-   * the street on the left: each room's tile sits where the room is, in
-   * percentages of the floor's extent. Only when every room of the robot has
-   * a room on the plan (by name, or the plan room's robotRoom). */
-  function planLayout() {
-    const rooms = ((window.HOUSE_PLAN || {}).rooms || {})[vac.floor] || [];
-    const of = (r) => rooms.find((p) => p.name === r.label || p.robotRoom === r.label);
-    if (!vac.rooms.length || !vac.rooms.every(of)) return null;
-    const boxes = vac.rooms.map(of);
-    /* A grid whose lines are the rooms' walls: columns along the depth of the
-     * house (the street on the left), rows across it. Every room spans the
-     * cells it covers, and the grid's gap keeps them apart evenly. */
-    const lines = (vals) => [...new Set(vals.map((v) => Math.round(v * 100) / 100))].sort((a, b) => a - b);
-    const cols = lines(boxes.flatMap((b) => [b.z, b.z + b.d]));
-    const rows = lines(boxes.flatMap((b) => [b.x, b.x + b.w]));
-    const track = (ls) => ls.slice(1).map((v, i) => `${(v - ls[i]).toFixed(2)}fr`).join(" ");
-    const span = (ls, a, b) => `${ls.indexOf(Math.round(a * 100) / 100) + 1} / ${ls.indexOf(Math.round(b * 100) / 100) + 1}`;
-    return {
-      ar: ((cols[cols.length - 1] - cols[0]) / (rows[rows.length - 1] - rows[0])).toFixed(3),
-      cols: track(cols),
-      rows: track(rows),
-      at(r) {
-        const b = of(r);
-        return `grid-column:${span(cols, b.z, b.z + b.d)};grid-row:${span(rows, b.x, b.x + b.w)}`;
-      },
-    };
-  }
-  const planned = planLayout();
-
   function build(panel) {
     root = panel.querySelector(".vp");
     root.innerHTML =
       `<div class="vs-body">` +
       `<section class="vs-map">` +
       Panel.robotHeroHtml(vac.vacuum, photoLabel) +
-      `<div class="vs-rooms${planned ? " plan" : ""}"${planned ? ` style="--ar:${planned.ar};--cols:${planned.cols};--rows:${planned.rows}"` : ""}>` +
+      `<div class="vs-rooms" style="--n:${Math.ceil(vac.rooms.length / 2)}">` +
       vac.rooms
         .map(
           (r) =>
-            `<button class="vs-room" data-vac="room" data-room="${r.id}"${planned ? ` style="${planned.at(r)}"` : ""}><span class="vs-rname">${r.label}</span>` +
+            `<button class="vs-room" data-vac="room" data-room="${r.id}"><span class="vs-rname">${r.label}</span>` +
             `<span class="vs-pct"></span>` +
             `<span class="vs-rlast">${icon("clock")}<span></span></span><span class="vs-rplan"></span><i class="vs-sweep"></i><i class="vs-prog"><b></b></i></button>`
         )
