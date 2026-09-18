@@ -153,8 +153,10 @@
     else if (el < -6) house.setMood([0.55, 0.7, 1.0], 0.35); /* night: cool */
     else if (el < 8) house.setMood([1.0, 0.62, 0.3], 0.5 * (1 - Math.max(0, el) / 8)); /* golden hour: warm */
     else house.setMood([1, 1, 1], 0);
-    const w = state(cfg.weather) || "";
-    house.setRain(/rainy|pouring|hail|snowy/.test(w));
+    /* Rain: the radar over the house (mm/h, the next minutes) when there is
+     * such a sensor; the weather entity's condition (a station's) only without it. */
+    const mm = Panel.num((cfg.health || {}).rain);
+    house.setRain(Number.isFinite(mm) ? mm >= 0.25 : /rainy|pouring|hail|snowy/.test(state(cfg.weather) || ""));
   }
 
   /* ---- Layers -------------------------------------------------------------------- */
@@ -437,6 +439,7 @@
       ...rooms.map((r) => r.presence),
       (cfg.health || {}).zigbee,
       (cfg.health || {}).internet,
+      (cfg.health || {}).rain,
       SUN,
       cfg.weather,
     ].filter(Boolean),

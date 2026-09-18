@@ -513,6 +513,9 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
  * bridge and the internet connection, as Home Assistant reports them. */
 #define PANEL_ZIGBEE_BRIDGE "binary_sensor.zigbee2mqtt_bridge_connection_state"
 #define PANEL_INTERNET      "binary_sensor.internetbox_wan_status"
+/* Rain over the house right now: Buienradar's radar nowcast at the house's
+ * coordinates (mm/h over the next 10 minutes), not a weather station's condition. */
+#define PANEL_RAIN_NOW      "sensor.buienradar_precipitation_forecast_average"
 
 /* Sensor cards in the web app's "Sensoren" section (the panel's firmware does
  * not show them): kind selects which entities a device has, name is the
