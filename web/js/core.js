@@ -141,8 +141,8 @@
   };
 
   /* ---- Overlays ------------------------------------------------------------------- */
-  const OVERLAYS = ["popup", "climate", "settings", "plan", "saver"];
-  const DIALOGS = ["popup", "climate", "settings", "plan"]; /* the overlays a tap or Escape closes */
+  const OVERLAYS = ["popup", "room", "climate", "settings", "plan", "saver"];
+  const DIALOGS = ["popup", "room", "climate", "settings", "plan"]; /* the overlays a tap or Escape closes */
   Panel.overlayOpen = () => OVERLAYS.some((id) => !$(id).hidden);
   const closeTimers = new Map(); /* overlay -> the timer that hides it after its closing animation */
   Panel.openOverlay = function (el) {

@@ -23,7 +23,7 @@
     ["lights", "Lampen"],
   ];
   const html = () =>
-    `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-rows" data-hud-rows></div><div class="hud-events" data-hud-events></div></div>` +
+    `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-watch" data-hud-watch></div><div class="hud-rows" data-hud-rows></div><div class="hud-events" data-hud-events></div></div>` +
     `<div class="house-robot" data-robot hidden><span class="hr-icon">${icon("vacuum")}</span><span class="hr-text"><b data-robot-label></b><span data-robot-where></span></span></div>` +
     `<div class="house-labels" data-labels></div>` +
     `<div class="house-layers">${LAYERS.map(([k, l]) => `<button class="hl-btn" data-layer="${k}">${l}</button>`).join("")}</div>` +
@@ -118,7 +118,9 @@
           ...(r.tab ? tabLights(r.tab) : []),
         ]),
       ].filter((id) => id.startsWith("light."));
-      return { floor, name: r.name, card, centre: [r.x + r.w / 2, 0, r.z + r.d / 2], lights };
+      const presenceCard = r.presence ? (cfg.sensorCards || []).find((c) => c.label === r.presence) : null;
+      const presence = presenceCard ? presenceCard.entities.presence || presenceCard.entities.occupancy : null;
+      return { floor, name: r.name, card, presence, centre: [r.x + r.w / 2, 0, r.z + r.d / 2], lights };
     })
   );
   rooms.forEach((r) => {
@@ -198,6 +200,8 @@
     if (house) house.clearTints();
     labels.innerHTML = "";
     document.querySelectorAll(".house-layers .hl-btn").forEach((b) => b.classList.toggle("active", b.dataset.layer === layer));
+    /* Someone in a room: its floor shows a faint white, whatever the layer. */
+    if (house) rooms.forEach((r) => r.presence && state(r.presence) === "on" && house.tintRoom(r.floor, r.name, [0.85, 0.92, 1.0], 0.09));
     /* At night the lamps that are on light their rooms, whatever the layer shows. */
     if (house && night() && layer !== "lights") {
       rooms.forEach((r) => {
@@ -266,10 +270,37 @@
     startFollowing();
   }
   Panel.defineAction("layer", (el) => setLayer(el.dataset.layer));
-  /* A tap on the house: the reading nearest to it (within 44 px) opens its
-   * room — the climate popup on Klimaat, the room's lamps on Lampen. */
+  /* A tap on the house opens the room under it: the room whose floor
+   * rectangle (projected) holds the tap, the nearest floor when several do.
+   * A tap on a reading of the Klimaat layer opens that climate popup instead. */
+  function roomAt(x, y) {
+    const house = Panel.house;
+    if (!house) return null;
+    let best = null;
+    for (const r of rooms) {
+      const box = (plan.rooms[r.floor] || []).find((q) => q.name === r.name);
+      const lv = (plan.levels || []).find((l) => l.floor === r.floor);
+      if (!box || !lv) continue;
+      const y0 = lv.y + 0.02;
+      const pts = [[box.x, y0, box.z], [box.x + box.w, y0, box.z], [box.x + box.w, y0, box.z + box.d], [box.x, y0, box.z + box.d]].map(house.project);
+      if (pts.some((p) => !p)) continue;
+      let inside = false; /* even-odd over the projected quad */
+      for (let i = 0, j = 3; i < 4; j = i++) {
+        const a = pts[i], b = pts[j];
+        if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+      }
+      if (!inside) continue;
+      const depth = pts.reduce((s, p) => s + p.depth, 0) / 4;
+      if (!best || depth < best.depth) best = { r, depth };
+    }
+    return best && best.r;
+  }
   function tapped({ x, y }) {
-    if (layer === "none") return;
+    if (layer !== "climate") {
+      const r = roomAt(x, y);
+      if (r) Panel.openRoom(r);
+      return;
+    }
     let best = null;
     for (const el of labels.children) {
       if (el.hidden) continue;
@@ -278,19 +309,15 @@
       const d = Math.hypot(+m[1] - x, +m[2] - y);
       if (d < 44 && (!best || d < best.d)) best = { el, d };
     }
-    if (!best) return;
-    const r = rooms.find((q) => JSON.stringify(q.centre) === best.el.dataset.at);
-    if (layer === "climate") {
-      const card = r ? r.card : climateCards.find((c) => (plan.sensors || []).some((s) => s.climate === c.label && JSON.stringify(s.at) === best.el.dataset.at));
-      const i = card ? (cfg.sensors || []).findIndex((s) => s.temp === card.entities.temperature) : -1;
-      if (i >= 0) Panel.openClimate(i);
+    if (!best) {
+      const r = roomAt(x, y);
+      if (r) Panel.openRoom(r);
       return;
     }
-    if (layer === "lights" && r) {
-      const fi = (cfg.floors || []).findIndex((f) => f.label === r.floor);
-      const area = areasOf(r.floor).find((a) => (plan.rooms[r.floor].find((x) => x.name === r.name).areas || [r.name]).includes(a.label));
-      if (fi >= 0) Panel.goHash(`#verlichting/${fi}${area ? `/${Util.slug(area.label)}` : ""}`);
-    }
+    const r = rooms.find((q) => JSON.stringify(q.centre) === best.el.dataset.at);
+    const card = r ? r.card : climateCards.find((c) => (plan.sensors || []).some((s) => s.climate === c.label && JSON.stringify(s.at) === best.el.dataset.at));
+    const i = card ? (cfg.sensors || []).findIndex((s) => s.temp === card.entities.temperature) : -1;
+    if (i >= 0) Panel.openClimate(i);
   }
 
   /* ---- The robots at work ----------------------------------------------------------- */
@@ -338,6 +365,14 @@
     loadedOnce = Panel.isLoaded();
     renderEvents();
     renderSky();
+    /* The watch: what a glance at night should tell — what is open, what is on, who is in. */
+    const open = contacts.filter((c) => state(c.entities.contact) === "on").map((c) => c.label);
+    const lampsOn = rooms.flatMap((r) => r.lights).filter((id, i, all) => all.indexOf(id) === i && state(id) === "on").length;
+    const here = rooms.filter((r) => r.presence && state(r.presence) === "on").map((r) => r.name);
+    root.querySelector("[data-hud-watch]").innerHTML =
+      `<span class="${open.length ? "warn" : "ok"}">${esc(open.length ? `Open: ${open.join(", ")}` : "Alles dicht")}</span>` +
+      `<span>${lampsOn ? `${lampsOn} lamp${lampsOn === 1 ? "" : "en"} aan` : "Alle lampen uit"}</span>` +
+      (here.length ? `<span>Iemand in ${esc(here.join(", "))}</span>` : "");
     const lines = [connection(), ...problems()];
     root.querySelector("[data-hud-rows]").innerHTML = lines
       .map((v) => `<div class="hud-row"><i class="hud-dot ${v.tone}"></i><span class="hud-v">${esc(v.text)}</span></div>`)
@@ -391,6 +426,7 @@
       ...(cfg.appliances || []).flatMap((a) => Object.values(a.entities)),
       ...robots.flatMap((r) => [r.vacuum, r.problem]),
       ...contacts.map((c) => c.entities.contact),
+      ...rooms.map((r) => r.presence),
       SUN,
       cfg.weather,
     ].filter(Boolean),

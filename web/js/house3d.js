@@ -107,16 +107,26 @@
     }`;
   const COMPOSITE_FS = `
     precision highp float;
-    uniform sampler2D uScene; uniform sampler2D uBloom; uniform vec3 uBg; uniform vec3 uColor; uniform float uBloomK; uniform float uAspect;
+    uniform sampler2D uScene; uniform sampler2D uBloom; uniform vec3 uBg; uniform vec3 uColor; uniform float uBloomK; uniform float uAspect; uniform float uInk;
     varying vec2 vUv;
     void main() {
       vec4 s = texture2D(uScene, vUv);
       vec4 b = texture2D(uBloom, vUv);
       vec2 p = (vUv - vec2(0.5, 0.42)) * vec2(uAspect, 1.0);
-      vec3 bg = uBg + uColor * 0.06 * (1.0 - smoothstep(0.0, 0.75, length(p)));
       vec3 light = s.rgb + b.rgb * uBloomK;
       light = 1.0 - exp(-light * 1.25);
-      gl_FragColor = vec4(bg + light, 1.0);
+      if (uInk > 0.5) {
+        /* a light theme: light added to a white page is a white blob, so the
+         * house is drawn as ink instead — the page darkened towards each
+         * line's own colour by how much light there is */
+        float a = clamp(max(light.r, max(light.g, light.b)) * 1.3, 0.0, 1.0);
+        vec3 hue = light / max(max(light.r, max(light.g, light.b)), 0.001);
+        vec3 bg = uBg - uColor * 0.05 * (1.0 - smoothstep(0.0, 0.75, length(p)));
+        gl_FragColor = vec4(mix(bg, hue * 0.5, a), 1.0);
+      } else {
+        vec3 bg = uBg + uColor * 0.06 * (1.0 - smoothstep(0.0, 0.75, length(p)));
+        gl_FragColor = vec4(bg + light, 1.0);
+      }
     }`;
 
   /* ---- Small matrix helpers (column major, as WebGL takes them) ---------------- */
@@ -785,6 +795,7 @@
       gl.uniform1i(compP.u.uBloom, 1);
       gl.activeTexture(gl.TEXTURE0);
       gl.uniform3fv(compP.u.uBg, bg);
+      gl.uniform1f(compP.u.uInk, 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2] > 0.5 ? 1 : 0); /* a light page: ink, not light */
       gl.uniform3fv(compP.u.uColor, accent);
       gl.uniform1f(compP.u.uBloomK, BLOOM);
       gl.uniform1f(compP.u.uAspect, W / H);

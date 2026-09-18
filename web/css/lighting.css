@@ -255,3 +255,15 @@
   .split .tile .t-sub { font-size: 12.5px; }
   .tile.lamp .t-power { width: 38px; height: 38px; }
 }
+
+/* The room overlay: the room's lamps as tiles, its line of facts, on/off for all. */
+.room-box { max-width: 720px; display: flex; flex-direction: column; gap: 14px; }
+.room-box .box-head { flex-wrap: wrap; row-gap: 2px; }
+.room-sub { flex: 1 1 100%; order: 3; font-size: 14px; font-weight: 600; color: var(--text_dim); }
+.room-lamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); grid-auto-rows: 72px; gap: 10px; max-height: 50dvh; overflow-y: auto; }
+.room-lamps .tile { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; border-radius: calc(14px * var(--round)); }
+.room-lamps .tile .t-name { font-size: 17px; }
+.room-lamps .tile .t-sub { font-size: 13px; }
+.room-empty { color: var(--text_dim); font-weight: 600; padding: 8px 2px; }
+.room-actions { display: flex; gap: 10px; }
+.room-actions .ap-btn { flex: 1; }

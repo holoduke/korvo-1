@@ -41,14 +41,15 @@ window.HOUSE_PLAN = {
     /* climate: the PANEL_SENSOR_CARDS climate card that reads in the room (or
      * whose reading it shares: one open space); areas: the PANEL_AREAS rooms
      * whose lamps are in it (its own name when left out); tab: a lighting tab
-     * whose lamps are all in it; robotRoom: the robot's name for it. */
+     * whose lamps are all in it; robotRoom: the robot's name for it; presence:
+   * the presence or motion card in the room (lights its floor). */
     0: [
       { name: "Gameroom", climate: "Voorkamer", x: 0, z: 0, w: 5.6, d: 3.6 },
-      { name: "Gang", x: 0, z: 3.6, w: 5.6, d: 3.45 },
+      { name: "Gang", presence: "Gang beneden", x: 0, z: 3.6, w: 5.6, d: 3.45 },
       /* One open space: no outline of their own, their walls are in walls. */
       { name: "Keuken", climate: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45, outline: false },
       { name: "Eetkamer", climate: "Keuken", areas: ["Eetkamer", "Zitkamer"], x: 0, z: 10.5, w: 5.6, d: 4.4, outline: false },
-      { name: "Garage", climate: "Garage", tab: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
+      { name: "Garage", climate: "Garage", presence: "Garage", tab: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
       /* The garage block's part behind the garage wall, open to the big room:
        * the back sitting room (the Gameroom's lamps are in here too). */
       { name: "Zitk. achter", climate: "Zitkamer achter", robotRoom: "Zitkamer achter", x: 5.6, z: 12.7, w: 3.75, d: 4.7 },

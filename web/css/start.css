@@ -129,3 +129,9 @@ body.saver-house .house-layers, body.saver-house .house-walls { opacity: 0; poin
 .hud-ev.warn span:last-child { color: var(--warn); }
 .hud-ev.bad span:last-child { color: var(--bad); }
 .hud-ev:first-child span:last-child { color: var(--text); }
+
+/* The night watch: shown with the clock while the house is the screensaver. */
+.hud-watch { display: none; flex-direction: column; gap: 2px; margin: 2px 0 10px; font-size: 12px; letter-spacing: 0.1em; color: var(--text); }
+.hud-watch .ok { color: var(--ok); }
+.hud-watch .warn { color: var(--warn); }
+body.saver-house .hud-watch { display: flex; }
