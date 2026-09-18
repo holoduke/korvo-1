@@ -20,7 +20,7 @@
 .hud {
   position: absolute; left: 18px; top: 16px; max-width: min(46vw, 420px);
   padding: 4px 0 4px 14px; border-left: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.5;
   color: var(--text_dim); pointer-events: none; font-variant-numeric: tabular-nums;
 }
@@ -43,7 +43,7 @@ body.saver-house .hud-clock { display: block; }
 /* A robot at work: the badge in the other corner, its ring breathing. */
 .house-robot {
   position: absolute; right: 18px; top: 14px; display: flex; align-items: center; gap: 12px;
-  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
   letter-spacing: 0.1em; text-transform: uppercase; pointer-events: none; text-align: right; flex-direction: row-reverse;
 }
 .hr-icon {
@@ -64,18 +64,18 @@ body.saver-house .hud-clock { display: block; }
  * rooms' readings floating over their floors (placed by the page each frame). */
 .house-layers {
   position: absolute; left: 18px; bottom: 16px; display: flex; gap: 6px; flex-wrap: wrap;
-  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
 }
 .hl-btn {
   appearance: none; border: 1px solid color-mix(in srgb, var(--text_dim) 40%, transparent); background: color-mix(in srgb, var(--tile) 70%, transparent);
   color: var(--text_dim); font: inherit; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
-  padding: 7px 11px; border-radius: 4px; cursor: pointer;
+  padding: 7px 11px; border-radius: calc(4px * var(--round)); cursor: pointer;
 }
 .hl-btn.active { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 /* The inner-walls toggle, in the other corner. */
 .house-walls {
   position: absolute; right: 18px; bottom: 16px;
-  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
 }
 .house-walls .hl-btn { display: flex; align-items: center; gap: 7px; }
 .house-walls .ic { width: 14px; height: 14px; }
@@ -83,7 +83,7 @@ body.saver-house .hud-clock { display: block; }
 .house-label {
   position: absolute; left: 0; top: 0; transform: translate(-1000px, -1000px);
   display: flex; flex-direction: column; align-items: center; gap: 1px; margin: -16px 0 0 0; translate: -50% 0;
-  font-family: "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
   font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 0 8px var(--bg), 0 0 3px var(--bg);
 }
 .house-label b { font-size: 14px; font-weight: 600; letter-spacing: 0.04em; }

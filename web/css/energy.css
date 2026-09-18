@@ -12,18 +12,18 @@
 .en-big span { font-size: 18px; font-weight: 700; color: var(--text_dim); }
 .en-sub { font-size: 13px; font-weight: 600; color: var(--text_dim); }
 /* Who uses what share of "nu". */
-.en-share { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.en-share { display: flex; gap: 2px; height: 12px; border-radius: calc(6px * var(--round)); overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
 .en-share i { flex-basis: 0; min-width: 4px; }
 .en-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; font-weight: 600; }
 .en-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.en-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.en-legend i { width: 10px; height: 10px; border-radius: calc(3px * var(--round)); flex: none; }
 .en-legend b { font-variant-numeric: tabular-nums; }
 .en-legend .idle { color: var(--text_dim); }
 
 /* Smart meter */
 .en-grid.missing { background: none; box-shadow: none; outline: 2px dashed color-mix(in srgb, var(--text_dim) 35%, transparent); outline-offset: -2px; }
 .en-empty { display: flex; align-items: flex-start; gap: 14px; }
-.en-empty-icon { flex: none; width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; font-size: 22px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.en-empty-icon { flex: none; width: 44px; height: 44px; border-radius: calc(13px * var(--round)); display: grid; place-items: center; font-size: 22px; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .en-empty b { font-size: 18px; }
 .en-empty p { margin: 6px 0 0; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--text_dim); }
 .en-flow { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -35,7 +35,7 @@
 .en-phases { display: grid; gap: 6px; }
 .en-phase { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .en-phase small { margin-left: 6px; font-weight: 600; color: var(--text_dim); }
-.en-bar { height: 8px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
+.en-bar { height: 8px; border-radius: calc(4px * var(--round)); overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
 .en-bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.6s var(--ease-out); }
 .en-meter { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
 .en-meter b { color: var(--text); font-variant-numeric: tabular-nums; }
@@ -43,7 +43,7 @@
 /* Today per device */
 .en-list { display: flex; flex-direction: column; gap: 7px; margin: 2px 0 0; padding: 0; list-style: none; }
 .en-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
-.en-list i { width: 10px; height: 10px; border-radius: 3px; }
+.en-list i { width: 10px; height: 10px; border-radius: calc(3px * var(--round)); }
 .en-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .en-list b { font-variant-numeric: tabular-nums; }
 

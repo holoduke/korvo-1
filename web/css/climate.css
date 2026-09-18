@@ -12,7 +12,7 @@
 .clim-range .part { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .clim-range .k { font-weight: 700; color: var(--text); }
 /* Legend mark: a short stretch of the series' line, solid or dashed. */
-.lg { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--c, var(--text)); border-radius: 2px; flex: none; }
+.lg { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--c, var(--text)); border-radius: calc(2px * var(--round)); flex: none; }
 .lg.dashed { border-top-style: dashed; border-top-width: 2.5px; }
 .clim-advice { font-size: 18px; margin-top: 6px; display: flex; gap: 8px; align-items: center; }
 .clim-advice.ok { color: var(--ok); }
@@ -20,7 +20,7 @@
 .clim-advice.dim { color: var(--text_dim); }
 
 .clim-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
-.stat { background: var(--tile_off); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.stat { background: var(--tile_off); border-radius: calc(12px * var(--round)); padding: 8px 10px; min-width: 0; }
 .stat-v { font-size: 22px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: color 0.4s; }
 .stat-v small { font-size: 0.5em; font-weight: 600; margin-left: 2px; opacity: 0.85; }
 .stat-l { font-size: 13px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

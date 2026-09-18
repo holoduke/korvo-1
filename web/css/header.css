@@ -32,7 +32,7 @@
 /* Divider spacing scales with the width, like --hdr-gap. */
 .rule { width: 1px; height: 48px; background: var(--tile); margin: 0 clamp(5px, 1.2vw - 8px, 14px); flex: none; }
 .sensors { display: flex; gap: var(--hdr-gap); align-items: center; }
-.sensor-col { padding: 2px; border-radius: 10px; transition: background-color 0.15s; }
+.sensor-col { padding: 2px; border-radius: calc(10px * var(--round)); transition: background-color 0.15s; }
 .sensor-col:active { background: color-mix(in srgb, var(--tile) 70%, transparent); }
 .sensor-col.stale { opacity: 0.55; }
 .s-name { font-size: 13px; color: var(--text_dim); font-weight: 600; display: flex; align-items: center; gap: 2px; white-space: nowrap; }
@@ -46,7 +46,7 @@
 .wx .sun { position: absolute; left: 1px; top: 7px; width: 20px; height: 20px; border-radius: 50%; background: #ffcf4d; }
 .wx .cloud { position: absolute; left: 0; bottom: 0; width: 36px; height: 19px; color: var(--text_dim); }
 .wx .cloud i { position: absolute; background: currentColor; display: block; }
-.wx .cloud i:nth-child(1) { left: 1px; bottom: 0; width: 34px; height: 10px; border-radius: 5px; }
+.wx .cloud i:nth-child(1) { left: 1px; bottom: 0; width: 34px; height: 10px; border-radius: calc(5px * var(--round)); }
 .wx .cloud i:nth-child(2) { left: 4px; bottom: 2px; width: 14px; height: 14px; border-radius: 50%; }
 .wx .cloud i:nth-child(3) { left: 11.5px; bottom: 1px; width: 17px; height: 17px; border-radius: 50%; }
 
@@ -89,7 +89,7 @@
 .status { width: 14px; height: 14px; border-radius: 50%; background: var(--bad); margin-left: 10px; transition: background-color 0.3s; }
 .status.connecting { background: var(--warn); animation: pulse 1.2s ease-in-out infinite alternate; }
 .status.connected { background: var(--ok); }
-.gear { width: 44px; height: 44px; border-radius: 12px; margin-left: 8px; font-size: 30px; display: grid; place-items: center; transition: background-color 0.15s; }
+.gear { width: 44px; height: 44px; border-radius: calc(12px * var(--round)); margin-left: 8px; font-size: 30px; display: grid; place-items: center; transition: background-color 0.15s; }
 .gear:active { background: color-mix(in srgb, var(--tile) 30%, transparent); }
 
 /* ---- Tab bar ----------------------------------------------------------------- */
@@ -140,7 +140,7 @@
   bottom: 0;
   height: 3px;
   background: var(--accent);
-  border-radius: 2px;
+  border-radius: calc(2px * var(--round));
   will-change: transform;
 }
 

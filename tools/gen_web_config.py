@@ -500,9 +500,21 @@ def parse_themes(src):
         name = re.search(r'\.name\s*=\s*"([^"]+)"', block).group(1)
         colours = {k: "#%06x" % int(v, 16)
                    for k, v in re.findall(r"\.(\w+)\s*=\s*0x([0-9a-fA-F]{6})", block)}
+        edge = colours.pop("edge", None)
         if len(colours) != 16:
             fail(f"theme {name}: expected 16 colours, found {len(colours)}")
-        themes.append({"name": name, **colours})
+        theme = {"name": name, **colours}
+        # the web panel's look beyond colour: typeface, display face, roundness, edge line
+        for key in ("font", "display"):
+            m = re.search(r"\.%s\s*=\s*\"([^\"]+)\"" % key, block)
+            if m:
+                theme[key] = m.group(1)
+        m = re.search(r"\.round\s*=\s*(\d+)", block)
+        if m and int(m.group(1)) != 100:
+            theme["round"] = int(m.group(1))
+        if edge:
+            theme["edge"] = edge
+        themes.append(theme)
     if not themes:
         fail("PANEL_THEMES is empty")
     return themes

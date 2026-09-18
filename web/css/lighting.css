@@ -20,7 +20,7 @@
 .tile .t-icon { color: var(--text_dim); transition: color 0.25s; }
 /* A lamp tile's two buttons: the power button on the left, the name (opens
  * the popup) filling the rest. */
-.tile.lamp .t-power { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, currentColor 9%, transparent); transition: background-color 0.25s, transform 0.12s; }
+.tile.lamp .t-power { flex: none; width: 44px; height: 44px; border-radius: calc(12px * var(--round)); display: grid; place-items: center; background: color-mix(in srgb, currentColor 9%, transparent); transition: background-color 0.25s, transform 0.12s; }
 .tile.lamp.on .t-power { background: rgba(255, 255, 255, 0.18); }
 .tile.lamp .t-power.pressed { transform: scale(0.9); }
 .tile.lamp .t-text { flex: 1; align-self: stretch; justify-content: center; text-align: left; }
@@ -32,13 +32,13 @@
 /* The offer to save a changed scene, above the bottom row. */
 .scene-save {
   position: absolute; left: 50%; bottom: calc(var(--row-h) + 12px); transform: translateX(-50%); z-index: 30;
-  display: flex; align-items: center; gap: 14px; max-width: calc(100% - 2 * var(--pad)); padding: 10px 10px 10px 18px; border-radius: 16px;
+  display: flex; align-items: center; gap: 14px; max-width: calc(100% - 2 * var(--pad)); padding: 10px 10px 10px 18px; border-radius: calc(16px * var(--round));
   background: color-mix(in srgb, var(--toolbar) 92%, #000); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), inset 0 0 0 1px color-mix(in srgb, var(--text_dim) 25%, transparent);
   font-size: 15px; font-weight: 600; animation: pop-in 0.25s ease-out;
 }
 .scene-save .ss-text { min-width: 0; }
 .scene-save .ss-btns { display: flex; gap: 8px; flex: none; }
-.ss-btn { height: 40px; padding: 0 18px; border-radius: 11px; font-weight: 700; background: var(--tile); transition: transform 0.12s; }
+.ss-btn { height: 40px; padding: 0 18px; border-radius: calc(11px * var(--round)); font-weight: 700; background: var(--tile); transition: transform 0.12s; }
 .ss-btn.primary { background: var(--accent); color: var(--on_text); }
 .ss-btn.pressed { transform: scale(0.95); }
 .tile .t-text { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
@@ -91,7 +91,7 @@
 .split-list::-webkit-scrollbar { display: none; }
 .split .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 76px; gap: 10px; align-content: start; }
 .split.no-scenes .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.split .tile { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; }
+.split .tile { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; border-radius: calc(14px * var(--round)); }
 .split .tile .t-icon { font-size: 24px; }
 .split .tile .t-name { font-size: 18px; }
 .split .tile .t-sub { font-size: 14px; }
@@ -104,7 +104,7 @@
   min-width: 0;
 }
 .chip, .sq, .allbtn, .pill {
-  border-radius: 14px;
+  border-radius: calc(14px * var(--round));
   background: var(--tile);
   display: flex;
   align-items: center;
@@ -156,8 +156,8 @@
 }
 .vslider.dim { opacity: 0; pointer-events: none; }
 .vs-label { height: 24px; font-size: 18px; font-weight: 600; color: var(--text_dim); font-variant-numeric: tabular-nums; }
-.vs-track { position: relative; flex: 1; width: 56px; border-radius: 14px; background: var(--tile); overflow: hidden; cursor: ns-resize; }
-.vs-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--tile_on); border-radius: 14px; }
+.vs-track { position: relative; flex: 1; width: 56px; border-radius: calc(14px * var(--round)); background: var(--tile); overflow: hidden; cursor: ns-resize; }
+.vs-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--tile_on); border-radius: calc(14px * var(--round)); }
 .vs-knob { position: absolute; left: 5px; right: 5px; height: 46px; border-radius: 50%; background: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); transform: translateY(50%); }
 .vslider.dragging .vs-knob { box-shadow: 0 0 0 6px color-mix(in srgb, var(--text) 20%, transparent), 0 2px 8px rgba(0, 0, 0, 0.35); }
 
@@ -185,7 +185,7 @@
   padding: 16px;
 }
 /* Drawer tiles: the icon on top, the name and state at the bottom. */
-.drawer .tile { border-radius: 14px; padding: 12px; }
+.drawer .tile { border-radius: calc(14px * var(--round)); padding: 12px; }
 .drawer .tile .t-text { margin-top: auto; flex: 1; justify-content: flex-end; align-self: stretch; }
 .drawer .tile .t-icon { font-size: 18px; }
 .drawer .tile .t-name { font-size: 18px; }
@@ -198,18 +198,18 @@
 /* The lamp's name, editable: saved to Home Assistant. */
 .popup-name { display: flex; gap: 8px; }
 .popup-name input {
-  flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; color: var(--text);
+  flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: calc(10px * var(--round)); color: var(--text);
   background: color-mix(in srgb, var(--tile) 80%, transparent); border: 1px solid color-mix(in srgb, var(--text_dim) 35%, transparent);
 }
 .popup-name input:focus { outline: none; border-color: var(--accent); }
 .popup-name button {
-  font: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 10px; border: 0; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: calc(10px * var(--round)); border: 0; cursor: pointer;
   background: var(--accent); color: #111;
 }
 .popup-name button:disabled { opacity: 0.35; cursor: default; }
 .field-label { font-size: 18px; font-weight: 500; color: var(--text_dim); padding-top: 6px; }
-.hslider { position: relative; height: 40px; border-radius: 20px; background: var(--tile_off); touch-action: none; cursor: ew-resize; margin: 2px 0 6px; }
-.hs-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 20px; background: var(--tile_on); }
+.hslider { position: relative; height: 40px; border-radius: calc(20px * var(--round)); background: var(--tile_off); touch-action: none; cursor: ew-resize; margin: 2px 0 6px; }
+.hs-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: calc(20px * var(--round)); background: var(--tile_on); }
 .hs-knob { position: absolute; top: 50%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; background: var(--text); transform: translateY(-50%); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
 .hslider.hue { background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
 .hslider.warm { background: linear-gradient(90deg, #ffb46b, #cfe0ff); }

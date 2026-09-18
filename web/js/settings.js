@@ -10,7 +10,7 @@
         (t, i) =>
           `<button class="theme-card${i === Panel.prefs.theme ? " selected" : ""}" data-theme="${i}" style="background:${t.bg};color:${t.text}">` +
           `<span class="tc-dots"><i style="background:${t.tile}"></i><i style="background:${t.tile_on}"></i><i style="background:${t.scene_on}"></i><i style="background:${t.accent}"></i></span>` +
-          `<span class="tc-name">${t.name}</span></button>`
+          `<span class="tc-name"${t.font ? ` style="font-family:'${t.font}'"` : ""}>${t.name}</span></button>`
       )
       .join("");
     const seg = (el, labels, sel, key) =>

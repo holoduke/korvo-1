@@ -4,6 +4,13 @@
  * This file: tokens, the app's frame, pages and overlays. */
 
 :root {
+  /* A theme's look beyond colour (core.js sets these from themes.h): its
+   * typeface and display face, how round corners are (1 = as drawn), and a
+   * line along the edge of tiles and cards (transparent = none). */
+  --font-ui: "Montserrat";
+  --font-display: "Orbitron";
+  --round: 1;
+  --edge: transparent;
   --ok: #4dd06a;
   --warn: #e0a555;
   --bad: #e05555;
@@ -18,7 +25,7 @@
   --radius: 18px;
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-in: cubic-bezier(0.55, 0.06, 0.68, 0.19);
-  font-family: "Montserrat", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 @media (max-width: 760px) {
@@ -109,15 +116,15 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 }
 .overlay.closing { animation: fade-out 0.16s ease-in forwards; }
 .overlay.closing .box { animation: pop-out 0.16s ease-in forwards; }
-.box { background: var(--tile); border-radius: 20px; padding: 24px; width: 100%; animation: pop-in 0.22s var(--ease-out); max-height: calc(100dvh - 32px); overflow: auto; }
+.box { background: var(--tile); border-radius: calc(20px * var(--round)); padding: 24px; width: 100%; animation: pop-in 0.22s var(--ease-out); max-height: calc(100dvh - 32px); overflow: auto; }
 .box-head { display: flex; align-items: center; gap: 12px; margin: -6px -6px 12px 0; }
 .box-title { font-size: 24px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.close-btn { width: 44px; height: 44px; border-radius: 12px; background: var(--tile_off); font-size: 18px; display: grid; place-items: center; flex: none; }
+.close-btn { width: 44px; height: 44px; border-radius: calc(12px * var(--round)); background: var(--tile_off); font-size: 18px; display: grid; place-items: center; flex: none; }
 .close-btn:active { transform: scale(0.94); }
 /* ---- Toast ---------------------------------------------------------------------- */
 .toast {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 20px); z-index: 70;
-  max-width: min(560px, calc(100vw - 32px)); padding: 12px 18px; border-radius: 14px;
+  max-width: min(560px, calc(100vw - 32px)); padding: 12px 18px; border-radius: calc(14px * var(--round));
   font-size: 15px; font-weight: 600; line-height: 1.35; color: #fff;
   background: color-mix(in srgb, var(--bad) 82%, #000); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   opacity: 0; transform: translate(-50%, 16px); pointer-events: none;
@@ -127,4 +134,10 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 
 @media (max-width: 760px) {
   .box-title { white-space: normal; font-size: 18px; line-height: 1.25; }
+}
+
+/* The theme's edge line, on everything that reads as a surface. */
+.tile, .chip, .sq, .allbtn, .pill, .ap-item, .ap-card, .ap-btn, .ap-chip, .dc-card, .dc-panel, .box, .ss-btn, .rail-btn, .theme-card, .hl-btn, .vs-rec {
+  outline: 1px solid var(--edge);
+  outline-offset: -1px;
 }

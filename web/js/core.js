@@ -58,7 +58,16 @@
   Panel.applyTheme = function (idx) {
     const t = cfg.themes[idx] || cfg.themes[0];
     const root = document.documentElement.style;
-    for (const [k, v] of Object.entries(t)) if (k !== "name") root.setProperty("--" + k, v);
+    /* Beyond colour: the typefaces, corner roundness and edge line, with the
+     * stylesheet's own defaults when a theme leaves them out. */
+    const LOOK = { font: "--font-ui", display: "--font-display", round: "--round", edge: "--edge" };
+    Object.values(LOOK).forEach((v) => root.removeProperty(v));
+    for (const [k, v] of Object.entries(t)) {
+      if (k === "name") continue;
+      if (k === "font" || k === "display") root.setProperty(LOOK[k], `"${v}"`);
+      else if (k === "round") root.setProperty(LOOK[k], String(v / 100));
+      else root.setProperty(k === "edge" ? LOOK.edge : "--" + k, v);
+    }
     document.querySelector('meta[name="theme-color"]').setAttribute("content", t.toolbar);
     /* Light or dark form controls and scrollbars follow the background's brightness. */
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(t.bg.slice(i, i + 2), 16) / 255);
