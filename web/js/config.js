@@ -720,6 +720,11 @@ window.PANEL_CONFIG = {
       "tab": 2,
       "label": "2",
       "name": "Zolder"
+    },
+    {
+      "tab": 3,
+      "label": "G",
+      "name": "Garage"
     }
   ],
   "sections": [
@@ -746,12 +751,6 @@ window.PANEL_CONFIG = {
       "kind": "vacuum",
       "icon": "vacuum",
       "tab": null
-    },
-    {
-      "name": "Garage",
-      "kind": "tab",
-      "icon": "garage",
-      "tab": 3
     },
     {
       "name": "Tesla",

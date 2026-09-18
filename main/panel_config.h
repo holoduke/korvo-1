@@ -594,6 +594,8 @@ static const panel_floor_t PANEL_FLOORS[] = {
     { "Beneden", "0", "Begane grond" },
     { "Boven",   "1", "1e verdieping" },
     { "Zolder",  "2", "Zolder" },
+    /* The garage's lights as a floor of their own in the rail, below the ground floor. */
+    { "Garage",  "G", "Garage" },
 };
 
 typedef struct {
@@ -606,7 +608,6 @@ static const panel_section_t PANEL_SECTIONS[] = {
     { "Verlichting", "floors", NULL },
     { "Apparaten",   "appliances", NULL },
     { "Schoonmaak",  "vacuum", NULL },
-    { "Garage",      "tab",    "Garage" },
     { "Tesla",       "car",    NULL },
     { "Sensoren",    "sensors", NULL },
     { "Energie",     "energy", NULL },

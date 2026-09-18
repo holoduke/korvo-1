@@ -8,7 +8,10 @@
   const { cfg, $ } = Panel;
 
   Panel.floor = 0; /* index into cfg.floors (0 = begane grond) */
-  Panel.floorOrder = cfg.floors.map((_, i) => i).reverse(); /* display order, top to bottom */
+  /* Display order, top to bottom: the storeys from the top down, then the
+   * floors that are not a storey (the garage) at the bottom. */
+  const storey = (i) => /^\d+$/.test(cfg.floors[i].label);
+  Panel.floorOrder = [...cfg.floors.map((_, i) => i).filter(storey).reverse(), ...cfg.floors.map((_, i) => i).filter((i) => !storey(i))];
   Panel.floorPos = (fi) => Panel.floorOrder.indexOf(fi);
 
   let page = null;
