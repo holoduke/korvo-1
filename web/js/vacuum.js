@@ -148,14 +148,21 @@
     const of = (r) => rooms.find((p) => p.name === r.label || p.robotRoom === r.label);
     if (!vac.rooms.length || !vac.rooms.every(of)) return null;
     const boxes = vac.rooms.map(of);
-    const x0 = Math.min(...boxes.map((b) => b.x)), x1 = Math.max(...boxes.map((b) => b.x + b.w));
-    const z0 = Math.min(...boxes.map((b) => b.z)), z1 = Math.max(...boxes.map((b) => b.z + b.d));
-    const pct = (v) => `${(v * 100).toFixed(2)}%`;
+    /* A grid whose lines are the rooms' walls: columns along the depth of the
+     * house (the street on the left), rows across it. Every room spans the
+     * cells it covers, and the grid's gap keeps them apart evenly. */
+    const lines = (vals) => [...new Set(vals.map((v) => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+    const cols = lines(boxes.flatMap((b) => [b.z, b.z + b.d]));
+    const rows = lines(boxes.flatMap((b) => [b.x, b.x + b.w]));
+    const track = (ls) => ls.slice(1).map((v, i) => `${(v - ls[i]).toFixed(2)}fr`).join(" ");
+    const span = (ls, a, b) => `${ls.indexOf(Math.round(a * 100) / 100) + 1} / ${ls.indexOf(Math.round(b * 100) / 100) + 1}`;
     return {
-      ar: ((z1 - z0) / (x1 - x0)).toFixed(3),
+      ar: ((cols[cols.length - 1] - cols[0]) / (rows[rows.length - 1] - rows[0])).toFixed(3),
+      cols: track(cols),
+      rows: track(rows),
       at(r) {
         const b = of(r);
-        return `left:${pct((b.z - z0) / (z1 - z0))};top:${pct((b.x - x0) / (x1 - x0))};width:${pct(b.d / (z1 - z0))};height:${pct(b.w / (x1 - x0))}`;
+        return `grid-column:${span(cols, b.z, b.z + b.d)};grid-row:${span(rows, b.x, b.x + b.w)}`;
       },
     };
   }
@@ -167,7 +174,7 @@
       `<div class="vs-body">` +
       `<section class="vs-map">` +
       Panel.robotHeroHtml(vac.vacuum, photoLabel) +
-      `<div class="vs-rooms${planned ? " plan" : ""}"${planned ? ` style="--ar:${planned.ar}"` : ""}>` +
+      `<div class="vs-rooms${planned ? " plan" : ""}"${planned ? ` style="--ar:${planned.ar};--cols:${planned.cols};--rows:${planned.rows}"` : ""}>` +
       vac.rooms
         .map(
           (r) =>
