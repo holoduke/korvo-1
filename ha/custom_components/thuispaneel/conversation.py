@@ -1,44 +1,139 @@
-"""De gespreksagent "Thuis": vragen over het huis, beantwoord door een
-taalmodel (xAI) dat een momentopname van het huis meekrijgt — welke lampen aan
-zijn, welke deuren en ramen open, temperaturen, de robots, de apparaten, en
-wat er de laatste uren gebeurde. Het kan niets bedienen: het leest alleen.
+"""De gespreksagent "Thuis": vragen over het huis én de bediening ervan, door
+een taalmodel (xAI) met gereedschap.
+
+Het model krijgt drie soorten gereedschap:
+- de Assist-API van Home Assistant: alles wat aan Assist is blootgesteld
+  (lampen, schakelaars, scènes, media, robots, ...) bedienen en uitlezen;
+- een algemene service-aanroep (elke domein.service, met data en doel), de
+  lijst van services van een domein, en de geschiedenis van een entiteit;
+- de configuratie: YAML-bestanden onder /config lezen en schrijven (behalve
+  secrets.yaml), onderdelen herladen, Home Assistant herstarten.
+
+Bij het schrijven van bestanden en een herstart vraagt het eerst om
+bevestiging (de systeemprompt zegt dat), tenzij de vraag die al inhoudt.
 
 Het paneel praat ermee via conversation/process (agent_id conversation.thuis);
 de Home Assistant-app op een telefoon via Assist, als deze agent daar gekozen
 is."""
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
 from datetime import timedelta
+import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from homeassistant.components import conversation
+from homeassistant.components.recorder import get_instance, history
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, State
-from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er, intent
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import intent, llm
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
+from homeassistant.util.json import json_loads
 
 from .const import CONF_MODEL, CONF_XAI_KEY, DEFAULT_MODEL, DOMAIN, XAI_URL
 
 _LOGGER = logging.getLogger(__name__)
 
+MAX_ROUNDS = 8  # gereedschap-rondes per vraag
 RECENT = timedelta(hours=3)
-MAX_RECENT = 30
-MAX_HISTORY = 8  # beurten uit het gesprek die meegaan
 
-SYSTEM = """Je bent "Thuis", de stem van een woonhuis in Nederland. Je krijgt hieronder
-een momentopname van het huis en wat er de laatste uren gebeurde. Antwoord kort
-en concreet, in het Nederlands (of in het Engels als de vraag Engels is), in
-hooguit twee zinnen, zonder opsommingstekens. Gebruik alleen wat hieronder staat;
-weet je iets niet, zeg dat. Je kunt niets bedienen: wil iemand iets laten doen,
-zeg dan vriendelijk dat dat via het paneel gaat. Getallen met een komma, tijden
-als 14:05."""
+PROMPT = """Je bent "Thuis", de stem van een woonhuis in Nederland, en je hebt het
+huis in handen. Antwoord kort en concreet, in het Nederlands (of in het Engels
+als de vraag Engels is), in hooguit twee zinnen, zonder opsommingstekens.
+Getallen met een komma, tijden als 14:05.
+
+Bedienen: gebruik het gereedschap; zeg daarna in één zin wat je gedaan hebt.
+Weet je een toestand niet zeker, kijk dan eerst (GetLiveContext of de
+geschiedenis) in plaats van te gokken. Een service die niet in de Assist-
+gereedschappen zit roep je aan met call_service (eerst list_services als je
+de naam niet zeker weet).
+
+Configuratie: je mag YAML onder /config lezen en schrijven (automations.yaml,
+scenes.yaml, scripts.yaml, packages/...) en onderdelen herladen of Home
+Assistant herstarten. Voordat je een bestand schrijft of herstart: vat in één
+zin samen wat je gaat doen en vraag om bevestiging — tenzij de vraag zelf al
+"ja", "doe het" of "bevestig" bevat, dan doe je het meteen. Na het schrijven
+van een automation, scene of script herlaad je dat onderdeel.
+
+Wat er de laatste uren gebeurde:
+{recent}"""
+
+CONFIG_DIR = "/config"
+WRITABLE_SUFFIXES = (".yaml", ".yml")
+FORBIDDEN = ("secrets.yaml",)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     async_add_entities([ThuisAgent(entry)])
+
+
+# ---- Het eigen gereedschap ------------------------------------------------------------------
+
+CUSTOM_TOOLS: list[dict[str, Any]] = [
+    {
+        "name": "call_service",
+        "description": "Roept een Home Assistant-service aan (domein.service), met optionele data en doel-entiteiten. Voor alles wat de Assist-gereedschappen niet kunnen.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "domain": {"type": "string"},
+                "service": {"type": "string"},
+                "data": {"type": "object", "description": "service data"},
+                "entity_id": {"type": "array", "items": {"type": "string"}, "description": "doel-entiteiten"},
+            },
+            "required": ["domain", "service"],
+        },
+    },
+    {
+        "name": "list_services",
+        "description": "De services van een domein, met hun velden.",
+        "parameters": {"type": "object", "properties": {"domain": {"type": "string"}}, "required": ["domain"]},
+    },
+    {
+        "name": "entity_history",
+        "description": "De toestanden van een entiteit in de laatste uren (tijd en toestand).",
+        "parameters": {
+            "type": "object",
+            "properties": {"entity_id": {"type": "string"}, "hours": {"type": "number", "description": "standaard 24"}},
+            "required": ["entity_id"],
+        },
+    },
+    {
+        "name": "read_config",
+        "description": "Leest een YAML-bestand onder /config (bijvoorbeeld automations.yaml of packages/garage.yaml).",
+        "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+    },
+    {
+        "name": "write_config",
+        "description": "Schrijft een YAML-bestand onder /config (nooit secrets.yaml). Vraag eerst bevestiging. Herlaad daarna het onderdeel.",
+        "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]},
+    },
+    {
+        "name": "reload",
+        "description": "Herlaadt een onderdeel na een configuratiewijziging: automations, scenes, scripts, templates, of all (alle YAML die herladen kan).",
+        "parameters": {"type": "object", "properties": {"what": {"type": "string", "enum": ["automations", "scenes", "scripts", "templates", "all"]}}, "required": ["what"]},
+    },
+    {
+        "name": "restart_home_assistant",
+        "description": "Herstart Home Assistant (een minuut zonder automatiseringen). Vraag eerst bevestiging.",
+        "parameters": {"type": "object", "properties": {}},
+    },
+]
+CUSTOM_NAMES = {t["name"] for t in CUSTOM_TOOLS}
+
+
+def _config_path(path: str) -> Path:
+    root = Path(CONFIG_DIR).resolve()
+    p = (root / path.lstrip("/")).resolve()
+    if root != p and root not in p.parents:
+        raise ValueError("buiten /config")
+    if p.name in FORBIDDEN or p.suffix not in WRITABLE_SUFFIXES:
+        raise ValueError("alleen YAML-bestanden, niet secrets.yaml")
+    return p
 
 
 class ThuisAgent(conversation.ConversationEntity):
@@ -47,6 +142,7 @@ class ThuisAgent(conversation.ConversationEntity):
     _attr_has_entity_name = True
     _attr_name = "Thuis"
     _attr_should_poll = False
+    _attr_supported_features = conversation.ConversationEntityFeature.CONTROL
 
     def __init__(self, entry: ConfigEntry) -> None:
         self._entry = entry
@@ -59,136 +155,164 @@ class ThuisAgent(conversation.ConversationEntity):
     async def _async_handle_message(self, user_input: conversation.ConversationInput, chat_log: conversation.ChatLog) -> conversation.ConversationResult:
         response = intent.IntentResponse(language=user_input.language)
         try:
-            text = await self._ask(user_input.text, chat_log)
+            text = await self._converse(user_input, chat_log)
         except Exception as err:  # noqa: BLE001 - het antwoord is dan de fout
-            _LOGGER.warning("Thuis kon niet antwoorden: %s", err)
-            response.async_set_error(intent.IntentResponseErrorCode.UNKNOWN, f"Ik kan het nu niet nakijken ({err}).")
+            _LOGGER.warning("Thuis kon niet antwoorden: %s", err, exc_info=True)
+            response.async_set_error(intent.IntentResponseErrorCode.UNKNOWN, f"Ik kan het nu niet ({err}).")
             return conversation.ConversationResult(response=response, conversation_id=chat_log.conversation_id)
-        chat_log.async_add_assistant_content_without_tools(conversation.AssistantContent(agent_id=self.entity_id, content=text))
         response.async_set_speech(text)
-        return conversation.ConversationResult(response=response, conversation_id=chat_log.conversation_id)
+        return conversation.ConversationResult(response=response, conversation_id=chat_log.conversation_id, continue_conversation=chat_log.continue_conversation)
 
-    async def _ask(self, question: str, chat_log: conversation.ChatLog) -> str:
+    async def _converse(self, user_input: conversation.ConversationInput, chat_log: conversation.ChatLog) -> str:
         key = self._entry.data.get(CONF_XAI_KEY)
         if not key:
             raise RuntimeError("geen sleutel voor het taalmodel")
-        snapshot = await self.hass.async_add_executor_job(snapshot_of, self.hass)
-        messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM + "\n\n" + snapshot}]
-        # de laatste beurten van dit gesprek, voor "en in de keuken?"
-        turns = [c for c in chat_log.content if getattr(c, "role", "") in ("user", "assistant") and getattr(c, "content", None)]
-        for c in turns[-MAX_HISTORY:]:
-            if c.role == "user" and c.content == question:
-                continue
-            messages.append({"role": c.role, "content": c.content})
-        messages.append({"role": "user", "content": question})
+        recent = await self.hass.async_add_executor_job(recent_events, self.hass)
+        await chat_log.async_provide_llm_data(
+            user_input.as_llm_context(DOMAIN),
+            llm.LLM_API_ASSIST,
+            PROMPT.replace("{recent}", recent or "- niets bijzonders"),
+            user_input.extra_system_prompt,
+        )
+        tools: list[dict[str, Any]] = []
+        if chat_log.llm_api:
+            for tool in chat_log.llm_api.tools:
+                schema = llm.to_openapi(tool.parameters, custom_serializer=chat_log.llm_api.custom_serializer)
+                tools.append({"type": "function", "function": {"name": tool.name, "description": tool.description or "", "parameters": schema}})
+        tools.extend({"type": "function", "function": t} for t in CUSTOM_TOOLS)
+        messages = _messages_of(chat_log.content)
         session = async_get_clientsession(self.hass)
-        async with session.post(
-            XAI_URL,
-            json={"model": self._entry.data.get(CONF_MODEL) or DEFAULT_MODEL, "messages": messages, "temperature": 0.3, "max_tokens": 300},
-            headers={"Authorization": f"Bearer {key}"},
-            timeout=40,
-        ) as res:
-            if res.status != 200:
-                raise RuntimeError(f"taalmodel antwoordt {res.status}")
-            data = await res.json()
-        return (data["choices"][0]["message"]["content"] or "").strip()
+        model = self._entry.data.get(CONF_MODEL) or DEFAULT_MODEL
+        text = ""
+        for _round in range(MAX_ROUNDS):
+            async with session.post(
+                XAI_URL,
+                json={"model": model, "messages": messages, "tools": tools, "tool_choice": "auto", "temperature": 0.2, "max_tokens": 600},
+                headers={"Authorization": f"Bearer {key}"},
+                timeout=60,
+            ) as res:
+                if res.status != 200:
+                    raise RuntimeError(f"taalmodel antwoordt {res.status}: {(await res.text())[:120]}")
+                data = await res.json()
+            msg = data["choices"][0]["message"]
+            text = (msg.get("content") or "").strip()
+            calls = msg.get("tool_calls") or []
+            ha_calls = [c for c in calls if c["function"]["name"] not in CUSTOM_NAMES]
+            own_calls = [c for c in calls if c["function"]["name"] in CUSTOM_NAMES]
+
+            async def stream() -> AsyncGenerator[Any]:
+                yield {"role": "assistant"}
+                if text:
+                    yield {"content": text}
+                inputs = [
+                    llm.ToolInput(id=c["id"], tool_name=c["function"]["name"], tool_args=_args(c), external=c["function"]["name"] in CUSTOM_NAMES)
+                    for c in calls
+                ]
+                if inputs:
+                    yield {"tool_calls": inputs}
+
+            added = [content async for content in chat_log.async_add_delta_content_stream(self.entity_id, stream())]
+            messages.extend(_messages_of(added))
+            for c in own_calls:  # het eigen gereedschap voert de agent zelf uit
+                result = await self._run_tool(c["function"]["name"], _args(c))
+                content = conversation.ToolResultContent(agent_id=self.entity_id, tool_call_id=c["id"], tool_name=c["function"]["name"], tool_result=result)
+                chat_log.async_add_assistant_content_without_tools(content)
+                messages.extend(_messages_of([content]))
+            if not calls:
+                break
+        return text or "Gedaan."
+
+    async def _run_tool(self, name: str, args: dict[str, Any]) -> Any:
+        hass = self.hass
+        try:
+            if name == "call_service":
+                target = {"entity_id": args["entity_id"]} if args.get("entity_id") else None
+                await hass.services.async_call(args["domain"], args["service"], args.get("data") or {}, blocking=True, target=target)
+                return {"ok": True}
+            if name == "list_services":
+                services = hass.services.async_services_for_domain(args["domain"])
+                return {s: list((v.schema.schema.keys() if v.schema and hasattr(v.schema, "schema") else [])) for s, v in services.items()} if services else {"error": "onbekend domein"}
+            if name == "entity_history":
+                hours = float(args.get("hours") or 24)
+                start = dt_util.utcnow() - timedelta(hours=hours)
+                states = await get_instance(hass).async_add_executor_job(
+                    history.state_changes_during_period, hass, start, None, args["entity_id"], True, False, 200
+                )
+                rows = states.get(args["entity_id"], [])
+                return [{"t": s.last_changed.astimezone(dt_util.DEFAULT_TIME_ZONE).strftime("%d-%m %H:%M"), "state": s.state} for s in rows][-80:]
+            if name == "read_config":
+                p = _config_path(args["path"])
+                return {"path": str(p.relative_to(CONFIG_DIR)), "content": await hass.async_add_executor_job(p.read_text)} if p.exists() else {"error": "bestaat niet"}
+            if name == "write_config":
+                p = _config_path(args["path"])
+                content = args["content"]
+                import yaml  # noqa: PLC0415 - alleen hier nodig
+
+                yaml.safe_load(content)  # geen kapotte YAML in /config
+                await hass.async_add_executor_job(p.parent.mkdir, True, True)
+                await hass.async_add_executor_job(p.write_text, content)
+                return {"ok": True, "path": str(p.relative_to(CONFIG_DIR)), "bytes": len(content)}
+            if name == "reload":
+                what = args["what"]
+                calls = {
+                    "automations": ("automation", "reload"),
+                    "scenes": ("scene", "reload"),
+                    "scripts": ("script", "reload"),
+                    "templates": ("template", "reload"),
+                    "all": ("homeassistant", "reload_all"),
+                }
+                domain, service = calls.get(what, calls["all"])
+                await hass.services.async_call(domain, service, {}, blocking=True)
+                return {"ok": True}
+            if name == "restart_home_assistant":
+                hass.async_create_task(hass.services.async_call("homeassistant", "restart", {}))
+                return {"ok": True, "note": "herstart gestart"}
+        except Exception as err:  # noqa: BLE001 - het model krijgt de fout te zien
+            return {"error": str(err)}
+        return {"error": f"onbekend gereedschap {name}"}
 
 
-# ---- De momentopname ------------------------------------------------------------------------
-
-DOOR_CLASSES = {"door", "window", "garage_door", "opening"}
-PRESENCE_CLASSES = {"occupancy", "motion", "presence"}
-SENSOR_CLASSES = {"temperature", "humidity", "carbon_dioxide", "pm25", "battery", "power", "illuminance"}
-UNITS = {"temperature": "°C", "humidity": "%", "carbon_dioxide": "ppm", "pm25": "µg/m³", "battery": "%", "power": "W", "illuminance": "lx"}
-
-
-def _fmt(state: State) -> str:
-    """Een getal met komma en eenheid, of de toestand zelf."""
+def _args(call: dict[str, Any]) -> dict[str, Any]:
+    raw = call["function"].get("arguments") or "{}"
     try:
-        v = float(state.state)
+        parsed = json_loads(raw) if isinstance(raw, str) else raw
     except ValueError:
-        return state.state
-    unit = state.attributes.get("unit_of_measurement") or ""
-    text = f"{v:.1f}".rstrip("0").rstrip(".") if abs(v) < 1000 else f"{v:.0f}"
-    return f"{text.replace('.', ',')} {unit}".strip()
+        parsed = {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
-def snapshot_of(hass: HomeAssistant) -> str:
-    """Het huis in tekst, per ruimte, plus wat de laatste uren veranderde."""
-    ent_reg = er.async_get(hass)
-    dev_reg = dr.async_get(hass)
-    area_reg = ar.async_get(hass)
+def _messages_of(content_list: Any) -> list[dict[str, Any]]:
+    """De inhoud van het gesprekslog als OpenAI-berichten."""
+    out: list[dict[str, Any]] = []
+    for c in content_list:
+        if isinstance(c, conversation.ToolResultContent):
+            out.append({"role": "tool", "tool_call_id": c.tool_call_id, "content": json.dumps(c.tool_result, ensure_ascii=False, default=str)})
+            continue
+        if isinstance(c, conversation.AssistantContent):
+            msg: dict[str, Any] = {"role": "assistant", "content": c.content or ""}
+            if c.tool_calls:
+                msg["tool_calls"] = [
+                    {"id": t.id, "type": "function", "function": {"name": t.tool_name, "arguments": json.dumps(t.tool_args, ensure_ascii=False)}} for t in c.tool_calls
+                ]
+            out.append(msg)
+            continue
+        role = getattr(c, "role", "user")
+        if getattr(c, "content", None):
+            out.append({"role": role, "content": c.content})
+    return out
+
+
+def recent_events(hass: HomeAssistant) -> str:
+    """Deuren, ramen en robots die de laatste uren veranderden, één regel elk."""
     now = dt_util.now()
-
-    def area_of(entity_id: str) -> str:
-        entry = ent_reg.async_get(entity_id)
-        if entry is None:
-            return "Overig"
-        area_id = entry.area_id
-        if not area_id and entry.device_id:
-            device = dev_reg.async_get(entry.device_id)
-            area_id = device.area_id if device else None
-        area = area_reg.async_get_area(area_id) if area_id else None
-        return area.name if area else "Overig"
-
-    rooms: dict[str, list[str]] = {}
-    recent: list[tuple[Any, str]] = []
-    lights_unavailable = 0
-
-    def add(entity_id: str, line: str) -> None:
-        rooms.setdefault(area_of(entity_id), []).append(line)
-
+    rows: list[tuple[Any, str]] = []
     for state in hass.states.async_all():
-        domain = state.domain
-        name = state.name
+        if now - state.last_changed > RECENT:
+            continue
         dc = state.attributes.get("device_class")
-        if domain == "light":
-            if state.state == "unavailable":
-                lights_unavailable += 1
-                continue
-            if "_group" in state.entity_id or state.attributes.get("entity_id"):
-                continue  # groepen niet apart tellen
-            add(state.entity_id, f"lamp {name} {'aan' if state.state == 'on' else 'uit'}")
-        elif domain == "binary_sensor" and dc in DOOR_CLASSES:
-            word = "open" if state.state == "on" else "dicht" if state.state == "off" else state.state
-            add(state.entity_id, f"{name}: {word}")
-            if now - state.last_changed < RECENT and state.state in ("on", "off"):
-                recent.append((state.last_changed, f"{name} {word}"))
-        elif domain == "binary_sensor" and dc in PRESENCE_CLASSES:
-            add(state.entity_id, f"{name}: {'iemand aanwezig' if state.state == 'on' else 'niemand'}")
-        elif domain == "sensor" and dc in SENSOR_CLASSES and state.state not in ("unavailable", "unknown"):
-            if dc == "power" or dc == "battery" or dc == "illuminance":
-                continue  # te veel ruis voor een gesprek
-            add(state.entity_id, f"{name}: {_fmt(state)}")
-        elif domain == "vacuum":
-            words = {"docked": "op het station", "cleaning": "aan het stofzuigen", "returning": "op weg naar het station", "paused": "gepauzeerd", "idle": "staat stil", "error": "storing"}
-            add(state.entity_id, f"robotstofzuiger {name}: {words.get(state.state, state.state)}, accu {state.attributes.get('battery_level', '?')}%")
-            if now - state.last_changed < RECENT:
-                recent.append((state.last_changed, f"{name} {words.get(state.state, state.state)}"))
-        elif domain == "media_player" and state.state == "playing":
-            add(state.entity_id, f"{name} speelt {state.attributes.get('media_artist') or ''} {state.attributes.get('media_title') or ''}".strip())
-        elif domain == "climate":
-            add(state.entity_id, f"thermostaat {name}: {state.state}, doel {state.attributes.get('temperature')}°C, nu {state.attributes.get('current_temperature')}°C")
-        elif domain == "lock":
-            add(state.entity_id, f"slot {name}: {'op slot' if state.state == 'locked' else state.state}")
-        elif domain == "cover":
-            add(state.entity_id, f"{name}: {'open' if state.state == 'open' else 'dicht' if state.state == 'closed' else state.state}")
-        elif domain == "weather":
-            add(state.entity_id, f"weer: {state.state}, {state.attributes.get('temperature')}°C buiten")
-        elif domain in ("switch", "select", "sensor") and any(k in state.entity_id for k in ("wasmachine", "droger", "dishwasher", "oven", "hob")):
-            if dc is None and state.state not in ("unavailable", "unknown") and ("program" in state.entity_id or "operation" in state.entity_id or "remaining" in state.entity_id or "power" in state.entity_id):
-                add(state.entity_id, f"{name}: {state.state}")
-                if now - state.last_changed < RECENT:
-                    recent.append((state.last_changed, f"{name}: {state.state}"))
-
-    lines = [f"Nu: {now.strftime('%A %d %B %Y, %H:%M')}."]
-    if lights_unavailable:
-        lines.append(f"{lights_unavailable} lampen zijn niet bereikbaar (Zigbee).")
-    for area, items in sorted(rooms.items(), key=lambda kv: (kv[0] == "Overig", kv[0])):
-        lines.append(f"\n{area}:")
-        lines.extend(f"- {item}" for item in items[:40])
-    recent.sort(key=lambda r: r[0], reverse=True)
-    if recent:
-        lines.append("\nLaatste uren:")
-        lines.extend(f"- {t.astimezone(dt_util.DEFAULT_TIME_ZONE).strftime('%H:%M')} {text}" for t, text in recent[:MAX_RECENT])
-    return "\n".join(lines)
+        if state.domain == "binary_sensor" and dc in ("door", "window", "garage_door", "opening") and state.state in ("on", "off"):
+            rows.append((state.last_changed, f"{state.name} {'open' if state.state == 'on' else 'dicht'}"))
+        elif state.domain == "vacuum":
+            rows.append((state.last_changed, f"{state.name}: {state.state}"))
+    rows.sort(key=lambda r: r[0], reverse=True)
+    return "\n".join(f"- {t.astimezone(dt_util.DEFAULT_TIME_ZONE).strftime('%H:%M')} {text}" for t, text in rows[:25])
