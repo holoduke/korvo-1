@@ -227,7 +227,18 @@
   function sceneWatts(ti, i) {
     const states = sceneStates.get(cfg.tabs[ti].scenes[i].id);
     if (!states) return null;
-    return Object.entries(states).filter(([id]) => id.startsWith("light.") && !groupMembers.has(id)).reduce((sum, [id, s]) => sum + Panel.lightWatts(id, s), 0);
+    /* a group stored as a whole counts for each of its lamps, once */
+    const seen = new Set();
+    let sum = 0;
+    for (const [id, s] of Object.entries(states)) {
+      if (!id.startsWith("light.")) continue;
+      for (const lamp of expandLights([id])) {
+        if (seen.has(lamp)) continue;
+        seen.add(lamp);
+        sum += Panel.lightWatts(lamp, s);
+      }
+    }
+    return sum;
   }
   const wattsText = (w) => (w === null ? "" : w < 1 ? "0 W" : `≈ ${Math.round(w)} W`);
   function renderSceneWatts() {
