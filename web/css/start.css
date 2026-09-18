@@ -120,3 +120,12 @@ body.saver-house .hud-clock { display: block; }
 .house-layers, .house-walls { transition: opacity 0.6s; }
 body.saver-house .house-layers, body.saver-house .house-walls { opacity: 0; pointer-events: none; }
 .hl-btn { min-height: 38px; }
+
+/* The last few events under the readout, the time in the display face. */
+.hud-events { margin-top: 8px; display: grid; gap: 2px; }
+.hud-ev { display: flex; gap: 10px; align-items: baseline; color: var(--text_dim); text-transform: none; letter-spacing: 0.04em; font-family: var(--font-ui), sans-serif; font-size: 12px; }
+.hud-ev .hud-t { font-family: var(--font-display), "Orbitron", monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--text_dim); opacity: 0.8; }
+.hud-ev.ok span:last-child { color: var(--ok); }
+.hud-ev.warn span:last-child { color: var(--warn); }
+.hud-ev.bad span:last-child { color: var(--bad); }
+.hud-ev:first-child span:last-child { color: var(--text); }

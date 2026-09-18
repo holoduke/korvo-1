@@ -486,6 +486,22 @@
     const idleNow = () => !pinch && !drag && performance.now() - lastTouch > IDLE_MS;
     const finger = (t) => [t.clientX, t.clientY];
     const between = (a, b) => ({ d: Math.hypot(b[0] - a[0], b[1] - a[1]), ang: Math.atan2(b[1] - a[1], b[0] - a[0]), mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2 });
+    /* One finger down and up without moving: a tap, reported with its place
+     * on the canvas (hud.js opens the room under it). */
+    let tapHandler = null;
+    let tapStart = null;
+    function tapDown(x, y) {
+      tapStart = { x, y, t: performance.now() };
+    }
+    function tapUp(x, y) {
+      const s = tapStart;
+      tapStart = null;
+      if (!s || !tapHandler || performance.now() - s.t > 350 || Math.hypot(x - s.x, y - s.y) > 10) return;
+      const r = canvas.getBoundingClientRect();
+      tapHandler({ x: x - r.left, y: y - r.top });
+    }
+    canvas.addEventListener("touchstart", (e) => (e.touches.length === 1 ? tapDown(e.touches[0].clientX, e.touches[0].clientY) : (tapStart = null)), { passive: true });
+    canvas.addEventListener("touchend", (e) => e.changedTouches.length === 1 && !e.touches.length && tapUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
     function pinchStart(e) {
       if (e.touches.length < 2) return;
       Panel.cancelSwipe();
@@ -546,7 +562,13 @@
       drag.lastT = now;
       touched();
     });
-    window.addEventListener("pointerup", () => (drag = null));
+    window.addEventListener("pointerup", (e) => {
+      if (drag && e.pointerType === "mouse" && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 6 && performance.now() - drag.lastT < 350 && tapHandler) {
+        const r = canvas.getBoundingClientRect();
+        tapHandler({ x: e.clientX - r.left, y: e.clientY - r.top });
+      }
+      drag = null;
+    });
     canvas.addEventListener(
       "wheel",
       (e) => {
@@ -571,11 +593,47 @@
     let frames = 0;
     let accent = [0.3, 0.85, 1.0];
     let bg = [0.06, 0.07, 0.1];
+    let themeAccent = accent;
+    /* The time of day leans on the accent: towards a warm orange at golden
+     * hour, towards a cool blue at night (k = how far, 0 = the theme's own). */
+    let mood = { col: [1, 1, 1], k: 0 };
+    const applyMood = () => {
+      accent = themeAccent.map((c, i) => c * (1 - mood.k) + mood.col[i] * mood.k);
+    };
     const readColours = () => {
-      accent = colour(Panel.cssVar("--accent"), accent);
+      themeAccent = colour(Panel.cssVar("--accent"), themeAccent);
       bg = colour(Panel.cssVar("--bg"), bg);
+      applyMood();
     };
     readColours();
+    /* Rain: short strokes falling through the scene while it rains outside. */
+    let rain = null; /* {drops: [{x, y, z}], vbo, ibo} */
+    const RAIN_DROPS = 160;
+    const RAIN_SPEED = 6.5; /* m/s */
+    function setRain(on) {
+      if (!!rain === !!on) return;
+      if (!on) {
+        [rain.vbo, rain.ibo].forEach((b) => gl.deleteBuffer(b));
+        rain = null;
+        return;
+      }
+      const c = geo.centre;
+      const drops = Array.from({ length: RAIN_DROPS }, () => ({ x: c[0] + (Math.random() - 0.5) * 26, y: Math.random() * 11, z: c[2] + (Math.random() - 0.5) * 26 }));
+      rain = { drops, vbo: gl.createBuffer(), ibo: gl.createBuffer(), count: 0 };
+    }
+    function drawRain(vp, dt) {
+      for (const d of rain.drops) {
+        d.y -= RAIN_SPEED * dt;
+        if (d.y < 0) d.y += 11;
+      }
+      const lb = lineBuffers(rain.drops.map((d) => ({ a: [d.x, d.y, d.z], b: [d.x, d.y + 0.35, d.z], level: 0.28 })));
+      gl.bindBuffer(gl.ARRAY_BUFFER, rain.vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, lb.v, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rain.ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, lb.idx, gl.DYNAMIC_DRAW);
+      rain.count = lb.count;
+      drawLines(vp, rain, 1, accent.map((v) => v * 0.7 + 0.2));
+    }
 
     /* Vertex attribute arrays are state of the context, not of a program: a
      * slot the line program enabled stays enabled for the face program, and if
@@ -693,6 +751,7 @@
       gl.uniform1f(lineP.u.uNear, dist - geo.radius);
       gl.uniform1f(lineP.u.uFar, dist + geo.radius * 1.4);
       drawLines(vp, lines[1], 1);
+      if (rain) drawRain(vp, dt);
       drawLines(vp, lines[0], 0);
       /* Lit openings: their face filled in their colour, pulsing when asked,
        * and their edges in that colour over the house's. */
@@ -857,6 +916,14 @@
       },
       /* The orbit's speed as a share of the usual (the screensaver turns slower). */
       setOrbitScale: (f) => (orbitScale = f),
+      /* The time of day: col = the colour to lean to, k = how far (0..1). */
+      setMood(col, k) {
+        mood = { col, k };
+        applyMood();
+      },
+      setRain,
+      /* fn({x, y}) for a tap on the canvas (css px from its corner). */
+      onTap: (fn) => (tapHandler = fn),
       get frames() {
         return frames;
       },

@@ -11,6 +11,7 @@
   const esc = Util.esc;
 
   let root = null;
+  let loadedOnce = false; /* the first render after the state dump notes no events */
   let badge = null;
   let labels = null;
   let status = "connecting";
@@ -22,7 +23,7 @@
     ["lights", "Lampen"],
   ];
   const html = () =>
-    `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-rows" data-hud-rows></div></div>` +
+    `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-rows" data-hud-rows></div><div class="hud-events" data-hud-events></div></div>` +
     `<div class="house-robot" data-robot hidden><span class="hr-icon">${icon("vacuum")}</span><span class="hr-text"><b data-robot-label></b><span data-robot-where></span></span></div>` +
     `<div class="house-labels" data-labels></div>` +
     `<div class="house-layers">${LAYERS.map(([k, l]) => `<button class="hl-btn" data-layer="${k}">${l}</button>`).join("")}</div>` +
@@ -47,6 +48,51 @@
     const errors = window.Diag ? window.Diag.errorCount() : 0;
     if (errors) out.push({ tone: "bad", text: `${errors} scriptfout${errors === 1 ? "" : "en"}` });
     return out;
+  }
+
+  /* ---- What just happened ------------------------------------------------------------- */
+  /* The last few things worth a line: a door or window opening or closing, an
+   * appliance finishing or failing, a robot starting or docking, the
+   * connection going and coming back. Only after the first state dump. */
+  const EVENTS_KEPT = 4;
+  const events = []; /* {t, text, tone} newest first */
+  const contacts = (cfg.sensorCards || []).filter((c) => (c.kind === "door" || c.kind === "window") && c.entities.contact);
+  const seen = new Map(); /* entity or key -> last state */
+  function event(text, tone = "dim") {
+    events.unshift({ t: new Date(), text, tone });
+    events.splice(EVENTS_KEPT);
+  }
+  function noteChanges(first) {
+    contacts.forEach((c) => {
+      const s = state(c.entities.contact);
+      const was = seen.get(c.entities.contact);
+      seen.set(c.entities.contact, s);
+      if (first || was === undefined || was === s || !["on", "off"].includes(s)) return;
+      event(`${c.label} ${s === "on" ? "open" : "dicht"}`, s === "on" ? "warn" : "dim");
+    });
+    tones().forEach((t) => {
+      const was = seen.get(`appl:${t.label}`);
+      seen.set(`appl:${t.label}`, t.tone);
+      if (first || was === undefined || was === t.tone) return;
+      if (t.tone === "done") event(`${t.label} klaar`, "ok");
+      else if (t.tone === "error") event(`${t.label}: storing`, "bad");
+      else if (t.tone === "run" && was !== "paused") event(`${t.label} gestart`);
+    });
+    robots.forEach((r) => {
+      const s = state(r.vacuum);
+      const was = seen.get(r.vacuum);
+      seen.set(r.vacuum, s);
+      if (first || was === undefined || was === s) return;
+      if (s === "cleaning" && was !== "paused") event(`${r.label} gestart`);
+      else if (s === "docked" && was !== "docked") event(`${r.label} terug op het station`);
+      else if (s === "error") event(`${r.label}: storing`, "bad");
+    });
+  }
+  function renderEvents() {
+    const box = root.querySelector("[data-hud-events]");
+    box.innerHTML = events
+      .map((e) => `<div class="hud-ev ${e.tone}"><span class="hud-t">${Util.hm(e.t)}</span><span>${esc(e.text)}</span></div>`)
+      .join("");
   }
 
   /* ---- The rooms of the plan, with their sensor and their lamps ------------------- */
@@ -82,6 +128,24 @@
   /* A card's label sits on the first room that reads it. */
   const labelRoom = new Map();
   rooms.forEach((r) => r.card && !labelRoom.has(r.card.label) && labelRoom.set(r.card.label, r));
+
+  /* ---- The sun and the weather on the house -------------------------------------------- */
+  const SUN = "sun.sun";
+  const night = () => {
+    const el = Number(((Panel.st(SUN) || {}).attributes || {}).elevation);
+    return Number.isFinite(el) && el < -6;
+  };
+  function renderSky() {
+    const house = Panel.house;
+    if (!house) return;
+    const el = Number(((Panel.st(SUN) || {}).attributes || {}).elevation);
+    if (!Number.isFinite(el)) house.setMood([1, 1, 1], 0);
+    else if (el < -6) house.setMood([0.55, 0.7, 1.0], 0.35); /* night: cool */
+    else if (el < 8) house.setMood([1.0, 0.62, 0.3], 0.5 * (1 - Math.max(0, el) / 8)); /* golden hour: warm */
+    else house.setMood([1, 1, 1], 0);
+    const w = state(cfg.weather) || "";
+    house.setRain(/rainy|pouring|hail|snowy/.test(w));
+  }
 
   /* ---- Layers -------------------------------------------------------------------- */
   const TONE_RGB = { cold: [0.4, 0.62, 1.0], ok: [0.3, 0.9, 0.5], warn: [1.0, 0.65, 0.25], bad: [1.0, 0.35, 0.3], lamp: [1.0, 0.78, 0.3] };
@@ -134,6 +198,13 @@
     if (house) house.clearTints();
     labels.innerHTML = "";
     document.querySelectorAll(".house-layers .hl-btn").forEach((b) => b.classList.toggle("active", b.dataset.layer === layer));
+    /* At night the lamps that are on light their rooms, whatever the layer shows. */
+    if (house && night() && layer !== "lights") {
+      rooms.forEach((r) => {
+        const on = r.lights.filter((id) => state(id) === "on").length;
+        if (on) house.tintRoom(r.floor, r.name, TONE_RGB.lamp, 0.05 + 0.12 * Math.min(1, on / Math.max(3, r.lights.length)));
+      });
+    }
     if (layer === "none") return;
     rooms.forEach((r) => {
       const v = reading(r);
@@ -195,6 +266,32 @@
     startFollowing();
   }
   Panel.defineAction("layer", (el) => setLayer(el.dataset.layer));
+  /* A tap on the house: the reading nearest to it (within 44 px) opens its
+   * room — the climate popup on Klimaat, the room's lamps on Lampen. */
+  function tapped({ x, y }) {
+    if (layer === "none") return;
+    let best = null;
+    for (const el of labels.children) {
+      if (el.hidden) continue;
+      const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(el.style.transform);
+      if (!m) continue;
+      const d = Math.hypot(+m[1] - x, +m[2] - y);
+      if (d < 44 && (!best || d < best.d)) best = { el, d };
+    }
+    if (!best) return;
+    const r = rooms.find((q) => JSON.stringify(q.centre) === best.el.dataset.at);
+    if (layer === "climate") {
+      const card = r ? r.card : climateCards.find((c) => (plan.sensors || []).some((s) => s.climate === c.label && JSON.stringify(s.at) === best.el.dataset.at));
+      const i = card ? (cfg.sensors || []).findIndex((s) => s.temp === card.entities.temperature) : -1;
+      if (i >= 0) Panel.openClimate(i);
+      return;
+    }
+    if (layer === "lights" && r) {
+      const fi = (cfg.floors || []).findIndex((f) => f.label === r.floor);
+      const area = areasOf(r.floor).find((a) => (plan.rooms[r.floor].find((x) => x.name === r.name).areas || [r.name]).includes(a.label));
+      if (fi >= 0) Panel.goHash(`#verlichting/${fi}${area ? `/${Util.slug(area.label)}` : ""}`);
+    }
+  }
 
   /* ---- The robots at work ----------------------------------------------------------- */
   const robots = [
@@ -237,6 +334,10 @@
   /* ---- Render ------------------------------------------------------------------------ */
   function render() {
     if (!root) return;
+    noteChanges(!loadedOnce);
+    loadedOnce = Panel.isLoaded();
+    renderEvents();
+    renderSky();
     const lines = [connection(), ...problems()];
     root.querySelector("[data-hud-rows]").innerHTML = lines
       .map((v) => `<div class="hud-row"><i class="hud-dot ${v.tone}"></i><span class="hud-v">${esc(v.text)}</span></div>`)
@@ -266,11 +367,13 @@
     root = house.querySelector("[data-hud]");
     badge = house.querySelector("[data-robot]");
     labels = house.querySelector("[data-labels]");
+    if (Panel.house) Panel.house.onTap(tapped);
     clock();
     renderWalls();
     render();
   });
   Panel.on("status", (s) => {
+    if (loadedOnce && s !== status && (s === "connected" || status === "connected")) event(s === "connected" ? "Verbinding terug" : "Verbinding met Home Assistant weg", s === "connected" ? "ok" : "bad");
     status = s;
     schedule();
   });
@@ -287,6 +390,9 @@
       ...climateCards.flatMap((c) => [c.entities.temperature, c.entities.humidity]),
       ...(cfg.appliances || []).flatMap((a) => Object.values(a.entities)),
       ...robots.flatMap((r) => [r.vacuum, r.problem]),
+      ...contacts.map((c) => c.entities.contact),
+      SUN,
+      cfg.weather,
     ].filter(Boolean),
     schedule
   );
