@@ -95,6 +95,8 @@ body.saver-house .hud-clock { display: block; }
 .house-label .warn { color: var(--warn); }
 .house-label .bad { color: var(--bad); }
 .house-label .lamp { color: var(--accent); }
+.house-label .plain { color: var(--text); }
+.house-label .hum { color: var(--hum); }
 .house-label.out::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text_dim); margin-bottom: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }

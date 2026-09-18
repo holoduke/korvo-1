@@ -101,17 +101,18 @@
   });
   let raf = 0;
 
-  /* A climate card's temperature and humidity as label markup (each in the
-   * colour of its band), and the temperature's tone; null without a reading. */
-  function climateOf(card) {
+  /* A climate card's temperature and humidity as label markup (indoors each
+   * in the colour of its comfort band; outdoors there is no comfort to judge,
+   * so plain), and the temperature's tone; null without a reading. */
+  function climateOf(card, indoor = true) {
     const t = Panel.num(card.entities.temperature);
     const h = Panel.num(card.entities.humidity);
     if (!Number.isFinite(t) && !Number.isFinite(h)) return null;
-    const tone = Number.isFinite(t) ? Panel.bandTone(Panel.bands.temp, t) : "ok";
+    const tone = indoor && Number.isFinite(t) ? Panel.bandTone(Panel.bands.temp, t) : "ok";
     const html =
       `<span class="hl-vals">` +
-      (Number.isFinite(t) ? `<b class="${tone}">${Util.fmt(t, 1)}°</b>` : "") +
-      (Number.isFinite(h) ? `<i class="${Panel.bandTone(Panel.bands.hum, h)}">${Math.round(h)}%</i>` : "") +
+      (Number.isFinite(t) ? `<b class="${indoor ? tone : "plain"}">${Util.fmt(t, 1)}°</b>` : "") +
+      (Number.isFinite(h) ? `<i class="${indoor ? Panel.bandTone(Panel.bands.hum, h) : "hum"}">${Math.round(h)}%</i>` : "") +
       `</span><span class="hl-name">${esc(card.label)}</span>`;
     return { tone, html };
   }
@@ -150,7 +151,7 @@
     if (layer === "climate") {
       (plan.sensors || []).forEach((s) => {
         const card = climateCards.find((c) => c.label === s.climate);
-        const c = card && climateOf(card);
+        const c = card && climateOf(card, false);
         if (!c) return;
         const el = document.createElement("div");
         el.className = "house-label out";
