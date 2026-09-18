@@ -227,12 +227,16 @@
   function sceneWatts(ti, i) {
     const states = sceneStates.get(cfg.tabs[ti].scenes[i].id);
     if (!states) return null;
-    /* a group stored as a whole counts for each of its lamps, once */
+    /* a group stored as a whole counts for each of its lamps, once; a
+     * Zigbee2MQTT group (model "Group") keeps its members to itself, so it
+     * counts as the tab's own lamps */
+    const tabLamps = [...cfg.tabs[ti].devices, ...cfg.tabs[ti].lights].map((d) => d.id).filter((id) => id.startsWith("light.") && models.get(id) !== "Group" && !groupMembers.has(id));
+    const membersOf = (id) => (models.get(id) === "Group" ? tabLamps : expandLights([id]));
     const seen = new Set();
     let sum = 0;
     for (const [id, s] of Object.entries(states)) {
       if (!id.startsWith("light.")) continue;
-      for (const lamp of expandLights([id])) {
+      for (const lamp of membersOf(id)) {
         if (seen.has(lamp)) continue;
         seen.add(lamp);
         sum += Panel.lightWatts(lamp, s);
