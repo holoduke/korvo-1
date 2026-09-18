@@ -116,9 +116,20 @@
   }
   Panel.renderLight = renderLight;
 
+  /* Swallows an accidental double-tap on the same control (a second finger, a
+   * bounce) without blocking a deliberate repeat a moment later. */
+  const lastTap = new Map();
+  function tooSoon(key, ms = 350) {
+    const now = Date.now();
+    if (now - (lastTap.get(key) || 0) < ms) return true;
+    lastTap.set(key, now);
+    return false;
+  }
+
   Panel.toggleLight = function (id) {
     const s = st(id);
     if (Panel.unavailable(s)) return;
+    if (tooSoon("t:" + id)) return;
     const on = s.state !== "on";
     clearTimeout((pending.get(id) || {}).timer);
     pending.set(id, { on, timer: setTimeout(() => (pending.delete(id), renderLight(id)), 4000) });
@@ -133,15 +144,15 @@
     const off = value <= 0;
     Panel.client
       .callService("light", off ? "turn_off" : "turn_on", off ? null : { brightness_pct: value }, { entity_id: entityIds })
-      .catch(() => {});
+      .catch(Panel.commandFailed("Helderheid"));
     lampChanged(entityIds);
   };
   Panel.setHue = (id, hue) => {
-    Panel.client.callService("light", "turn_on", { hs_color: [hue, 100] }, { entity_id: id }).catch(() => {});
+    Panel.client.callService("light", "turn_on", { hs_color: [hue, 100] }, { entity_id: id }).catch(Panel.commandFailed("Kleur"));
     lampChanged([id]);
   };
   Panel.setKelvin = (id, k) => {
-    Panel.client.callService("light", "turn_on", { color_temp_kelvin: k }, { entity_id: id }).catch(() => {});
+    Panel.client.callService("light", "turn_on", { color_temp_kelvin: k }, { entity_id: id }).catch(Panel.commandFailed("Warmte"));
     lampChanged([id]);
   };
 
@@ -183,6 +194,7 @@
     if (pill) pill.textContent = idx >= 0 ? cfg.tabs[tab].scenes[idx].label : "-";
   }
   Panel.activateScene = function (tab, idx) {
+    if (tooSoon(`s:${tab}:${idx}`)) return;
     dismissSave(); /* the lamps take the scene's states: nothing to save */
     highlightScene(tab, idx);
     Panel.client.callService("scene", "turn_on", null, { entity_id: cfg.tabs[tab].scenes[idx].id }).catch((err) => {
@@ -442,6 +454,18 @@
   function markScroll(list) {
     list.classList.toggle("scrolls", list.scrollHeight > list.clientHeight + 1);
   }
+
+  /* Rotating flips the split between two side-by-side halves (landscape) and two
+   * stacked rows (portrait, the 760px breakpoint): a half's height changes
+   * completely, so a list left scrolled down would keep that scrollTop and show
+   * only its lower rows. On an orientation flip, snap every split-list back to
+   * the top. */
+  Util.onOrientationFlip(() =>
+    document.querySelectorAll(".split-list").forEach((list) => {
+      list.scrollTop = 0;
+      markScroll(list);
+    })
+  );
 
   Panel.defineAction("power", (el) => Panel.toggleLight(el.dataset.power));
   Panel.defineAction(

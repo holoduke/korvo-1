@@ -61,6 +61,7 @@
   const TIRES = [["tireFL", "tireWarnFL", "Linksvoor"], ["tireFR", "tireWarnFR", "Rechtsvoor"], ["tireRL", "tireWarnRL", "Linksachter"], ["tireRR", "tireWarnRR", "Rechtsachter"]];
 
   let root = null;
+  Util.onOrientationFlip(() => root && root.querySelectorAll(".cp-body, .cp-col").forEach((el) => (el.scrollLeft = el.scrollTop = 0)));
   const q = (sel) => root.querySelector(sel);
   const qa = (sel) => [...root.querySelectorAll(sel)];
   const s = (key) => (E[key] ? st(E[key]) : undefined);

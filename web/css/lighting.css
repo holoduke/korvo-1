@@ -193,7 +193,8 @@
 
 /* ---- Light popup --------------------------------------------------------------- */
 .popup-box { max-width: 480px; display: flex; flex-direction: column; gap: 8px; }
-.popup-title { font-size: 24px; font-weight: 600; text-align: center; padding-bottom: 12px; }
+.popup-head { margin-bottom: 12px; }
+.popup-title { font-size: 24px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The lamp's name, editable: saved to Home Assistant. */
 .popup-name { display: flex; gap: 8px; }
 .popup-name input {

@@ -66,6 +66,7 @@
 
   function onDown(e, root) {
     if (g || e.button > 0 || Panel.overlayOpen()) return;
+    if (Panel.justWokeHouse && Panel.justWokeHouse()) return; /* the press that woke the house saver: dismiss only */
     if (e.target.closest(".vslider")) return; /* the brightness slider handles its own pointer */
     const target = actionTarget(e.target);
     const gest = (g = {

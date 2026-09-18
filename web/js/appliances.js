@@ -29,6 +29,9 @@
   const twoTap = Util.confirmer(CONFIRM_MS, () => render());
   const pending = Util.pendingSet(PENDING_MS, () => render());
   let root = null;
+  /* After a rotation the two-column layout stacks (or the list flips scroll axis):
+   * snap the card and list back to the top so nothing is left half-scrolled. */
+  Util.onOrientationFlip(() => root && root.querySelectorAll(".ap-detail, .ap-list").forEach((el) => (el.scrollLeft = el.scrollTop = 0)));
   let selected = 0;
 
   /* An appliance's product photo, once photos.js has the picture for its name. */

@@ -526,6 +526,7 @@
      * with the tabs on a desktop. */
     canvas.addEventListener("pointerdown", (e) => {
       if (e.pointerType !== "mouse" || e.button !== 0) return;
+      if (Panel.justWokeHouse && Panel.justWokeHouse()) return; /* the click that woke the saver: don't also spin the house */
       e.stopPropagation();
       drag = { x: e.clientX, y: e.clientY, yaw: cam.yaw, pitch: cam.pitch, lastYaw: cam.yaw, lastT: performance.now() };
       yawVel = 0;

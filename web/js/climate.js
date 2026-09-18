@@ -184,7 +184,10 @@
     if (!isOpen()) return;
     const s = spec();
     const out = cfg.sensors.find((x) => !x.indoor) || {}; /* the advice compares with outdoors */
-    if (![s.left, s.right].some((line) => line && line.id === id) && ![out.temp, out.humidity].includes(id)) return; /* another sensor */
+    /* An air popup also shows the monitor's own temp/humidity/quality tiles, which
+     * aren't the charted co2/pm series, so watch them too or those tiles go stale. */
+    const air = popup.kind === "air" ? cfg.air[popup.idx] : {};
+    if (![s.left, s.right].some((line) => line && line.id === id) && ![out.temp, out.humidity, air.temp, air.humidity, air.quality].includes(id)) return; /* another sensor */
     renderText();
     draw(1);
   });

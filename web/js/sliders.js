@@ -15,10 +15,17 @@
   const vTrack = bright.querySelector(".vs-track");
   let dragId = null;
   let releasedAt = 0;
+  let startY = 0;
+  let engaged = false; /* the touch has moved enough to be a real drag, not a tap */
+  const ENGAGE = 6; /* px of vertical travel before the slider takes the touch */
+  /* The rendered knob is smaller on phones (CSS) than the desktop default, so
+   * read it rather than trust the constant, or the ends miss 0/100%. */
+  const knobH = () => vTrack.parentElement.querySelector(".vs-knob").offsetHeight || KNOB;
 
   function setSlider(v, showLabel) {
     const h = vTrack.clientHeight || 1;
-    const y = (v / 100) * (h - KNOB) + KNOB / 2; /* knob centre from the bottom */
+    const k = knobH();
+    const y = (v / 100) * (h - k) + k / 2; /* knob centre from the bottom */
     bright.querySelector(".vs-fill").style.height = y + "px";
     bright.querySelector(".vs-knob").style.bottom = y + "px";
     bright.dataset.value = v;
@@ -48,19 +55,33 @@
 
   function valueAt(clientY) {
     const r = vTrack.getBoundingClientRect();
-    return Math.round(Util.clamp(1 - (clientY - r.top - KNOB / 2) / Math.max(1, r.height - KNOB), 0, 1) * 100);
+    const k = knobH();
+    return Math.round(Util.clamp(1 - (clientY - r.top - k / 2) / Math.max(1, r.height - k), 0, 1) * 100);
   }
+  /* The slider fills the whole right lane, so a tap or a stray brush there must
+   * not change the lamps: it only engages once the finger has actually slid a
+   * few pixels vertically, and a press that never engages leaves the lamps be. */
   vTrack.addEventListener("pointerdown", (e) => {
     dragId = e.pointerId;
+    startY = e.clientY;
+    engaged = false;
     vTrack.setPointerCapture(e.pointerId);
-    bright.classList.add("dragging");
+  });
+  vTrack.addEventListener("pointermove", (e) => {
+    if (dragId !== e.pointerId) return;
+    if (!engaged) {
+      if (Math.abs(e.clientY - startY) < ENGAGE) return;
+      engaged = true;
+      bright.classList.add("dragging");
+    }
     setSlider(valueAt(e.clientY), true);
   });
-  vTrack.addEventListener("pointermove", (e) => dragId === e.pointerId && setSlider(valueAt(e.clientY), true));
   const release = (e) => {
     if (dragId !== e.pointerId) return;
     dragId = null;
     bright.classList.remove("dragging");
+    if (!engaged) return; /* a bare tap or a brush: leave the lamps alone */
+    engaged = false;
     const s = scope();
     if (!s || !s.ids.length) return;
     const v = +bright.dataset.value;
@@ -112,6 +133,10 @@
     };
     el.addEventListener("pointerup", end);
     el.addEventListener("pointercancel", end);
+    /* The popup box is width-capped, so it narrows when the phone rotates into
+     * portrait: reposition the knob for the new width instead of leaving it at
+     * its old pixel offset until the next touch. */
+    new ResizeObserver(() => show(state.value)).observe(el);
     return {
       set(o) {
         Object.assign(state, o);
@@ -163,6 +188,8 @@
   };
 
   $("popup").addEventListener("click", (e) => e.target === $("popup") && Panel.closeOverlay($("popup")));
+  $("popupClose").innerHTML = icon("close");
+  $("popupClose").addEventListener("click", () => Panel.closeOverlay($("popup")));
 
   /* The lamp's name: saved to Home Assistant, so every panel shows it. */
   $("popupName").addEventListener("input", () => ($("popupRename").disabled = $("popupName").value.trim() === Panel.lightLabel(popupLight)));

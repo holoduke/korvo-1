@@ -17,7 +17,9 @@
   Panel.areaBrightness = function (area) {
     const present = area.lights.filter((id) => !Panel.unavailable(Panel.st(id)));
     if (!present.length) return -1;
-    const on = present.filter((id) => Panel.st(id).state === "on").map(Panel.brightnessPct).filter((v) => v >= 0);
+    /* A lamp that is on but not dimmable (no brightness attribute) counts as full,
+     * so a lit on/off lamp does not drag a room's slider down to 0%. */
+    const on = present.filter((id) => Panel.st(id).state === "on").map((id) => (Panel.brightnessPct(id) >= 0 ? Panel.brightnessPct(id) : 100));
     return on.length ? Math.round(on.reduce((a, b) => a + b, 0) / on.length) : 0;
   };
 

@@ -87,9 +87,11 @@
   }
   /* Awake: the header and tabs come back, and so does the place the app was
    * at (the section, and its floor or device) before the house took over. */
+  let wokeAt = 0;
   function wakeHouse() {
     if (!houseSaver) return;
     houseSaver = false;
+    wokeAt = performance.now();
     chrome(true);
     if (before && before !== location.hash) Panel.goHash(before, false); /* back at once: no glide through the sections or floors */
     before = "";
@@ -97,6 +99,11 @@
   }
   ["pointerdown", "pointermove", "touchstart", "keydown", "wheel"].forEach((ev) => window.addEventListener(ev, wakeHouse, { capture: true, passive: true }));
   Panel.houseSaverOn = () => houseSaver;
+  /* The wake listeners are passive (can't preventDefault), so the touch that
+   * dismissed the house saver still reaches the stage and canvas. Gestures and
+   * the 3D house treat this brief window as "just woke" and ignore that first
+   * press, so it doesn't also swipe a section or spin the house. */
+  Panel.justWokeHouse = () => performance.now() - wokeAt < 600;
 
   /* ---- Screensaver ----------------------------------------------------------------- */
   let flickerTimer = 0;

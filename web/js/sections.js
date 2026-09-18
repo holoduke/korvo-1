@@ -182,6 +182,7 @@
     const gliding = !!glide;
     setTrack(0, gliding);
     setIndicator(Panel.section, gliding);
+    revealTab(Panel.section, false); /* a rotation can scroll the active tab out of view */
   });
   window.addEventListener("keydown", (e) => {
     if (Panel.overlayOpen()) return;

@@ -111,7 +111,19 @@
   }
 
   Panel.definePage("sensors", { className: "sensors-page", html: () => `<div id="sensorsPage" class="dc-page"></div>`, build });
-  cards.forEach((c, i) => Panel.track(Object.values(c.entities), (changed, first) => render(i, !first)));
+  /* Flash a card only when one of its readings actually changed value, not on the
+   * full state re-dispatch a websocket reconnect brings (which isn't first-time
+   * but also isn't news to the user). */
+  const prevSig = new Map();
+  const sigOf = (c) => Object.values(c.entities).map((id) => (Panel.st(id) || {}).state || "").join("|");
+  cards.forEach((c, i) =>
+    Panel.track(Object.values(c.entities), (changed, first) => {
+      const now = sigOf(c);
+      const animate = !first && prevSig.has(i) && prevSig.get(i) !== now;
+      prevSig.set(i, now);
+      render(i, animate);
+    })
+  );
   /* "3 min geleden" moves on. */
   Panel.on("minute", () => cards.forEach((_, i) => render(i, false)));
 })();

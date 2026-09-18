@@ -82,6 +82,7 @@
   let loadedAt = 0;
   let loading = false;
   let root = null;
+  Util.onOrientationFlip(() => root && root.querySelectorAll(".vs-body, .vs-map, .vs-side").forEach((el) => (el.scrollLeft = el.scrollTop = 0)));
   const st = Panel.st;
   const q = (sel) => root.querySelector(sel);
   const qa = (sel) => [...root.querySelectorAll(sel)];
@@ -293,8 +294,6 @@
 
     const n = selected.size;
     const roomsBtn = q('[data-vac="rooms"]');
-    roomsBtn.querySelector("span").textContent = n ? `Start ${n === 1 ? "kamer" : n + " kamers"}` : "Kies kamers";
-    roomsBtn.disabled = !n || busy || offline;
     /* Three tiles at a time. During a job: pause or resume, stop and dock (on the
      * way home just stop and locate). Otherwise the two starts, plus dock when the
      * robot stands still away from its dock, else locate. */
@@ -305,7 +304,19 @@
      * place of "Hele huis", which would start a new round instead. */
     const stuck = !offline && !job && (faulted || vstate === "error" || statusRaw === "error");
     q('[data-vac="start"]').hidden = job || stuck;
-    roomsBtn.hidden = job;
+    /* Off the clock: pick rooms and start them. During a job the same tiles add a
+     * room to the run — robotkamers can't append, so it stops and restarts with
+     * the rooms already running plus the newly picked ones. */
+    const extraRooms = [...selected].filter((id) => !runRooms.includes(id));
+    if (job) {
+      roomsBtn.hidden = !extraRooms.length;
+      roomsBtn.disabled = !extraRooms.length || offline;
+      roomsBtn.querySelector("span").textContent = extraRooms.length > 1 ? `${extraRooms.length} kamers toevoegen` : "Kamer toevoegen";
+    } else {
+      roomsBtn.hidden = false;
+      roomsBtn.disabled = !n || offline;
+      roomsBtn.querySelector("span").textContent = n ? `Start ${n === 1 ? "kamer" : n + " kamers"}` : "Kies kamers";
+    }
     q('[data-vac="pause"]').hidden = !busy || vstate === "returning";
     q('[data-vac="resume"]').hidden = !(paused || stuck);
     const stopBtn = q('[data-vac="stop"]');
@@ -480,6 +491,10 @@
     const fail = Panel.commandFailed(vac.label);
     if (kind === "room") {
       const id = +el.dataset.room;
+      const vs = (st(vac.vacuum) || {}).state;
+      const running = JOB_STATES.includes(vs);
+      /* A room the robot is already doing can't be "added" — leave it be. */
+      if (running && parseList(((st(vac.vacuum) || {}).attributes || {})["robotic_vacuum.clean_values"]).includes(id)) return;
       if (selected.has(id)) selected.delete(id);
       else selected.add(id);
       return render();
@@ -540,10 +555,13 @@
     if (kind === "rooms") {
       if (!selected.size) return;
       /* The robotkamers integration stops any open job first: the robot silently
-       * ignores a new start while an old one is still pending. */
-      Panel.client
-        .callService(vac.roomsDomain, "stofzuig", { gebieden: [...selected].sort((a, b) => a - b) })
-        .catch(fail);
+       * ignores a new start while an old one is still pending. During a run this
+       * doubles as "add a room" — union the picked rooms with the ones already
+       * running so the robot restarts on the whole set. */
+      const vs = (st(vac.vacuum) || {}).state;
+      const runNow = JOB_STATES.includes(vs) ? parseList(((st(vac.vacuum) || {}).attributes || {})["robotic_vacuum.clean_values"]) : [];
+      const gebieden = [...new Set([...runNow, ...selected])].sort((a, b) => a - b);
+      Panel.client.callService(vac.roomsDomain, "stofzuig", { gebieden }).catch(fail);
       selected.clear();
       return render();
     }

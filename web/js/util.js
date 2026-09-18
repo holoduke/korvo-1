@@ -209,6 +209,18 @@
         },
       };
     },
+    /* Calls fn whenever the viewport flips between landscape and portrait (not on
+     * every resize): pages use it to snap scroll positions back after a rotation,
+     * which the browser otherwise leaves at a now-meaningless offset. */
+    onOrientationFlip(fn) {
+      let landscape = window.innerWidth > window.innerHeight;
+      window.addEventListener("resize", () => {
+        const now = window.innerWidth > window.innerHeight;
+        if (now === landscape) return;
+        landscape = now;
+        fn();
+      });
+    },
   };
 
   window.Util = Util;
