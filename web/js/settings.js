@@ -17,6 +17,7 @@
       ($(el).innerHTML = labels.map((l, i) => `<button class="${i === sel ? "selected" : ""}" data-${key}="${i}">${l}</button>`).join(""));
     seg("saverMode", ["Scherm uit", "Het oog", "Huis"], Panel.prefs.saverMode, "mode");
     seg("saverTime", Panel.SAVER_LABELS, Panel.prefs.saverIdx, "time");
+    seg("soundMode", ["Stil", "Klik bij tikken"], Panel.prefs.sound ? 1 : 0, "sound");
     const c = Panel.client;
     const connected = $("status").classList.contains("connected");
     $("connInfo").textContent = c.demo
@@ -38,6 +39,11 @@
     const theme = e.target.closest("[data-theme]");
     const mode = e.target.closest("[data-mode]");
     const time = e.target.closest("[data-time]");
+    const sound = e.target.closest("[data-sound]");
+    if (sound) {
+      Panel.setPref("sound", sound.dataset.sound === "1");
+      if (Panel.prefs.sound) Panel.sound.tap();
+    }
     if (theme) {
       Panel.setPref("theme", +theme.dataset.theme);
       Panel.applyTheme(+theme.dataset.theme);

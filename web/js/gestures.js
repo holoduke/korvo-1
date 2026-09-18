@@ -168,6 +168,7 @@
     /* A tap that opens an overlay: on touch the browser still turns this lift
      * into a click, which would land on the overlay's backdrop and close it. */
     const wasOpen = Panel.overlayOpen();
+    if (Panel.sound) Panel.sound.tap();
     actionOf(gest.target).tap(gest.target);
     if (!wasOpen && Panel.overlayOpen()) swallowClick = true;
   }

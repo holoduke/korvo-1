@@ -136,3 +136,12 @@
   .tv-cons > .tv-reset { grid-column: 2; grid-row: 1 / 3; }
   .tv-cons > .bar { grid-column: 1 / -1; grid-row: 3; }
 }
+
+/* The rooms as the floor plan: tiles where the rooms are (vacuum.js sets
+ * their place), the street on the left, a gap of one grid line between them. */
+.vs-rooms.plan { display: block; position: relative; aspect-ratio: var(--ar); padding: 0; gap: 0; }
+.vs-rooms.plan .vs-room { position: absolute; padding: 10px 12px; border-radius: calc(8px * var(--round)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text_dim) 30%, transparent); }
+.vs-rooms.plan .vs-rname { font-size: 16px; line-height: 1.15; }
+.vs-rooms.plan .vs-rlast { font-size: 12px; gap: 4px; }
+.vs-rooms.plan .vs-pct { font-size: 20px; top: 6px; right: 10px; }
+.vs-rooms.plan .vs-room.live { box-shadow: inset 0 0 0 2px var(--accent), 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent); }

@@ -139,17 +139,39 @@
     Object.entries(CHOICES[name].options).map(([value, l]) => `<button class="vchip" data-vac="choice" data-choice="${name}" data-opt="${value}">${l}</button>`).join("") +
     `</div>`;
 
+  /* The rooms as the floor plan (js/house-plan.js), seen from above with
+   * the street on the left: each room's tile sits where the room is, in
+   * percentages of the floor's extent. Only when every room of the robot has
+   * a room on the plan (by name, or the plan room's robotRoom). */
+  function planLayout() {
+    const rooms = ((window.HOUSE_PLAN || {}).rooms || {})[vac.floor] || [];
+    const of = (r) => rooms.find((p) => p.name === r.label || p.robotRoom === r.label);
+    if (!vac.rooms.length || !vac.rooms.every(of)) return null;
+    const boxes = vac.rooms.map(of);
+    const x0 = Math.min(...boxes.map((b) => b.x)), x1 = Math.max(...boxes.map((b) => b.x + b.w));
+    const z0 = Math.min(...boxes.map((b) => b.z)), z1 = Math.max(...boxes.map((b) => b.z + b.d));
+    const pct = (v) => `${(v * 100).toFixed(2)}%`;
+    return {
+      ar: ((z1 - z0) / (x1 - x0)).toFixed(3),
+      at(r) {
+        const b = of(r);
+        return `left:${pct((b.z - z0) / (z1 - z0))};top:${pct((b.x - x0) / (x1 - x0))};width:${pct(b.d / (z1 - z0))};height:${pct(b.w / (x1 - x0))}`;
+      },
+    };
+  }
+  const planned = planLayout();
+
   function build(panel) {
     root = panel.querySelector(".vp");
     root.innerHTML =
       `<div class="vs-body">` +
       `<section class="vs-map">` +
       Panel.robotHeroHtml(vac.vacuum, photoLabel) +
-      `<div class="vs-rooms">` +
+      `<div class="vs-rooms${planned ? " plan" : ""}"${planned ? ` style="--ar:${planned.ar}"` : ""}>` +
       vac.rooms
         .map(
           (r) =>
-            `<button class="vs-room" data-vac="room" data-room="${r.id}"><span class="vs-rname">${r.label}</span>` +
+            `<button class="vs-room" data-vac="room" data-room="${r.id}"${planned ? ` style="${planned.at(r)}"` : ""}><span class="vs-rname">${r.label}</span>` +
             `<span class="vs-pct"></span>` +
             `<span class="vs-rlast">${icon("clock")}<span></span></span><span class="vs-rplan"></span><i class="vs-sweep"></i><i class="vs-prog"><b></b></i></button>`
         )

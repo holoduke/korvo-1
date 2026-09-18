@@ -184,6 +184,7 @@
             changed();
             return false;
           }
+          if (timers.has(key)) window.dispatchEvent(new CustomEvent("panel:confirmed")); /* the second tap (sound.js) */
           clearTimeout(timers.get(key));
           timers.delete(key);
           return true;
