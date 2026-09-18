@@ -69,12 +69,15 @@
     col.classList.toggle("stale", !Number.isFinite(t)); /* no reading: sensor offline */
     const te = col.querySelector(".s-temp");
     te.textContent = Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "--";
-    te.style.color = Number.isFinite(t) ? Panel.comfortTemp(t, s.indoor) : "var(--text)";
+    /* Only a reading out of its comfort band takes a colour: the strip reads as an alarm line. */
+    te.style.color = Number.isFinite(t) && s.indoor && Panel.bandTone(Panel.bands.temp, t) !== "ok" ? Panel.comfortTemp(t, true) : "var(--text)";
+    Util.flashOnChange(te);
     if (s.humidity) {
       const h = Panel.num(s.humidity);
       const he = col.querySelector(".s-hum");
       he.querySelector("span").textContent = Number.isFinite(h) ? Math.round(h) + "%" : "--";
-      he.style.color = Number.isFinite(h) ? Panel.comfortHum(h, s.indoor) : "var(--hum)";
+      he.style.color = Number.isFinite(h) && s.indoor && Panel.bandTone(Panel.bands.hum, h) !== "ok" ? Panel.comfortHum(h, true) : "var(--hum)";
+      Util.flashOnChange(he);
     }
   }
 

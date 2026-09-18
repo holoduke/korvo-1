@@ -38,6 +38,10 @@
     theme: pref("theme", 0),
     saverMode: pref("saverMode", 2), /* 0 = scherm uit, 1 = AI oog, 2 = het huis */
     saverIdx: pref("saverIdx", 1),
+    houseLayer: pref("houseLayer", undefined),
+    houseWalls: pref("houseWalls", undefined),
+    houseTouched: pref("houseTouched", 0),
+    sound: pref("sound", false),
   };
   Panel.setPref = (key, v) => {
     Panel.prefs[key] = v;
@@ -60,12 +64,13 @@
     const root = document.documentElement.style;
     /* Beyond colour: the typefaces, corner roundness and edge line, with the
      * stylesheet's own defaults when a theme leaves them out. */
-    const LOOK = { font: "--font-ui", display: "--font-display", round: "--round", edge: "--edge" };
+    const LOOK = { font: "--font-ui", display: "--font-display", round: "--round", edge: "--edge", glow: "--glow" };
     Object.values(LOOK).forEach((v) => root.removeProperty(v));
     for (const [k, v] of Object.entries(t)) {
       if (k === "name") continue;
       if (k === "font" || k === "display") root.setProperty(LOOK[k], `"${v}"`);
       else if (k === "round") root.setProperty(LOOK[k], String(v / 100));
+      else if (k === "glow") root.setProperty(LOOK[k], String(v));
       else root.setProperty(k === "edge" ? LOOK.edge : "--" + k, v);
     }
     document.querySelector('meta[name="theme-color"]').setAttribute("content", t.toolbar);
@@ -183,6 +188,7 @@
       connected = s === "connected";
       $("status").className = "status " + (s === "connected" ? "connected" : s === "connecting" ? "connecting" : "");
       $("connbar").hidden = s === "connected" || !loaded; /* only a connection that was there and went */
+      document.body.classList.toggle("offline", s !== "connected" && loaded);
       bus.emit("status", s);
     });
     client.on("states", dispatch);

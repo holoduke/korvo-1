@@ -11,12 +11,15 @@
 }
 /* Choices: a row of equal tiles, one fixed height. */
 .vchip { height: 64px; padding: 0 14px; display: flex; align-items: center; font-size: 17px; }
-.vchip.active { background: var(--tile_on); color: var(--on_text); }
+/* A chosen option (mode, suction, preset): the scene colour, so that amber
+ * keeps meaning "this device is on". */
+.vchip.active { background: var(--scene_on); color: var(--scene_text); }
 /* Actions: icon top-left, label at the bottom. */
 .vbtn { height: 96px; padding: 12px 14px; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; font-size: 17px; }
 .vbtn .ic { font-size: 22px; }
 .vbtn.primary { background: var(--accent); color: var(--on_text); }
 .vbtn:disabled, .vchip:disabled { opacity: 0.45; cursor: default; }
+.vbtn.primary:disabled { background: var(--tile); color: var(--text_dim); opacity: 1; } /* "Kies kamers" waits, plainly */
 /* Sent, waiting for Home Assistant to report it. */
 .vchip.pending, .vbtn.pending { opacity: 0.55; }
 /* An on/off switch drawn inside a control; the control's "on" class turns it on. */

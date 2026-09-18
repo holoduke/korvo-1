@@ -11,6 +11,7 @@
   --font-display: "Orbitron";
   --round: 1;
   --edge: transparent;
+  --glow: 0;
   --ok: #4dd06a;
   --warn: #e0a555;
   --bad: #e05555;
@@ -153,3 +154,25 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   color: #1a1200; background: var(--warn); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   animation: pop-in 0.25s var(--ease-out);
 }
+
+/* Without a connection the controls dim: what they show may be stale, and a
+ * tap will only queue (the banner above says why). */
+body.offline .tile, body.offline .vbtn, body.offline .vchip, body.offline .ap-btn, body.offline .ap-chip, body.offline .chip, body.offline .sq, body.offline .allbtn { opacity: 0.55; }
+
+/* A figure that just changed: a hairline in the accent colour draws under it and fades. */
+.tick { position: relative; }
+.tick::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--accent); animation: tick 0.9s ease-out forwards; pointer-events: none; }
+@keyframes tick { 0% { transform: scaleX(0); opacity: 1; } 40% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+
+/* While the track glides between sections the pages step back a little. */
+.page { transition: transform 0.3s var(--ease-out), opacity 0.3s; }
+body.gliding .page { transform: scale(0.975); opacity: 0.85; }
+@media (prefers-reduced-motion: reduce) {
+  .page { transition: none; }
+  body.gliding .page { transform: none; opacity: 1; }
+  .tick::after { animation: none; }
+}
+
+/* The big figures in the display face; tiles that are on glow as much as the theme says. */
+.ap-big, .dc-value b, .en-big b { font-family: var(--font-display), var(--font-ui), sans-serif; font-weight: 600; }
+.tile.on, .sq.on, .vbtn.on { box-shadow: 0 0 22px color-mix(in srgb, var(--tile_on) calc(var(--glow) * 32%), transparent); }

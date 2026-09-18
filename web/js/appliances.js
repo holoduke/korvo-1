@@ -152,6 +152,7 @@
     card.querySelector(".ap-pill").textContent = view.pill || "";
     const bigEl = card.querySelector(".ap-big");
     bigEl.textContent = view.big ?? "";
+    Util.flashOnChange(bigEl);
     bigEl.classList.toggle("word", !!view.word);
     card.querySelector(".ap-unit").textContent = view.unit || "";
     card.querySelector(".ap-sub").textContent = view.sub || "";

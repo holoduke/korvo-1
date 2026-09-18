@@ -55,6 +55,17 @@
     },
     fmt: (n, digits = 0) =>
       Number.isFinite(n) ? n.toLocaleString("nl-NL", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "--",
+    /* A value that changed flashes a hairline under itself (CSS .tick). */
+    flashOnChange(el) {
+      const now = el.textContent;
+      if (el.dataset.was === now) return;
+      const first = el.dataset.was === undefined;
+      el.dataset.was = now;
+      if (first) return;
+      el.classList.remove("tick");
+      void el.offsetWidth;
+      el.classList.add("tick");
+    },
     /* A state value that carries information (not unknown, unavailable or empty). */
     known: (v) => v !== undefined && v !== null && !["", "unknown", "unavailable", "none"].includes(String(v).toLowerCase()),
     /* The Date in a timestamp state, or null. */

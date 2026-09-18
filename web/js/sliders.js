@@ -146,7 +146,16 @@
   }
 
   let popupLight = null;
-  const hBright = horizontalSlider($("popupBright"), { min: 0, max: 100, value: 50, onCommit: (v) => Panel.setBrightness([popupLight], v) });
+  const brightText = (v) => (v <= 0 ? "Uit" : `${Math.round(v)}%`);
+  const hBright = horizontalSlider($("popupBright"), {
+    min: 0,
+    max: 100,
+    value: 50,
+    onCommit: (v) => {
+      $("popupBrightVal").textContent = brightText(v);
+      Panel.setBrightness([popupLight], v);
+    },
+  });
   const hHue = horizontalSlider($("popupColor"), {
     min: 0,
     max: 359,
@@ -160,9 +169,13 @@
     const s = Panel.st(id);
     if (!s || s.state === "unavailable") return;
     popupLight = id;
+    Panel.popupLightId = id;
     $("popupTitle").textContent = Panel.lightLabel(id);
     $("popupName").value = Panel.lightLabel(id);
     $("popupRename").disabled = true;
+    $("popupPower").classList.toggle("on", s.state === "on");
+    $("popupBrightVal").textContent = s.state === "on" ? brightText(Panel.brightnessPct(id)) : "Uit";
+    document.querySelectorAll(".popup-name, .popup-name-label").forEach((el) => (el.hidden = true));
     const b = Panel.brightnessPct(id);
     const caps = Panel.caps(id);
     $("popupColorWrap").hidden = !caps.color;
@@ -189,6 +202,21 @@
 
   $("popup").addEventListener("click", (e) => e.target === $("popup") && Panel.closeOverlay($("popup")));
   $("popupClose").innerHTML = icon("close");
+  $("popupPower").innerHTML = icon("power");
+  $("popupPower").addEventListener("click", () => popupLight && Panel.toggleLight(popupLight));
+  /* The light's state reaches the popup's power button and brightness line. */
+  Panel.on("light", (id) => {
+    if (id !== popupLight || $("popup").hidden) return;
+    const s = Panel.st(id) || {};
+    $("popupPower").classList.toggle("on", s.state === "on");
+    $("popupBrightVal").textContent = s.state === "on" ? brightText(Panel.brightnessPct(id)) : "Uit";
+  });
+  $("popupEdit").innerHTML = icon("edit");
+  $("popupEdit").addEventListener("click", () => {
+    const show = $("popupName").parentElement.hidden;
+    document.querySelectorAll(".popup-name, .popup-name-label").forEach((el) => (el.hidden = !show));
+    if (show) $("popupName").focus();
+  });
   $("popupClose").addEventListener("click", () => Panel.closeOverlay($("popup")));
 
   /* The lamp's name: saved to Home Assistant, so every panel shows it. */

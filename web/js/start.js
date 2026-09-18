@@ -16,7 +16,12 @@
       `<div class="house-none" hidden>De 3D-weergave heeft WebGL nodig, dat deze browser niet geeft.</div></div>`,
     build(el) {
       const hint = el.querySelector(".house-hint");
-      const seen = () => hint.classList.add("seen");
+      const HINT_AGAIN_MS = 7 * 86400e3; /* the hint returns after a week without a touch */
+      const seen = () => {
+        hint.classList.add("seen");
+        Panel.setPref("houseTouched", Date.now());
+      };
+      if (Date.now() - (Panel.prefs.houseTouched || 0) < HINT_AGAIN_MS) hint.classList.add("seen");
       const house = Panel.house3d(el.querySelector("canvas"), window.HOUSE_PLAN, { onInteract: seen });
       if (!house) {
         el.querySelector(".house-none").hidden = false;

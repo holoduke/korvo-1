@@ -147,13 +147,18 @@
     x ? JSON.stringify([x.state, x.attributes && x.attributes.temperature, x.attributes && x.attributes.preset_mode, x.attributes && x.attributes.volume_level]) : "";
 
   /* ---- Render ----------------------------------------------------------------------- */
-  function tileState(action, active, label, small, visible = true) {
+  /* A tile reads state first: what the car is doing big, what a tap does small
+   * ("Staat open" over "Klep dicht"); a tile whose label is the state already
+   * (the lock) passes stateBig = false. */
+  function tileState(action, active, label, small, visible = true, stateBig = true) {
     const el = q(`[data-car="${action}"]`);
     if (!el) return null;
     el.hidden = !visible;
     el.classList.toggle("on", !!active);
-    el.querySelector(".cp-label b").textContent = twoTap.armed(action) ? "Nogmaals tikken" : label;
-    el.querySelector(".cp-label small").textContent = small;
+    const armed = twoTap.armed(action);
+    const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+    el.querySelector(".cp-label b").textContent = armed ? "Nogmaals tikken" : stateBig && small ? cap(small) : label;
+    el.querySelector(".cp-label small").textContent = stateBig && small ? label : small;
     return el;
   }
   function setStat(id, text) {
@@ -255,7 +260,8 @@
 
     const chargeOn = on("charge");
     const toFull = Number.isFinite(secondsToFull) ? ` · nog ${chargeLeft(secondsToFull)}` : "";
-    tileState("charge", chargeOn, chargeOn ? "Stop laden" : "Start laden", (CHARGING_NL[charging] || "") + toFull, has("charge"));
+    /* "Laadt" big; the action and the time to full on the line below */
+    tileState("charge", chargeOn, (chargeOn ? "Stop laden" : "Start laden") + toFull, CHARGING_NL[charging] || "", has("charge"));
     const portOpen = stateOf("port") === "open";
     tileState("port", portOpen, portOpen ? "Klep dicht" : "Klep open", portOpen ? "staat open" : "is dicht", has("port"));
     const cableLocked = stateOf("cableLock") === "locked";
@@ -323,7 +329,9 @@
       const level = stateOf(k);
       const options = attrs(k).options || ["off", "low", "medium", "high"];
       el.classList.toggle("on", !!level && level !== "off");
-      el.querySelector(".cp-label small").textContent = LEVEL_NL[level] || (known(level) ? level : "--");
+      const seat = el.dataset.seat || (el.dataset.seat = el.querySelector(".cp-label b").textContent);
+      el.querySelector(".cp-label b").textContent = LEVEL_NL[level] || (known(level) ? level : "--");
+      el.querySelector(".cp-label small").textContent = seat;
       const idx = Math.max(0, options.indexOf(level));
       el.querySelector(".cp-dots").innerHTML = options.slice(1).map((_, i) => `<s class="${i < idx ? "lit" : ""}"></s>`).join("");
     });
@@ -332,8 +340,8 @@
     const lockKnown = known(stateOf("lock"));
     const locked = stateOf("lock") === "locked";
     const lockTile = lockKnown
-      ? tileState("lock", locked, locked ? "Vergrendeld" : "Ontgrendeld", locked ? "tik om te openen" : "tik om te sluiten", has("lock"))
-      : tileState("lock", false, "Slot", "onbekend, tik om te sluiten", has("lock"));
+      ? tileState("lock", locked, locked ? "Vergrendeld" : "Ontgrendeld", locked ? "tik om te openen" : "tik om te sluiten", has("lock"), false)
+      : tileState("lock", false, "Slot", "onbekend, tik om te sluiten", has("lock"), false);
     if (lockTile) lockTile.toggleAttribute("data-confirm", locked); /* unlocking asks for a second tap */
     /* Sentry mode keeps the car awake: about 4-8% of the battery a day. */
     tileState("sentry", on("sentry"), "Schildwacht", on("sentry") ? "aan · kost 4-8% accu per dag" : "uit", has("sentry"));

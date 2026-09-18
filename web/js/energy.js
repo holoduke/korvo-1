@@ -114,14 +114,11 @@
     const e = grid.entities;
     const live = gridLive();
     box.classList.toggle("missing", !live);
+    /* No meter reporting: no card (the row closes up), rather than a placeholder in the top slot. */
+    box.hidden = !live;
+    box.closest(".en-row").classList.toggle("no-grid", !live);
     const title = `<h2 class="dc-title">${esc(grid.label)}</h2>`;
-    if (!live) {
-      box.innerHTML =
-        title +
-        `<div class="en-empty"><span class="en-empty-icon">${icon("plug")}</span><div><b>Nog niet gekoppeld</b>` +
-        `<p>Zodra de P1-meter in Home Assistant staat, verschijnen hier stroom van en naar het net, per fase en per dag.</p></div></div>`;
-      return;
-    }
+    if (!live) return;
     const gw = scaled(e.power);
     const phases = [1, 2, 3].filter((p) => exists(e[`power${p}`]));
     const top = Math.max(1000, ...phases.map((p) => Math.abs(scaled(e[`power${p}`])) || 0));

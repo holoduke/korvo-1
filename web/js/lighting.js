@@ -88,6 +88,7 @@
 
   const pending = new Map(); /* light id -> {on, timer}: optimistic toggle */
   function renderLight(id) {
+    Panel.emit("light", id); /* the popup follows its lamp */
     const s = st(id);
     const p = pending.get(id);
     const loaded = Panel.isLoaded();
@@ -201,10 +202,21 @@
     const pill = document.querySelector(`[data-pill="${tab}"] b`);
     if (pill) pill.textContent = idx >= 0 ? cfg.tabs[tab].scenes[idx].label : "-";
   }
+  /* The scene tile spins until a lamp reports a change (or 4 s pass). */
+  let sceneBusy = 0;
+  function sceneSettled() {
+    clearTimeout(sceneBusy);
+    sceneBusy = 0;
+    document.querySelectorAll(".tile.scene.busy").forEach((el) => el.classList.remove("busy"));
+  }
   Panel.activateScene = function (tab, idx) {
     if (tooSoon(`s:${tab}:${idx}`)) return;
     dismissSave(); /* the lamps take the scene's states: nothing to save */
     highlightScene(tab, idx);
+    sceneSettled();
+    const tile = document.querySelector(`[data-scene="${tab}:${idx}"]`);
+    if (tile) tile.classList.add("busy");
+    sceneBusy = setTimeout(sceneSettled, 4000);
     Panel.client.callService("scene", "turn_on", null, { entity_id: cfg.tabs[tab].scenes[idx].id }).catch((err) => {
       highlightNewest(tab); /* not activated after all */
       Panel.commandFailed(cfg.tabs[tab].scenes[idx].label)(err);
@@ -404,10 +416,20 @@
     const shown = lamps.filter((id) => !room || room.has(id)).sort(byLabel);
     grid.innerHTML = shown.length ? shown.map(Panel.lightTile).join("") : `<div class="split-empty">Geen lampen</div>`;
     shown.forEach(renderLight);
-    grid.closest(".split-lamps").querySelector(".split-title").textContent = area ? `Lampen · ${area.label}` : "Lampen";
+    grid.closest(".split-lamps").querySelector(".split-title").dataset.base = area ? `Lampen · ${area.label}` : "Lampen";
+    markGone();
     const list = grid.closest(".split-list");
     list.scrollTop = 0;
     markScroll(list);
+  }
+  /* "Lampen · 2 niet bereikbaar": the title of each lamp list counts the
+   * tiles that are out of reach, which keep their place in the grid. */
+  function markGone() {
+    document.querySelectorAll(".split-lamps .split-title").forEach((t) => {
+      const base = t.dataset.base || t.textContent;
+      const gone = Panel.isLoaded() ? t.closest(".split-lamps").querySelectorAll("[data-light].unavail").length : 0;
+      t.textContent = gone ? `${base} · ${gone} niet bereikbaar` : base;
+    });
   }
   /* A floor's lamps for "Alle" (area null) or one room. */
   Panel.renderLamps = (fi, area) => renderTabLamps(cfg.floors[fi].tab, area);
@@ -491,7 +513,11 @@
     [...t.lights, ...t.devices].forEach((e) => lightIds.add(e.id));
     (t.areas || []).forEach((a) => a.lights.forEach((id) => lightIds.add(id)));
   });
-  Panel.track(lightIds, onLights);
+  Panel.track(lightIds, (ids, first) => {
+    onLights(ids, first);
+    if (!first && sceneBusy) sceneSettled(); /* the scene's lamps answered */
+    markGone();
+  });
   Panel.track(cfg.tabs.flatMap((t) => t.scenes.map((s) => s.id)), onScenes);
 
   Panel.on("build", () => {

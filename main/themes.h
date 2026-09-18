@@ -29,6 +29,7 @@ typedef struct {
     const char *display; /* the display face of the clock and the house readout, NULL = Orbitron */
     int round;           /* corner roundness in % of the usual (0 = usual; 0..200) */
     uint32_t edge;       /* a line along the edge of tiles and cards, 0 = none */
+    int glow;            /* 1: tiles that are on glow in their colour */
 } panel_theme_t;
 
 static const panel_theme_t PANEL_THEMES[] = {
@@ -74,35 +75,35 @@ static const panel_theme_t PANEL_THEMES[] = {
       .text = 0xfdf2ff, .text_dim = 0xb98ad1, .text_soft = 0xe3c9f2,
       .scene = 0x24123f, .scene_on = 0x22e6ff, .scene_text = 0x03222a, .scene_sub = 0x0c6d7a,
       .accent = 0xff2bd6, .grid = 0x2c1550,
-      .font = "Audiowide", .display = "Audiowide", .round = 160, .edge = 0x6d28d9 },
+      .font = "Audiowide", .display = "Audiowide", .round = 160, .edge = 0x6d28d9, .glow = 1 },
     { .name = "Rood",        /* crimson and amber, a condensed face, angular */
       .bg = 0x160607, .toolbar = 0x0e0304, .tile = 0x3a1013, .tile_off = 0x260a0c,
       .tile_on = 0xff3b3b, .on_text = 0x2a0505, .on_sub = 0x7a1c1c,
       .text = 0xfff1f1, .text_dim = 0xc08a8a, .text_soft = 0xe8c4c4,
       .scene = 0x4a171b, .scene_on = 0xffb347, .scene_text = 0x2b1600, .scene_sub = 0x7a4a10,
       .accent = 0xff3b3b, .grid = 0x3d1a1d,
-      .font = "Rajdhani", .display = "Rajdhani", .round = 50, .edge = 0x8b1e24 },
+      .font = "Rajdhani", .display = "Rajdhani", .round = 50, .edge = 0x8b1e24, .glow = 1 },
     { .name = "Paars",       /* deep violet with lilac and pink, soft and round */
       .bg = 0x120a1f, .toolbar = 0x0c0616, .tile = 0x2a1a45, .tile_off = 0x1c1130,
       .tile_on = 0xc084fc, .on_text = 0x24103d, .on_sub = 0x5b3a85,
       .text = 0xf5f0ff, .text_dim = 0xa58fc6, .text_soft = 0xd6c7ec,
       .scene = 0x35234f, .scene_on = 0xf472b6, .scene_text = 0x3a0a25, .scene_sub = 0x8a2d64,
       .accent = 0xc084fc, .grid = 0x33244f,
-      .font = "Comfortaa", .display = "Comfortaa", .round = 140, .edge = 0x4c2a80 },
+      .font = "Comfortaa", .display = "Comfortaa", .round = 140, .edge = 0x4c2a80, .glow = 1 },
     { .name = "Cyberpunk",   /* acid yellow and cyan on navy, sharp corners, cyan edges */
       .bg = 0x070b14, .toolbar = 0x03060c, .tile = 0x11192a, .tile_off = 0x0b1120,
       .tile_on = 0xfcee0a, .on_text = 0x1f1a00, .on_sub = 0x6b5d00,
       .text = 0xeaf6ff, .text_dim = 0x6f8aa8, .text_soft = 0xb6cbe0,
       .scene = 0x172236, .scene_on = 0x00f0ff, .scene_text = 0x00252a, .scene_sub = 0x006b73,
       .accent = 0xfcee0a, .grid = 0x1a2740,
-      .font = "Rajdhani", .display = "Orbitron", .round = 15, .edge = 0x0e7c85 },
+      .font = "Rajdhani", .display = "Orbitron", .round = 15, .edge = 0x0e7c85, .glow = 1 },
     { .name = "Terminal",    /* green phosphor on black, monospace, square */
       .bg = 0x000000, .toolbar = 0x000000, .tile = 0x0a1a0a, .tile_off = 0x061006,
       .tile_on = 0x33ff66, .on_text = 0x03230d, .on_sub = 0x0f6b2a,
       .text = 0xb8ffc8, .text_dim = 0x3f9a58, .text_soft = 0x7fd694,
       .scene = 0x0f2612, .scene_on = 0x7dffa5, .scene_text = 0x05260f, .scene_sub = 0x1b6b33,
       .accent = 0x33ff66, .grid = 0x123a18,
-      .font = "Space Mono", .display = "VT323", .round = 0, .edge = 0x1e6b33 },
+      .font = "Space Mono", .display = "VT323", .round = 0, .edge = 0x1e6b33, .glow = 1 },
     { .name = "Zonsondergang", /* plum, coral and apricot, friendly and round */
       .bg = 0x1c0f1a, .toolbar = 0x140a12, .tile = 0x3a1f33, .tile_off = 0x2a1626,
       .tile_on = 0xff7a59, .on_text = 0x2e0f05, .on_sub = 0x7a3520,
@@ -130,6 +131,6 @@ static const panel_theme_t PANEL_THEMES[] = {
       .text = 0xfff7ff, .text_dim = 0xa892c9, .text_soft = 0xd9cbef,
       .scene = 0x37245f, .scene_on = 0xff5e5b, .scene_text = 0x3a0a09, .scene_sub = 0x8a2a28,
       .accent = 0x3cf2ff, .grid = 0x34245a,
-      .font = "Josefin Sans", .display = "Bebas Neue", .round = 20, .edge = 0x5b3aa0 },
+      .font = "Josefin Sans", .display = "Bebas Neue", .round = 20, .edge = 0x5b3aa0, .glow = 1 },
 };
 #define PANEL_THEME_COUNT (sizeof(PANEL_THEMES) / sizeof(PANEL_THEMES[0]))

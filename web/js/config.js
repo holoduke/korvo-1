@@ -1798,6 +1798,7 @@ window.PANEL_CONFIG = {
       "font": "Audiowide",
       "display": "Audiowide",
       "round": 160,
+      "glow": 1,
       "edge": "#6d28d9"
     },
     {
@@ -1821,6 +1822,7 @@ window.PANEL_CONFIG = {
       "font": "Rajdhani",
       "display": "Rajdhani",
       "round": 50,
+      "glow": 1,
       "edge": "#8b1e24"
     },
     {
@@ -1844,6 +1846,7 @@ window.PANEL_CONFIG = {
       "font": "Comfortaa",
       "display": "Comfortaa",
       "round": 140,
+      "glow": 1,
       "edge": "#4c2a80"
     },
     {
@@ -1867,6 +1870,7 @@ window.PANEL_CONFIG = {
       "font": "Rajdhani",
       "display": "Orbitron",
       "round": 15,
+      "glow": 1,
       "edge": "#0e7c85"
     },
     {
@@ -1890,6 +1894,7 @@ window.PANEL_CONFIG = {
       "font": "Space Mono",
       "display": "VT323",
       "round": 0,
+      "glow": 1,
       "edge": "#1e6b33"
     },
     {
@@ -1982,6 +1987,7 @@ window.PANEL_CONFIG = {
       "font": "Josefin Sans",
       "display": "Bebas Neue",
       "round": 20,
+      "glow": 1,
       "edge": "#5b3aa0"
     }
   ]

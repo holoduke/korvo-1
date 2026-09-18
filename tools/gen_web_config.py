@@ -512,6 +512,8 @@ def parse_themes(src):
         m = re.search(r"\.round\s*=\s*(\d+)", block)
         if m and int(m.group(1)) != 100:
             theme["round"] = int(m.group(1))
+        if re.search(r"\.glow\s*=\s*1", block):
+            theme["glow"] = 1
         if edge:
             theme["edge"] = edge
         themes.append(theme)
