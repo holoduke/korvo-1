@@ -28,8 +28,34 @@
   }
 
   Panel.on("status", () => !$("settings").hidden && render()); /* the connection line follows */
+  /* The health page: each link in the chain with its state, refreshed each
+   * minute and on every change while the dialog is open. */
+  function renderHealth() {
+    const c = Panel.client;
+    const st = (id) => (Panel.st(id) || {}).state;
+    const h = cfg.health || {};
+    const lights = [...new Set(cfg.tabs.flatMap((t) => [...t.lights, ...t.devices].map((d) => d.id).filter((id) => id.startsWith("light."))))];
+    const gone = lights.filter((id) => st(id) === "unavailable").length;
+    const robots = [...(cfg.vacuum ? [{ label: cfg.vacuum.label, id: cfg.vacuum.vacuum }] : []), ...(cfg.tuyaVacuums || []).map((r) => ({ label: r.label, id: r.entities.vacuum }))];
+    const connected = $("status").classList.contains("connected");
+    const rows = [
+      ["Home Assistant", connected ? `verbonden${c.latency && c.latency() != null ? ` · ${c.latency()} ms` : ""}${c.connectedSince && c.connectedSince() ? ` · sinds ${Util.hm(new Date(c.connectedSince()))}` : ""}` : "geen verbinding", connected ? "ok" : "bad"],
+      ["Zigbee", !h.zigbee || st(h.zigbee) === undefined ? "onbekend" : st(h.zigbee) === "on" ? `bridge online · ${gone ? `${gone} van ${lights.length} lampen niet bereikbaar` : "alle lampen bereikbaar"}` : "bridge offline", !h.zigbee || st(h.zigbee) === undefined ? "dim" : st(h.zigbee) !== "on" ? "bad" : gone > lights.length * 0.4 ? "bad" : gone ? "warn" : "ok"],
+      ["Internet", !h.internet || st(h.internet) === undefined ? "onbekend" : st(h.internet) === "on" ? "verbonden" : "weg", !h.internet || st(h.internet) === undefined ? "dim" : st(h.internet) === "on" ? "ok" : "bad"],
+      ...robots.map((r) => [r.label, st(r.id) === "unavailable" ? "niet bereikbaar" : st(r.id) === undefined ? "onbekend" : "bereikbaar", st(r.id) === "unavailable" ? "warn" : st(r.id) === undefined ? "dim" : "ok"]),
+      ["Paneel", `versie ${(document.querySelector('meta[name="panel-version"]') || {}).content || "?"} · aan sinds ${Util.hm(bootedAt)}`, "dim"],
+    ];
+    $("health").innerHTML = rows.map(([k, v, tone]) => `<div class="health-row"><i class="hud-dot ${tone}"></i><span class="health-k">${k}</span><span class="health-v">${Util.esc(v)}</span></div>`).join("");
+  }
+  const bootedAt = new Date();
+  const healthIds = () => [(cfg.health || {}).zigbee, (cfg.health || {}).internet].filter(Boolean);
+  Panel.track(healthIds(), () => !$("settings").hidden && renderHealth());
+  Panel.on("minute", () => !$("settings").hidden && renderHealth());
+  Panel.on("status", () => !$("settings").hidden && renderHealth());
+
   $("gear").addEventListener("click", () => {
     render();
+    renderHealth();
     Panel.openOverlay($("settings"));
   });
   $("settingsClose").innerHTML = icon("close");

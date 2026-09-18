@@ -15,3 +15,13 @@
 .seg button { flex: 1; padding: 10px 6px; border-radius: calc(9px * var(--round)); font-size: 15px; font-weight: 600; color: var(--text_dim); transition: background-color 0.2s, color 0.2s; }
 .seg button.selected { background: var(--tile); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
 .text-btn { align-self: flex-start; display: flex; gap: 8px; align-items: center; font-size: 16px; font-weight: 600; color: var(--accent); padding: 8px 0; }
+
+/* The health page: a dot, the link in the chain, its state. */
+.health { display: grid; grid-template-columns: auto auto 1fr; column-gap: 12px; row-gap: 8px; align-items: baseline; font-size: 15px; }
+.health-row { display: contents; }
+.health-k { font-weight: 700; }
+.health-v { color: var(--text_dim); font-weight: 500; }
+.health .hud-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text_dim); display: inline-block; }
+.health .hud-dot.ok { background: var(--ok); }
+.health .hud-dot.warn { background: var(--warn); }
+.health .hud-dot.bad { background: var(--bad); }

@@ -2,6 +2,10 @@
  * Do not edit by hand: change the headers and re-run the script. */
 window.PANEL_CONFIG = {
   "weather": "weather.buienradar",
+  "health": {
+    "zigbee": "binary_sensor.zigbee2mqtt_bridge_connection_state",
+    "internet": "binary_sensor.internetbox_wan_status"
+  },
   "tabs": [
     {
       "name": "Beneden",

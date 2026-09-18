@@ -186,8 +186,10 @@
     bus.emit("start");
     client.on("status", (s) => {
       connected = s === "connected";
-      $("status").className = "status " + (s === "connected" ? "connected" : s === "connecting" ? "connecting" : "");
-      $("connbar").hidden = s === "connected" || !loaded; /* only a connection that was there and went */
+      $("status").className = "status " + (s === "connected" ? "connected" : s === "connecting" || s === "stale" ? "connecting" : "");
+      /* The banner: the last known state at a start, or a connection that went. */
+      $("connbar").hidden = s === "connected" || !loaded;
+      $("connbar").textContent = s === "stale" || s === "connecting" ? "Laatste bekende stand · verbinden met Home Assistant…" : "Geen verbinding met Home Assistant · opnieuw verbinden…";
       document.body.classList.toggle("offline", s !== "connected" && loaded);
       bus.emit("status", s);
     });

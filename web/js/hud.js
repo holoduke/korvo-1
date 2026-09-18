@@ -47,6 +47,14 @@
     if (stuck.length) out.push({ tone: "bad", text: `Storing: ${stuck.map((r) => r.label).join(", ")}` });
     const errors = window.Diag ? window.Diag.errorCount() : 0;
     if (errors) out.push({ tone: "bad", text: `${errors} scriptfout${errors === 1 ? "" : "en"}` });
+    /* The network: the Zigbee bridge gone, most lamps out of reach (the Zigbee
+     * network itself), the internet gone. A few lamps off at the wall are not news. */
+    const h = cfg.health || {};
+    if (h.zigbee && state(h.zigbee) === "off") out.push({ tone: "bad", text: "Zigbee-bridge offline" });
+    const allLamps = [...new Set(rooms.flatMap((r) => r.lights))];
+    const gone = allLamps.filter((id) => state(id) === "unavailable").length;
+    if (allLamps.length && gone > allLamps.length * 0.4) out.push({ tone: "bad", text: `${gone} van ${allLamps.length} lampen niet bereikbaar: Zigbee?` });
+    if (h.internet && state(h.internet) === "off") out.push({ tone: "warn", text: "Internet weg" });
     return out;
   }
 
@@ -427,6 +435,8 @@
       ...robots.flatMap((r) => [r.vacuum, r.problem]),
       ...contacts.map((c) => c.entities.contact),
       ...rooms.map((r) => r.presence),
+      (cfg.health || {}).zigbee,
+      (cfg.health || {}).internet,
       SUN,
       cfg.weather,
     ].filter(Boolean),

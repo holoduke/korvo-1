@@ -143,6 +143,35 @@
     let reconnectTimer = 0;
     let connecting = false; /* from starting a connection until it is authenticated or closed */
     let authed = false;
+    let latency = null; /* ms of the last ping round trip */
+    let connectedAt = 0;
+    /* The last states seen are kept in the browser: at the next start the app
+     * shows them at once (marked stale) while the socket opens, and still has
+     * something to show while Home Assistant restarts. */
+    const CACHE_KEY = "panel.states";
+    const CACHE_MAX_AGE_MS = 24 * 3600e3;
+    let cacheTimer = 0;
+    let fromCache = false;
+    try {
+      const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null");
+      if (c && Date.now() - c.t < CACHE_MAX_AGE_MS && Array.isArray(c.s)) {
+        c.s.forEach(([id, st]) => entityIds.includes(id) && states.set(id, st));
+        fromCache = states.size > 0;
+      }
+    } catch (e) {
+      /* no cache, or a broken one */
+    }
+    function saveCache() {
+      cacheTimer = 0;
+      if (!authed) return;
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), s: [...states] }));
+      } catch (e) {
+        /* full or private: no cache this time */
+      }
+    }
+    const scheduleCacheSave = () => !cacheTimer && (cacheTimer = setTimeout(saveCache, 15000));
+    document.addEventListener("visibilitychange", () => document.hidden && authed && saveCache());
     /* A request made while the connection is down (a tap right after the tablet
      * wakes up) brings the connection back at once and waits for it, this long. */
     const WAIT_FOR_CONNECTION_MS = 15000;
@@ -309,7 +338,13 @@
           pingTimer = setInterval(() => {
             /* no pong: the socket is dead even if the browser hasn't noticed */
             if (Date.now() - lastPong > 45000) return drop(socket);
-            transmit({ type: "ping" }).then(() => (lastPong = Date.now())).catch(() => {});
+            const sent = Date.now();
+            transmit({ type: "ping" })
+              .then(() => {
+                lastPong = Date.now();
+                latency = lastPong - sent;
+              })
+              .catch(() => {});
           }, 20000);
           waiting.splice(0).forEach((item) => item.flush());
         } else if (msg.type === "event" && msg.event && msg.event.event_type === "entity_registry_updated") {
@@ -318,10 +353,12 @@
           const changed = applyEntities(msg.event);
           if (!subscribed) {
             subscribed = true;
+            connectedAt = Date.now();
             clearTimeout(handshake);
             ev.emit("status", "connected");
           }
           if (changed.length) ev.emit("states", changed);
+          scheduleCacheSave();
         } else if (msg.type === "result" || msg.type === "pong") {
           const p = pending.get(msg.id);
           if (!p) return;
@@ -396,7 +433,18 @@
       demo: false,
       states,
       on: ev.on,
-      start: connect,
+      /* The cached states go out first, as a state dump marked stale. */
+      start() {
+        if (fromCache) {
+          setTimeout(() => {
+            ev.emit("states", [...states.keys()]);
+            ev.emit("status", "stale");
+          }, 0);
+        }
+        connect();
+      },
+      latency: () => latency,
+      connectedSince: () => connectedAt,
       hassUrl,
       logout,
       /* Fires a Home Assistant event (admin users); used for diagnostics. */

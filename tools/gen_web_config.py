@@ -538,6 +538,7 @@ def main():
         robots[r["floor"]] = {"type": "tuya", "entities": {k: r["entities"][k] for k in ("vacuum", "battery", "area", "time", "problem")}}
     config = {
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),
+        "health": {"zigbee": define(cfg, "PANEL_ZIGBEE_BRIDGE", "str"), "internet": define(cfg, "PANEL_INTERNET", "str")},
         "tabs": tabs,
         "floors": floors,
         "sections": sections,

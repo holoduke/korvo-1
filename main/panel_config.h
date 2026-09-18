@@ -509,6 +509,11 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "robot",      "Stofzuiger boven",   "1" },
 };
 
+/* Health (the web app's Instellingen and the house readout): the Zigbee
+ * bridge and the internet connection, as Home Assistant reports them. */
+#define PANEL_ZIGBEE_BRIDGE "binary_sensor.zigbee2mqtt_bridge_connection_state"
+#define PANEL_INTERNET      "binary_sensor.internetbox_wan_status"
+
 /* Sensor cards in the web app's "Sensoren" section (the panel's firmware does
  * not show them): kind selects which entities a device has, name is the
  * device's part of its entity ids (Zigbee2MQTT names, e.g. "sensor_keuken_1"
