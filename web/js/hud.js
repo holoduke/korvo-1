@@ -208,6 +208,9 @@
     if (house) house.clearTints();
     labels.innerHTML = "";
     document.querySelectorAll(".house-layers .hl-btn").forEach((b) => b.classList.toggle("active", b.dataset.layer === layer));
+    /* The room opened beside the house: its floor in the accent colour. */
+    const sel = Panel.currentRoom && Panel.currentRoom();
+    if (house && sel) house.tintRoom(sel.floor, sel.name, [1, 0.72, 0.3], 0.16);
     /* Someone in a room: its floor shows a faint white, whatever the layer. */
     if (house) rooms.forEach((r) => r.presence && state(r.presence) === "on" && house.tintRoom(r.floor, r.name, [0.85, 0.92, 1.0], 0.09));
     /* At night the lamps that are on light their rooms, whatever the layer shows. */
@@ -304,11 +307,12 @@
     return best && best.r;
   }
   function tapped({ x, y }) {
-    if (layer !== "climate") {
-      const r = roomAt(x, y);
-      if (r) Panel.openRoom(r);
-      return;
-    }
+    /* a room under the tap opens beside the house (its climate is in there) */
+    const room = roomAt(x, y);
+    if (room) return Panel.openRoom(room);
+    if (Panel.currentRoom && Panel.currentRoom()) return Panel.closeRoom(); /* a tap on nothing closes it */
+    if (layer !== "climate") return;
+    /* a reading outside the rooms (the outside sensor) opens its climate popup */
     let best = null;
     for (const el of labels.children) {
       if (el.hidden) continue;
@@ -317,13 +321,8 @@
       const d = Math.hypot(+m[1] - x, +m[2] - y);
       if (d < 44 && (!best || d < best.d)) best = { el, d };
     }
-    if (!best) {
-      const r = roomAt(x, y);
-      if (r) Panel.openRoom(r);
-      return;
-    }
-    const r = rooms.find((q) => JSON.stringify(q.centre) === best.el.dataset.at);
-    const card = r ? r.card : climateCards.find((c) => (plan.sensors || []).some((s) => s.climate === c.label && JSON.stringify(s.at) === best.el.dataset.at));
+    if (!best) return;
+    const card = climateCards.find((c) => (plan.sensors || []).some((s) => s.climate === c.label && JSON.stringify(s.at) === best.el.dataset.at));
     const i = card ? (cfg.sensors || []).findIndex((s) => s.temp === card.entities.temperature) : -1;
     if (i >= 0) Panel.openClimate(i);
   }
@@ -422,6 +421,7 @@
   });
   Panel.on("loaded", schedule);
   Panel.on("section", startFollowing);
+  Panel.on("room", () => renderLayer()); /* the chosen room's floor lights up (or goes out) */
   document.addEventListener("visibilitychange", startFollowing);
   Panel.on("minute", () => {
     clock();

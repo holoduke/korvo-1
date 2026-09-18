@@ -163,3 +163,40 @@ body.saver-house .hud-watch { display: flex; }
   .ask-answer { bottom: 166px; }
   .start-page .house-hint { display: none; }
 }
+
+/* A room beside the house: the panel on the right (below the house on a
+ * phone), tied to the room by a leader line from its label — a dot and a ring
+ * at the room, a 45° elbow, a straight run to the panel's title. */
+.house-info {
+  position: absolute; right: 18px; top: 84px; width: min(320px, 40%); max-height: calc(100% - 160px);
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px;
+  background: color-mix(in srgb, var(--tile) 88%, transparent); backdrop-filter: blur(12px);
+  border-radius: calc(14px * var(--round)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 12px 40px rgba(0, 0, 0, 0.35);
+  animation: hi-in 0.28s var(--ease-out); z-index: 4;
+}
+.house-info::before { content: ""; position: absolute; left: -1px; top: 22px; width: 2px; height: 18px; background: var(--accent); }
+@keyframes hi-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+.hi-head { display: flex; align-items: center; gap: 10px; }
+.hi-title { flex: 1; min-width: 0; font-family: var(--font-display), "Orbitron", monospace; font-size: 17px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hi-close { width: 36px; height: 36px; border-radius: calc(10px * var(--round)); background: var(--tile_off); display: grid; place-items: center; font-size: 15px; flex: none; }
+.hi-facts { font-size: 13px; font-weight: 600; color: var(--text_dim); }
+.hi-lamps { display: grid; gap: 8px; overflow-y: auto; min-height: 0; scrollbar-width: none; }
+.hi-lamps::-webkit-scrollbar { display: none; }
+.hi-lamps .tile { flex-direction: row; align-items: center; gap: 10px; padding: 8px 10px; border-radius: calc(12px * var(--round)); min-height: 56px; }
+.hi-lamps .tile .t-name { font-size: 15px; }
+.hi-lamps .tile .t-sub { font-size: 12px; }
+.hi-lamps .tile.lamp .t-power { width: 38px; height: 38px; }
+.hi-empty { color: var(--text_dim); font-weight: 600; font-size: 14px; }
+.hi-actions { display: flex; gap: 8px; }
+.hi-actions .ap-btn { flex: 1; min-height: 42px; }
+.house-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; opacity: 0; transition: opacity 0.2s; }
+.house-leader.on { opacity: 1; }
+.house-leader .hl-path { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 70%, transparent)); stroke-dasharray: 2000; stroke-dashoffset: 2000; }
+.house-leader.drawn .hl-path { stroke-dashoffset: 0; transition: stroke-dashoffset 0.45s ease-out; }
+.house-leader .hl-dot { fill: var(--accent); }
+.house-leader .hl-ring { fill: none; stroke: var(--accent); stroke-width: 1; opacity: 0.7; animation: hl-ring 1.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes hl-ring { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(1.8); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .house-leader .hl-ring { animation: none; } .house-info { animation: none; } }
+@media (max-width: 700px) {
+  .house-info { left: 12px; right: 12px; top: auto; bottom: 150px; width: auto; max-height: 46%; }
+}
