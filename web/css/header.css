@@ -173,3 +173,18 @@
   .tabbar { padding: 0 4px; }
   .tab { font-size: 10.5px; }
 }
+
+/* Between 1100 and 1400 px (an 11" or 13" iPad) the eight climate columns,
+ * the air column and the three device columns only fit a size smaller, and
+ * without the air column's own temperature and humidity (the kitchen's
+ * climate column has them). Nothing hangs half-visible under the fade. */
+@media (min-width: 1100px) and (max-width: 1400px) {
+  .sensors { gap: 5px; }
+  .s-temp { font-size: 18px; }
+  .s-name, .s-hum { font-size: 11.5px; }
+  .air-grid { column-gap: 0; }
+  .air-grid .a-temp, .air-grid .a-hum, .aq-txt { display: none; } /* the dot still says how the air is */
+  .dev-hdr .s-name span { display: none; } /* the device columns keep their icon */
+  .dev-hdr .s-name .ic { font-size: 15px; }
+  #fc2 { display: none; } /* two days of forecast */
+}

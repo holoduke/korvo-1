@@ -64,7 +64,7 @@
     }`;
   const LINE_FS = `
     precision highp float;
-    uniform float uWidth; uniform vec3 uColor; uniform float uSweepY; uniform float uNear; uniform float uFar; uniform float uRadial; uniform vec2 uMid;
+    uniform float uWidth; uniform vec3 uColor; uniform float uSweepY; uniform float uNear; uniform float uFar; uniform float uRadial; uniform vec2 uMid; uniform float uReveal;
     varying float vAcross; varying float vAlong; varying float vLen; varying float vL; varying float vDepth; varying vec3 vWorld;
     void main() {
       float dx = max(max(-vAlong, vAlong - vLen), 0.0);
@@ -73,7 +73,9 @@
       float depth = mix(0.32, 1.0, smoothstep(uFar, uNear, vDepth));
       float radial = mix(1.0, 1.0 - smoothstep(8.0, 17.0, length(vWorld.xz - uMid)), uRadial);
       float sweep = exp(-pow((vWorld.y - uSweepY) * 1.7, 2.0));
-      float i = vL * depth * radial;
+      /* the reveal: nothing above uReveal yet, a bright rim just under it */
+      float rim = 1.0 - smoothstep(uReveal - 0.6, uReveal, vWorld.y);
+      float i = vL * depth * radial * rim * (1.0 + 2.0 * exp(-pow((vWorld.y - uReveal + 0.3) * 3.0, 2.0)));
       vec3 col = uColor * i * (1.0 + 1.6 * sweep) + vec3(0.35) * sweep * i;
       gl_FragColor = vec4(col * a, a * i);
     }`;
@@ -560,6 +562,12 @@
     let active = false;
     let raf = 0;
     let lastFrame = 0;
+    let revealAt = 0; /* when the house began to rise from the ground (first draw) */
+    const REVEAL_MS = 1400;
+    /* A look at an opening (a door that just opened): the camera turns to face
+     * it and comes closer, holds, then the orbit goes on from there. */
+    let focus = null; /* {from, to, t0, dur, until} */
+    let orbitScale = 1;
     let frames = 0;
     let accent = [0.3, 0.85, 1.0];
     let bg = [0.06, 0.07, 0.1];
@@ -637,12 +645,23 @@
       lastFrame = now;
       if (++frames % 90 === 0) readColours();
 
-      /* The orbit: the finger's momentum, then the slow turn on its own. */
-      if (!pinch && !drag) {
+      /* The orbit: the finger's momentum, then the slow turn on its own; or
+       * the look at an opening, which a finger cancels. */
+      if (focus && (pinch || drag || now > focus.until + focus.dur)) focus = null;
+      if (focus) {
+        /* in, hold, and out again to the height and distance it came from
+         * (the turn stays: the orbit goes on from where it looks now) */
+        const k = Math.min(1, (now - focus.t0) / focus.dur);
+        const e = 1 - Math.pow(1 - k, 3);
+        const back = now > focus.until ? 1 - Math.pow(1 - Math.min(1, (now - focus.until) / focus.dur), 3) : 0;
+        cam.yaw = focus.from.yaw + focus.dYaw * e;
+        cam.pitch = focus.from.pitch + (focus.to.pitch - focus.from.pitch) * e * (1 - back);
+        cam.zoom = focus.from.zoom + (focus.to.zoom - focus.from.zoom) * e * (1 - back);
+      } else if (!pinch && !drag) {
         cam.yaw += yawVel * dt;
         yawVel *= Math.exp(-dt * 3.5);
         if (Math.abs(yawVel) < 0.02) yawVel = 0;
-        if (!reduced && now - lastTouch > IDLE_MS) cam.yaw += AUTO_SPEED * dt;
+        if (!reduced && now - lastTouch > IDLE_MS) cam.yaw += AUTO_SPEED * orbitScale * dt;
       }
       const dist = fitDistance() * cam.zoom;
       const c = geo.centre;
@@ -668,6 +687,9 @@
       gl.uniform1f(lineP.u.uWidth, LINE_PX * dpr);
       gl.uniform2f(lineP.u.uMid, geo.centre[0], geo.centre[2]);
       gl.uniform1f(lineP.u.uSweepY, sweepY);
+      if (!revealAt) revealAt = now;
+      const rv = reduced ? 1 : Math.min(1, (now - revealAt) / REVEAL_MS);
+      gl.uniform1f(lineP.u.uReveal, -1 + 14 * (1 - Math.pow(1 - rv, 2)));
       gl.uniform1f(lineP.u.uNear, dist - geo.radius);
       gl.uniform1f(lineP.u.uFar, dist + geo.radius * 1.4);
       drawLines(vp, lines[1], 1);
@@ -812,9 +834,29 @@
       sample: () => new Promise((res) => (sampleReq = res)),
       camera: () => ({ yaw: cam.yaw, pitch: cam.pitch, zoom: cam.zoom, orbiting: !reduced && performance.now() - lastTouch > IDLE_MS }),
       setCamera(c) {
+        focus = null; /* a camera set from outside ends a look at an opening */
         Object.assign(cam, c);
         clampCam();
       },
+      /* Turn to face the opening (a plan key) and come closer, for hold ms. */
+      spotlight(key, { hold = 4000 } = {}) {
+        const corners = geo.openings[key];
+        if (!corners || pinch || drag) return false;
+        const c = geo.centre;
+        const mx = corners.reduce((s, p) => s + p[0], 0) / 4;
+        const mz = corners.reduce((s, p) => s + p[2], 0) / 4;
+        /* the wall's outward side: away from the house's centre */
+        const onZ = corners.every((p) => Math.abs(p[2] - corners[0][2]) < 1e-6);
+        const n = onZ ? [0, mz < c[2] ? -1 : 1] : [mx < c[0] ? -1 : 1, 0];
+        const yaw = Math.atan2(n[0], n[1]) + (onZ ? 0.35 : -0.35) * (mx < c[0] ? -1 : 1);
+        const to = { yaw, pitch: 0.42, zoom: 0.7 };
+        const dYaw = Math.atan2(Math.sin(to.yaw - cam.yaw), Math.cos(to.yaw - cam.yaw));
+        const t0 = performance.now();
+        focus = { from: { ...cam }, to, dYaw, t0, dur: 900, until: t0 + 900 + hold };
+        return true;
+      },
+      /* The orbit's speed as a share of the usual (the screensaver turns slower). */
+      setOrbitScale: (f) => (orbitScale = f),
       get frames() {
         return frames;
       },

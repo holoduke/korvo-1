@@ -162,14 +162,23 @@
     }
     place();
   }
-  /* The labels follow their places while the house turns. */
+  /* The labels follow their places while the house turns; where two would
+   * overlap, the nearer one shows and the farther one waits its turn. */
+  const LABEL_W = 96, LABEL_H = 30;
   function place() {
     const house = Panel.house;
     if (!house) return;
-    for (const el of labels.children) {
-      const p = house.project(JSON.parse(el.dataset.at));
-      el.hidden = !p;
-      if (p) el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+    const placed = [...labels.children]
+      .map((el) => ({ el, p: house.project(JSON.parse(el.dataset.at)) }))
+      .sort((a, b) => (a.p ? a.p.depth : Infinity) - (b.p ? b.p.depth : Infinity));
+    const kept = [];
+    for (const { el, p } of placed) {
+      const clash = p && kept.some((k) => Math.abs(k.x - p.x) < LABEL_W && Math.abs(k.y - p.y) < LABEL_H);
+      el.hidden = !p || clash;
+      if (p && !clash) {
+        kept.push(p);
+        el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
+      }
     }
   }
   function follow() {

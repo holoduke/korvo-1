@@ -132,7 +132,15 @@
     if (tooSoon("t:" + id)) return;
     const on = s.state !== "on";
     clearTimeout((pending.get(id) || {}).timer);
-    pending.set(id, { on, timer: setTimeout(() => (pending.delete(id), renderLight(id)), 4000) });
+    pending.set(id, {
+      on,
+      timer: setTimeout(() => {
+        pending.delete(id);
+        renderLight(id);
+        const s2 = st(id);
+        if (s2 && !Panel.unavailable(s2) && (s2.state === "on") !== on) Panel.toast(`${Panel.lightLabel(id)} reageert niet`, "warn");
+      }, 4000),
+    });
     renderLight(id);
     Panel.client.callService("light", "toggle", null, { entity_id: id }).catch(() => {
       pending.delete(id);
@@ -313,7 +321,7 @@
       highlightScene(d.tab, d.idx); /* the saved scene stays the active one */
       sceneStates.set(sc.id, entities);
       renderSceneSwatches();
-      Panel.toast(`Scene ${sc.label} opgeslagen`);
+      Panel.toast(`Scene ${sc.label} opgeslagen`, "ok");
     } catch (e) {
       Panel.toast(`Scene ${sc.label} opslaan lukte niet: ${e.message || e}`);
     }

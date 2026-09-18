@@ -103,6 +103,10 @@ body.saver-house .hud-clock { display: block; }
 }
 @media (max-width: 700px) {
   .hud { max-width: calc(100% - 36px); font-size: 10px; }
+  .house-walls { left: 18px; right: auto; bottom: 58px; }
+  .house-hint { bottom: 100px; }
+  .house-label b { font-size: 12px; }
+  .house-label i { font-size: 9.5px; }
   .hr-icon { width: 40px; height: 40px; }
   .hr-icon .ic { width: 22px; height: 22px; }
   .hr-text b { font-size: 11px; }
@@ -111,3 +115,8 @@ body.saver-house .hud-clock { display: block; }
 @media (pointer: fine) and (hover: hover) {
   .house-hint { display: none; }
 }
+
+/* The screensaver: the buttons fade, the house has the screen. */
+.house-layers, .house-walls { transition: opacity 0.6s; }
+body.saver-house .house-layers, body.saver-house .house-walls { opacity: 0; pointer-events: none; }
+.hl-btn { min-height: 38px; }

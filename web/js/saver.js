@@ -71,9 +71,11 @@
       void app.offsetHeight; /* the rows start from their measured height */
       document.body.classList.add("saver-house");
       rows(0, 0);
+      if (Panel.house) Panel.house.setOrbitScale(0.45); /* slower on its own, all evening */
       return;
     }
     document.body.classList.remove("saver-house");
+    if (Panel.house) Panel.house.setOrbitScale(1);
     rows(natural.hdr, natural.tab);
     chromeTimer = setTimeout(() => {
       app.style.removeProperty("--hdr-row");

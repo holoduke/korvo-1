@@ -150,7 +150,7 @@
         .map(
           (r) =>
             `<button class="vs-room" data-vac="room" data-room="${r.id}"><span class="vs-rname">${r.label}</span>` +
-            `<span class="vs-rid">#${r.id}</span><span class="vs-pct"></span>` +
+            `<span class="vs-pct"></span>` +
             `<span class="vs-rlast">${icon("clock")}<span></span></span><span class="vs-rplan"></span><i class="vs-sweep"></i><i class="vs-prog"><b></b></i></button>`
         )
         .join("") +

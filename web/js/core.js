@@ -182,6 +182,7 @@
     client.on("status", (s) => {
       connected = s === "connected";
       $("status").className = "status " + (s === "connected" ? "connected" : s === "connecting" ? "connecting" : "");
+      $("connbar").hidden = s === "connected" || !loaded; /* only a connection that was there and went */
       bus.emit("status", s);
     });
     client.on("states", dispatch);

@@ -203,7 +203,7 @@
       await Panel.renameLight(id, name);
       $("popupTitle").textContent = Panel.lightLabel(id);
       $("popupName").blur();
-      Panel.toast(`Lamp heet nu ${name}`);
+      Panel.toast(`Lamp heet nu ${name}`, "ok");
     } catch (err) {
       $("popupRename").disabled = false;
       Panel.toast(`Naam opslaan lukte niet: ${(err && err.message) || err}`);

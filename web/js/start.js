@@ -31,10 +31,14 @@
         .filter((o) => o.key && o.sensor)
         .map((o) => ({ key: o.key, id: (cards.find((c) => c.label === o.sensor) || { entities: {} }).entities.contact }))
         .filter((d) => d.id || console.warn(`house: no sensor card "${d.key}" for the plan's ${d.key}`));
-      const syncDoors = () =>
+      const syncDoors = (changed, first) =>
         doors.forEach((d) => {
           const open = (Panel.st(d.id) || {}).state === "on";
-          if (open && !house.highlights().includes(d.key)) house.highlight(d.key, { colour: [1, 0.3, 0.25], pulse: true });
+          if (open && !house.highlights().includes(d.key)) {
+            house.highlight(d.key, { colour: [1, 0.3, 0.25], pulse: true });
+            /* a door that just opened: the house turns to show it */
+            if (!first && changed.includes(d.id)) house.spotlight(d.key);
+          }
           if (!open) house.clearHighlight(d.key);
         });
       Panel.track(doors.map((d) => d.id), syncDoors);

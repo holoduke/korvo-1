@@ -120,7 +120,7 @@
   function render() {
     if (!root) return;
     /* A command whose entity never answered: say so, like the robots do. */
-    pending.settle().forEach((key) => Panel.toast(`${list[+key.split("|")[0]].label}: geen reactie van het apparaat`));
+    pending.settle().forEach((key) => Panel.toast(`${list[+key.split("|")[0]].label}: geen reactie van het apparaat`, "warn"));
     renderRow();
     list.forEach((a, i) => {
       const view = kindOf(a).view(a, i);
@@ -215,7 +215,7 @@
     if (!twoTap.tap(ALL_OFF, true)) return;
     const todo = switchable();
     todo.forEach((a) => kindOf(a).off.run(a, callFor(a, `${list.indexOf(a)}|off`)));
-    Panel.toast(todo.length ? `${todo.length === 1 ? "1 apparaat" : `${todo.length} apparaten`} uitgezet` : "Alles staat al uit");
+    Panel.toast(todo.length ? `${todo.length === 1 ? "1 apparaat" : `${todo.length} apparaten`} uitgezet` : "Alles staat al uit", "ok");
     render();
   });
   function renderRow() {

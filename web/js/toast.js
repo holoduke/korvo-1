@@ -5,15 +5,17 @@
   "use strict";
   const Panel = window.Panel;
   const { $ } = Panel;
-  const SHOW_MS = 6000;
+  const SHOW_MS = { ok: 3000, warn: 5000, bad: 6000 };
   let timer = 0;
 
-  Panel.toast = function (text) {
+  /* tone: ok (done, green), warn (something to know), bad (failed, the default). */
+  Panel.toast = function (text, tone = "bad") {
     const el = $("toast");
     el.textContent = text;
+    el.dataset.tone = tone;
     el.classList.add("show");
     clearTimeout(timer);
-    timer = setTimeout(() => el.classList.remove("show"), SHOW_MS);
+    timer = setTimeout(() => el.classList.remove("show"), SHOW_MS[tone] || SHOW_MS.bad);
   };
 
   /* A catch handler for a service call: "Tesla: opdracht mislukt (reason)". */

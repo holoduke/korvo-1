@@ -34,7 +34,7 @@
 /* --dc-icon: the card's own colour for its icon (Energie), else the tone's. */
 .dc-icon { flex: none; width: 34px; height: 34px; border-radius: calc(11px * var(--round)); display: grid; place-items: center; font-size: 18px; color: var(--dc-icon, var(--dc-tone)); background: color-mix(in srgb, var(--dc-icon, var(--dc-tone)) 16%, transparent); }
 /* The name may take two lines: room names are the point of the card. */
-.dc-head b { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.dc-head b { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; hyphens: manual; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .dc-dot { position: absolute; top: 14px; right: 14px; width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, var(--text_dim) 40%, transparent); }
 .tone-active .dc-dot, .tone-warn .dc-dot { background: var(--dc-tone); animation: dc-pulse 1.6s ease-out infinite; }
 @keyframes dc-pulse { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dc-tone) 60%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }

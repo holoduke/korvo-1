@@ -26,17 +26,15 @@
 }
 .vs-room.pressed { transform: scale(0.95); }
 .vs-rname { font-size: 22px; font-weight: 700; }
-.vs-rid { position: absolute; top: 12px; right: 14px; font-size: 13px; font-weight: 700; color: var(--text_dim); }
 .vs-rlast { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--text_dim); }
 .vs-rlast .ic { font-size: 14px; }
 .vs-room.active { background: var(--tile_on); color: var(--on_text); }
-.vs-room.active .vs-rid, .vs-room.active .vs-rlast { color: var(--on_sub); }
+.vs-room.active .vs-rlast { color: var(--on_sub); }
 .vs-room.live { box-shadow: inset 0 0 0 2px var(--accent); }
 .vs-room.live .vs-rlast { color: var(--accent); }
 /* Progress of the running job: percentage in place of the room number, a bar
  * along the bottom edge. */
 .vs-pct { position: absolute; top: 8px; right: 14px; font-size: 28px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-.vs-room.measured .vs-rid { display: none; }
 .vs-room.active .vs-pct { color: var(--on_text); }
 .vs-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; pointer-events: none; }
 .vs-prog b { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.6s var(--ease-out); }
