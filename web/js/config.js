@@ -1331,6 +1331,16 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "door",
+      "label": "Meterkast",
+      "name": "sensor_deur_meterkast_1",
+      "entities": {
+        "contact": "binary_sensor.sensor_deur_meterkast_1_contact",
+        "tamper": "binary_sensor.sensor_deur_meterkast_1_tamper",
+        "battery": "sensor.sensor_deur_meterkast_1_battery"
+      }
+    },
+    {
       "kind": "window",
       "label": "Raam gameroom",
       "name": "sensor_raam_gameroom_klapraam_1",

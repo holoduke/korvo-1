@@ -149,6 +149,8 @@ window.HOUSE_PLAN = {
     { plane: "z", at: 3.6, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { plane: "z", at: 7.05, a: 1.65, w: 1.6, y: 0, h: 2.4 },
     { key: "garagedeur_binnen", sensor: "Garage tussendeur", plane: "x", at: 5.6, a: 10.3, w: 0.95, y: 0, h: 2.3 },
+    /* the meter cupboard: the box in the hall beside the toilet, its door on the kitchen side */
+    { key: "meterkast", sensor: "Meterkast", plane: "z", at: 7.05, a: 4.35, w: 0.8, y: 0, h: 2.1 },
     { plane: "x", at: 5.6, a: 12.9, w: 1.9, y: 0, h: 2.6, floor: false } /* open passage: no line on the floor */,
     /* back: the bedroom's two windows (1.55 m each, page 6), each of two
      * opening panes with a contact: 1 and 2 the window on the right coming in

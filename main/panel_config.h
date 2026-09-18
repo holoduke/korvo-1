@@ -532,6 +532,7 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "door",     "Voordeur",         "sensor_deur_voordeur_1" }, /* IKEA MYGGBETT over Thread: no tamper contact */
     { "door",     "Schuifpui keuken", "sensor_deur_keuken_1" },   /* idem */
     { "door",     "Deur gameroom",    "sensor_deur_gameroom_buiten_1" }, /* idem, the door out at the back */
+    { "door",     "Meterkast",        "sensor_deur_meterkast_1" }, /* idem, the meter cupboard in the hall */
     { "window",   "Raam gameroom",    "sensor_raam_gameroom_klapraam_1" }, /* idem, the top-hung window beside it */
     { "window",   "Raam Valerie 1",   "sensor_raam_valerie_1" }, /* idem, the big front bedroom upstairs: its two windows, */
     { "window",   "Raam Valerie 2",   "sensor_raam_valerie_2" }, /* left and right seen from inside */
