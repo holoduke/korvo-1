@@ -38,13 +38,22 @@
     localStorage.setItem(LS_TOKENS, JSON.stringify(t));
   }
 
+  const TOKEN_TIMEOUT_MS = 12000; /* a request that hangs (Home Assistant half up) must not hold the reconnect loop */
   async function tokenRequest(params) {
     const body = new URLSearchParams({ client_id: clientId(), ...params });
-    const res = await fetch(hassUrl() + "/auth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    });
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), TOKEN_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(hassUrl() + "/auth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+        signal: abort.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) {
       const err = new Error("token request failed: " + res.status);
       err.status = res.status;
@@ -260,6 +269,16 @@
       const url = hassUrl().replace(/^http/, "ws") + "/api/websocket";
       const socket = (ws = new WebSocket(url));
       let subscribed = false;
+      /* A socket that opens but never authenticates, or never sends its first
+       * states (Home Assistant still starting up), is dropped and tried again
+       * after the backoff; otherwise the loop would wait on it for ever. */
+      const HANDSHAKE_MS = 15000;
+      let handshake = setTimeout(() => {
+        if (socket === ws && !subscribed) {
+          console.warn("ha: no states within 15 s, reconnecting");
+          drop(socket);
+        }
+      }, HANDSHAKE_MS);
       socket.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "auth_required") {
@@ -272,6 +291,13 @@
           connecting = false;
           authed = true;
           retry = 0;
+          clearTimeout(handshake);
+          handshake = setTimeout(() => {
+            if (socket === ws && !subscribed) {
+              console.warn("ha: authenticated but no states within 15 s, reconnecting");
+              drop(socket);
+            }
+          }, HANDSHAKE_MS);
           lastPong = Date.now();
           const id = nextId++;
           socket.send(JSON.stringify({ id, type: "subscribe_entities", entity_ids: entityIds }));
@@ -292,13 +318,20 @@
           const changed = applyEntities(msg.event);
           if (!subscribed) {
             subscribed = true;
+            clearTimeout(handshake);
             ev.emit("status", "connected");
           }
           if (changed.length) ev.emit("states", changed);
         } else if (msg.type === "result" || msg.type === "pong") {
           const p = pending.get(msg.id);
           if (!p) return;
-          if (p.subscription) return; /* keep: events keep arriving on this id */
+          if (p.subscription) {
+            if (msg.success === false) {
+              console.warn("ha: subscription refused, reconnecting", msg.error);
+              drop(socket);
+            }
+            return; /* keep: events keep arriving on this id */
+          }
           pending.delete(msg.id);
           if (msg.type === "pong" || msg.success) p.resolve(msg.result);
           else {
@@ -315,6 +348,7 @@
         }
       };
       socket.onclose = () => {
+        clearTimeout(handshake);
         if (socket !== ws) return;
         ws = null;
         closed();
@@ -329,6 +363,11 @@
       const delay = Math.min(30000, 1000 * Math.pow(2, retry++));
       reconnectTimer = setTimeout(connect, delay);
     }
+    /* A watchdog behind every path: no socket, nothing connecting, then connect
+     * (a scheduled retry that got lost would otherwise leave the panel offline). */
+    setInterval(() => {
+      if (!stopped && !ws && !connecting) connect();
+    }, 30000);
     /* Connects at once instead of after the backoff (never a second socket). */
     function reconnectNow() {
       if (stopped || connecting || ws) return;
