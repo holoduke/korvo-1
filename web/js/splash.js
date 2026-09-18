@@ -62,6 +62,11 @@
   Panel.on("start", () => {
     $("splashFill").style.width = "15%";
     fitTitle();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTitle);
+    /* The display face arrives on its own time (the font sheet loads without
+     * blocking the page): fit again whenever a font finishes loading. */
+    if (document.fonts) {
+      document.fonts.ready.then(fitTitle);
+      document.fonts.addEventListener("loadingdone", fitTitle);
+    }
   });
 })();
