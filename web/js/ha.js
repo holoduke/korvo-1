@@ -474,6 +474,13 @@
         const list = await send({ type: "config/entity_registry/list" });
         return new Map(list.filter((e) => e.name).map((e) => [e.entity_id, e.name]));
       },
+      /* Each light's device model (a Map entity id -> model id or model name),
+       * for an estimate of what it draws. */
+      async lightModels() {
+        const [entities, devices] = await Promise.all([send({ type: "config/entity_registry/list" }), send({ type: "config/device_registry/list" })]);
+        const byId = new Map(devices.map((d) => [d.id, d.model_id || d.model || ""]));
+        return new Map(entities.filter((e) => e.entity_id.startsWith("light.") && e.device_id).map((e) => [e.entity_id, byId.get(e.device_id) || ""]));
+      },
       /* A question for the house's own conversation agent (the thuispaneel
        * integration's "Thuis"); the result as conversation/process returns it. */
       converse: (text, conversationId) =>

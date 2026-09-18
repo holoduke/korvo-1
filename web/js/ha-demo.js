@@ -393,6 +393,9 @@
         const lamps = Object.values(states).filter((s) => s.entity_id.startsWith("light.") && s.state === "on").length;
         return { conversation_id: "demo", response: { response_type: "action_done", speech: { plain: { speech: /open|dicht|deur|raam/i.test(text) ? "De voordeur en alle ramen zijn dicht; alleen de garagedeur naar de woonkamer staat open." : `Er branden ${lamps} lampen en het is 22,1 graden in de keuken.` } } } };
       },
+      async lightModels() {
+        return new Map(Object.keys(states).filter((id) => id.startsWith("light.")).map((id, i) => [id, ["LED1924G9", "RS 242 C", "TS0505B_1", "9290024688"][i % 4]]));
+      },
       async registryNames() {
         return demoNames;
       },

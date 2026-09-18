@@ -56,6 +56,36 @@
     else names.delete(id);
     document.querySelectorAll(`[data-light="${CSS.escape(id)}"] .t-name`).forEach((el) => (el.textContent = Panel.lightLabel(id)));
   };
+  /* What a lamp draws: no lamp here reports power, so its rated wattage by
+   * model (the device registry's model id) times its brightness. Unknown
+   * models count as an ordinary 8 W bulb. */
+  const WATTS = {
+    "RS 242 C": 5, "RB 252 C": 4.5, "RB 278 T": 8.5, "RB 178 T": 8.5, /* Innr spot, candle, E27 tunable */
+    TS0505B_1: 9, "CK-BL702-AL-01": 9, /* Tuya E27 */
+    LED1924G9: 9, LED1925G6: 5.3, LED2110R3: 3.5, LED2102G3: 4.2, LED1934G3: 2.4, 36873: 8, /* IKEA */
+    9290024688: 9.5, "7602031P7": 6, 929003056001: 33, 8719514392830: 7, /* Philips Hue E27 1100 lm, Go, Adore mirror, filament */
+    "DOM-Z-105P_DIMMER": 20, /* an LED strip controller */
+  };
+  const models = new Map();
+  async function loadModels() {
+    try {
+      const m = await Panel.client.lightModels();
+      models.clear();
+      m.forEach((v, k) => models.set(k, v));
+    } catch (e) {
+      /* offline or not an admin: every lamp an ordinary bulb */
+    }
+    renderSceneWatts();
+  }
+  Panel.on("loaded", loadModels);
+  const rated = (id) => WATTS[models.get(id)] ?? 8;
+  /* Watts for a lamp in a given state ({state, brightness}), or its current one. */
+  Panel.lightWatts = function (id, s) {
+    const x = s || (st(id) ? { state: st(id).state, brightness: (st(id).attributes || {}).brightness } : null);
+    if (!x || x.state !== "on") return 0;
+    const share = typeof x.brightness === "number" ? Math.max(0.08, x.brightness / 255) : 1;
+    return rated(id) * share;
+  };
   Panel.lightLabel = function (id) {
     if (names.has(id)) return names.get(id);
     for (const t of cfg.tabs) {
@@ -192,12 +222,30 @@
 
   /* ---- Scenes ------------------------------------------------------------------ */
   const activeScene = new Map(); /* tab index -> index of its scene shown as active */
+  /* What a scene draws: its stored lamp states, rated by model; only a scene
+   * in Home Assistant's scene editor has stored states. */
+  function sceneWatts(ti, i) {
+    const states = sceneStates.get(cfg.tabs[ti].scenes[i].id);
+    if (!states) return null;
+    return Object.entries(states).filter(([id]) => id.startsWith("light.") && !groupMembers.has(id)).reduce((sum, [id, s]) => sum + Panel.lightWatts(id, s), 0);
+  }
+  const wattsText = (w) => (w === null ? "" : w < 1 ? "0 W" : `≈ ${Math.round(w)} W`);
+  function renderSceneWatts() {
+    document.querySelectorAll("[data-scene]").forEach((el) => {
+      const [ti, i] = el.dataset.scene.split(":").map(Number);
+      const on = activeScene.get(ti) === i;
+      const w = wattsText(sceneWatts(ti, i));
+      el.querySelector(".t-sub").textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scene";
+    });
+  }
   function highlightScene(tab, idx) {
     activeScene.set(tab, idx);
     document.querySelectorAll(`[data-scene^="${tab}:"]`).forEach((el) => {
       const on = +el.dataset.scene.split(":")[1] === idx;
       el.classList.toggle("active", on);
-      el.querySelector(".t-sub").textContent = on ? "actief" : "scene";
+      const [ti, i] = el.dataset.scene.split(":").map(Number);
+      const w = wattsText(sceneWatts(ti, i));
+      el.querySelector(".t-sub").textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scene";
     });
     const pill = document.querySelector(`[data-pill="${tab}"] b`);
     if (pill) pill.textContent = idx >= 0 ? cfg.tabs[tab].scenes[idx].label : "-";
@@ -400,6 +448,7 @@
       const swatch = states && Panel.sceneSwatch(states);
       if (swatch) el.querySelector(".scene-lead").outerHTML = swatch;
     });
+    renderSceneWatts();
   }
 
   /* Rebuild a tab's lamp list: all its lamps, or one room's (area). */
