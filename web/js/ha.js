@@ -474,6 +474,10 @@
         const list = await send({ type: "config/entity_registry/list" });
         return new Map(list.filter((e) => e.name).map((e) => [e.entity_id, e.name]));
       },
+      /* A question for the house's own conversation agent (the thuispaneel
+       * integration's "Thuis"); the result as conversation/process returns it. */
+      converse: (text, conversationId) =>
+        send({ type: "conversation/process", text, language: "nl", agent_id: "conversation.thuis", ...(conversationId ? { conversation_id: conversationId } : {}) }),
       /* Names an entity in the registry (empty: back to its own name); admins only. */
       renameEntity: (entityId, name) => send({ type: "config/entity_registry/update", entity_id: entityId, name: name || null }),
       /* Also follow these entities, now and after every reconnect. */

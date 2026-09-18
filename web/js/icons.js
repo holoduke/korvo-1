@@ -24,6 +24,8 @@
     "arrow-down": '<path d="M12 5v14M19 12l-7 7-7-7"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
     edit: '<path d="M4 20h4L18.5 9.5a1.5 1.5 0 0 0 0-2.1l-1.9-1.9a1.5 1.5 0 0 0-2.1 0L4 16v4z"/><path d="m13 7 4 4"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/>',
+    "arrow-right": '<path d="M5 12h14M13 6l6 6-6 6"/>',
     vacuum: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="9" r="2.5"/><path d="M7.5 15.5h9"/>',
     lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     washer: '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M4 7.5h16"/><circle cx="12" cy="14" r="4.5"/><path d="M9.8 14.8c1-.8 2.4-.8 4.4 0" /><circle cx="7" cy="5.3" r=".5"/>',

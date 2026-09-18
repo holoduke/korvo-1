@@ -1,0 +1,8 @@
+{
+  "config": {
+    "abort": {
+      "yaml": "Thuispaneel wordt ingesteld in configuration.yaml (thuispaneel: xai_key: !secret xai_key).",
+      "already_configured": "Thuispaneel is al ingesteld."
+    }
+  }
+}
