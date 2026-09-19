@@ -121,7 +121,7 @@
       `<div class="cp-openings"></div>` +
       `</div>` +
       `<div class="cp-card"><div class="vs-section-title">Acties</div>` +
-      `<div class="cp-tiles">${tile("flash", "lights", "Lichten")}${tile("honk", "locate", "Claxon", "data-confirm")}${tile("homelink", "dock", "Homelink")}${tile("wake", "power", "Wekken")}${tile("keyless", "key", "Sleutelloos", "data-confirm")}${tile("fart", "music", "Scheetje")}</div>` +
+      `<div class="cp-tiles">${tile("refresh", "refresh", "Vernieuwen")}${tile("wake", "power", "Wekken")}${tile("flash", "lights", "Lichten")}${tile("honk", "locate", "Claxon", "data-confirm")}${tile("homelink", "dock", "Homelink")}${tile("keyless", "key", "Sleutelloos", "data-confirm")}${tile("fart", "music", "Scheetje")}</div>` +
       `</div>` +
       `<div class="cp-card cp-media" hidden><div class="vs-section-title">Media</div><div class="cp-media-now"></div>` +
       `<div class="vs-chips" style="--n:5">` +
@@ -381,9 +381,43 @@
 
     qa("[data-car]").forEach((el) => {
       const key = keyOf(el);
-      el.classList.toggle("pending", pending.has(key));
+      el.classList.toggle("pending", el.dataset.car === "refresh" ? refreshing : pending.has(key));
       el.classList.toggle("armed", twoTap.armed(key));
     });
+    /* how old the readings are, under the button */
+    const stampEl = q('[data-car="refresh"] small');
+    if (stampEl) {
+      const last = lastSeen();
+      stampEl.textContent = refreshing ? "bezig…" : last ? Util.since(last) : "";
+    }
+  }
+
+  /* ---- Refresh ---------------------------------------------------------------------- */
+  /* Asks Home Assistant to poll Tesla now, instead of waiting for its own
+   * round. A sleeping car answers "asleep" and hands out no data: that is what
+   * Wekken is for, and the toast says so. */
+  let refreshing = false;
+  const REFRESH_SETTLE_MS = 1200; /* the fresh states come over the socket just after the call returns */
+  async function refresh() {
+    const ids = ["online", "battery", "location", "range"].map((k) => E[k]).filter(Boolean);
+    if (refreshing || !ids.length) return;
+    refreshing = true;
+    render();
+    const was = lastSeen();
+    try {
+      await Panel.client.callService("homeassistant", "update_entity", null, { entity_id: ids });
+      await new Promise((r) => setTimeout(r, REFRESH_SETTLE_MS));
+      const state = (s("online") || {}).state;
+      if (state === "on") Panel.toast(`${car.label} is wakker en bijgewerkt`, "ok");
+      else if (!known(state)) Panel.toast(`${car.label}: nog geen gegevens, tik op Wekken`, "warn");
+      else if (lastSeen() > was) Panel.toast(`${car.label} bijgewerkt; de auto slaapt nog`, "ok");
+      else Panel.toast(`${car.label} slaapt; tik op Wekken voor verse gegevens`, "warn");
+    } catch (err) {
+      Panel.toast(`${car.label}: vernieuwen niet gelukt${err && err.message ? ` (${err.message})` : ""}`);
+    } finally {
+      refreshing = false;
+      render();
+    }
   }
 
   /* ---- Actions ---------------------------------------------------------------------- */
@@ -415,6 +449,7 @@
       render();
     };
     const toggle = (key) => call("switch", on(key) ? "turn_off" : "turn_on", null, key);
+    if (action === "refresh") return refresh();
     switch (action) {
       case "wake":
       case "flash":
