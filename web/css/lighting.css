@@ -121,11 +121,9 @@
 .cover-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .cover-actions .ap-btn { min-height: 44px; padding: 0 6px; }
 .cover-actions .ap-btn .ic { font-size: 16px; }
-/* A narrow block (the small panel, the room panel beside the house): two rows
- * of two, and an armed button's longer label without its icon. */
+/* A narrow block (the small panel, the room panel beside the house): two rows of two. */
 @container (max-width: 380px) {
   .cover-actions { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cover-actions .ap-btn.armed .ic { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .cover.moving .cover-ic { animation: none; } }
 

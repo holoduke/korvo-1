@@ -195,6 +195,62 @@ body.saver-house .hud-watch { display: flex; }
 .hi-cover .cover-actions .ap-btn span { font-size: 12px; }
 .hi-actions { display: flex; gap: 8px; }
 .hi-actions .ap-btn { flex: 1; min-height: 42px; }
+
+/* The garage door beside the house (right, halfway down): a drawn door whose
+ * shutter stands where the real one does and rolls while it moves, the
+ * state under it, the buttons. Hidden while a room's panel is there. */
+.house-cover {
+  position: absolute; right: 18px; top: 50%; transform: translateY(-50%); width: 178px; z-index: 3;
+  display: flex; flex-direction: column; gap: 10px; transition: opacity 0.6s;
+}
+.house-cover .cw {
+  padding: 12px 12px 12px; gap: 8px;
+  background: color-mix(in srgb, var(--tile) 82%, transparent); backdrop-filter: blur(12px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 12px 40px rgba(0, 0, 0, 0.35);
+  position: relative;
+}
+.house-cover .cw::before { content: ""; position: absolute; left: -1px; top: 18px; width: 2px; height: 16px; background: var(--accent); }
+.house-cover .cw.open, .house-cover .cw.moving { background: color-mix(in srgb, var(--tile) 82%, transparent); color: var(--text); } /* the glass stays; the drawn door tells the state */
+.cw-title {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text);
+}
+.cw-title .ic { width: 16px; height: 16px; color: var(--accent); flex: none; }
+.cw-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-door { position: relative; height: 84px; margin: 2px 6px 0; }
+.cw-frame {
+  position: absolute; left: 12px; right: 12px; top: 0; bottom: 8px; overflow: hidden;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 75%, transparent); border-bottom: none; border-radius: 7px 7px 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, transparent), color-mix(in srgb, var(--accent) 14%, transparent));
+  box-shadow: inset 0 0 18px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+/* the light through the opening, brighter the further the door stands open */
+.cw-glow { position: absolute; inset: 0; opacity: var(--pos, 0); transition: opacity 0.6s; background: radial-gradient(ellipse 80% 70% at 50% 100%, color-mix(in srgb, var(--warn) 45%, transparent), transparent 75%); }
+.cw-shutter {
+  position: absolute; left: 0; right: 0; top: 0; height: calc((1 - var(--pos, 0)) * 100%);
+  background: repeating-linear-gradient(180deg, color-mix(in srgb, var(--text) 62%, transparent) 0 2px, color-mix(in srgb, var(--text) 22%, transparent) 2px 4px, color-mix(in srgb, var(--text) 10%, transparent) 4px 9px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); transition: height 0.6s ease;
+}
+.cw.moving .cw-shutter { transition: height var(--move-ms, 12s) linear; }
+.cw.opening .cw-shutter { animation: cw-roll-up 0.7s linear infinite; }
+.cw.closing .cw-shutter { animation: cw-roll-down 0.7s linear infinite; }
+@keyframes cw-roll-up { to { background-position: 0 -9px; } }
+@keyframes cw-roll-down { to { background-position: 0 9px; } }
+.cw-ground { position: absolute; left: 0; right: 0; bottom: 6px; height: 2px; background: var(--accent); box-shadow: 0 0 10px var(--accent); border-radius: 1px; }
+.cw-state {
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text_dim); text-align: center; min-height: 14px;
+}
+.cw.open .cw-state, .cw.moving .cw-state { color: var(--warn); }
+.cw.moving .cw-state { animation: hud-blink 0.9s ease-in-out infinite alternate; }
+.cw.unavail .cw-state { color: var(--bad); }
+.cw .cover-actions { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.cw .cover-actions .ap-btn { min-height: 36px; font-size: 12px; gap: 5px; border-radius: calc(10px * var(--round)); }
+.cw .cover-actions .ap-btn .ic { font-size: 14px; }
+body.saver-house .house-cover { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .cw .cw-shutter, .cw-glow { transition: none; animation: none; } .cw.moving .cw-state { animation: none; } }
+@media (max-width: 700px) { .house-cover { display: none; } } /* a phone: the door is on the Garage floor and in the room panel */
 .house-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; opacity: 0; transition: opacity 0.2s; }
 .house-leader.on { opacity: 1; }
 .house-leader .hl-path { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 70%, transparent)); stroke-dasharray: 2000; stroke-dashoffset: 2000; }
