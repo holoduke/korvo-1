@@ -187,6 +187,12 @@ body.saver-house .hud-watch { display: flex; }
 .hi-lamps .tile .t-sub { font-size: 12px; }
 .hi-lamps .tile.lamp .t-power { width: 38px; height: 38px; }
 .hi-empty { color: var(--text_dim); font-weight: 600; font-size: 14px; }
+.hi-cover { flex: none; }
+.hi-cover .cover { padding: 10px 12px; border-radius: calc(12px * var(--round)); }
+.hi-cover .cover-head .t-name { font-size: 15px; }
+.hi-cover .cover-head .t-sub { font-size: 12px; }
+.hi-cover .cover-actions .ap-btn { min-height: 40px; }
+.hi-cover .cover-actions .ap-btn span { font-size: 12px; }
 .hi-actions { display: flex; gap: 8px; }
 .hi-actions .ap-btn { flex: 1; min-height: 42px; }
 .house-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; opacity: 0; transition: opacity 0.2s; }

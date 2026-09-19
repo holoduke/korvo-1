@@ -949,6 +949,8 @@
       tintRoom,
       clearTints,
       project,
+      /* A keyed opening's four corners in house metres (null for an unknown key). */
+      opening: (key) => geo.openings[key] || null,
       setInnerWalls,
       clearHighlight,
       /* The openings lit right now (the rooms' floors are not counted). */

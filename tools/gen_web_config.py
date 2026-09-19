@@ -434,6 +434,25 @@ def parse_car(src):
             "charging": entities["charging"], "lock": entities["lock"]}
 
 
+def parse_covers(src, tabs):
+    """PANEL_COVERS -> [{label, tab (index), opening, entities: {cover, vent}}]."""
+    rows = table_rows(src, "PANEL_COVERS",
+                      r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]+"|NULL)\s*\}')
+    names = [t["name"] for t in tabs]
+    plan = (ROOT / "web" / "js" / "house-plan.js").read_text()
+    out = []
+    for label, tab, opening, cover, vent in rows:
+        if tab not in names:
+            fail(f"PANEL_COVERS {label!r}: no tab {tab!r}")
+        if not re.search(r'key:\s*"' + re.escape(opening) + '"', plan):
+            fail(f"PANEL_COVERS {label!r}: no opening {opening!r} in house-plan.js")
+        if not cover.startswith("cover."):
+            fail(f"PANEL_COVERS {label!r}: {cover!r} is not a cover entity")
+        out.append({"label": label, "tab": names.index(tab), "opening": opening,
+                    "entities": {"cover": cover, "vent": c_string_or_null(vent)}})
+    return out
+
+
 def parse_areas(src, tabs):
     """PANEL_AREAS -> tabs[i]["areas"] = [{label, lights: [ids]}]."""
     names = [t["name"] for t in tabs]
@@ -557,6 +576,7 @@ def main():
         "car": parse_car(cfg),
         "appliances": parse_appliances(cfg, media, robots),
         "sensorCards": parse_device_table(cfg, "PANEL_SENSOR_CARDS", SENSOR_ENTITIES),
+        "covers": parse_covers(cfg, tabs),
         "energy": parse_energy(cfg),
         "media": media,
         "comfort": {

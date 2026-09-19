@@ -562,6 +562,22 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Buiten voor",      "sensor_buiten_voor_1" },
 };
 
+/* Doors the web app drives (the firmware does not show them): a cover entity
+ * with open, close and stop, an optional button that puts it in a partly open
+ * ventilation position, the lighting tab whose page shows its controls, and
+ * the keyed opening in the 3D house (web/js/house-plan.js) that is this door:
+ * a tap on it there opens the same controls. */
+typedef struct {
+    const char *label;
+    const char *tab;     /* a PANEL_TABS name */
+    const char *opening; /* an opening key in the house plan */
+    const char *cover;   /* cover.* */
+    const char *vent;    /* button.* for the ventilation position, or NULL */
+} panel_cover_t;
+static const panel_cover_t PANEL_COVERS[] = {
+    { "Garagedeur", "Garage", "garagedeur", "cover.garagedeur", "button.garagedeur_ventilatie" },
+};
+
 /* The web app's "Energie" section (the panel's firmware does not show it): one
  * row per meter, device or battery; kind selects which entities it has, name
  * is the device's part of its entity ids; tools/gen_web_config.py derives the

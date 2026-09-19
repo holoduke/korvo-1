@@ -20,6 +20,7 @@
     `<div class="hi-head"><div class="hi-title" data-hi-title></div><button class="hi-close" data-hi-climate aria-label="Klimaat" hidden>${icon("thermometer")}</button><button class="hi-close" data-hi-close aria-label="Sluiten">${icon("close")}</button></div>` +
     `<div class="hi-facts" data-hi-facts></div>` +
     `<div class="hi-lamps" data-hi-lamps></div>` +
+    `<div class="hi-cover" data-hi-cover hidden></div>` +
     `<div class="hi-actions"><button class="ap-btn primary" data-hi-on>Alles aan</button><button class="ap-btn" data-hi-off>Alles uit</button></div>` +
     `</aside>`;
 
@@ -30,11 +31,18 @@
     const lights = current.lights;
     $q("[data-hi-title]").textContent = current.name;
     $q("[data-hi-climate]").hidden = !current.card;
-    $q("[data-hi-lamps]").innerHTML = lights.length ? lights.map(Panel.lightTile).join("") : `<div class="hi-empty">Geen lampen in deze kamer</div>`;
+    /* a door on its own (tapped in the house) shows no lamps, only its controls */
+    $q("[data-hi-lamps]").hidden = !!current.door;
+    $q("[data-hi-lamps]").innerHTML = current.door ? "" : lights.length ? lights.map(Panel.lightTile).join("") : `<div class="hi-empty">Geen lampen in deze kamer</div>`;
     lights.forEach(Panel.renderLight); /* the tiles then follow their lamps on their own */
+    const cover = $q("[data-hi-cover]");
+    cover.hidden = current.cover == null;
+    cover.innerHTML = current.cover == null ? "" : Panel.coverBlock(current.cover);
+    if (current.cover != null) Panel.emit("cover", current.cover); /* covers.js fills the fresh block in */
     facts();
     $q("[data-hi-on]").disabled = !lights.length;
     $q("[data-hi-off]").disabled = !lights.length;
+    $q(".hi-actions").hidden = !!current.door;
   }
   /* The line of facts: lamps on, climate, presence. */
   function facts() {
@@ -127,6 +135,13 @@
       const lamp = e.target.closest("[data-lamp]");
       if (power) Panel.toggleLight(power.dataset.power);
       else if (lamp) Panel.openLightPopup(lamp.dataset.lamp);
+    });
+    /* the door's buttons (the panel keeps its pointer events, so not via defineAction) */
+    $q("[data-hi-cover]").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-coveract]");
+      if (!b || performance.now() - openedAt < 500) return;
+      const [i, key] = b.dataset.coveract.split("|");
+      Panel.coverAction(+i, key);
     });
     $q("[data-hi-on]").addEventListener("click", () => current && Panel.setBrightness(current.lights, 100));
     $q("[data-hi-off]").addEventListener("click", () => current && Panel.setBrightness(current.lights, 0));

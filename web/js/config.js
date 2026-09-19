@@ -1537,6 +1537,17 @@ window.PANEL_CONFIG = {
       }
     }
   ],
+  "covers": [
+    {
+      "label": "Garagedeur",
+      "tab": 3,
+      "opening": "garagedeur",
+      "entities": {
+        "cover": "cover.garagedeur",
+        "vent": "button.garagedeur_ventilatie"
+      }
+    }
+  ],
   "energy": [
     {
       "kind": "grid",

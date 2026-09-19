@@ -260,6 +260,11 @@
       set(a.temp, "22.8", { unit_of_measurement: "°C" });
       set(a.humidity, "55", { unit_of_measurement: "%" });
     });
+    /* The doors the panel drives: closed. */
+    (cfg.covers || []).forEach((c) => {
+      set(c.entities.cover, "closed", { current_position: 0, device_class: "garage", supported_features: 11 });
+      if (c.entities.vent) set(c.entities.vent, "unknown", {});
+    });
     /* Sensor cards: someone in the first presence room, the first door open, a gone outdoor sensor. */
     const firstOfKind = new Set();
     (cfg.sensorCards || []).forEach((c, n) => {
@@ -493,6 +498,19 @@
             });
           });
           change(applEntities);
+          return returnResponse ? { response: {} } : null;
+        }
+        /* A door: it moves for a moment, then reports where it ended up. */
+        const door = (cfg.covers || []).find((c) => ids.includes(c.entities.cover) || (c.entities.vent && ids.includes(c.entities.vent)));
+        if (door) {
+          const id = door.entities.cover;
+          const t = Date.now();
+          const a = (states.get(id) || {}).attributes || {};
+          const put = (state, pos, at) => (set(id, state, { ...a, current_position: pos }, at), change([id]));
+          if (domain === "cover" && service === "stop_cover") put(a.current_position > 0 && a.current_position < 100 ? "open" : (states.get(id) || {}).state === "opening" ? "open" : "closed", a.current_position === 100 ? 100 : a.current_position === 0 ? 0 : a.current_position, t);
+          else if (domain === "cover" && service === "open_cover") (put("opening", a.current_position, t), setTimeout(() => put("open", 100, Date.now()), 2500));
+          else if (domain === "cover" && service === "close_cover") (put("closing", a.current_position, t), setTimeout(() => put("closed", 0, Date.now()), 2500));
+          else if (domain === "button" && ids.includes(door.entities.vent)) (set(door.entities.vent, new Date(t).toISOString(), {}, t), put("opening", a.current_position, t), setTimeout(() => put("open", 20, Date.now()), 1500));
           return returnResponse ? { response: {} } : null;
         }
         /* Car commands (before the vacuum branch, which also takes buttons). */

@@ -513,9 +513,11 @@
     const scenes = t.scenes
       .map((s, i) => `<button class="tile scene" data-scene="${ti}:${i}">${sceneLead(t, i)}<span class="t-text"><span class="t-name">${s.label}</span><span class="t-sub">scene</span></span></button>`)
       .join("");
+    const ci = Panel.coverOfTab ? Panel.coverOfTab(ti) : -1;
+    const door = ci >= 0 ? `<div class="split-title">Deur</div>${Panel.coverBlock(ci)}` : "";
     return (
       `<div class="split${t.scenes.length ? "" : " no-scenes"}">` +
-      `<div class="split-half split-scenes"><div class="split-title">Scènes</div>` +
+      `<div class="split-half split-scenes">${door}<div class="split-title">Scènes</div>` +
       `<div class="split-list"><div class="grid">${scenes}</div></div></div>` +
       `<div class="split-half split-lamps"><div class="split-title">Lampen</div>` +
       `<div class="split-list"><div class="grid" data-lamps="${ti}"><div class="split-empty">Lampen laden…</div></div></div></div>` +

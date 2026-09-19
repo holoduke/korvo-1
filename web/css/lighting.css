@@ -104,6 +104,31 @@
 .split .tile .t-name { font-size: 18px; }
 .split .tile .t-sub { font-size: 14px; }
 
+/* ---- A door the panel drives (covers.js): its state and its buttons ------------ */
+.cover { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--tile); border-radius: calc(14px * var(--round)); transition: background-color 0.25s, color 0.25s, opacity 0.25s; }
+.cover-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cover-head .t-icon { font-size: 24px; color: var(--text_dim); flex: none; transition: color 0.25s; }
+.cover-head .t-text { display: flex; flex-direction: column; min-width: 0; }
+.cover-head .t-name { font-size: 18px; }
+.cover-head .t-sub { font-size: 14px; }
+.cover.open { background: var(--tile_on); color: var(--on_text); }
+.cover.open .t-icon { color: var(--on_text); }
+.cover.open .t-sub { color: var(--on_sub); }
+.cover.moving .cover-ic { animation: cover-move 1s ease-in-out infinite; }
+@keyframes cover-move { 50% { transform: translateY(-3px); } }
+.cover.unavail { opacity: 0.5; }
+.cover { container-type: inline-size; }
+.cover-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.cover-actions .ap-btn { min-height: 44px; padding: 0 6px; }
+.cover-actions .ap-btn .ic { font-size: 16px; }
+/* A narrow block (the small panel, the room panel beside the house): two rows
+ * of two, and an armed button's longer label without its icon. */
+@container (max-width: 380px) {
+  .cover-actions { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cover-actions .ap-btn.armed .ic { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .cover.moving .cover-ic { animation: none; } }
+
 /* ---- Bottom row: main switch, rooms or the active scene, "Alle lampen" ---------- */
 .row {
   display: flex;
