@@ -32,6 +32,7 @@
   /* ---- What is wrong ------------------------------------------------------------ */
   const state = (id) => (Panel.st(id) || {}).state;
   const tones = () => (Panel.applianceTones ? Panel.applianceTones() : []);
+  const ERRORS_WINDOW_MS = 3600e3; /* older script errors are on the health page, not on the wall */
 
   function connection() {
     if (Panel.client && Panel.client.demo) return { tone: "ok", text: "Demo" };
@@ -45,8 +46,8 @@
     if (faulty.length) out.push({ tone: "bad", text: `Storing: ${faulty.map((t) => t.label).join(", ")}` });
     const stuck = robots.filter((r) => state(r.vacuum) === "error" || state(r.problem) === "on");
     if (stuck.length) out.push({ tone: "bad", text: `Storing: ${stuck.map((r) => r.label).join(", ")}` });
-    const errors = window.Diag ? window.Diag.errorCount() : 0;
-    if (errors) out.push({ tone: "bad", text: `${errors} scriptfout${errors === 1 ? "" : "en"}` });
+    const errors = window.Diag ? window.Diag.errorCount(ERRORS_WINDOW_MS) : 0;
+    if (errors) out.push({ tone: "bad", text: `${errors} scriptfout${errors === 1 ? "" : "en"} in het laatste uur` });
     /* The network: the Zigbee bridge gone, most lamps out of reach (the Zigbee
      * network itself), the internet gone. A few lamps off at the wall are not news. */
     const h = cfg.health || {};
@@ -128,7 +129,9 @@
       ].filter((id) => id.startsWith("light."));
       const presenceCard = r.presence ? (cfg.sensorCards || []).find((c) => c.label === r.presence) : null;
       const presence = presenceCard ? presenceCard.entities.presence || presenceCard.entities.occupancy : null;
-      return { floor, name: r.name, card, presence, centre: [r.x + r.w / 2, 0, r.z + r.d / 2], lights };
+      const tabIndex = r.tab ? (cfg.tabs || []).findIndex((t) => t.name === r.tab) : -1;
+      const cover = tabIndex >= 0 && Panel.coverOfTab ? Panel.coverOfTab(tabIndex) : -1;
+      return { floor, name: r.name, card, presence, centre: [r.x + r.w / 2, 0, r.z + r.d / 2], lights, cover: cover >= 0 ? cover : null };
     })
   );
   rooms.forEach((r) => {
@@ -286,31 +289,55 @@
   /* A tap on the house opens the room under it: the room whose floor
    * rectangle (projected) holds the tap, the nearest floor when several do.
    * A tap on a reading of the Klimaat layer opens that climate popup instead. */
-  function roomAt(x, y) {
+  /* The depth at which a room's floor quad lies under the tap, or null when it does not. */
+  function roomDepth(r, x, y) {
     const house = Panel.house;
-    if (!house) return null;
+    const box = (plan.rooms[r.floor] || []).find((q) => q.name === r.name);
+    const lv = (plan.levels || []).find((l) => l.floor === r.floor);
+    if (!box || !lv) return null;
+    const y0 = lv.y + 0.02;
+    return hitQuad([[box.x, y0, box.z], [box.x + box.w, y0, box.z], [box.x + box.w, y0, box.z + box.d], [box.x, y0, box.z + box.d]].map(house.project), x, y);
+  }
+  function roomAt(x, y) {
+    if (!Panel.house) return null;
     let best = null;
     for (const r of rooms) {
-      const box = (plan.rooms[r.floor] || []).find((q) => q.name === r.name);
-      const lv = (plan.levels || []).find((l) => l.floor === r.floor);
-      if (!box || !lv) continue;
-      const y0 = lv.y + 0.02;
-      const pts = [[box.x, y0, box.z], [box.x + box.w, y0, box.z], [box.x + box.w, y0, box.z + box.d], [box.x, y0, box.z + box.d]].map(house.project);
-      if (pts.some((p) => !p)) continue;
-      let inside = false; /* even-odd over the projected quad */
-      for (let i = 0, j = 3; i < 4; j = i++) {
-        const a = pts[i], b = pts[j];
-        if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
-      }
-      if (!inside) continue;
-      const depth = pts.reduce((s, p) => s + p.depth, 0) / 4;
-      if (!best || depth < best.depth) best = { r, depth };
+      const depth = roomDepth(r, x, y);
+      if (depth != null && (!best || depth < best.depth)) best = { r, depth };
     }
     return best && best.r;
   }
+  /* Even-odd test of a point against a projected quad; null when any corner is off screen. */
+  function hitQuad(pts, x, y) {
+    if (pts.some((p) => !p)) return null;
+    let inside = false;
+    for (let i = 0, j = 3; i < 4; j = i++) {
+      const a = pts[i], b = pts[j];
+      if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside ? pts.reduce((s, p) => s + p.depth, 0) / 4 : null;
+  }
+  /* A door the panel drives, under the tap: as a room of its own with the
+   * door's controls, tied to the door's middle. */
+  function doorAt(x, y) {
+    const house = Panel.house;
+    let best = null;
+    (cfg.covers || []).forEach((c, i) => {
+      const corners = house.opening(c.opening);
+      if (!corners) return;
+      const depth = hitQuad(corners.map(house.project), x, y);
+      if (depth == null || (best && depth >= best.depth)) return;
+      const centre = [0, 1, 2].map((k) => corners.reduce((s, p) => s + p[k], 0) / 4);
+      best = { depth, room: { floor: "0", name: c.label, card: null, presence: null, centre, lights: [], cover: i, door: true } };
+    });
+    return best;
+  }
   function tapped({ x, y }) {
-    /* a room under the tap opens beside the house (its climate is in there) */
+    /* a room under the tap opens beside the house (its climate is in there);
+     * a door in front of it opens its own controls */
     const room = roomAt(x, y);
+    const door = doorAt(x, y);
+    if (door && (!room || door.depth <= roomDepth(room, x, y))) return Panel.openRoom(door.room);
     if (room) return Panel.openRoom(room);
     if (Panel.currentRoom && Panel.currentRoom()) return Panel.closeRoom(); /* a tap on nothing closes it */
     if (layer !== "climate") return;

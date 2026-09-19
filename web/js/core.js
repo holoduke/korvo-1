@@ -87,8 +87,11 @@
   let client = null;
   let loaded = false;
   let connected = false;
+  const connLog = []; /* {t, up}, newest first: when the connection went and came back */
+  const CONN_LOG_KEPT = 20;
   /* Whether the socket to Home Assistant is up right now (timers skip their work otherwise). */
   Panel.connected = () => connected;
+  Panel.connectionLog = () => connLog;
 
   Panel.track = function (ids, fn) {
     if (!order.includes(fn)) order.push(fn);
@@ -185,6 +188,11 @@
     $("app").hidden = false; /* before anything measures the layout */
     bus.emit("start");
     client.on("status", (s) => {
+      /* The connection's history: each time it went and came back, for the health page. */
+      if ((s === "connected") !== connected && (s === "connected" || loaded)) {
+        connLog.unshift({ t: Date.now(), up: s === "connected" });
+        connLog.splice(CONN_LOG_KEPT);
+      }
       connected = s === "connected";
       $("status").className = "status " + (s === "connected" ? "connected" : s === "connecting" || s === "stale" ? "connecting" : "");
       /* The banner: the last known state at a start, or a connection that went. */

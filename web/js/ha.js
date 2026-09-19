@@ -296,7 +296,17 @@
         return;
       }
       const url = hassUrl().replace(/^http/, "ws") + "/api/websocket";
-      const socket = (ws = new WebSocket(url));
+      let socket;
+      try {
+        socket = ws = new WebSocket(url);
+      } catch (e) {
+        /* the browser refuses the URL outright (mixed content, a bad address):
+         * no onclose will follow, so the loop must go on from here */
+        console.warn("ha: socket refused", e);
+        ws = null;
+        closed();
+        return;
+      }
       let subscribed = false;
       /* A socket that opens but never authenticates, or never sends its first
        * states (Home Assistant still starting up), is dropped and tried again

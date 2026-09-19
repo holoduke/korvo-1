@@ -7,16 +7,22 @@
  * thrown by the scripts after it. */
 (function () {
   "use strict";
-  const errors = []; /* the last ERRORS_KEPT, for the report */
+  const errors = []; /* {t, text}, the last ERRORS_KEPT, for the report */
   const ERRORS_KEPT = 50;
   const note = (text) => {
-    errors.push(text);
+    errors.push({ t: Date.now(), text });
     if (errors.length > ERRORS_KEPT) errors.shift();
   };
   window.addEventListener("error", (e) => note(`${e.message} @ ${(e.filename || "").split("/").pop()}:${e.lineno}`));
   window.addEventListener("unhandledrejection", (e) => note("unhandled: " + ((e.reason && e.reason.message) || e.reason)));
-  /* For the readout on the house (this runs before Panel exists). */
-  window.Diag = { errorCount: () => errors.length };
+  /* For the readout on the house and the health page (this runs before Panel
+   * exists): how many errors in the last `withinMs` (all of them without), and
+   * the list itself, newest first. A fault from last night must not stay on
+   * the wall all day; the health page keeps the full list. */
+  window.Diag = {
+    errorCount: (withinMs) => (withinMs ? errors.filter((e) => Date.now() - e.t < withinMs).length : errors.length),
+    errors: () => [...errors].reverse(),
+  };
 
   function box(el) {
     if (!el) return null;
@@ -51,7 +57,7 @@
           colorMix: CSS.supports("color", "color-mix(in srgb, red 50%, blue)"),
         },
         vacuumLearned: Panel.vacLearned ? Panel.vacLearned() : null,
-        errors: errors.slice(-10),
+        errors: errors.slice(-10).map((e) => `${new Date(e.t).toISOString().slice(11, 19)} ${e.text}`),
       })
       .catch(() => {}); /* not an admin, or the socket just dropped */
   }
