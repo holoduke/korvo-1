@@ -80,7 +80,17 @@
         input.value = "";
       }
     };
-    rec.onerror = (e) => show(e.error === "not-allowed" ? "Geef de browser toegang tot de microfoon." : `Niet verstaan (${e.error}).`, "bad");
+    rec.onerror = (e) => {
+      /* iOS refuses speech recognition to a web app on the home screen, and
+       * when Siri & Dicteren is off; the same page in Safari does listen. */
+      const standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+      const text =
+        e.error === "not-allowed" ? "Geef de browser toegang tot de microfoon."
+        : e.error === "service-not-allowed" ? (standalone ? "Spraak werkt niet in de app op het beginscherm (iOS): open het paneel in Safari, of typ de vraag." : "Spraakherkenning staat uit: zet Siri & Dicteren aan in Instellingen, of typ de vraag.")
+        : e.error === "no-speech" ? "Niets gehoord."
+        : `Niet verstaan (${e.error}).`;
+      show(text, "bad");
+    };
     rec.onend = () => form.classList.remove("listening");
     try {
       rec.start();
