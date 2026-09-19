@@ -194,6 +194,14 @@ class ThuisAgent(conversation.ConversationEntity):
                 if res.status != 200:
                     raise RuntimeError(f"taalmodel antwoordt {res.status}: {(await res.text())[:120]}")
                 data = await res.json()
+            usage = data.get("usage") or {}
+            _LOGGER.info(
+                "Thuis ronde %d: %s tokens in (%s uit cache), %s uit",
+                _round + 1,
+                usage.get("prompt_tokens"),
+                (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0),
+                usage.get("completion_tokens"),
+            )
             msg = data["choices"][0]["message"]
             text = (msg.get("content") or "").strip()
             calls = msg.get("tool_calls") or []
