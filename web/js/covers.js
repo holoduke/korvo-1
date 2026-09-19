@@ -31,12 +31,14 @@
     const state = s ? s.state : null;
     const pos = s && Number.isFinite(+(s.attributes || {}).current_position) ? +(s.attributes || {}).current_position : null;
     const moving = state === "opening" || state === "closing";
-    const text = !s && !loaded ? "..." : un ? "niet bereikbaar" : state === "opening" ? "gaat open…" : state === "closing" ? "gaat dicht…" : state === "open" ? (pos != null && pos > 0 && pos < 100 ? `open · ${pos}%` : "open") : state === "closed" ? "dicht" : "onbekend";
+    const ajar = state === "open" && pos != null && pos > 0 && pos < 100; /* the ventilation position */
+    const text = !s && !loaded ? "..." : un ? "niet bereikbaar" : state === "opening" ? "gaat open…" : state === "closing" ? "gaat dicht…" : ajar ? (c.entities.vent ? "op kier" : `open · ${pos}%`) : state === "open" ? "open" : state === "closed" ? "dicht" : "onbekend";
     const can = {
-      open: !un && state !== "opening" && !(state === "open" && (pos == null || pos >= 100)),
+      open: !un && state !== "opening" && !(state === "open" && !ajar),
       stop: !un && moving,
       close: !un && state !== "closing" && state !== "closed",
-      vent: !un && !!c.entities.vent && !moving,
+      /* not from the ventilation position itself: there the same impulse closes the door, which is Dicht's job */
+      vent: !un && !!c.entities.vent && !moving && !ajar,
     };
     return { state, pos, moving, un, text, can, tone: un ? "warn" : state === "open" || moving ? "warn" : "ok" };
   }
