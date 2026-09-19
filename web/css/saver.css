@@ -34,8 +34,9 @@
 /* The sleep stage: black, the clock barely there, nothing that moves; the
  * app underneath is not painted at all. */
 .saver.deep { animation: none; }
-.saver.deep .eye-group, .saver.deep .eye-media { display: none; }
-.saver.deep .saver-clock { color: #1a1d24; }
+/* Nothing at all, not even the clock: it cannot tick while the panel sleeps
+ * (the minute event rests), and a frozen time is worse than none. */
+.saver.deep .eye-group, .saver.deep .eye-media, .saver.deep .saver-clock { display: none; }
 body.sleeping #app { visibility: hidden; }
 /* Nothing under it moves either: an animation on an unpainted element still
  * keeps the compositor busy. */
