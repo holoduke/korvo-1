@@ -53,7 +53,7 @@
   });
   Panel.on("loaded", loadForecast);
   /* Again every half hour, and as soon as the connection is back after an outage. */
-  setInterval(() => Panel.isLoaded() && Panel.connected() && loadForecast(), 30 * 60e3);
+  Panel.everyAwake(30 * 60e3, () => Panel.isLoaded() && Panel.connected() && loadForecast());
   Panel.on("status", (s) => s === "connected" && Panel.isLoaded() && loadForecast());
 
   /* ---- Climate and air columns --------------------------------------------------- */
@@ -185,6 +185,7 @@
   /* ---- Clock ------------------------------------------------------------------- */
   let lastMinute = -1;
   function tickClock() {
+    if (Panel.sleeping()) return; /* asleep: no minute event, no renders; the clock is set on waking */
     const d = new Date();
     const m = d.getHours() * 60 + d.getMinutes();
     if (m === lastMinute) return;
@@ -239,6 +240,7 @@
     Util.watchOverflow(document.querySelector(".hdr-strip"), $("sensors"));
     tickClock();
     setInterval(tickClock, 1000);
+    Panel.on("sleep", (on) => !on && tickClock());
   });
 
   $("sensors").addEventListener("click", (e) => {

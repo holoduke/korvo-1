@@ -351,5 +351,5 @@
     reveal(["power", "week"]);
     if (Panel.isLoaded() && Date.now() - statsAt > 60e3) loadStats();
   });
-  setInterval(() => Panel.isLoaded() && loadStats(), 5 * 60e3);
+  Panel.everyAwake(5 * 60e3, () => Panel.isLoaded() && loadStats());
 })();

@@ -71,7 +71,7 @@
   };
 
   window.addEventListener("load", () => Panel.checkForUpdate(true));
-  setInterval(() => Panel.checkForUpdate(false), CHECK_EVERY);
+  setInterval(() => !Panel.sleeping() && Panel.checkForUpdate(false), CHECK_EVERY); /* not while asleep: a reload would light the screen at night */
   /* Back in view: a waiting update is taken once the panel is quiet, not mid-use. */
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && Panel.checkForUpdate(false));
 })();

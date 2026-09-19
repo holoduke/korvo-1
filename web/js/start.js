@@ -50,14 +50,15 @@
       let swiping = false;
       const onScreen = () => Panel.onScreen("start");
       /* While a swipe is under way the page may be partly in view: keep drawing. */
-      const sync = () => house.setActive(onScreen() || swiping);
+      const sync = () => house.setActive(!Panel.sleeping() && (onScreen() || swiping));
       Panel.on("section", sync);
+      Panel.on("sleep", sync);
       Panel.on("swiping", (on) => {
         swiping = on;
         sync();
       });
       Panel.on("start", sync);
-      document.addEventListener("visibilitychange", () => house.setActive(document.visibilityState === "visible" && (onScreen() || swiping)));
+      document.addEventListener("visibilitychange", () => house.setActive(document.visibilityState === "visible" && !Panel.sleeping() && (onScreen() || swiping)));
       Panel.house = house;
     },
   });

@@ -31,6 +31,15 @@
 .saver-clock { position: absolute; right: 28px; bottom: 16px; font-size: 46px; font-weight: 600; color: #5a3028; font-variant-numeric: tabular-nums; }
 .saver.off .saver-clock { color: #2e3340; }
 .saver.off .eye-group { display: none; }
+/* The sleep stage: black, the clock barely there, nothing that moves; the
+ * app underneath is not painted at all. */
+.saver.deep { animation: none; }
+.saver.deep .eye-group, .saver.deep .eye-media { display: none; }
+.saver.deep .saver-clock { color: #1a1d24; }
+body.sleeping #app { visibility: hidden; }
+/* Nothing under it moves either: an animation on an unpainted element still
+ * keeps the compositor busy. */
+body.sleeping #app *, body.sleeping #app *::before, body.sleeping #app *::after { animation: none !important; transition: none !important; }
 
 /* ---- Splash ------------------------------------------------------------------ */
 .splash { position: fixed; inset: 0; z-index: 80; background: #000; transition: opacity 0.5s ease-out; }

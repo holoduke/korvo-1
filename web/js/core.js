@@ -38,6 +38,7 @@
     theme: pref("theme", 0),
     saverMode: pref("saverMode", 2), /* 0 = scherm uit, 1 = AI oog, 2 = het huis */
     saverIdx: pref("saverIdx", 1),
+    deepIdx: pref("deepIdx", 2), /* the sleep stage after this long in the screensaver (saver.js DEEP_TIMES) */
     houseLayer: pref("houseLayer", undefined),
     houseWalls: pref("houseWalls", undefined),
     houseTouched: pref("houseTouched", 0),
@@ -108,6 +109,26 @@
   };
   Panel.isLoaded = () => loaded;
 
+  /* Asleep (saver.js, after a long quiet spell): nothing on the page is drawn,
+   * so the states that change meanwhile are held and dealt out on waking. */
+  let sleeping = false;
+  const held = new Set();
+  Panel.sleeping = () => sleeping;
+  Panel.setSleeping = (on) => {
+    if (on === sleeping) return;
+    sleeping = on;
+    bus.emit("sleep", on);
+    if (!on && held.size) {
+      const ids = [...held];
+      held.clear();
+      dispatch(ids);
+    }
+  };
+  /* A repeating job that rests while the panel sleeps and runs once on waking. */
+  Panel.everyAwake = function (ms, fn) {
+    setInterval(() => !sleeping && fn(), ms);
+    bus.on("sleep", (on) => !on && fn());
+  };
   function dispatch(changed) {
     const first = !loaded;
     loaded = true;
@@ -201,7 +222,10 @@
       document.body.classList.toggle("offline", s !== "connected" && loaded);
       bus.emit("status", s);
     });
-    client.on("states", dispatch);
+    client.on("states", (changed) => {
+      if (sleeping && loaded) changed.forEach((id) => held.add(id));
+      else dispatch(changed);
+    });
     client.on("registry", (data) => bus.emit("registry", data));
     client.start();
   };

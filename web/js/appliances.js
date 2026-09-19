@@ -251,5 +251,5 @@
     shown
   );
   /* Time left moves on its own (the washer reports a finish time). */
-  setInterval(shown, 30000);
+  Panel.everyAwake(30000, shown);
 })();

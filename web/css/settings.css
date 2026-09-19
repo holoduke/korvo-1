@@ -4,6 +4,7 @@
 .set-row { padding: 16px 0; border-top: 1px solid var(--grid); display: flex; flex-direction: column; gap: 10px; }
 .set-title { font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
 .set-value { font-size: 16px; font-weight: 500; }
+.set-note { font-size: 13px; font-weight: 500; color: var(--text_dim); line-height: 1.4; }
 .theme-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .theme-card { border-radius: calc(14px * var(--round)); padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: stretch; text-align: left; border: 2px solid transparent; transition: border-color 0.2s, transform 0.12s; }
 .theme-card.selected { border-color: var(--accent); }

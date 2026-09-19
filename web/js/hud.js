@@ -274,7 +274,7 @@
   }
   function follow() {
     raf = 0;
-    if (layer === "none" || !labels.children.length || !Panel.onScreen("start") || document.visibilityState !== "visible") return;
+    if (layer === "none" || !labels.children.length || !Panel.onScreen("start") || document.visibilityState !== "visible" || Panel.sleeping()) return;
     place();
     raf = requestAnimationFrame(follow);
   }
@@ -451,6 +451,7 @@
   });
   Panel.on("loaded", schedule);
   Panel.on("section", startFollowing);
+  Panel.on("sleep", (on) => !on && startFollowing());
   Panel.on("room", () => renderLayer()); /* the chosen room's floor lights up (or goes out) */
   document.addEventListener("visibilitychange", startFollowing);
   Panel.on("minute", () => {
