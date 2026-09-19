@@ -61,8 +61,8 @@
 
   /* ---- What just happened ------------------------------------------------------------- */
   /* The last few things worth a line: a door or window opening or closing, an
-   * appliance finishing or failing, a robot starting or docking, the
-   * connection going and coming back. Only after the first state dump. */
+   * appliance finishing or failing, a robot starting or docking. Only after
+   * the first state dump. */
   const EVENTS_KEPT = 4;
   const events = []; /* {t, text, tone} newest first */
   const contacts = (cfg.sensorCards || []).filter((c) => (c.kind === "door" || c.kind === "window") && c.entities.contact);
@@ -444,7 +444,8 @@
     render();
   });
   Panel.on("status", (s) => {
-    if (loadedOnce && s !== status && (s === "connected" || status === "connected")) event(s === "connected" ? "Verbinding terug" : "Verbinding met Home Assistant weg", s === "connected" ? "ok" : "bad");
+    /* no event line for the connection going or returning: the readout's
+     * first row says it, and the health page keeps the log (user's wish) */
     status = s;
     schedule();
   });

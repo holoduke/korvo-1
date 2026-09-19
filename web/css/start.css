@@ -102,7 +102,12 @@ body.saver-house .hud-clock { display: block; }
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }
 }
 @media (max-width: 700px) {
-  .hud { max-width: calc(100% - 36px); font-size: 10px; }
+  /* A phone: no lines of text, no event log — only the connection's dot,
+   * green while connected (user's wish). The screensaver keeps its clock and watch. */
+  .hud { max-width: calc(100% - 36px); font-size: 10px; padding-left: 10px; }
+  .hud-rows { grid-template-columns: auto; }
+  .hud-row:not(:first-child), .hud-v, .hud .hud-events { display: none; } /* .hud .hud-events: the log's own rule comes later in this file */
+  .hud-dot { width: 8px; height: 8px; margin-top: 3px; }
   .house-walls { left: 18px; right: auto; bottom: 58px; }
   .house-hint { bottom: 100px; }
   .house-label b { font-size: 12px; }
