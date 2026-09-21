@@ -398,6 +398,7 @@
    * Wekken is for, and the toast says so. */
   let refreshing = false;
   const REFRESH_SETTLE_MS = 1200; /* the fresh states come over the socket just after the call returns */
+  const REFRESH_TIMEOUT_MS = 25000; /* Home Assistant never answering must not leave the button working for ever */
   async function refresh() {
     const ids = ["online", "battery", "location", "range"].map((k) => E[k]).filter(Boolean);
     if (refreshing || !ids.length) return;
@@ -405,7 +406,11 @@
     render();
     const was = lastSeen();
     try {
-      await Panel.client.callService("homeassistant", "update_entity", null, { entity_id: ids });
+      let timer;
+      await Promise.race([
+        Panel.client.callService("homeassistant", "update_entity", null, { entity_id: ids }),
+        new Promise((_, reject) => (timer = setTimeout(() => reject(new Error("Home Assistant antwoordt niet")), REFRESH_TIMEOUT_MS))),
+      ]).finally(() => clearTimeout(timer));
       await new Promise((r) => setTimeout(r, REFRESH_SETTLE_MS));
       const state = (s("online") || {}).state;
       if (state === "on") Panel.toast(`${car.label} is wakker en bijgewerkt`, "ok");
