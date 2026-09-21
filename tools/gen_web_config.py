@@ -275,10 +275,48 @@ _LAUNDRY = {
     "done": "sensor.{n}_completion_time", "power": "sensor.{n}_power", "energy": "sensor.{n}_energy",
     "remote": "binary_sensor.{n}_remote_control", "lock": "binary_sensor.{n}_child_lock", "on": "binary_sensor.{n}_power",
 }
+# NIBE F1253 heat pump (nibe_heatpump over Modbus): its readings and its settings.
+# Its kWh counters are DELIVERED heat, not electricity — the pump has no power meter.
+_HEATPUMP = {
+    # what it is doing
+    "status": "sensor.{n}_status", "compressor": "sensor.{n}_status_compressor",
+    "alarm": "binary_sensor.{n}_alarm", "online": "binary_sensor.{n}_connectivity",
+    "add": "sensor.{n}_int_elec_add_heat",
+    # temperatures
+    "outdoor": "sensor.{n}_outdoor_temperature", "outdoorAvg": "sensor.{n}_average_outdoor_temp_bt1",
+    "room": "sensor.{n}_room_temperature_bt50",
+    "supply": "sensor.{n}_supply_line_bt2", "ret": "sensor.{n}_return_line_bt3",
+    "calcSupply": "sensor.{n}_calculated_supply_climate_system_1",
+    "hotWaterTop": "sensor.{n}_hot_water_top_bt7", "hotWaterCharge": "sensor.{n}_hot_water_charging_bt6",
+    "brineIn": "sensor.{n}_brine_in_bt10", "brineOut": "sensor.{n}_brine_out_bt11",
+    "condenser": "sensor.{n}_condenser_bt12", "discharge": "sensor.{n}_discharge_bt14",
+    "liquid": "sensor.{n}_liquid_line_bt15", "suction": "sensor.{n}_suction_gas_bt17",
+    "inverter": "sensor.{n}_inverter_temperature",
+    # the machine
+    "freq": "sensor.{n}_current_compressor_frequency", "freqMin": "sensor.{n}_min_compressor_frequency",
+    "freqMax": "sensor.{n}_max_compressor_frequency", "degreeMinutes": "sensor.{n}_degree_minutes",
+    "flow": "sensor.{n}_flow_sensor_bf1", "pumpHeat": "sensor.{n}_heating_medium_pump_speed_gp1",
+    "pumpBrine": "sensor.{n}_brine_pump_speed_gp2",
+    "operTime": "sensor.{n}_total_operating_time", "operHotWater": "sensor.{n}_oper_time_hot_water",
+    "starts": "sensor.{n}_number_of_compressor_starts", "hotWaterAmount": "sensor.{n}_hot_water_amount",
+    # delivered energy (kWh counters)
+    "heat": "sensor.{n}_heating_compressor_only", "heatAdd": "sensor.{n}_heating_including_int_add_heat",
+    "water": "sensor.{n}_hot_water_compressor_only", "waterAdd": "sensor.{n}_hot_water_including_int_add_heat",
+    "cool": "sensor.{n}_built_in_passive_cooling",
+    # settings
+    "opMode": "select.{n}_op_mode", "demand": "select.{n}_hot_water_demand",
+    "boost": "select.{n}_hot_water_boost", "maxAdd": "select.{n}_set_max_electrical_add",
+    "coolSensor": "select.{n}_cool_heat_sensor",
+    "lux": "switch.{n}_temporary_lux", "smart": "switch.{n}_smart_control",
+    "offset": "number.{n}_offset", "roomHeat": "number.{n}_room_sensor_set_point_value_heating_climate_system_1",
+    "roomCool": "number.{n}_room_sensor_set_point_value_cooling_climate_system_1",
+    "coolOffset": "number.{n}_cooling_offset_climate_system_1", "coolStart": "number.{n}_start_cooling",
+}
 APPLIANCE_ENTITIES = {
     # A Windows pc: a template switch (on = awake; on -> Wake-on-LAN, off -> sleep)
     # with the Wake-on-LAN and sleep buttons behind it, and a ping sensor.
     "pc": {"on": "switch.{n}", "online": "binary_sensor.{n}_online", "wake": "button.{n}_aanzetten", "sleep": "button.{n}_sleep"},
+    "heatpump": _HEATPUMP,
     "washer": {**_LAUNDRY, "water": "sensor.{n}_water_consumption"},
     "dryer": _LAUNDRY,
     "dishwasher": {
@@ -357,6 +395,9 @@ ENERGY_ENTITIES = {
             if key in ("battery", "charging", "chargerPower", "chargerVoltage", "chargerCurrent", "energyAdded", "location")},
     "bike": {"battery": "sensor.{n}_battery", "energy": "sensor.{n}_energy_used_total",
              "average": "sensor.{n}_energy_used_average", "distance": "sensor.{n}_total_distance"},
+    # the heat pump's own counters: heat delivered, not electricity used
+    "heatpump": {k: _HEATPUMP[k] for k in ("status", "compressor", "alarm", "freq", "outdoor", "room",
+                                           "hotWaterTop", "heat", "heatAdd", "water", "waterAdd", "cool")},
     "battery": {"soc": "sensor.{n}_soc", "power": "sensor.{n}_power", "voltage": "sensor.{n}_voltage",
                 **{f"cell{c}": f"sensor.{{n}}_cell_{c}" for c in (1, 2, 3, 4)}, "delta": "sensor.{n}_cell_delta",
                 "cycles": "sensor.{n}_cycles", "health": "sensor.{n}_health", "temp": "sensor.{n}_mosfet_temp",

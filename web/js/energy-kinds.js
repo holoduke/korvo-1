@@ -103,6 +103,55 @@
     },
   });
 
+  /* Heat pump: what it delivered, not what it used. The NIBE has no electricity
+   * meter (its phase-current inputs are the house load-monitor clamps, not
+   * fitted here), so it stays out of the house's use and shows the heat it put
+   * into the house and the hot water instead. */
+  const HP_DOING = {
+    off: "In rust", "hot water": "Warm water", heating: "Verwarmen", cooling: "Koelen",
+    starting: "Starten", operating: "In bedrijf", stopping: "Stoppen", defrosting: "Ontdooien",
+    blocked: "Geblokkeerd", pool: "Zwembad",
+  };
+  const sum2 = (a, b) => {
+    const x = E.today(a);
+    const y = E.today(b);
+    return known(x) || known(y) ? (known(x) ? x : 0) + (known(y) ? y : 0) : NaN;
+  };
+  Panel.defineEnergyKind("heatpump", {
+    icon: "heatpump",
+    use: false, /* delivered heat, not electricity: it may not count as use */
+    chart: null,
+    meter: null,
+    stats: ["heat", "heatAdd", "water", "waterAdd", "cool"],
+    power: () => NaN,
+    card(e) {
+      if (E.missing(e.status)) return E.offline();
+      const status = (stateOf(e.status) || "").toLowerCase();
+      const compressor = (stateOf(e.compressor) || "").toLowerCase();
+      const running = compressor === "operating" || compressor === "starting";
+      const alarm = stateOf(e.alarm) === "on";
+      const freq = num(e.freq);
+      const today = sum2(e.heatAdd, e.waterAdd);
+      const total = E.scaled(e.heatAdd) + E.scaled(e.waterAdd);
+      return {
+        tone: alarm ? "warn" : running ? "active" : "idle",
+        big: known(today) ? fmt(today, today < 10 ? 2 : today < 100 ? 1 : 0) : "--",
+        unit: "kWh", /* the foot says what it is: heat delivered, not electricity used */
+        chips: [
+          ["heatpump", alarm ? "Storing" : HP_DOING[status] || stateOf(e.status)],
+          running && known(freq) ? ["bolt", `compressor ${fmt(freq)} Hz`] : null,
+          ["drop", known(num(e.hotWaterTop)) ? `warm water ${fmt(num(e.hotWaterTop), 1)}°` : null],
+          ["thermometer", known(num(e.outdoor)) ? `buiten ${fmt(num(e.outdoor), 1)}°` : null],
+        ],
+        foot: [
+          [`Warmte vandaag <b>${E.kwhText(E.today(e.heatAdd))}</b>`],
+          [`warm water <b>${E.kwhText(E.today(e.waterAdd))}</b>`],
+          [`Geleverd totaal <b>${E.kwhText(total)}</b>`],
+        ],
+      };
+    },
+  });
+
   /* JK BMS battery: charge, power (positive = charging, the BMS's own sign),
    * voltage and the cells' spread, cycles, health and temperature. */
   const CELL_SPREAD_WARN = 50; /* mV between the highest and lowest cell */

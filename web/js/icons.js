@@ -74,6 +74,7 @@
     home: '<path d="M3 11.2 12 3.5l9 7.7"/><path d="M5.5 9.6V21h13V9.6"/><path d="M10 21v-6.5h4V21"/>',
     garage: '<path d="M3 10.5 12 4l9 6.5V21H3z"/><rect x="6.5" y="12.5" width="11" height="8.5"/><path d="M6.5 15.5h11M6.5 18.2h11"/>',
     refresh: '<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.8 4.4V10h-5.6"/>',
+    heatpump: '<rect x="2.5" y="4.5" width="19" height="15" rx="2"/><circle cx="8.5" cy="12" r="3.4"/><path d="M8.5 8.6V12l2.8 1.7"/><path d="M15.4 9.2c1.4.7 1.4 2 0 2.7s-1.4 2 0 2.7"/><path d="M18.4 9.2c1.4.7 1.4 2 0 2.7s-1.4 2 0 2.7"/>',
   };
   window.icon = function (name, cls) {
     const body = P[name] || P.power;

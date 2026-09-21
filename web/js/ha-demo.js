@@ -215,6 +215,58 @@
         put("filterReset", "unknown");
         put("vent", "Level03", { options: ["Off", "Automatic", "Level01", "Level02", "Level03", "Level04", "Level05", "BoostLevel1", "AfterRun"] });
         put("airmode", "Recirculation", { options: ["Recirculation", "Extraction"] });
+      } else if (ap.kind === "heatpump") {
+        /* A winter afternoon: the compressor runs on the heating circuit. */
+        const deg = { unit_of_measurement: "°C", device_class: "temperature" };
+        const kwh = { unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" };
+        put("status", "Heating", { options: ["Off", "Starting", "Operating", "Stopping", "Hot water", "Heating", "Cooling", "Defrosting", "Blocked"] });
+        put("compressor", "Operating", { options: ["Off", "Starting", "Operating", "Stopping"] });
+        put("alarm", "off", { device_class: "problem" });
+        put("online", "on", { device_class: "connectivity" });
+        put("add", "Blocked", { options: ["Alarm", "Active", "Off", "Blocked"] });
+        put("outdoor", "6.4", deg);
+        put("outdoorAvg", "7.1", deg);
+        put("room", "21.3", deg);
+        put("supply", "34.2", deg);
+        put("ret", "30.1", deg);
+        put("calcSupply", "34.0", deg);
+        put("hotWaterTop", "51.8", deg);
+        put("hotWaterCharge", "47.3", deg);
+        put("brineIn", "4.1", deg);
+        put("brineOut", "1.2", deg);
+        put("condenser", "36.8", deg);
+        put("discharge", "68.4", deg);
+        put("liquid", "29.7", deg);
+        put("suction", "3.2", deg);
+        put("inverter", "31.5", deg);
+        put("freq", "45", { unit_of_measurement: "Hz", device_class: "frequency" });
+        put("freqMin", "20", { unit_of_measurement: "Hz" });
+        put("freqMax", "118", { unit_of_measurement: "Hz" });
+        put("degreeMinutes", "-142");
+        put("flow", "12.4", { unit_of_measurement: "l/m" });
+        put("pumpHeat", "78", { unit_of_measurement: "%" });
+        put("pumpBrine", "65", { unit_of_measurement: "%" });
+        put("operTime", "1284", { unit_of_measurement: "h", device_class: "duration" });
+        put("operHotWater", "312", { unit_of_measurement: "h", device_class: "duration" });
+        put("starts", "1946");
+        put("hotWaterAmount", "148", { unit_of_measurement: "min", device_class: "duration" });
+        put("heat", "4182.6", kwh);
+        put("heatAdd", "4230.9", kwh);
+        put("water", "912.4", kwh);
+        put("waterAdd", "948.1", kwh);
+        put("cool", "926.9", kwh);
+        put("opMode", "Auto", { options: ["Auto", "Manual", "Add. heat only"] });
+        put("demand", "Normal", { options: ["Economy", "Normal", "Lux"] });
+        put("boost", "Off", { options: ["Off", "One-time incr.", "3 hr", "6 hr", "12 hr"] });
+        put("maxAdd", "6.0 kw", { options: ["0.0 kw", "3.0 kw", "6.0 kw", "6.50 kw"] });
+        put("coolSensor", "None", { options: ["None", "Bt50", "Rmu-bt50"] });
+        put("lux", "off");
+        put("smart", "off");
+        put("offset", "1", { min: -10, max: 10, step: 1 });
+        put("roomHeat", "21.0", { min: 5, max: 35, step: 0.5, unit_of_measurement: "°C" });
+        put("roomCool", "24.0", { min: 5, max: 35, step: 0.5, unit_of_measurement: "°C" });
+        put("coolOffset", "0", { min: -10, max: 10, step: 1 });
+        put("coolStart", "22", { min: -20, max: 40, step: 1, unit_of_measurement: "°C" });
       } else if (ap.kind === "filter") {
         Object.keys(e).forEach((k) => put(k, "unavailable"));
       } else if (ap.kind === "pc") {

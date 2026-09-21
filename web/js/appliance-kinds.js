@@ -31,6 +31,143 @@
   const press = (key) => (a, args, call) => call("button", "press", null, a.entities[key]);
   const selectOption = (key) => (a, [option], call) => call("select", "select_option", { option }, a.entities[key]);
 
+  /* ---- Heat pump (NIBE F1253: ground source, passive cooling) ----------------------- */
+  /* Everything the pump reports and everything it lets us set. It has no
+   * electricity meter of its own: its kWh counters are the heat it delivered
+   * (the Energie section shows those), and the three phase-current inputs are
+   * the load-monitor clamps on the house supply, which are not fitted here. */
+  const HP_NL = {
+    off: "Uit", starting: "Starten", operating: "In bedrijf", stopping: "Stoppen", initiating: "Opstarten",
+    "hot water": "Warm water", heating: "Verwarmen", cooling: "Koelen", pool: "Zwembad", "pool 2": "Zwembad 2",
+    defrosting: "Ontdooien", blocked: "Geblokkeerd", "acc. block.": "Geblokkeerd", "ext control": "Externe sturing",
+    preheat: "Voorverwarmen", "trans\u00adfer": "Overdracht", "internal electrical addition": "Bijverwarming",
+  };
+  const HP_ADD_NL = { active: "Actief", off: "Uit", blocked: "Geblokkeerd", alarm: "Alarm" };
+  const HP_MODE_NL = { Auto: "Auto", Manual: "Handmatig", "Add. heat only": "Alleen bijverwarming" };
+  const HP_DEMAND_NL = { Economy: "Zuinig", Normal: "Normaal", Lux: "Luxe" };
+  const HP_BOOST_NL = { Off: "Uit", "One-time incr.": "Eenmalig", "3 hr": "3 uur", "6 hr": "6 uur", "12 hr": "12 uur" };
+  const hpNum = (id, unit, digits = 0) => (known(num(id)) ? `${fmt(num(id), digits)}${unit}` : "--");
+  const hpDeg = (id) => hpNum(id, "\u00b0", 1);
+  const hpPair = (a, b, unit = "\u00b0", digits = 1) =>
+    known(num(a)) && known(num(b)) ? `${fmt(num(a), digits)} / ${fmt(num(b), digits)}${unit}` : hpNum(a, unit, digits);
+  const hpHours = (id) => (known(num(id)) ? `${fmt(num(id))} u` : "--");
+  const hpOptions = (id) => attrs(id).options || [];
+  /* A row of chips for a select, with the option names in Dutch. */
+  const hpChips = (i, key, e, names) =>
+    !s(e[key])
+      ? ""
+      : `<div class="ap-chips">` +
+        hpOptions(e[key]).map((o) => chip(i, `pick|${key}|${o}`, names[o] || o, raw(e[key]) === o)).join("") +
+        `</div>`;
+  /* A stepper for a number setting, with its own unit and range. */
+  const hpStep = (i, key, e, label, unit, digits) => {
+    if (!s(e[key])) return "";
+    const at = attrs(e[key]);
+    const v = num(e[key]);
+    return field(label, stepper(i, `num|${key}`, known(v) ? `${fmt(v, digits)}${unit}` : "--", {
+      canDown: known(v) && v > (at.min ?? -100),
+      canUp: known(v) && v < (at.max ?? 100),
+      down: "Lager",
+      up: "Hoger",
+    }));
+  };
+
+  Panel.defineAppliance("heatpump", {
+    icon: "heatpump",
+    view(a, i) {
+      const e = a.entities;
+      if (offline(e.status)) return offlineView("De warmtepomp is niet bereikbaar");
+      const status = low(e.status);
+      const compressor = low(e.compressor);
+      const running = compressor === "operating" || compressor === "starting";
+      const alarm = on(e.alarm);
+      const freq = num(e.freq);
+      const statusText = HP_NL[status] || raw(e.status);
+      const doing = alarm ? "Storing" : status === "off" && !running ? "In rust" : statusText;
+      const parts = [
+        doing,
+        running && known(freq) ? `compressor ${fmt(freq)} Hz` : null,
+        known(num(e.outdoor)) ? `buiten ${hpDeg(e.outdoor)}` : null,
+      ].filter(Boolean);
+      /* The readings that do not fit in the four tiles, under the settings. */
+      const details = [
+        ["Berekende aanvoer", hpDeg(e.calcSupply)],
+        ["Warm water laden", hpDeg(e.hotWaterCharge)],
+        ["Warm water over", known(num(e.hotWaterAmount)) ? `${fmt(num(e.hotWaterAmount))} min` : "--"],
+        ["Condensor", hpDeg(e.condenser)],
+        ["Persgas", hpDeg(e.discharge)],
+        ["Zuiggas", hpDeg(e.suction)],
+        ["Vloeistoflijn", hpDeg(e.liquid)],
+        ["Omvormer", hpDeg(e.inverter)],
+        ["Compressor", known(freq) ? `${fmt(freq)} Hz` : "--"],
+        ["Compressor grens", hpPair(e.freqMin, e.freqMax, " Hz", 0)],
+        ["Graadminuten", hpNum(e.degreeMinutes, "")],
+        ["Debiet", hpNum(e.flow, " l/min", 1)],
+        ["Pomp verwarming", hpNum(e.pumpHeat, "%")],
+        ["Pomp bron", hpNum(e.pumpBrine, "%")],
+        ["Bijverwarming", HP_ADD_NL[low(e.add)] || raw(e.add) || "--"],
+        ["Bedrijfsuren", hpHours(e.operTime)],
+        ["Waarvan warm water", hpHours(e.operHotWater)],
+        ["Compressorstarts", hpNum(e.starts, "")],
+        ["Gem. buiten", hpDeg(e.outdoorAvg)],
+      ];
+      const controls =
+        `<span class="vlabel">Bedrijfsstand</span>` +
+        hpChips(i, "opMode", e, HP_MODE_NL) +
+        `<span class="vlabel">Warm water</span>` +
+        hpChips(i, "demand", e, HP_DEMAND_NL) +
+        hpChips(i, "boost", e, HP_BOOST_NL) +
+        `<div class="ap-row ap-toggles">` +
+        [["lux", "Tijdelijk luxe"], ["smart", "Slimme sturing"]]
+          .filter(([k]) => s(e[k]))
+          .map(([k, label]) => btn(i, `toggle|${k}`, label, { active: on(e[k]) }))
+          .join("") +
+        `</div>` +
+        `<span class="vlabel">Verwarming</span>` +
+        `<div class="ap-row ap-split">` +
+        hpStep(i, "offset", e, "Stooklijn", "", 0) +
+        hpStep(i, "roomHeat", e, "Kamer verwarmen", "\u00b0", 1) +
+        `</div>` +
+        `<span class="vlabel">Koeling</span>` +
+        `<div class="ap-row ap-split">` +
+        hpStep(i, "roomCool", e, "Kamer koelen", "\u00b0", 1) +
+        hpStep(i, "coolStart", e, "Koelen vanaf", "\u00b0", 0) +
+        hpStep(i, "coolOffset", e, "Koelcurve", "", 0) +
+        `</div>` +
+        (s(e.maxAdd) ? `<span class="vlabel">Maximale bijverwarming</span>${hpChips(i, "maxAdd", e, {})}` : "") +
+        `<span class="vlabel">Metingen</span>` +
+        `<div class="ap-stats">${details.map(([label, value]) => stat(label, value)).join("")}</div>` +
+        (alarm ? note("De warmtepomp meldt een storing. Kijk op het display van de pomp welke.") : "");
+      return {
+        tone: alarm ? "error" : running ? "run" : status === "off" ? "off" : "ready",
+        pill: doing,
+        big: known(num(e.hotWaterTop)) ? fmt(num(e.hotWaterTop), 1) : "--",
+        unit: "\u00b0 warm water",
+        sub: parts.join(" \u00b7 "),
+        stats: [
+          stat("Buiten", hpDeg(e.outdoor)),
+          stat("Binnen", hpDeg(e.room)),
+          stat("Aanvoer / retour", hpPair(e.supply, e.ret)),
+          stat("Bron in / uit", hpPair(e.brineIn, e.brineOut)),
+        ],
+        controls,
+      };
+    },
+    actions: {
+      toggle,
+      pick: (a, [key, ...option], call) => call("select", "select_option", { option: option.join("|") }, a.entities[key]),
+      num: (a, [key, dir], call) => {
+        const id = a.entities[key];
+        const at = attrs(id);
+        const cur = num(id);
+        if (!known(cur)) return;
+        const step = at.step || 1;
+        const v = Util.clamp(cur + Number(dir) * step, at.min ?? -100, at.max ?? 100);
+        call("number", "set_value", { value: Math.round(v * 100) / 100 }, id);
+      },
+    },
+  });
+
   /* ---- Washer and dryer ------------------------------------------------------------ */
   const laundry = {
     view(a, i) {

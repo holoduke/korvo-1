@@ -496,6 +496,7 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     /* The two PCs first: switched most from the panel. */
     { "pc",         "PC-Defender", "no_defender" },
     { "pc",         "PC-430",      "garage430" },
+    { "heatpump",   "Warmtepomp",  "f1253_6_r_pc_em" }, /* NIBE F1253-6, nibe_heatpump over Modbus */
     { "washer",     "Wasmachine", "wasruimte_wasmachine" },
     { "dryer",      "Droger",     "wasruimte_droger" },
     { "dishwasher", "Vaatwasser", "dishwasher" },
@@ -604,6 +605,8 @@ static const panel_energy_t PANEL_ENERGY[] = {
     { "bike",    "Stromer",      "st7" },
     { "battery", "Accu 1",       "jk_bms_1" },
     { "battery", "Accu 2",       "jk_bms_2" },
+    /* Last: its kWh counters are delivered heat, so it counts towards nothing. */
+    { "heatpump", "Warmtepomp",   "f1253_6_r_pc_em" },
 };
 
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
