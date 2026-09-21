@@ -175,6 +175,10 @@
   .ap-item .ap-badge { width: 32px; height: 32px; border-radius: calc(10px * var(--round)); font-size: 18px; }
   .ap-item .ap-badge.photo { width: 40px; height: 40px; }
   .ap-figure { width: 96px; height: 96px; padding: 6px; }
+  /* A long name beside its state (Warmtepomp · Verwarmen) does not fit a phone:
+   * the state drops to its own line instead of the name being cut off. */
+  .ap-head { flex-wrap: wrap; row-gap: 8px; }
+  .ap-head .ap-title { flex: 1 1 auto; }
   /* The phone's sideways strip keeps names on one line. */
   .ap-item-text b { font-size: 14px; display: block; white-space: nowrap; text-overflow: ellipsis; }
   .ap-item-text small { font-size: 12px; }
