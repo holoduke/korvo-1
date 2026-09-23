@@ -95,6 +95,7 @@
   const TARIFFS = [1, 2];
   const TARIFF_NL = { 1: "dal", 2: "normaal" };
   const TARIFF_NAME = { 1: "Daltarief", 2: "Normaal tarief" };
+  const DAY_NAMES = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
   const TARIFF_OF = { low: 1, normal: 2 }; /* the meter's active tariff */
   const V_MIN = 207; /* 230 V ± 10 %: the band the grid operator must keep to (EN 50160) */
   const V_MAX = 253;
@@ -233,6 +234,10 @@
     const imp = importOn(0);
     const exp = exportOn(0);
     const today = costOn(0);
+    /* The meter's statistics start the day it was connected: say since when. */
+    const known = [0, 1, 2, 3, 4, 5, 6].filter((b) => Number.isFinite(importOn(b)));
+    const oldest = known.length ? Math.max(...known) : 0;
+    const weekLabel = known.length >= 7 ? "Laatste 7 dagen" : oldest === 0 ? "Sinds vandaag" : oldest === 1 ? "Sinds gisteren" : `Sinds ${DAY_NAMES[dayStart(oldest).getDay()]}`;
     const week = [0, 1, 2, 3, 4, 5, 6].map(costOn);
     const weekCost = week.some(Number.isFinite) ? week.filter(Number.isFinite).reduce((a, b) => a + b, 0) : NaN;
     const weekNet = [0, 1, 2, 3, 4, 5, 6].reduce((s, b) => s + ((importOn(b) || 0) - (exportOn(b) || 0)), 0);
@@ -260,7 +265,7 @@
       `<div class="em-kv"><span>Van het net vandaag</span><b>${kwhText(imp)}</b><small>${perTariff(IMPORT)}</small></div>` +
       `<div class="em-kv"><span>Terug vandaag</span><b>${kwhText(exp)}</b><small>${perTariff(EXPORT)}</small></div>` +
       `<div class="em-kv"><span>Kosten vandaag</span><b>${eur(today)}</b><small>${!prices ? "geen prijzen ingesteld" : prices.adjust < 0 ? `met ${eur(-prices.adjust)} korting per dag` : prices.adjust > 0 ? `met ${eur(prices.adjust)} vaste kosten per dag` : "met salderen"}</small></div>` +
-      `<div class="em-kv"><span>Laatste 7 dagen</span><b>${eur(weekCost)}</b><small>${kwhText(weekNet)} netto</small></div>` +
+      `<div class="em-kv"><span>${weekLabel}</span><b>${eur(weekCost)}</b><small>${kwhText(weekNet)} netto</small></div>` +
       `</div></div>` +
       `<div class="em-foot">` +
       `<div class="em-readings"><span class="em-label">Meterstanden</span>` +
@@ -430,7 +435,10 @@
         }
       }));
     }
-    Panel.keepHistory(devices.map(chartId).filter(Boolean));
+    /* The meter's chart line is its net power when Home Assistant derives one,
+     * else what it takes; which of the two exists is only known once the states
+     * are in, so the history of both is kept. */
+    Panel.keepHistory([...devices.map(chartId), ...(grid ? [G.net, G.powerIn] : [])].filter(Boolean));
 
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-energy-chart]");
