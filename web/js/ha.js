@@ -495,6 +495,9 @@
        * integration's "Thuis"); the result as conversation/process returns it. */
       converse: (text, conversationId) =>
         send({ type: "conversation/process", text, language: "nl", agent_id: "conversation.thuis", ...(conversationId ? { conversation_id: conversationId } : {}) }),
+      /* Home Assistant's energy dashboard settings: its sources, the counters
+       * and prices of each (energy/get_prefs). */
+      energyPrefs: () => send({ type: "energy/get_prefs" }),
       /* Names an entity in the registry (empty: back to its own name); admins only. */
       renameEntity: (entityId, name) => send({ type: "config/entity_registry/update", entity_id: entityId, name: name || null }),
       /* Also follow these entities, now and after every reconnect. */

@@ -386,9 +386,23 @@ SENSOR_ENTITIES = {
 
 # Energy section entities by kind: key -> entity id template ({n} = the device name).
 ENERGY_ENTITIES = {
-    # HomeWizard's names for a P1 meter's entities
-    "grid": {"power": "sensor.{n}_power", "import": "sensor.{n}_energy_import", "export": "sensor.{n}_energy_export",
-             **{f"{q}{p}": f"sensor.{{n}}_{q}_phase_{p}" for q in ("power", "voltage", "current") for p in (1, 2, 3)}},
+    # The smart meter, as Home Assistant's DSMR integration names it (device
+    # "Electricity meter"): what the house takes and gives back, both positive, in
+    # total and per phase; four counters, tariff 1 (dal) and 2 (normaal) for each
+    # direction; the phases' current and voltage; the grid's quality as the meter
+    # counts it. "net" is the net power Home Assistant's energy dashboard derives
+    # (signed, W), which has history for the chart.
+    "grid": {
+        "powerIn": "sensor.{n}_power_consumption", "powerOut": "sensor.{n}_power_production",
+        "net": "sensor.energy_grid_{n}_power_consumption_{n}_power_production_net_power",
+        "import1": "sensor.{n}_energy_consumption_tarif_1", "import2": "sensor.{n}_energy_consumption_tarif_2",
+        "export1": "sensor.{n}_energy_production_tarif_1", "export2": "sensor.{n}_energy_production_tarif_2",
+        "tariff": "sensor.{n}_active_tariff",
+        "failShort": "sensor.{n}_short_power_failure_count", "failLong": "sensor.{n}_long_power_failure_count",
+        **{f"{key}{p}": f"sensor.{{n}}_{obj}_phase_l{p}" for p in (1, 2, 3) for key, obj in (
+            ("in", "power_consumption"), ("out", "power_production"), ("current", "current"),
+            ("voltage", "voltage"), ("sags", "voltage_sags"), ("swells", "voltage_swells"))},
+    },
     "washer": {k: APPLIANCE_ENTITIES["washer"][k] for k in ("power", "energy", "water", "machine")},
     "dryer": {k: APPLIANCE_ENTITIES["dryer"][k] for k in ("power", "energy", "machine")},
     "car": {key: f"{domain}.{{n}}_{object_id}" for key, domain, object_id in TESLA_FLEET_ENTITIES

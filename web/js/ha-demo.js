@@ -335,9 +335,37 @@
       put("distance", "1.4", { unit_of_measurement: "m" });
       put("battery", gone || c.kind === "motion" ? "unavailable" : String(first ? 90 : 100), { unit_of_measurement: "%" });
     });
+    /* The smart meter (DSMR): an evening, the house takes 1,77 kW over three
+     * phases, normaal tarief; prices as input_numbers, like the real house. */
+    const meter = (cfg.energy || []).find((d) => d.kind === "grid");
+    if (meter) {
+      const e = meter.entities;
+      const kw = { unit_of_measurement: "kW", device_class: "power", state_class: "measurement" };
+      const kwh = { unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" };
+      set(e.powerIn, "1.772", kw);
+      set(e.powerOut, "0.0", kw);
+      set(e.net, "1772", { unit_of_measurement: "W", device_class: "power" });
+      [["0.887", "4.0", "243.9"], ["0.394", "2.0", "243.0"], ["0.491", "2.0", "243.1"]].forEach(([w, a, v], n) => {
+        set(e[`in${n + 1}`], w, kw);
+        set(e[`out${n + 1}`], "0.0", kw);
+        set(e[`current${n + 1}`], a, { unit_of_measurement: "A", device_class: "current" });
+        set(e[`voltage${n + 1}`], v, { unit_of_measurement: "V", device_class: "voltage" });
+      });
+      set(e.import1, "852.453", kwh);
+      set(e.import2, "76.674", kwh);
+      set(e.export1, "113.826", kwh);
+      set(e.export2, "0.820", kwh);
+      set(e.tariff, "normal", { options: ["low", "normal"] });
+      set(e.failShort, "8");
+      set(e.failLong, "16");
+      ["unknown", "1", "1"].forEach((v, n) => set(e[`sags${n + 1}`], v));
+      ["4", "3", "unknown"].forEach((v, n) => set(e[`swells${n + 1}`], v));
+      set("input_number.stroomprijs_dal", "0.23577", { unit_of_measurement: "EUR/kWh", min: 0, max: 1, step: 0.00001 });
+      set("input_number.stroomprijs_normaal", "0.26467", { unit_of_measurement: "EUR/kWh", min: 0, max: 1, step: 0.00001 });
+    }
     /* Energie: the devices' own states come from the appliances and the car above;
-     * the Stromer's counters, one battery at work and one out of reach. No smart
-     * meter: tests add one with setState. */
+     * the Stromer's counters, one battery at work and one out of reach. The
+     * smart meter is seeded above. */
     let batteries = 0;
     (cfg.energy || []).forEach((d) => {
       const e = d.entities;
@@ -370,6 +398,11 @@
       : /charged/.test(id) ? 1.2
       : /import/.test(id) ? 9
       : /export/.test(id) ? 3
+      /* the smart meter: most taken on the normaal tariff, a little given back */
+      : /consumption_tarif_2/.test(id) ? 7.5
+      : /consumption_tarif_1/.test(id) ? 3.2
+      : /production_tarif_2/.test(id) ? 1.4
+      : /production_tarif_1/.test(id) ? 0.3
       : /droger/.test(id) ? 1.6
       : 0.9;
     const WEEK_SHAPE = [0.4, 1.3, 0, 1, 1.6, 0.2];
@@ -731,6 +764,18 @@
           }).filter((r) => r.t >= start.getTime()).sort((x, y) => x.t - y.t);
         });
         return out;
+      },
+      /* The energy dashboard's settings: two grid sources, one per tariff. */
+      async energyPrefs() {
+        const m = (cfg.energy || []).find((d) => d.kind === "grid");
+        if (!m) return { energy_sources: [] };
+        const e = m.entities;
+        return {
+          energy_sources: [
+            { type: "grid", stat_energy_from: e.import1, stat_energy_to: e.export1, entity_energy_price: "input_number.stroomprijs_dal", entity_energy_price_export: "input_number.stroomprijs_dal", cost_adjustment_day: -0.10018 },
+            { type: "grid", stat_energy_from: e.import2, stat_energy_to: e.export2, entity_energy_price: "input_number.stroomprijs_normaal", entity_energy_price_export: "input_number.stroomprijs_normaal", cost_adjustment_day: 0 },
+          ],
+        };
       },
       /* Six earlier days of use per counter (today's comes from useToday). */
       async dailyUse(ids, start) {

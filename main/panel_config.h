@@ -583,10 +583,10 @@ static const panel_cover_t PANEL_COVERS[] = {
  * row per meter, device or battery; kind selects which entities it has, name
  * is the device's part of its entity ids; tools/gen_web_config.py derives the
  * rest. Kinds:
- *   grid     the smart meter (P1), with HomeWizard's entity names
- *            (sensor.<name>_power, _energy_import, _energy_export,
- *            _power_phase_1 ...). At most one; until it exists in Home
- *            Assistant the page shows where it will appear.
+ *   grid     the smart meter, with the entity names of Home Assistant's DSMR
+ *            integration (sensor.<name>_power_consumption, _power_production,
+ *            _energy_consumption_tarif_1 ..., _voltage_phase_l1 ...). At most
+ *            one; until it reports, the page leaves it out.
  *   washer, dryer   power, energy and water of the laundry appliances
  *   car      Tesla Fleet charging (name = the car name, as in PANEL_CAR)
  *   bike     Stromer (name = the bike name)
@@ -598,7 +598,7 @@ typedef struct {
     const char *name;
 } panel_energy_t;
 static const panel_energy_t PANEL_ENERGY[] = {
-    { "grid",    "Slimme meter", "p1_meter" },
+    { "grid",    "Slimme meter", "electricity_meter" }, /* DSMR over the P1 port */
     { "washer",  "Wasmachine",   "wasruimte_wasmachine" },
     { "dryer",   "Droger",       "wasruimte_droger" },
     { "car",     "Tesla",        "vlm" },
