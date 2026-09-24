@@ -1620,6 +1620,32 @@ window.PANEL_CONFIG = {
         "humidity": "sensor.sensor_buiten_voor_1_humidity",
         "battery": "sensor.sensor_buiten_voor_1_battery"
       }
+    },
+    {
+      "kind": "plant",
+      "label": "Plant voorkamer",
+      "name": "sensor_plant_voorkamer_1",
+      "entities": {
+        "moisture": "sensor.sensor_plant_voorkamer_1_soil_moisture",
+        "dry": "binary_sensor.sensor_plant_voorkamer_1_dry",
+        "warning": "number.sensor_plant_voorkamer_1_soil_warning",
+        "temperature": "sensor.sensor_plant_voorkamer_1_temperature",
+        "humidity": "sensor.sensor_plant_voorkamer_1_humidity",
+        "battery": "sensor.sensor_plant_voorkamer_1_battery"
+      }
+    },
+    {
+      "kind": "plant",
+      "label": "Plant zitkamer achter",
+      "name": "sensor_plant_zitkamer_achter_1",
+      "entities": {
+        "moisture": "sensor.sensor_plant_zitkamer_achter_1_soil_moisture",
+        "dry": "binary_sensor.sensor_plant_zitkamer_achter_1_dry",
+        "warning": "number.sensor_plant_zitkamer_achter_1_soil_warning",
+        "temperature": "sensor.sensor_plant_zitkamer_achter_1_temperature",
+        "humidity": "sensor.sensor_plant_zitkamer_achter_1_humidity",
+        "battery": "sensor.sensor_plant_zitkamer_achter_1_battery"
+      }
     }
   ],
   "covers": [

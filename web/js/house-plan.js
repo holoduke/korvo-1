@@ -78,6 +78,12 @@ window.HOUSE_PLAN = {
   /* Sensors outside the rooms, shown on the layers at their place (metres):
    * the outside sensor hangs on the front wall beside the gameroom's window. */
   sensors: [{ climate: "Buiten voor", at: [3.1, 1.6, -0.55] }],
+  /* The plants with a soil sensor (PANEL_SENSOR_CARDS kind plant), in the room
+   * their name says, off the room's own reading. */
+  plants: [
+    { card: "Plant voorkamer", at: [1.0, 0.45, 0.8] },
+    { card: "Plant zitkamer achter", at: [8.6, 0.45, 16.6] },
+  ],
   /* Inner walls of the ground floor, drawn as walls (floor line, ceiling line
    * and their ends), each in a vertical plane like the openings: plane "z" runs
    * along the front (at = its z), plane "x" along the side (at = its x); a is

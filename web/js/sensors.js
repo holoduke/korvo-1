@@ -14,8 +14,9 @@
     ["Aanwezigheid en beweging", ["presence", "motion"]],
     ["Deuren en ramen", ["door", "window"]],
     ["Lucht en klimaat", ["air", "climate"]],
+    ["Planten", ["plant"]],
   ];
-  const ICON = { presence: "person", motion: "motion", door: "door", window: "window", air: "air", climate: "thermometer" };
+  const ICON = { presence: "person", motion: "motion", door: "door", window: "window", air: "air", climate: "thermometer", plant: "leaf" };
 
   const st = (id) => (id ? Panel.st(id) : undefined);
   const isOn = (id) => (st(id) || {}).state === "on";
@@ -71,6 +72,24 @@
     },
     climate(e) {
       return { main: e.temperature, tone: "idle", big: reading(e.temperature, 1, "°") || "--", chips: [["drop", reading(e.humidity, 0, "%")]] };
+    },
+    /* The soil's moisture leads; the card turns amber when the plant is dry.
+     * It counts as online while the sensor reports anything (the soil's first
+     * reading can take a while after pairing). */
+    plant(e) {
+      const p = Panel.plantState(e);
+      return {
+        main: e.temperature,
+        tone: p.dry ? "warn" : "idle",
+        big: Number.isFinite(p.moisture) ? fmt(p.moisture) : "--",
+        unit: "% bodem", /* "% bodemvocht" leaves the number too little room on a small card */
+        colour: p.dry ? "var(--warn)" : null,
+        chips: [
+          ["leaf", p.text, p.dry ? "warn" : ""],
+          ["thermometer", reading(e.temperature, 1, "°")],
+          ["drop", reading(e.humidity, 0, "% lucht")],
+        ],
+      };
     },
   };
 

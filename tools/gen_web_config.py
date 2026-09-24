@@ -381,6 +381,10 @@ SENSOR_ENTITIES = {
     "air": {"co2": "sensor.{n}_carbon_dioxide", "pm25": "sensor.{n}_pm2_5", "quality": "sensor.{n}_air_quality",
             "temperature": "sensor.{n}_temperature", "humidity": "sensor.{n}_humidity"},
     "climate": {"temperature": "sensor.{n}_temperature", "humidity": "sensor.{n}_humidity", "battery": "sensor.{n}_battery"},
+    # a soil sensor in a plant pot (AOYAN AY-303Z): the soil's moisture, the
+    # sensor's own verdict that it is dry and the level it warns at, and the air
+    "plant": {"moisture": "sensor.{n}_soil_moisture", "dry": "binary_sensor.{n}_dry", "warning": "number.{n}_soil_warning",
+              "temperature": "sensor.{n}_temperature", "humidity": "sensor.{n}_humidity", "battery": "sensor.{n}_battery"},
 }
 
 

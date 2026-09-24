@@ -524,7 +524,8 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
  * in sensor.sensor_keuken_1_temperature); tools/gen_web_config.py derives the
  * rest. Kinds: presence (mmWave presence with temperature, humidity and light),
  * motion (PIR), door (contact), window (a contact on a window), air (air quality monitor), climate
- * (temperature and humidity). Order = display order within each group. */
+ * (temperature and humidity), plant (a soil sensor in a pot: moisture, dry, and the air). Order =
+ * display order within each group. */
 typedef struct {
     const char *kind;
     const char *label;
@@ -566,6 +567,9 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Zolder achter",    "sensor_zolder_achterkamer_1" },
     { "climate",  "Garage",           "sensor_garage_1" },
     { "climate",  "Buiten voor",      "sensor_buiten_voor_1" },
+    /* two soil sensors in plant pots (AOYAN AY-303Z, added 2026-09-24) */
+    { "plant",    "Plant voorkamer",  "sensor_plant_voorkamer_1" },
+    { "plant",    "Plant zitkamer achter", "sensor_plant_zitkamer_achter_1" },
 };
 
 /* Doors the web app drives (the firmware does not show them): a cover entity

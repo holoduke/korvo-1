@@ -97,6 +97,13 @@ body.saver-house .hud-clock { display: block; }
 .house-label .lamp { color: var(--accent); }
 .house-label .plain { color: var(--text); }
 .house-label .hum { color: var(--hum); }
+.house-label .dim { color: var(--text_dim); }
+/* a plant: a leaf and the soil's moisture, amber when it needs water */
+.house-label.plant .hl-vals { align-items: center; gap: 4px; }
+.house-label.plant .ic { width: 13px; height: 13px; color: var(--ok); }
+.house-label.plant.warn .ic { color: var(--warn); }
+.house-label.plant.dim .ic, .house-label.plant.hum .ic { color: var(--text_dim); }
+.house-label.plant.warn .hl-name { color: var(--warn); }
 .house-label.out::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text_dim); margin-bottom: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }

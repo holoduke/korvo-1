@@ -123,6 +123,24 @@
   Panel.track(sensorIds, onReadings);
   /* Another module's numeric readings, kept the same way (24 h of history, then
    * live values) for its own charts. Call before the states arrive. */
+  /* A plant's soil: its moisture, and whether it is dry: by the sensor's own
+   * verdict, else below the level it warns at (20 % unless set otherwise). */
+  Panel.plantState = function (e) {
+    const m = Panel.num(e.moisture);
+    const warn = Panel.num(e.warning);
+    const limit = Number.isFinite(warn) ? warn : 20;
+    const verdict = (Panel.st(e.dry) || {}).state;
+    const dry = verdict === "on" || (verdict !== "off" && Number.isFinite(m) && m < limit);
+    const known = Number.isFinite(m);
+    return {
+      moisture: m,
+      dry,
+      limit,
+      text: !known ? (dry ? "droog, water geven" : "nog geen meting") : dry ? "droog, water geven" : m > 85 ? "erg nat" : "vochtig genoeg",
+      tone: dry ? "warn" : !known ? "dim" : m > 85 ? "hum" : "ok",
+    };
+  };
+
   Panel.keepHistory = function (ids) {
     const fresh = ids.filter((id) => id && !historyIds.includes(id));
     historyIds.push(...fresh);

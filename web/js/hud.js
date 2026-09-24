@@ -107,6 +107,7 @@
   /* ---- The rooms of the plan, with their sensor and their lamps ------------------- */
   const plan = window.HOUSE_PLAN || { rooms: {} };
   const climateCards = (cfg.sensorCards || []).filter((c) => c.kind === "climate");
+  const plantCards = (cfg.sensorCards || []).filter((c) => c.kind === "plant");
   const areasOf = (floor) => {
     const f = (cfg.floors || []).find((x) => x.label === floor);
     return f ? cfg.tabs[f.tab].areas || [] : [];
@@ -248,6 +249,19 @@
         el.className = "house-label out";
         el.innerHTML = c.html;
         el.dataset.at = JSON.stringify(s.at);
+        labels.appendChild(el);
+      });
+      /* The plants: their soil moisture where they stand, the leaf amber when dry. */
+      (plan.plants || []).forEach((pl) => {
+        const card = plantCards.find((c) => c.label === pl.card);
+        if (!card) return;
+        const p = Panel.plantState(card.entities);
+        const el = document.createElement("div");
+        el.className = `house-label plant ${p.tone}`;
+        el.innerHTML =
+          `<span class="hl-vals">${icon("leaf")}<b class="${p.tone}">${Number.isFinite(p.moisture) ? `${Math.round(p.moisture)}%` : "--"}</b></span>` +
+          `<span class="hl-name">${p.dry ? "water geven" : "plant"}</span>`;
+        el.dataset.at = JSON.stringify(pl.at);
         labels.appendChild(el);
       });
     }
@@ -464,6 +478,7 @@
       ...(cfg.appliances || []).flatMap((a) => Object.values(a.entities)),
       ...robots.flatMap((r) => [r.vacuum, r.problem]),
       ...contacts.map((c) => c.entities.contact),
+      ...plantCards.flatMap((c) => [c.entities.moisture, c.entities.dry, c.entities.warning]),
       ...rooms.map((r) => r.presence),
       (cfg.health || {}).zigbee,
       (cfg.health || {}).internet,
