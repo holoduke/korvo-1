@@ -556,6 +556,11 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Voorkamer",        "sensor_voorkamer_1" },
     { "climate",  "Zitkamer achter",  "sensor_zitkamer_achter_1" },
     { "climate",  "Keuken",           "sensor_keuken_1" },
+    /* the three bedrooms on the first floor (added 2026-09-24); web only, the
+     * firmware's header has no room for them */
+    { "climate",  "Naomi",            "sensor_naomi_1" },
+    { "climate",  "Valerie",          "sensor_valerie_1" },
+    { "climate",  "Gillis en Ilse",   "sensor_achterkamer_boven_1" },
     { "climate",  "Zoldergang",       "sensor_zolder_1" },
     { "climate",  "Zolder voor",      "sensor_zolder_voorkamer_1" },
     { "climate",  "Zolder achter",    "sensor_zolder_achterkamer_1" },

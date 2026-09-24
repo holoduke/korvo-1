@@ -1543,6 +1543,36 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "climate",
+      "label": "Naomi",
+      "name": "sensor_naomi_1",
+      "entities": {
+        "temperature": "sensor.sensor_naomi_1_temperature",
+        "humidity": "sensor.sensor_naomi_1_humidity",
+        "battery": "sensor.sensor_naomi_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Valerie",
+      "name": "sensor_valerie_1",
+      "entities": {
+        "temperature": "sensor.sensor_valerie_1_temperature",
+        "humidity": "sensor.sensor_valerie_1_humidity",
+        "battery": "sensor.sensor_valerie_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
+      "label": "Gillis en Ilse",
+      "name": "sensor_achterkamer_boven_1",
+      "entities": {
+        "temperature": "sensor.sensor_achterkamer_boven_1_temperature",
+        "humidity": "sensor.sensor_achterkamer_boven_1_humidity",
+        "battery": "sensor.sensor_achterkamer_boven_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
       "label": "Zoldergang",
       "name": "sensor_zolder_1",
       "entities": {

@@ -126,8 +126,7 @@
     $q("[data-hi-close]").addEventListener("click", Panel.closeRoom);
     /* the room's climate popup (the last 24 h) */
     $q("[data-hi-climate]").addEventListener("click", () => {
-      const i = current && current.card ? (Panel.cfg.sensors || []).findIndex((s) => s.temp === current.card.entities.temperature) : -1;
-      if (i >= 0) Panel.openClimate(i);
+      if (current && current.card) Panel.openClimateFor(current.card.entities.temperature);
     });
     $q("[data-hi-lamps]").addEventListener("click", (e) => {
       if (performance.now() - openedAt < 500) return;

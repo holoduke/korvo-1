@@ -59,11 +59,11 @@ window.HOUSE_PLAN = {
      * further back, the landing with the stair and a toilet, the bathroom,
      * and the back bedroom across the full width. Their walls are in walls. */
     1: [
-      { name: "Naomi", x: 0, z: 0, w: 2.84, d: 3.77 },
-      { name: "Valerie", x: 2.84, z: 0, w: 2.76, d: 5.0 },
+      { name: "Naomi", climate: "Naomi", x: 0, z: 0, w: 2.84, d: 3.77 },
+      { name: "Valerie", climate: "Valerie", x: 2.84, z: 0, w: 2.76, d: 5.0 },
       { name: "Gang", x: 0, z: 3.77, w: 2.84, d: 5.03 },
       { name: "Badkamer", x: 2.84, z: 5.0, w: 2.76, d: 3.8 },
-      { name: "Gillis en Ilse", x: 0, z: 8.8, w: 5.6, d: 4.2 },
+      { name: "Gillis en Ilse", climate: "Gillis en Ilse", x: 0, z: 8.8, w: 5.6, d: 4.2 },
     ],
     /* Attic (plan, page 7): the stair and the technical room along the
      * neighbour's wall, the front room, a small hall with the baby's room off

@@ -352,8 +352,7 @@
     }
     if (!best) return;
     const card = climateCards.find((c) => (plan.sensors || []).some((s) => s.climate === c.label && JSON.stringify(s.at) === best.el.dataset.at));
-    const i = card ? (cfg.sensors || []).findIndex((s) => s.temp === card.entities.temperature) : -1;
-    if (i >= 0) Panel.openClimate(i);
+    if (card) Panel.openClimateFor(card.entities.temperature);
   }
 
   /* ---- The robots at work ----------------------------------------------------------- */

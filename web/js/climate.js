@@ -22,9 +22,20 @@
    * outdoors); indoors and for air the line takes the colour of its band. The
    * second series is dashed. */
   const PM_COLOUR = "#c792ea";
+  /* Everything that has a climate chart: the header's sensors first (so a
+   * header column's index is its own), then the climate cards that are not in
+   * the header, such as the bedrooms upstairs. */
+  const SOURCES = [
+    ...cfg.sensors,
+    ...(cfg.sensorCards || [])
+      .filter((c) => c.kind === "climate" && c.entities.temperature && !cfg.sensors.some((s) => s.temp === c.entities.temperature))
+      .map((c) => ({ temp: c.entities.temperature, humidity: c.entities.humidity || null, label: c.label, indoor: !/buiten/i.test(c.label) })),
+  ];
+  /* their day of readings, for the chart */
+  Panel.keepHistory(SOURCES.slice(cfg.sensors.length).flatMap((s) => [s.temp, s.humidity]));
   function spec() {
     if (popup.kind === "climate") {
-      const s = cfg.sensors[popup.idx];
+      const s = SOURCES[popup.idx];
       return {
         left: { id: s.temp, colour: css("--accent"), bands: s.indoor ? Panel.bands.temp : null, range: ranges.temp, fmt: (v) => v + "°" },
         right: s.humidity
@@ -53,7 +64,7 @@
   function draw(progress) {
     if (!popup) return;
     const { series, spanH } = Panel.drawChart($("climChart"), spec(), progress);
-    const conf = popup.kind === "climate" ? cfg.sensors[popup.idx] : cfg.air[popup.idx];
+    const conf = popup.kind === "climate" ? SOURCES[popup.idx] : cfg.air[popup.idx];
     $("climTitle").textContent = `${conf.label}  •  laatste ${spanH} uur`;
     const [a, b] = series;
     const range = $("climRange");
@@ -82,7 +93,7 @@
   }
 
   function renderClimateText(i) {
-    const s = cfg.sensors[i];
+    const s = SOURCES[i];
     const t = Panel.num(s.temp);
     const h = s.humidity ? Panel.num(s.humidity) : NaN;
     $("climNow").innerHTML = Number.isFinite(t) ? `${Util.fmt(t, 1)}°` + (Number.isFinite(h) ? `&ensp;${icon("drop")}${Math.round(h)}%` : "") : "--";
@@ -169,6 +180,12 @@
     chartAnim = requestAnimationFrame(step);
   }
   Panel.openClimate = (i) => open("climate", i);
+  /* By the temperature entity: any climate sensor, in the header or not. */
+  Panel.openClimateFor = (tempId) => {
+    const i = SOURCES.findIndex((s) => s.temp === tempId);
+    if (i >= 0) open("climate", i);
+    return i >= 0;
+  };
   Panel.openAir = (i) => open("air", i);
 
   function close() {
