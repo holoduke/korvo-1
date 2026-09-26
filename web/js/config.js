@@ -308,6 +308,18 @@ window.PANEL_CONFIG = {
           "label": "Gillis en Ilse nachtkast"
         },
         {
+          "id": "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje",
+          "label": "Gillis en Ilse nachtkast 2"
+        },
+        {
+          "id": "light.lamp_slaapkamer_achter_1",
+          "label": "Gillis en Ilse lamp"
+        },
+        {
+          "id": "light.lamp_slaapkamer_staand_ilse_gillis",
+          "label": "Gillis en Ilse staande lamp"
+        },
+        {
           "id": "light.lamp_valerie_kamer_1",
           "label": "Valerie"
         },
@@ -317,7 +329,15 @@ window.PANEL_CONFIG = {
         },
         {
           "id": "light.lamp_badkamer_2_plafond_1",
-          "label": "Badkamer plafond"
+          "label": "Badkamer plafond 1"
+        },
+        {
+          "id": "light.lamp_badkamer_2_plafond_2",
+          "label": "Badkamer plafond 2"
+        },
+        {
+          "id": "light.lamp_badkamer_2_plafond_3",
+          "label": "Badkamer plafond 3"
         },
         {
           "id": "light.lamp_badkamer_3",
@@ -384,6 +404,18 @@ window.PANEL_CONFIG = {
           "label": "Gillis en Ilse nachtkast"
         },
         {
+          "id": "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje",
+          "label": "Gillis en Ilse nachtkast 2"
+        },
+        {
+          "id": "light.lamp_slaapkamer_achter_1",
+          "label": "Gillis en Ilse lamp"
+        },
+        {
+          "id": "light.lamp_slaapkamer_staand_ilse_gillis",
+          "label": "Gillis en Ilse staande lamp"
+        },
+        {
           "id": "light.lamp_valerie_kamer_1",
           "label": "Valerie"
         },
@@ -393,7 +425,15 @@ window.PANEL_CONFIG = {
         },
         {
           "id": "light.lamp_badkamer_2_plafond_1",
-          "label": "Badkamer plafond"
+          "label": "Badkamer plafond 1"
+        },
+        {
+          "id": "light.lamp_badkamer_2_plafond_2",
+          "label": "Badkamer plafond 2"
+        },
+        {
+          "id": "light.lamp_badkamer_2_plafond_3",
+          "label": "Badkamer plafond 3"
         },
         {
           "id": "light.lamp_badkamer_3",
@@ -428,7 +468,10 @@ window.PANEL_CONFIG = {
           "label": "Gillis en Ilse",
           "lights": [
             "light.lamp_slaapkamer_plafond_achter_1",
-            "light.lamp_slaapkamer_achter_nachtkast_1"
+            "light.lamp_slaapkamer_achter_nachtkast_1",
+            "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje",
+            "light.lamp_slaapkamer_achter_1",
+            "light.lamp_slaapkamer_staand_ilse_gillis"
           ]
         },
         {
@@ -447,6 +490,8 @@ window.PANEL_CONFIG = {
           "label": "Badkamer",
           "lights": [
             "light.lamp_badkamer_2_plafond_1",
+            "light.lamp_badkamer_2_plafond_2",
+            "light.lamp_badkamer_2_plafond_3",
             "light.lamp_badkamer_3",
             "light.lamp_badkamer_muur_1",
             "light.lamp_badkamer_muur_2",

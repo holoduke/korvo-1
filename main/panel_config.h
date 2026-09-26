@@ -117,8 +117,12 @@ static const panel_entity_t TAB_THUIS_DEVICES[] = {
 /* ---- Tab: Boven (upper floors) ------------------------------------------ */
 /* HA's light.lampen_bovenverdieping group is broken (no members) and
  * light.lamp_badkamer_1 no longer exists; the bathroom is badkamer_2_plafond_*. */
-/* First floor (2026-09-13): the lamps Zigbee2MQTT has there, by room. The
- * back bedroom is Gillis en Ilse's, the two front rooms Valerie's and Naomi's. */
+/* First floor (2026-09-13, completed 2026-09-26): every lamp there, by room.
+ * The back bedroom is Gillis en Ilse's, the two front rooms Valerie's and
+ * Naomi's. The bathroom ceiling's plafond 2 and 3 are IKEA KAJPLATS bulbs over
+ * Matter (2026-09-26); plafond 1 is the old Zigbee bulb. The bedside and floor
+ * lamps are often off at the wall, so they show as out of reach. Left out:
+ * light.lamp_slaapkamer_gillis_ilse, an old pairing last seen in April. */
 static const panel_entity_t TAB_BOVEN_LIGHTS[] = {
     { "light.lamp_gang_boven_plafond_1",          "Gang plafond 1" },
     { "light.lamp_gang_boven_plafond_2",          "Gang plafond 2" },
@@ -126,9 +130,14 @@ static const panel_entity_t TAB_BOVEN_LIGHTS[] = {
     { "light.lamp_gang_boven_plafond_4",          "Gang plafond 4" },
     { "light.lamp_slaapkamer_plafond_achter_1",   "Gillis en Ilse plafond" },
     { "light.lamp_slaapkamer_achter_nachtkast_1", "Gillis en Ilse nachtkast" },
+    { "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje", "Gillis en Ilse nachtkast 2" },
+    { "light.lamp_slaapkamer_achter_1",           "Gillis en Ilse lamp" },
+    { "light.lamp_slaapkamer_staand_ilse_gillis", "Gillis en Ilse staande lamp" },
     { "light.lamp_valerie_kamer_1",               "Valerie" },
     { "light.lamp_jongens_kamer_1",               "Naomi" },
-    { "light.lamp_badkamer_2_plafond_1",          "Badkamer plafond" },
+    { "light.lamp_badkamer_2_plafond_1",          "Badkamer plafond 1" },
+    { "light.lamp_badkamer_2_plafond_2",          "Badkamer plafond 2" },
+    { "light.lamp_badkamer_2_plafond_3",          "Badkamer plafond 3" },
     { "light.lamp_badkamer_3",                    "Badkamer lamp" },
     { "light.lamp_badkamer_muur_1",               "Badkamer muur 1" },
     { "light.lamp_badkamer_muur_2",               "Badkamer muur 2" },
@@ -148,9 +157,14 @@ static const panel_entity_t TAB_BOVEN_DEVICES[] = {
     { "light.lamp_gang_boven_plafond_4",          "Gang plafond 4" },
     { "light.lamp_slaapkamer_plafond_achter_1",   "Gillis en Ilse plafond" },
     { "light.lamp_slaapkamer_achter_nachtkast_1", "Gillis en Ilse nachtkast" },
+    { "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje", "Gillis en Ilse nachtkast 2" },
+    { "light.lamp_slaapkamer_achter_1",           "Gillis en Ilse lamp" },
+    { "light.lamp_slaapkamer_staand_ilse_gillis", "Gillis en Ilse staande lamp" },
     { "light.lamp_valerie_kamer_1",               "Valerie" },
     { "light.lamp_jongens_kamer_1",               "Naomi" },
-    { "light.lamp_badkamer_2_plafond_1",          "Badkamer plafond" },
+    { "light.lamp_badkamer_2_plafond_1",          "Badkamer plafond 1" },
+    { "light.lamp_badkamer_2_plafond_2",          "Badkamer plafond 2" },
+    { "light.lamp_badkamer_2_plafond_3",          "Badkamer plafond 3" },
     { "light.lamp_badkamer_3",                    "Badkamer lamp" },
     { "light.lamp_badkamer_muur_1",               "Badkamer muur 1" },
     { "light.lamp_badkamer_muur_2",               "Badkamer muur 2" },
@@ -463,10 +477,10 @@ static const panel_area_t PANEL_AREAS[] = {
     { "Beneden", "Gameroom", "light.lamp_playroom_1 light.lamp_playroom_led_1 light.lamp_playroom_muur_1 light.lamp_playroom_muur_2 light.lamp_playroom_muur_3" },
     { "Beneden", "Gang", "light.lamp_gang_plafond_1 light.lamp_gang_plafond_2 light.lamp_gang_plafond_3 light.lamp_gang_deur_1 light.lamp_gang_trap_beneden_1 light.lamp_wc_beneden_1" },
     { "Beneden", "Buiten", "light.lamp_buiten_1" },
-    { "Boven", "Gillis en Ilse", "light.lamp_slaapkamer_plafond_achter_1 light.lamp_slaapkamer_achter_nachtkast_1" },
+    { "Boven", "Gillis en Ilse", "light.lamp_slaapkamer_plafond_achter_1 light.lamp_slaapkamer_achter_nachtkast_1 light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje light.lamp_slaapkamer_achter_1 light.lamp_slaapkamer_staand_ilse_gillis" },
     { "Boven", "Valerie", "light.lamp_valerie_kamer_1" },
     { "Boven", "Naomi", "light.lamp_jongens_kamer_1" },
-    { "Boven", "Badkamer", "light.lamp_badkamer_2_plafond_1 light.lamp_badkamer_3 light.lamp_badkamer_muur_1 light.lamp_badkamer_muur_2 light.lamp_badkamer_spiegel_1" },
+    { "Boven", "Badkamer", "light.lamp_badkamer_2_plafond_1 light.lamp_badkamer_2_plafond_2 light.lamp_badkamer_2_plafond_3 light.lamp_badkamer_3 light.lamp_badkamer_muur_1 light.lamp_badkamer_muur_2 light.lamp_badkamer_spiegel_1" },
     { "Boven", "Gang", "light.lamp_gang_boven_plafond_1 light.lamp_gang_boven_plafond_2 light.lamp_gang_boven_plafond_3 light.lamp_gang_boven_plafond_4" },
     { "Zolder", "Gang", "light.lamp_zolder_gang light.lamp_zolder_tussengang_1" },
     { "Zolder", "Babykamer", "light.lamp_zolder_baby_kamer_1 light.lamp_zolder_baby_kamer_2" },
