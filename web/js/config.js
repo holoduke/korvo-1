@@ -320,6 +320,10 @@ window.PANEL_CONFIG = {
           "label": "Gillis en Ilse staande lamp"
         },
         {
+          "id": "light.lamp_slaapkamer_staand_ilse_gillis_2",
+          "label": "Gillis en Ilse staande lamp 2"
+        },
+        {
           "id": "light.lamp_valerie_kamer_1",
           "label": "Valerie"
         },
@@ -415,37 +419,72 @@ window.PANEL_CONFIG = {
         {
           "id": "scene.gang_boven_hoog",
           "label": "Hoog",
-          "area": "Gang"
+          "area": "Gang",
+          "swatch": {
+            "a": "#ffe2c0",
+            "b": null
+          },
+          "script": "script.gang_boven_scene"
         },
         {
           "id": "scene.gang_boven_helder_warm",
           "label": "Helder warm",
-          "area": "Gang"
+          "area": "Gang",
+          "swatch": {
+            "a": "#ffc27a",
+            "b": null
+          },
+          "script": "script.gang_boven_scene"
         },
         {
           "id": "scene.gang_boven_laag",
           "label": "Laag",
-          "area": "Gang"
+          "area": "Gang",
+          "swatch": {
+            "a": "#9c6a34",
+            "b": null
+          },
+          "script": "script.gang_boven_scene"
         },
         {
           "id": "scene.gang_boven_sfeervol",
           "label": "Sfeervol",
-          "area": "Gang"
+          "area": "Gang",
+          "swatch": {
+            "a": "#d97a26",
+            "b": "#6e3f14"
+          },
+          "script": "script.gang_boven_scene"
         },
         {
           "id": "scene.gang_boven_zonsondergang",
           "label": "Zonsondergang",
-          "area": "Gang"
+          "area": "Gang",
+          "swatch": {
+            "a": "#ff7814",
+            "b": "#ff9a3c"
+          },
+          "script": "script.gang_boven_scene"
         },
         {
           "id": "scene.gang_boven_avond_paars",
           "label": "Avond paars",
-          "area": "Gang"
+          "area": "Gang",
+          "swatch": {
+            "a": "#8f3cff",
+            "b": "#b450ff"
+          },
+          "script": "script.gang_boven_scene"
         },
         {
           "id": "scene.gang_boven_nacht",
           "label": "Nacht",
-          "area": "Gang"
+          "area": "Gang",
+          "swatch": {
+            "a": "#7a1600",
+            "b": null
+          },
+          "script": "script.gang_boven_scene"
         }
       ],
       "devices": [
@@ -484,6 +523,10 @@ window.PANEL_CONFIG = {
         {
           "id": "light.lamp_slaapkamer_staand_ilse_gillis",
           "label": "Gillis en Ilse staande lamp"
+        },
+        {
+          "id": "light.lamp_slaapkamer_staand_ilse_gillis_2",
+          "label": "Gillis en Ilse staande lamp 2"
         },
         {
           "id": "light.lamp_valerie_kamer_1",
@@ -541,7 +584,9 @@ window.PANEL_CONFIG = {
             "light.lamp_slaapkamer_achter_nachtkast_1",
             "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje",
             "light.lamp_slaapkamer_achter_1",
-            "light.lamp_slaapkamer_staand_ilse_gillis"
+            "light.lamp_slaapkamer_staand_ilse_gillis",
+            "light.lamp_slaapkamer_staand_ilse_gillis_2",
+            "light.lamp_slaapkamer_gillis_ilse"
           ]
         },
         {

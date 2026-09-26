@@ -133,6 +133,7 @@ static const panel_entity_t TAB_BOVEN_LIGHTS[] = {
     { "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje", "Gillis en Ilse nachtkast 2" },
     { "light.lamp_slaapkamer_achter_1",           "Gillis en Ilse lamp" },
     { "light.lamp_slaapkamer_staand_ilse_gillis", "Gillis en Ilse staande lamp" },
+    { "light.lamp_slaapkamer_staand_ilse_gillis_2", "Gillis en Ilse staande lamp 2" },
     { "light.lamp_valerie_kamer_1",               "Valerie" },
     { "light.lamp_jongens_kamer_1",               "Naomi" },
     { "light.lamp_badkamer_2_plafond_1",          "Badkamer plafond 1" },
@@ -160,6 +161,7 @@ static const panel_entity_t TAB_BOVEN_DEVICES[] = {
     { "light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje", "Gillis en Ilse nachtkast 2" },
     { "light.lamp_slaapkamer_achter_1",           "Gillis en Ilse lamp" },
     { "light.lamp_slaapkamer_staand_ilse_gillis", "Gillis en Ilse staande lamp" },
+    { "light.lamp_slaapkamer_staand_ilse_gillis_2", "Gillis en Ilse staande lamp 2" },
     { "light.lamp_valerie_kamer_1",               "Valerie" },
     { "light.lamp_jongens_kamer_1",               "Naomi" },
     { "light.lamp_badkamer_2_plafond_1",          "Badkamer plafond 1" },
@@ -478,7 +480,8 @@ static const panel_area_t PANEL_AREAS[] = {
     { "Beneden", "Gameroom", "light.lamp_playroom_1 light.lamp_playroom_led_1 light.lamp_playroom_muur_1 light.lamp_playroom_muur_2 light.lamp_playroom_muur_3" },
     { "Beneden", "Gang", "light.lamp_gang_plafond_1 light.lamp_gang_plafond_2 light.lamp_gang_plafond_3 light.lamp_gang_deur_1 light.lamp_gang_trap_beneden_1 light.lamp_wc_beneden_1" },
     { "Beneden", "Buiten", "light.lamp_buiten_1" },
-    { "Boven", "Gillis en Ilse", "light.lamp_slaapkamer_plafond_achter_1 light.lamp_slaapkamer_achter_nachtkast_1 light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje light.lamp_slaapkamer_achter_1 light.lamp_slaapkamer_staand_ilse_gillis" },
+    /* lamp_slaapkamer_gillis_ilse: the old ceiling lamp, gone but still in the bedroom's scenes */
+    { "Boven", "Gillis en Ilse", "light.lamp_slaapkamer_plafond_achter_1 light.lamp_slaapkamer_achter_nachtkast_1 light.lamp_gillis_ilse_nachtkasje_lamp_gillis_ilse_nachtkasje light.lamp_slaapkamer_achter_1 light.lamp_slaapkamer_staand_ilse_gillis light.lamp_slaapkamer_staand_ilse_gillis_2 light.lamp_slaapkamer_gillis_ilse" },
     { "Boven", "Valerie", "light.lamp_valerie_kamer_1" },
     { "Boven", "Naomi", "light.lamp_jongens_kamer_1" },
     { "Boven", "Badkamer", "light.lamp_badkamer_2_plafond_1 light.lamp_badkamer_2_plafond_2 light.lamp_badkamer_2_plafond_3 light.lamp_badkamer_3 light.lamp_badkamer_muur_1 light.lamp_badkamer_muur_2 light.lamp_badkamer_spiegel_1" },
@@ -494,28 +497,32 @@ static const panel_area_t PANEL_AREAS[] = {
  * tabs' scenes). They join their floor's scenes under the room's name, and a
  * room chosen in the bottom row shows just its own. The bathroom's are for
  * its three ceiling globes and two wall lamps, the landing's for its four
- * ceiling lamps and the wardrobe's two; all made in HA's scene editor. */
+ * ceiling lamps and the wardrobe's two (packages/gang_boven.yaml: the six
+ * lamps hang on a relay, which its script switches on before the scene). */
 typedef struct {
-    const char *tab;   /* PANEL_TABS name of the floor */
-    const char *area;  /* PANEL_AREAS label of the room */
+    const char *tab;    /* PANEL_TABS name of the floor */
+    const char *area;   /* PANEL_AREAS label of the room */
     const char *id;
     const char *label;
+    uint32_t swatch_a;  /* as panel_swatch_t, for a scene whose stored states HA's */
+    uint32_t swatch_b;  /* config API cannot give (a YAML scene); 0 = none */
+    const char *script; /* NULL, or a script that sets the scene, given it as `scene` */
 } panel_area_scene_t;
 static const panel_area_scene_t PANEL_AREA_SCENES[] = {
-    { "Boven", "Badkamer", "scene.badkamer_heel_warm",   "Heel warm" },
-    { "Boven", "Badkamer", "scene.badkamer_beetje_warm", "Beetje warm" },
-    { "Boven", "Badkamer", "scene.badkamer_vol_aan",     "Vol aan" },
-    { "Boven", "Badkamer", "scene.badkamer_party",       "Party" },
-    { "Boven", "Badkamer", "scene.badkamer_erotisch",    "Erotisch" },
-    { "Boven", "Badkamer", "scene.badkamer_blauw",       "Blauw" },
-    { "Boven", "Badkamer", "scene.badkamer_groen",       "Groen" },
-    { "Boven", "Gang", "scene.gang_boven_hoog",          "Hoog" },
-    { "Boven", "Gang", "scene.gang_boven_helder_warm",   "Helder warm" },
-    { "Boven", "Gang", "scene.gang_boven_laag",          "Laag" },
-    { "Boven", "Gang", "scene.gang_boven_sfeervol",      "Sfeervol" },
-    { "Boven", "Gang", "scene.gang_boven_zonsondergang", "Zonsondergang" },
-    { "Boven", "Gang", "scene.gang_boven_avond_paars",   "Avond paars" },
-    { "Boven", "Gang", "scene.gang_boven_nacht",         "Nacht" },
+    { "Boven", "Badkamer", "scene.badkamer_heel_warm",       "Heel warm",     0,        0,        NULL },
+    { "Boven", "Badkamer", "scene.badkamer_beetje_warm",     "Beetje warm",   0,        0,        NULL },
+    { "Boven", "Badkamer", "scene.badkamer_vol_aan",         "Vol aan",       0,        0,        NULL },
+    { "Boven", "Badkamer", "scene.badkamer_party",           "Party",         0,        0,        NULL },
+    { "Boven", "Badkamer", "scene.badkamer_erotisch",        "Erotisch",      0,        0,        NULL },
+    { "Boven", "Badkamer", "scene.badkamer_blauw",           "Blauw",         0,        0,        NULL },
+    { "Boven", "Badkamer", "scene.badkamer_groen",           "Groen",         0,        0,        NULL },
+    { "Boven", "Gang",     "scene.gang_boven_hoog",          "Hoog",          0xffe2c0, 0,        "script.gang_boven_scene" },
+    { "Boven", "Gang",     "scene.gang_boven_helder_warm",   "Helder warm",   0xffc27a, 0,        "script.gang_boven_scene" },
+    { "Boven", "Gang",     "scene.gang_boven_laag",          "Laag",          0x9c6a34, 0,        "script.gang_boven_scene" },
+    { "Boven", "Gang",     "scene.gang_boven_sfeervol",      "Sfeervol",      0xd97a26, 0x6e3f14, "script.gang_boven_scene" },
+    { "Boven", "Gang",     "scene.gang_boven_zonsondergang", "Zonsondergang", 0xff7814, 0xff9a3c, "script.gang_boven_scene" },
+    { "Boven", "Gang",     "scene.gang_boven_avond_paars",   "Avond paars",   0x8f3cff, 0xb450ff, "script.gang_boven_scene" },
+    { "Boven", "Gang",     "scene.gang_boven_nacht",         "Nacht",         0x7a1600, 0,        "script.gang_boven_scene" },
 };
 
 /* Appliances in the web app's "Apparaten" section (the panel's firmware does

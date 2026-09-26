@@ -444,6 +444,22 @@
     }
 
     const savedScenes = new Map(); /* scene id -> config saved from the panel */
+    /* A scene's stored states: one saved from the panel, else every lamp of its tab (or room). */
+    function storedScene(sceneEntityId) {
+      if (savedScenes.has(sceneEntityId)) return savedScenes.get(sceneEntityId);
+      const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
+      if (!tab) return null;
+      const area = (tab.areas || []).find((a) => a.label === tab.scenes.find((s) => s.id === sceneEntityId).area);
+      const off = /uit/.test(sceneEntityId);
+      const colourful = /party|cuba|paars|regenboog|rood|blauw|groen|oranje|pink|erotisch/.test(sceneEntityId);
+      /* a room's scene sets that room's lamps, a floor's all of the floor's */
+      const lamps = area ? area.lights : [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
+      const stored = (i) =>
+        off ? { state: "off" }
+        : colourful ? { state: "on", brightness: 200, hs_color: [[280, 240, 0, 120][i % 4], 100] }
+        : { state: "on", brightness: 120 + (i % 3) * 40, color_temp_kelvin: 2700 };
+      return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id, i) => [id, stored(i)])) };
+    }
     return {
       demo: true,
       states,
@@ -458,20 +474,10 @@
         savedScenes.set(id, config);
         return config;
       },
+      /* as Home Assistant: no config for a YAML scene (one the config gives a swatch) */
       async sceneConfig(sceneEntityId) {
-        if (savedScenes.has(sceneEntityId)) return savedScenes.get(sceneEntityId);
-        const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
-        if (!tab) return null;
-        const area = (tab.areas || []).find((a) => a.label === tab.scenes.find((s) => s.id === sceneEntityId).area);
-        const off = /uit/.test(sceneEntityId);
-        const colourful = /party|cuba|paars|regenboog|rood|blauw|groen|oranje|pink|erotisch/.test(sceneEntityId);
-        /* a room's scene sets that room's lamps, a floor's all of the floor's */
-        const lamps = area ? area.lights : [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
-        const stored = (i) =>
-          off ? { state: "off" }
-          : colourful ? { state: "on", brightness: 200, hs_color: [[280, 240, 0, 120][i % 4], 100] }
-          : { state: "on", brightness: 120 + (i % 3) * 40, color_temp_kelvin: 2700 };
-        return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id, i) => [id, stored(i)])) };
+        const known = cfg.tabs.flatMap((t) => t.scenes).find((s) => s.id === sceneEntityId);
+        return known && known.swatch ? null : storedScene(sceneEntityId);
       },
       /* Automations the panel writes (cleaning schedules), kept in memory. */
       async automationConfig(id) {
@@ -723,12 +729,14 @@
           const tab = cfg.tabs.find((t) => t.lights[0] && t.lights[0].id === id && t.devices.length);
           return tab && /lampen_/.test(id) ? [id, ...tab.devices.map((d) => d.id)] : [id];
         };
+        /* A script that sets a scene (given as its `scene` field) sets it at once here. */
+        if (domain === "script" && data && typeof data.scene === "string") return this.callService("scene", "turn_on", null, { entity_id: data.scene }, returnResponse);
         /* A scene: its timestamp, and its lamps take their stored states. */
         if (domain === "scene") {
           for (const id of ids) {
             set(id, new Date().toISOString(), {}, Date.now());
             touched.push(id);
-            const conf = await this.sceneConfig(id);
+            const conf = storedScene(id);
             for (const [lamp, stored] of Object.entries((conf && conf.entities) || {})) {
               const s = states.get(lamp);
               if (!s || s.state === "unavailable") continue;

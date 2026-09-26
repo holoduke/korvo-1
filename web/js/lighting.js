@@ -301,8 +301,13 @@
     highlightScene(tab, idx);
     sceneSettled();
     document.querySelectorAll(`[data-scene="${tab}:${idx}"]`).forEach((el) => el.classList.add("busy"));
-    sceneBusy = setTimeout(sceneSettled, 4000);
-    Panel.client.callService("scene", "turn_on", null, { entity_id: cfg.tabs[tab].scenes[idx].id }).catch((err) => {
+    sceneBusy = setTimeout(sceneSettled, cfg.tabs[tab].scenes[idx].script ? 7000 : 4000);
+    /* a scene with a script of its own (a relay to switch on first) goes through it */
+    const sc = cfg.tabs[tab].scenes[idx];
+    const run = sc.script
+      ? Panel.client.callService("script", sc.script.replace(/^script\./, ""), { scene: sc.id })
+      : Panel.client.callService("scene", "turn_on", null, { entity_id: sc.id });
+    run.catch((err) => {
       highlightNewest(tab); /* not activated after all */
       Panel.commandFailed(cfg.tabs[tab].scenes[idx].label)(err);
     });
@@ -571,7 +576,7 @@
     return swatch || configuredLead(cfg.tabs[ti], i);
   };
   function configuredLead(t, i) {
-    const sw = t.swatches && t.swatches[i];
+    const sw = t.scenes[i].swatch || (t.swatches && t.swatches[i]);
     if (!sw) return `<span class="t-icon scene-lead">${icon((t.icons && t.icons[i]) || "bolt")}</span>`;
     if (sw.a === "rainbow") return '<span class="swatch scene-lead rainbow"></span>';
     return `<span class="swatch scene-lead" style="background:${sw.b ? `linear-gradient(90deg, ${sw.a}, ${sw.b})` : sw.a}"></span>`;
