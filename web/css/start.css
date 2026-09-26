@@ -203,7 +203,7 @@ body.saver-house .hud-watch { display: flex; }
 .hi-scenes::-webkit-scrollbar { display: none; }
 .hi-scene { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 3px 6px; border-radius: calc(10px * var(--round)); background: var(--tile_off); min-width: 0; }
 .hi-scene .swatch, .hi-scene .t-icon { width: 26px; height: 26px; font-size: 16px; display: grid; place-items: center; }
-.hi-scene .t-name { font-size: 11px; font-weight: 600; line-height: 1.1; text-align: center; max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; min-height: 2.2em; }
+.hi-scene .t-name { font-size: 11px; font-weight: 600; line-height: 1.1; text-align: center; hyphens: auto; overflow-wrap: anywhere; max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; min-height: 2.2em; }
 .hi-scene.active { background: var(--scene_on); color: var(--scene_text); }
 .hi-scene.active .swatch { box-shadow: 0 0 0 2px var(--scene_text), 0 2px 6px rgba(0, 0, 0, 0.3); }
 .hi-scene.busy .swatch { animation: hi-scene-busy 0.9s ease-in-out infinite alternate; }

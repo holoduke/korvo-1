@@ -482,7 +482,8 @@ static const panel_area_t PANEL_AREAS[] = {
     { "Boven", "Valerie", "light.lamp_valerie_kamer_1" },
     { "Boven", "Naomi", "light.lamp_jongens_kamer_1" },
     { "Boven", "Badkamer", "light.lamp_badkamer_2_plafond_1 light.lamp_badkamer_2_plafond_2 light.lamp_badkamer_2_plafond_3 light.lamp_badkamer_3 light.lamp_badkamer_muur_1 light.lamp_badkamer_muur_2 light.lamp_badkamer_spiegel_1" },
-    { "Boven", "Gang", "light.lamp_gang_boven_plafond_1 light.lamp_gang_boven_plafond_2 light.lamp_gang_boven_plafond_3 light.lamp_gang_boven_plafond_4" },
+    /* the wardrobe lamps go with the landing: its scenes set them too */
+    { "Boven", "Gang", "light.lamp_gang_boven_plafond_1 light.lamp_gang_boven_plafond_2 light.lamp_gang_boven_plafond_3 light.lamp_gang_boven_plafond_4 light.lamp_kledingkast_plafond_1 light.lamp_kledingkast_plafond_2" },
     { "Zolder", "Gang", "light.lamp_zolder_gang light.lamp_zolder_tussengang_1" },
     { "Zolder", "Babykamer", "light.lamp_zolder_baby_kamer_1 light.lamp_zolder_baby_kamer_2" },
     { "Zolder", "Voorkamer", "light.lamp_zolder_voorkamer_1" },
@@ -491,9 +492,9 @@ static const panel_area_t PANEL_AREAS[] = {
 
 /* Scenes of one room, in the web app only (the panel's firmware keeps its
  * tabs' scenes). They join their floor's scenes under the room's name, and a
- * room chosen in the bottom row shows just its own. Scenes created in HA's
- * scene editor on 2026-09-26, for the bathroom's three ceiling globes and two
- * wall lamps. */
+ * room chosen in the bottom row shows just its own. The bathroom's are for
+ * its three ceiling globes and two wall lamps, the landing's for its four
+ * ceiling lamps and the wardrobe's two; all made in HA's scene editor. */
 typedef struct {
     const char *tab;   /* PANEL_TABS name of the floor */
     const char *area;  /* PANEL_AREAS label of the room */
@@ -508,6 +509,13 @@ static const panel_area_scene_t PANEL_AREA_SCENES[] = {
     { "Boven", "Badkamer", "scene.badkamer_erotisch",    "Erotisch" },
     { "Boven", "Badkamer", "scene.badkamer_blauw",       "Blauw" },
     { "Boven", "Badkamer", "scene.badkamer_groen",       "Groen" },
+    { "Boven", "Gang", "scene.gang_boven_hoog",          "Hoog" },
+    { "Boven", "Gang", "scene.gang_boven_helder_warm",   "Helder warm" },
+    { "Boven", "Gang", "scene.gang_boven_laag",          "Laag" },
+    { "Boven", "Gang", "scene.gang_boven_sfeervol",      "Sfeervol" },
+    { "Boven", "Gang", "scene.gang_boven_zonsondergang", "Zonsondergang" },
+    { "Boven", "Gang", "scene.gang_boven_avond_paars",   "Avond paars" },
+    { "Boven", "Gang", "scene.gang_boven_nacht",         "Nacht" },
 };
 
 /* Appliances in the web app's "Apparaten" section (the panel's firmware does

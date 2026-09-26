@@ -411,6 +411,41 @@ window.PANEL_CONFIG = {
           "id": "scene.badkamer_groen",
           "label": "Groen",
           "area": "Badkamer"
+        },
+        {
+          "id": "scene.gang_boven_hoog",
+          "label": "Hoog",
+          "area": "Gang"
+        },
+        {
+          "id": "scene.gang_boven_helder_warm",
+          "label": "Helder warm",
+          "area": "Gang"
+        },
+        {
+          "id": "scene.gang_boven_laag",
+          "label": "Laag",
+          "area": "Gang"
+        },
+        {
+          "id": "scene.gang_boven_sfeervol",
+          "label": "Sfeervol",
+          "area": "Gang"
+        },
+        {
+          "id": "scene.gang_boven_zonsondergang",
+          "label": "Zonsondergang",
+          "area": "Gang"
+        },
+        {
+          "id": "scene.gang_boven_avond_paars",
+          "label": "Avond paars",
+          "area": "Gang"
+        },
+        {
+          "id": "scene.gang_boven_nacht",
+          "label": "Nacht",
+          "area": "Gang"
         }
       ],
       "devices": [
@@ -539,7 +574,9 @@ window.PANEL_CONFIG = {
             "light.lamp_gang_boven_plafond_1",
             "light.lamp_gang_boven_plafond_2",
             "light.lamp_gang_boven_plafond_3",
-            "light.lamp_gang_boven_plafond_4"
+            "light.lamp_gang_boven_plafond_4",
+            "light.lamp_kledingkast_plafond_1",
+            "light.lamp_kledingkast_plafond_2"
           ]
         }
       ]

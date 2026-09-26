@@ -113,8 +113,9 @@
 /* A name takes up to two lines ("Badkamer / plafond 1") rather than an
  * ellipsis after a few letters; the line under it stays one line. */
 .split .tile { padding: 10px 12px; gap: 10px; }
-.split .tile .t-name { font-size: 17px; line-height: 1.1; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.split .tile .t-name { font-size: 16px; line-height: 1.12; white-space: normal; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .split .tile .t-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.split .tile.lamp .t-power { width: 40px; height: 40px; }
 
 /* ---- A door the panel drives (covers.js): its state and its buttons ------------ */
 .cover { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--tile); border-radius: calc(14px * var(--round)); transition: background-color 0.25s, color 0.25s, opacity 0.25s; }
@@ -288,9 +289,10 @@
 
 /* Phones: two narrow columns of tiles; a smaller name loses less of itself. */
 @media (max-width: 480px) {
-  .split .tile { padding: 8px 10px; gap: 8px; }
-  .split .swatch { width: 26px; height: 26px; }
-  .split .tile .t-name { font-size: 15px; }
+  .split .tile { padding: 8px; gap: 7px; }
+  .split .swatch { width: 24px; height: 24px; }
+  .split .tile.lamp .t-power { width: 32px; height: 32px; }
+  .split .tile .t-name { font-size: 14px; }
   .split .tile .t-sub { font-size: 12.5px; }
   .tile.lamp .t-power { width: 38px; height: 38px; }
 }
