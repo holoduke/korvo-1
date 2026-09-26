@@ -117,7 +117,7 @@
     return t ? [...t.lights, ...t.devices].map((d) => d.id).filter((id) => id.startsWith("light.")) : [];
   };
   /* Every room: its floor and name, the climate card that reads in it (or
-   * whose reading it shares), and the lamps in it (its PANEL_AREAS rooms). */
+   * whose reading it shares), and the lamps and scenes in it (its PANEL_AREAS rooms). */
   const rooms = Object.entries(plan.rooms || {}).flatMap(([floor, list]) =>
     list.map((r) => {
       const card = r.climate ? climateCards.find((c) => c.label === r.climate) : null;
@@ -132,7 +132,10 @@
       const presence = presenceCard ? presenceCard.entities.presence || presenceCard.entities.occupancy : null;
       const tabIndex = r.tab ? (cfg.tabs || []).findIndex((t) => t.name === r.tab) : -1;
       const cover = tabIndex >= 0 && Panel.coverOfTab ? Panel.coverOfTab(tabIndex) : -1;
-      return { floor, name: r.name, card, presence, centre: [r.x + r.w / 2, 0, r.z + r.d / 2], lights, cover: cover >= 0 ? cover : null };
+      /* the scenes of its rooms (PANEL_AREA_SCENES), as [tab, index] */
+      const f = (cfg.floors || []).find((x) => x.label === floor);
+      const scenes = f ? cfg.tabs[f.tab].scenes.flatMap((sc, i) => (sc.area && areas.includes(sc.area) ? [[f.tab, i]] : [])) : [];
+      return { floor, name: r.name, card, presence, centre: [r.x + r.w / 2, 0, r.z + r.d / 2], lights, scenes, cover: cover >= 0 ? cover : null };
     })
   );
   rooms.forEach((r) => {

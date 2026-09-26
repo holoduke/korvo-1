@@ -2,7 +2,8 @@
  * house, tied to the room by a leader line that runs from the room's label to
  * the panel and follows the house as it turns. The panel holds the room's
  * lamps as tiles (the power button switches, the name opens the lamp popup),
- * a line of facts, and all of it on or off at once. Outside the swipe roots,
+ * its own scenes as a row of swatches, a line of facts, and all of it on or
+ * off at once. Outside the swipe roots,
  * so the tiles take plain clicks here. */
 (function () {
   "use strict";
@@ -19,6 +20,7 @@
     `<aside class="house-info" hidden>` +
     `<div class="hi-head"><div class="hi-title" data-hi-title></div><button class="hi-close" data-hi-climate aria-label="Klimaat" hidden>${icon("thermometer")}</button><button class="hi-close" data-hi-close aria-label="Sluiten">${icon("close")}</button></div>` +
     `<div class="hi-facts" data-hi-facts></div>` +
+    `<div class="hi-scenes" data-hi-scenes hidden></div>` +
     `<div class="hi-lamps" data-hi-lamps></div>` +
     `<div class="hi-cover" data-hi-cover hidden></div>` +
     `<div class="hi-actions"><button class="ap-btn primary" data-hi-on>Alles aan</button><button class="ap-btn" data-hi-off>Alles uit</button></div>` +
@@ -33,8 +35,15 @@
     $q("[data-hi-climate]").hidden = !current.card;
     /* a door on its own (tapped in the house) shows no lamps, only its controls */
     $q("[data-hi-lamps]").hidden = !!current.door;
-    $q("[data-hi-lamps]").innerHTML = current.door ? "" : lights.length ? lights.map(Panel.lightTile).join("") : `<div class="hi-empty">Geen lampen in deze kamer</div>`;
+    $q("[data-hi-lamps]").innerHTML = current.door ? "" : lights.length ? lights.map((id) => Panel.lightTile(id, current.name)).join("") : `<div class="hi-empty">Geen lampen in deze kamer</div>`;
     lights.forEach(Panel.renderLight); /* the tiles then follow their lamps on their own */
+    const scenes = current.door ? [] : current.scenes || [];
+    const row = $q("[data-hi-scenes]");
+    row.hidden = !scenes.length;
+    row.innerHTML = scenes
+      .map(([ti, i]) => `<button class="hi-scene" data-scene="${ti}:${i}">${Panel.sceneLead(ti, i)}<span class="t-name">${Util.esc(Panel.cfg.tabs[ti].scenes[i].label)}</span></button>`)
+      .join("");
+    Panel.renderScenes(); /* the active one lit */
     const cover = $q("[data-hi-cover]");
     cover.hidden = current.cover == null;
     cover.innerHTML = current.cover == null ? "" : Panel.coverBlock(current.cover);
@@ -134,6 +143,12 @@
       const lamp = e.target.closest("[data-lamp]");
       if (power) Panel.toggleLight(power.dataset.power);
       else if (lamp) Panel.openLightPopup(lamp.dataset.lamp);
+    });
+    $q("[data-hi-scenes]").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-scene]");
+      if (!b || performance.now() - openedAt < 500) return;
+      const [ti, i] = b.dataset.scene.split(":").map(Number);
+      Panel.activateScene(ti, i);
     });
     /* the door's buttons (the panel keeps its pointer events, so not via defineAction) */
     $q("[data-hi-cover]").addEventListener("click", (e) => {

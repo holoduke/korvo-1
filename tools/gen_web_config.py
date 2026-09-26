@@ -530,6 +530,24 @@ def parse_areas(src, tabs):
         tabs[names.index(tab)]["areas"].append({"label": label, "lights": ids})
 
 
+def parse_area_scenes(src, tabs):
+    """PANEL_AREA_SCENES -> after its floor's own scenes in tabs[i]["scenes"],
+    each with the room ("area") it belongs to."""
+    names = [t["name"] for t in tabs]
+    rows = table_rows(src, "PANEL_AREA_SCENES", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}')
+    for tab, area, sid, label in rows:
+        if tab not in names:
+            fail(f"PANEL_AREA_SCENES {label!r}: no tab named {tab!r}")
+        t = tabs[names.index(tab)]
+        if area not in [a["label"] for a in t["areas"]]:
+            fail(f"PANEL_AREA_SCENES {label!r}: no room {area!r} on {tab!r} in PANEL_AREAS")
+        if not re.fullmatch(r"scene\.[a-z0-9_]+", sid):
+            fail(f"PANEL_AREA_SCENES {label!r}: {sid!r} is not a scene entity")
+        if any(s["id"] == sid for s in t["scenes"]):
+            fail(f"PANEL_AREA_SCENES {label!r}: {sid!r} is already a scene of {tab!r}")
+        t["scenes"].append({"id": sid, "label": label, "area": area})
+
+
 def parse_layout(src, tabs):
     names = [t["name"] for t in tabs]
 
@@ -604,6 +622,7 @@ def main():
     cfg = strip_comments(CONFIG_H.read_text())
     tabs = parse_tabs(cfg)
     parse_areas(cfg, tabs)
+    parse_area_scenes(cfg, tabs)
     floors, sections = parse_layout(cfg, tabs)
     media = entity_table(cfg, "PANEL_MEDIA_PLAYERS")
     vacuum = parse_vacuum(cfg)

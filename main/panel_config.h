@@ -462,7 +462,8 @@ static const panel_car_t PANEL_CAR = { "Tesla", "vlm" };
 
 /* Rooms of a floor, as buttons in the web app's bottom row (the panel's
  * firmware ignores this). A room filters the floor's lamp list to its own
- * lamps and scopes the brightness slider to them; the scenes stay the floor's.
+ * lamps and scopes the brightness slider to them; its scenes (PANEL_AREA_SCENES)
+ * replace the floor's while it is chosen, if it has any.
  * Lamps are space-separated entity ids. */
 typedef struct {
     const char *tab;    /* PANEL_TABS name of the floor */
@@ -486,6 +487,27 @@ static const panel_area_t PANEL_AREAS[] = {
     { "Zolder", "Babykamer", "light.lamp_zolder_baby_kamer_1 light.lamp_zolder_baby_kamer_2" },
     { "Zolder", "Voorkamer", "light.lamp_zolder_voorkamer_1" },
     { "Zolder", "Achterkamer", "light.lamp_zolder_achterkamer_1" },
+};
+
+/* Scenes of one room, in the web app only (the panel's firmware keeps its
+ * tabs' scenes). They join their floor's scenes under the room's name, and a
+ * room chosen in the bottom row shows just its own. Scenes created in HA's
+ * scene editor on 2026-09-26, for the bathroom's three ceiling globes and two
+ * wall lamps. */
+typedef struct {
+    const char *tab;   /* PANEL_TABS name of the floor */
+    const char *area;  /* PANEL_AREAS label of the room */
+    const char *id;
+    const char *label;
+} panel_area_scene_t;
+static const panel_area_scene_t PANEL_AREA_SCENES[] = {
+    { "Boven", "Badkamer", "scene.badkamer_heel_warm",   "Heel warm" },
+    { "Boven", "Badkamer", "scene.badkamer_beetje_warm", "Beetje warm" },
+    { "Boven", "Badkamer", "scene.badkamer_vol_aan",     "Vol aan" },
+    { "Boven", "Badkamer", "scene.badkamer_party",       "Party" },
+    { "Boven", "Badkamer", "scene.badkamer_erotisch",    "Erotisch" },
+    { "Boven", "Badkamer", "scene.badkamer_blauw",       "Blauw" },
+    { "Boven", "Badkamer", "scene.badkamer_groen",       "Groen" },
 };
 
 /* Appliances in the web app's "Apparaten" section (the panel's firmware does

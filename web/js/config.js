@@ -376,6 +376,41 @@ window.PANEL_CONFIG = {
         {
           "id": "scene.slaapkamer_uit",
           "label": "Slaapk. uit"
+        },
+        {
+          "id": "scene.badkamer_heel_warm",
+          "label": "Heel warm",
+          "area": "Badkamer"
+        },
+        {
+          "id": "scene.badkamer_beetje_warm",
+          "label": "Beetje warm",
+          "area": "Badkamer"
+        },
+        {
+          "id": "scene.badkamer_vol_aan",
+          "label": "Vol aan",
+          "area": "Badkamer"
+        },
+        {
+          "id": "scene.badkamer_party",
+          "label": "Party",
+          "area": "Badkamer"
+        },
+        {
+          "id": "scene.badkamer_erotisch",
+          "label": "Erotisch",
+          "area": "Badkamer"
+        },
+        {
+          "id": "scene.badkamer_blauw",
+          "label": "Blauw",
+          "area": "Badkamer"
+        },
+        {
+          "id": "scene.badkamer_groen",
+          "label": "Groen",
+          "area": "Badkamer"
         }
       ],
       "devices": [

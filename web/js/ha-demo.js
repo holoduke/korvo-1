@@ -3,6 +3,14 @@
  * The UI can be explored and tested with it without touching real devices. */
 (function () {
   "use strict";
+  /* Hue and saturation -> the rgb a lamp in that colour reports. */
+  function hsRgb([h, sat]) {
+    const f = (n) => {
+      const k = (n + h / 60) % 6;
+      return Math.round(255 * (1 - (sat / 100) * Math.max(0, Math.min(k, 4 - k, 1))));
+    };
+    return [f(5), f(3), f(1)];
+  }
 
   const demoNames = new Map(); /* renames made in the demo, kept for the session */
   function createDemo(cfg) {
@@ -444,8 +452,8 @@
       fireEvent() {
         return Promise.resolve(null); /* nothing to report in demo mode */
       },
-      /* Demo scenes switch every lamp of their tab on, "uit" scenes off; one
-       * saved from the panel is kept as saved. */
+      /* Demo scenes switch every lamp of their tab (or room) on, "uit" scenes
+       * off; one saved from the panel is kept as saved. */
       async saveScene(id, config) {
         savedScenes.set(id, config);
         return config;
@@ -454,9 +462,11 @@
         if (savedScenes.has(sceneEntityId)) return savedScenes.get(sceneEntityId);
         const tab = cfg.tabs.find((t) => t.scenes.some((s) => s.id === sceneEntityId));
         if (!tab) return null;
+        const area = (tab.areas || []).find((a) => a.label === tab.scenes.find((s) => s.id === sceneEntityId).area);
         const off = /uit/.test(sceneEntityId);
-        const colourful = /party|cuba|paars|regenboog|rood|blauw|groen|oranje|pink/.test(sceneEntityId);
-        const lamps = [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
+        const colourful = /party|cuba|paars|regenboog|rood|blauw|groen|oranje|pink|erotisch/.test(sceneEntityId);
+        /* a room's scene sets that room's lamps, a floor's all of the floor's */
+        const lamps = area ? area.lights : [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
         const stored = (i) =>
           off ? { state: "off" }
           : colourful ? { state: "on", brightness: 200, hs_color: [[280, 240, 0, 120][i % 4], 100] }
@@ -713,13 +723,27 @@
           const tab = cfg.tabs.find((t) => t.lights[0] && t.lights[0].id === id && t.devices.length);
           return tab && /lampen_/.test(id) ? [id, ...tab.devices.map((d) => d.id)] : [id];
         };
-        ids.forEach((id) => {
-          if (domain === "scene") {
-            const ts = new Date().toISOString();
-            set(id, ts, {}, Date.now());
+        /* A scene: its timestamp, and its lamps take their stored states. */
+        if (domain === "scene") {
+          for (const id of ids) {
+            set(id, new Date().toISOString(), {}, Date.now());
             touched.push(id);
-            return;
+            const conf = await this.sceneConfig(id);
+            for (const [lamp, stored] of Object.entries((conf && conf.entities) || {})) {
+              const s = states.get(lamp);
+              if (!s || s.state === "unavailable") continue;
+              const v = typeof stored === "string" ? { state: stored } : stored;
+              const attrs = { ...s.attributes, brightness: v.state === "on" ? v.brightness || 200 : null };
+              if (v.hs_color) Object.assign(attrs, { color_mode: "hs", hs_color: v.hs_color, rgb_color: hsRgb(v.hs_color) });
+              if (v.color_temp_kelvin) Object.assign(attrs, { color_mode: "color_temp", color_temp_kelvin: v.color_temp_kelvin, hs_color: null, rgb_color: null });
+              set(lamp, v.state === "on" ? "on" : "off", attrs, Date.now());
+              touched.push(lamp);
+            }
           }
+          change(touched);
+          return returnResponse ? { response: {} } : null;
+        }
+        ids.forEach((id) => {
           members(id).forEach((mid) => {
             const s = states.get(mid);
             if (!s || s.state === "unavailable") return;

@@ -91,6 +91,13 @@
 .split.no-scenes { grid-template-columns: minmax(0, 1fr); }
 .split.no-scenes .split-scenes { display: none; }
 .tab-page .split { padding-left: var(--pad); }
+/* A room's name over its scenes or lamps, across the grid. */
+.list-room { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 6px 2px 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.list-room::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--text_dim) 30%, transparent); }
+.split .grid > [hidden] { display: none; }
+/* these grids size their rows themselves, so a room's name takes only its line */
+.split .grid[data-scenes], .split .grid[data-lamps] { grid-auto-rows: auto; }
+.split .grid[data-scenes] > .tile, .split .grid[data-lamps] > .tile { height: 76px; }
 .split-empty { grid-column: 1 / -1; font-size: 15px; font-weight: 600; color: var(--text_dim); padding: 6px 2px; }
 .split-half { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
 .split-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
@@ -103,6 +110,11 @@
 .split .tile .t-icon { font-size: 24px; }
 .split .tile .t-name { font-size: 18px; }
 .split .tile .t-sub { font-size: 14px; }
+/* A name takes up to two lines ("Badkamer / plafond 1") rather than an
+ * ellipsis after a few letters; the line under it stays one line. */
+.split .tile { padding: 10px 12px; gap: 10px; }
+.split .tile .t-name { font-size: 17px; line-height: 1.1; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.split .tile .t-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 
 /* ---- A door the panel drives (covers.js): its state and its buttons ------------ */
 .cover { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--tile); border-radius: calc(14px * var(--round)); transition: background-color 0.25s, color 0.25s, opacity 0.25s; }
@@ -253,7 +265,10 @@
 /* ---- Smaller screens ------------------------------------------------------- */
 @media (max-width: 760px) {
   .split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); padding: 10px var(--lane) 10px 10px; }
-  .split .grid, .split.no-scenes .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 58px; gap: 8px; }
+  .split .grid, .split.no-scenes .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 64px; gap: 8px; }
+  .split .grid[data-scenes], .split .grid[data-lamps] { grid-auto-rows: auto; }
+  .split .grid[data-scenes] > .tile, .split .grid[data-lamps] > .tile { height: 64px; }
+  .split .tile { padding: 8px 10px; }
   .split .tile .t-name { font-size: 15px; }
   .row { gap: 8px; padding: 0 12px 12px; }
   .chip, .pill, .allbtn { font-size: 15px; }
@@ -273,7 +288,8 @@
 
 /* Phones: two narrow columns of tiles; a smaller name loses less of itself. */
 @media (max-width: 480px) {
-  .split .tile { padding: 10px 12px; gap: 10px; }
+  .split .tile { padding: 8px 10px; gap: 8px; }
+  .split .swatch { width: 26px; height: 26px; }
   .split .tile .t-name { font-size: 15px; }
   .split .tile .t-sub { font-size: 12.5px; }
   .tile.lamp .t-power { width: 38px; height: 38px; }

@@ -5,7 +5,12 @@
  * light group counted as its members. A scene that only switches things off
  * adds nothing ("alles uit" beneden also covers the garage). A tab without
  * scenes keeps its configured lamps. Scene data and group members come from
- * Home Assistant once it has answered; lamps found that way are followed too. */
+ * Home Assistant once it has answered; lamps found that way are followed too.
+ *
+ * A room can have scenes of its own (config "area"): they follow the floor's
+ * under the room's name, a room chosen in the bottom row shows only its own
+ * (a room without any: the floor's), and each room keeps its own active scene
+ * beside the floor's. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -41,7 +46,10 @@
     } catch (e) {
       /* not an admin, or offline: the config's labels */
     }
-    document.querySelectorAll("[data-light] .t-name").forEach((el) => (el.textContent = Panel.lightLabel(el.closest("[data-light]").dataset.light)));
+    document.querySelectorAll("[data-light] .t-name").forEach((el) => {
+      const tile = el.closest("[data-light]");
+      el.textContent = Panel.lightLabel(tile.dataset.light, tile.dataset.room);
+    });
   }
   Panel.on("loaded", loadNames);
   Panel.on("registry", () => {
@@ -54,7 +62,7 @@
     await Panel.client.renameEntity(id, name.trim());
     if (name.trim()) names.set(id, name.trim());
     else names.delete(id);
-    document.querySelectorAll(`[data-light="${CSS.escape(id)}"] .t-name`).forEach((el) => (el.textContent = Panel.lightLabel(id)));
+    document.querySelectorAll(`[data-light="${CSS.escape(id)}"] .t-name`).forEach((el) => (el.textContent = Panel.lightLabel(id, el.closest("[data-light]").dataset.room)));
   };
   /* What a lamp draws: no lamp here reports power, so its rated wattage by
    * model (the device registry's model id) times its brightness. Unknown
@@ -86,7 +94,15 @@
     const share = typeof x.brightness === "number" ? Math.max(0.08, x.brightness / 255) : 1;
     return rated(id) * share;
   };
-  Panel.lightLabel = function (id) {
+  /* With a room: without the room's name in front ("Badkamer plafond 1" in
+   * the Badkamer is "Plafond 1"). */
+  Panel.lightLabel = function (id, room) {
+    const full = fullLabel(id);
+    if (!room) return full;
+    const rest = full.slice(room.length).trim();
+    return full.toLowerCase().startsWith(room.toLowerCase() + " ") && rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : full;
+  };
+  function fullLabel(id) {
     if (names.has(id)) return names.get(id);
     for (const t of cfg.tabs) {
       const known = [...t.devices, ...t.lights].find((d) => d.id === id);
@@ -95,12 +111,12 @@
     const name = nameOf.get(id) || ((st(id) || {}).attributes || {}).friendly_name || id.replace(/^light\./, "").replace(/_/g, " ");
     const short = name.replace(/^lamp\s+/i, "");
     return short.charAt(0).toUpperCase() + short.slice(1);
-  };
+  }
   /* A lamp tile: its power button on the left switches it; the rest opens the
    * popup with its brightness, colour and warmth. */
-  Panel.lightTile = (id) =>
-    `<div class="tile lamp" data-light="${id}"><button class="t-icon t-power" data-power="${id}" aria-label="Aan of uit">${icon("power")}</button>` +
-    `<button class="t-text" data-lamp="${id}"><span class="t-name">${Util.esc(Panel.lightLabel(id))}</span><span class="t-sub">...</span></button></div>`;
+  Panel.lightTile = (id, room) =>
+    `<div class="tile lamp" data-light="${id}"${room ? ` data-room="${Util.esc(room)}"` : ""}><button class="t-icon t-power" data-power="${id}" aria-label="Aan of uit">${icon("power")}</button>` +
+    `<button class="t-text" data-lamp="${id}"><span class="t-name">${Util.esc(Panel.lightLabel(id, room))}</span><span class="t-sub">...</span></button></div>`;
 
   /* The colour a lamp gives, as [r, g, b] (its rgb, or a tint for its white's
    * warmth), or null when it is off or plain. */
@@ -221,7 +237,13 @@
   }
 
   /* ---- Scenes ------------------------------------------------------------------ */
-  const activeScene = new Map(); /* tab index -> index of its scene shown as active */
+  /* The active scene per scope: the floor's own scenes ("") and each room's. */
+  const activeScene = new Map(); /* "tab|room" -> index of its scene shown as active */
+  const scopeOf = (ti, i) => cfg.tabs[ti].scenes[i].area || "";
+  const scopeKey = (ti, scope) => `${ti}|${scope}`;
+  const isActive = (ti, i) => activeScene.get(scopeKey(ti, scopeOf(ti, i))) === i;
+  /* The tab's rooms that have scenes of their own. */
+  const sceneRooms = (ti) => [...new Set(cfg.tabs[ti].scenes.map((sc) => sc.area).filter(Boolean))];
   /* What a scene draws: its stored lamp states, rated by model; only a scene
    * in Home Assistant's scene editor has stored states. */
   function sceneWatts(ti, i) {
@@ -245,55 +267,58 @@
     return sum;
   }
   const wattsText = (w) => (w === null ? "" : w < 1 ? "0 W" : `≈ ${Math.round(w)} W`);
+  /* Every scene button (tiles, and the chips of a room beside the house): active or not, with what it draws. */
   function renderSceneWatts() {
     document.querySelectorAll("[data-scene]").forEach((el) => {
       const [ti, i] = el.dataset.scene.split(":").map(Number);
-      const on = activeScene.get(ti) === i;
+      const on = isActive(ti, i);
+      el.classList.toggle("active", on);
+      const sub = el.querySelector(".t-sub");
+      if (!sub) return;
       const w = wattsText(sceneWatts(ti, i));
-      el.querySelector(".t-sub").textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scene";
+      sub.textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scene";
     });
   }
-  function highlightScene(tab, idx) {
-    activeScene.set(tab, idx);
-    document.querySelectorAll(`[data-scene^="${tab}:"]`).forEach((el) => {
-      const on = +el.dataset.scene.split(":")[1] === idx;
-      el.classList.toggle("active", on);
-      const [ti, i] = el.dataset.scene.split(":").map(Number);
-      const w = wattsText(sceneWatts(ti, i));
-      el.querySelector(".t-sub").textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scene";
-    });
+  Panel.renderScenes = renderSceneWatts;
+  /* idx -1 clears the scope's highlight (the floor's unless a room is named). */
+  function highlightScene(tab, idx, scope = idx >= 0 ? scopeOf(tab, idx) : "") {
+    activeScene.set(scopeKey(tab, scope), idx);
+    renderSceneWatts();
     const pill = document.querySelector(`[data-pill="${tab}"] b`);
-    if (pill) pill.textContent = idx >= 0 ? cfg.tabs[tab].scenes[idx].label : "-";
+    const floorIdx = activeScene.get(scopeKey(tab, "")) ?? -1;
+    if (pill) pill.textContent = floorIdx >= 0 ? cfg.tabs[tab].scenes[floorIdx].label : "-";
   }
   /* The scene tile spins until a lamp reports a change (or 4 s pass). */
   let sceneBusy = 0;
   function sceneSettled() {
     clearTimeout(sceneBusy);
     sceneBusy = 0;
-    document.querySelectorAll(".tile.scene.busy").forEach((el) => el.classList.remove("busy"));
+    document.querySelectorAll("[data-scene].busy").forEach((el) => el.classList.remove("busy"));
   }
   Panel.activateScene = function (tab, idx) {
     if (tooSoon(`s:${tab}:${idx}`)) return;
     dismissSave(); /* the lamps take the scene's states: nothing to save */
     highlightScene(tab, idx);
     sceneSettled();
-    const tile = document.querySelector(`[data-scene="${tab}:${idx}"]`);
-    if (tile) tile.classList.add("busy");
+    document.querySelectorAll(`[data-scene="${tab}:${idx}"]`).forEach((el) => el.classList.add("busy"));
     sceneBusy = setTimeout(sceneSettled, 4000);
     Panel.client.callService("scene", "turn_on", null, { entity_id: cfg.tabs[tab].scenes[idx].id }).catch((err) => {
       highlightNewest(tab); /* not activated after all */
       Panel.commandFailed(cfg.tabs[tab].scenes[idx].label)(err);
     });
   };
-  /* The scene activated last (by its timestamp state) is the tab's active one. */
+  /* The scene activated last (by its timestamp state) is its scope's active one: the floor's, and each room's. */
   function highlightNewest(ti) {
-    let best = -1;
-    let bestT = 0;
-    cfg.tabs[ti].scenes.forEach((sc, i) => {
-      const ts = Date.parse((st(sc.id) || {}).state);
-      if (Number.isFinite(ts) && ts > bestT) [best, bestT] = [i, ts];
-    });
-    highlightScene(ti, best);
+    for (const scope of ["", ...sceneRooms(ti)]) {
+      let best = -1;
+      let bestT = 0;
+      cfg.tabs[ti].scenes.forEach((sc, i) => {
+        if (scopeOf(ti, i) !== scope) return;
+        const ts = Date.parse((st(sc.id) || {}).state);
+        if (Number.isFinite(ts) && ts > bestT) [best, bestT] = [i, ts];
+      });
+      highlightScene(ti, best, scope);
+    }
   }
 
   /* A scene's state is its last-activated timestamp: a new one means it was just
@@ -328,24 +353,33 @@
   const saveBar = document.getElementById("sceneSave");
   let dirty = null; /* {tab, idx, lights: Set of lamp ids} */
 
-  /* The tab a lamp belongs to, with a scene active: the tab on screen first. */
-  function sceneTabOf(id) {
-    const has = (ti) => {
+  /* The active scene a lamp belongs to, as {tab, idx}, or null: its room's
+   * scene if the room has scenes of its own, else its floor's; the tab on
+   * screen first. */
+  function activeSceneOf(id) {
+    const of = (ti) => {
       const t = cfg.tabs[ti];
-      return t.scenes.length && (activeScene.get(ti) ?? -1) >= 0 && ((lampsOfTab.get(ti) || []).includes(id) || [...t.lights, ...t.devices].some((d) => d.id === id));
+      if (!t.scenes.length) return null;
+      const room = (t.areas || []).find((a) => a.lights.includes(id) && sceneRooms(ti).includes(a.label));
+      if (room) {
+        const idx = activeScene.get(scopeKey(ti, room.label)) ?? -1;
+        return idx >= 0 ? { tab: ti, idx } : null;
+      }
+      const idx = activeScene.get(scopeKey(ti, "")) ?? -1;
+      const mine = (lampsOfTab.get(ti) || []).includes(id) || [...t.lights, ...t.devices].some((d) => d.id === id);
+      return idx >= 0 && mine ? { tab: ti, idx } : null;
     };
     const active = Panel.activeTab();
-    if (active >= 0 && has(active)) return active;
-    const ti = cfg.tabs.findIndex((t, i) => has(i));
-    return ti;
+    if (active >= 0 && of(active)) return of(active);
+    for (let ti = 0; ti < cfg.tabs.length; ti++) if (of(ti)) return of(ti);
+    return null;
   }
   function lampChanged(ids) {
     /* A light group set as a whole: its members changed (the scene stores lamps, not groups). */
     for (const id of expandLights(ids.filter((id) => id.startsWith("light.")))) {
-      const ti = sceneTabOf(id);
-      if (ti < 0) continue;
-      const idx = activeScene.get(ti);
-      if (!dirty || dirty.tab !== ti || dirty.idx !== idx) dirty = { tab: ti, idx, lights: new Set() };
+      const hit = activeSceneOf(id);
+      if (!hit) continue;
+      if (!dirty || dirty.tab !== hit.tab || dirty.idx !== hit.idx) dirty = { tab: hit.tab, idx: hit.idx, lights: new Set() };
       dirty.lights.add(id);
     }
     if (!dirty || !saveBar) return;
@@ -459,26 +493,40 @@
   function renderSceneSwatches() {
     document.querySelectorAll("[data-scene]").forEach((el) => {
       const [ti, i] = el.dataset.scene.split(":").map(Number);
-      const states = sceneStates.get(cfg.tabs[ti].scenes[i].id);
-      const swatch = states && Panel.sceneSwatch(states);
-      if (swatch) el.querySelector(".scene-lead").outerHTML = swatch;
+      el.querySelector(".scene-lead").outerHTML = Panel.sceneLead(ti, i);
     });
     renderSceneWatts();
   }
 
   /* Rebuild a tab's lamp list: all its lamps, or one room's (area). */
   function renderTabLamps(ti, area) {
-    const grid = document.querySelector(`[data-lamps="${ti}"]`);
-    const lamps = lampsOfTab.get(ti);
-    if (!grid || !lamps) return;
     if (area === undefined) {
       const fi = cfg.floors.findIndex((f) => f.tab === ti);
       area = fi >= 0 ? Panel.areaOf(fi) : null;
     }
-    const room = area ? new Set(area.lights) : null;
-    const byLabel = (x, y) => Panel.lightLabel(x).localeCompare(Panel.lightLabel(y), "nl");
-    const shown = lamps.filter((id) => !room || room.has(id)).sort(byLabel);
-    grid.innerHTML = shown.length ? shown.map(Panel.lightTile).join("") : `<div class="split-empty">Geen lampen</div>`;
+    renderTabScenes(ti, area);
+    const grid = document.querySelector(`[data-lamps="${ti}"]`);
+    const lamps = lampsOfTab.get(ti);
+    if (!grid || !lamps) return;
+    /* One room: its lamps. Alle: each room's under its name (in the room
+     * without its name in front), then the lamps in no room. */
+    const rooms = area ? [area] : cfg.tabs[ti].areas || [];
+    const placed = new Set();
+    const groups = rooms.map((a) => {
+      const ids = lamps.filter((id) => a.lights.includes(id) && !placed.has(id));
+      ids.forEach((id) => placed.add(id));
+      return { room: a.label, ids };
+    });
+    if (!area) groups.push({ room: rooms.length ? "Overig" : null, ids: lamps.filter((id) => !placed.has(id)) });
+    const byLabel = (room) => (x, y) => Panel.lightLabel(x, room).localeCompare(Panel.lightLabel(y, room), "nl", { numeric: true });
+    const heading = (room) => (area || !room ? "" : `<div class="list-room">${Util.esc(room)}</div>`);
+    const shown = groups.filter((g) => g.ids.length).flatMap((g) => g.ids.sort(byLabel(g.room)));
+    grid.innerHTML = shown.length
+      ? groups
+          .filter((g) => g.ids.length)
+          .map((g) => heading(g.room) + g.ids.map((id) => Panel.lightTile(id, g.room !== "Overig" ? g.room : null)).join(""))
+          .join("")
+      : `<div class="split-empty">Geen lampen</div>`;
     shown.forEach(renderLight);
     grid.closest(".split-lamps").querySelector(".split-title").dataset.base = area ? `Lampen · ${area.label}` : "Lampen";
     markGone();
@@ -495,12 +543,34 @@
       t.textContent = gone ? `${base} · ${gone} niet bereikbaar` : base;
     });
   }
+  /* A floor's scenes for "Alle" (area null: all of them, the rooms' under
+   * their names) or one room: its own, else the floor's. */
+  function renderTabScenes(ti, area) {
+    const grid = document.querySelector(`[data-scenes="${ti}"]`);
+    if (!grid) return;
+    const own = area && sceneRooms(ti).includes(area.label) ? area.label : null;
+    grid.querySelectorAll("[data-scene]").forEach((el) => {
+      const scope = scopeOf(ti, +el.dataset.scene.split(":")[1]);
+      el.hidden = area ? scope !== (own || "") : false;
+    });
+    grid.querySelectorAll("[data-scene-room]").forEach((el) => (el.hidden = !!area));
+    grid.closest(".split-scenes").querySelector("[data-scenes-title]").textContent = own ? `Scènes · ${own}` : "Scènes";
+    const list = grid.closest(".split-list");
+    list.scrollTop = 0;
+    markScroll(list);
+  }
   /* A floor's lamps for "Alle" (area null) or one room. */
   Panel.renderLamps = (fi, area) => renderTabLamps(cfg.floors[fi].tab, area);
 
   /* ---- Markup -------------------------------------------------------------------- */
-  /* Until the scene's own colours are known: its configured swatch or icon. */
-  function sceneLead(t, i) {
+  /* A scene's lead: the colours it sets once its stored states are known,
+   * until then its configured swatch or icon. */
+  Panel.sceneLead = function (ti, i) {
+    const states = sceneStates.get(cfg.tabs[ti].scenes[i].id);
+    const swatch = states && Panel.sceneSwatch(states);
+    return swatch || configuredLead(cfg.tabs[ti], i);
+  };
+  function configuredLead(t, i) {
     const sw = t.swatches && t.swatches[i];
     if (!sw) return `<span class="t-icon scene-lead">${icon((t.icons && t.icons[i]) || "bolt")}</span>`;
     if (sw.a === "rainbow") return '<span class="swatch scene-lead rainbow"></span>';
@@ -510,15 +580,18 @@
   /* A tab's page content: scenes left, lamps right (filled once they are known). */
   Panel.lightingPanel = function (ti) {
     const t = cfg.tabs[ti];
-    const scenes = t.scenes
-      .map((s, i) => `<button class="tile scene" data-scene="${ti}:${i}">${sceneLead(t, i)}<span class="t-text"><span class="t-name">${s.label}</span><span class="t-sub">scene</span></span></button>`)
-      .join("");
+    const tile = (s, i) => `<button class="tile scene" data-scene="${ti}:${i}">${Panel.sceneLead(ti, i)}<span class="t-text"><span class="t-name">${Util.esc(s.label)}</span><span class="t-sub">scene</span></span></button>`;
+    const inScope = (scope) => t.scenes.map((s, i) => (scopeOf(ti, i) === scope ? tile(s, i) : "")).join("");
+    /* the floor's own scenes, then each room's under its name */
+    const scenes =
+      inScope("") +
+      sceneRooms(ti).map((room) => `<div class="list-room" data-scene-room="${Util.esc(room)}">${Util.esc(room)}</div>` + inScope(room)).join("");
     const ci = Panel.coverOfTab ? Panel.coverOfTab(ti) : -1;
     const door = ci >= 0 ? `<div class="split-title">Deur</div>${Panel.coverBlock(ci)}` : "";
     return (
       `<div class="split${t.scenes.length ? "" : " no-scenes"}">` +
-      `<div class="split-half split-scenes">${door}<div class="split-title">Scènes</div>` +
-      `<div class="split-list"><div class="grid">${scenes}</div></div></div>` +
+      `<div class="split-half split-scenes">${door}<div class="split-title" data-scenes-title>Scènes</div>` +
+      `<div class="split-list"><div class="grid" data-scenes="${ti}">${scenes}</div></div></div>` +
       `<div class="split-half split-lamps"><div class="split-title">Lampen</div>` +
       `<div class="split-list"><div class="grid" data-lamps="${ti}"><div class="split-empty">Lampen laden…</div></div></div></div>` +
       `</div>`

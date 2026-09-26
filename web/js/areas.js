@@ -1,5 +1,6 @@
 /* Rooms (areas) in a floor's bottom row. "Alle" lists every lamp of the floor,
- * a room only its own; the scenes stay the floor's. The brightness slider
+ * a room only its own; a room with scenes of its own shows just those, the
+ * others the floor's (lighting.js). The brightness slider
  * follows the chosen room, and the room is part of the URL (#verlichting/0/keuken). */
 (function () {
   "use strict";
