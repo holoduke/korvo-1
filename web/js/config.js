@@ -64,6 +64,76 @@ window.PANEL_CONFIG = {
         {
           "id": "scene.woonkamer_max",
           "label": "Max"
+        },
+        {
+          "id": "scene.gameroom_vol_aan",
+          "label": "Vol aan",
+          "area": "Gameroom"
+        },
+        {
+          "id": "scene.gameroom_warm",
+          "label": "Warm",
+          "area": "Gameroom"
+        },
+        {
+          "id": "scene.gameroom_gamen",
+          "label": "Gamen",
+          "area": "Gameroom"
+        },
+        {
+          "id": "scene.gameroom_film",
+          "label": "Film",
+          "area": "Gameroom"
+        },
+        {
+          "id": "scene.gameroom_party",
+          "label": "Party",
+          "area": "Gameroom"
+        },
+        {
+          "id": "scene.gameroom_neon",
+          "label": "Neon",
+          "area": "Gameroom"
+        },
+        {
+          "id": "scene.gameroom_uit",
+          "label": "Uit",
+          "area": "Gameroom"
+        },
+        {
+          "id": "scene.voorkamer_vol_aan",
+          "label": "Vol aan",
+          "area": "Zitkamer"
+        },
+        {
+          "id": "scene.voorkamer_helder_warm",
+          "label": "Helder warm",
+          "area": "Zitkamer"
+        },
+        {
+          "id": "scene.voorkamer_gezellig",
+          "label": "Gezellig",
+          "area": "Zitkamer"
+        },
+        {
+          "id": "scene.voorkamer_lezen",
+          "label": "Lezen",
+          "area": "Zitkamer"
+        },
+        {
+          "id": "scene.voorkamer_film",
+          "label": "Film",
+          "area": "Zitkamer"
+        },
+        {
+          "id": "scene.voorkamer_kaarslicht",
+          "label": "Kaarslicht",
+          "area": "Zitkamer"
+        },
+        {
+          "id": "scene.voorkamer_uit",
+          "label": "Uit",
+          "area": "Zitkamer"
         }
       ],
       "devices": [
@@ -109,7 +179,7 @@ window.PANEL_CONFIG = {
         },
         {
           "id": "light.lamp_zitkamer_1",
-          "label": "Zitkamer"
+          "label": "Zitkamer lamp"
         },
         {
           "id": "light.lamp_zitkamer_achter_1",
@@ -133,7 +203,7 @@ window.PANEL_CONFIG = {
         },
         {
           "id": "light.lamp_playroom_1",
-          "label": "Gameroom"
+          "label": "Gameroom plafond"
         },
         {
           "id": "light.lamp_playroom_muur_1",
@@ -371,15 +441,18 @@ window.PANEL_CONFIG = {
       "scenes": [
         {
           "id": "scene.slaapkamer_aan",
-          "label": "Slaapk. aan"
+          "label": "Aan",
+          "area": "Gillis en Ilse"
         },
         {
           "id": "scene.slaapkamer_aan_fel",
-          "label": "Slaapk. fel"
+          "label": "Fel",
+          "area": "Gillis en Ilse"
         },
         {
           "id": "scene.slaapkamer_uit",
-          "label": "Slaapk. uit"
+          "label": "Uit",
+          "area": "Gillis en Ilse"
         },
         {
           "id": "scene.badkamer_heel_warm",

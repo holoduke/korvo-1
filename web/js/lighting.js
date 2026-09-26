@@ -587,8 +587,10 @@
     const t = cfg.tabs[ti];
     const tile = (s, i) => `<button class="tile scene" data-scene="${ti}:${i}">${Panel.sceneLead(ti, i)}<span class="t-text"><span class="t-name">${Util.esc(s.label)}</span><span class="t-sub">scene</span></span></button>`;
     const inScope = (scope) => t.scenes.map((s, i) => (scopeOf(ti, i) === scope ? tile(s, i) : "")).join("");
-    /* the floor's own scenes, then each room's under its name */
+    /* the floor's own scenes (under "Alle kamers" beside rooms' own), then each room's under its name */
+    const floorHead = sceneRooms(ti).length && t.scenes.some((sc) => !sc.area) ? `<div class="list-room" data-scene-room="">Alle kamers</div>` : "";
     const scenes =
+      floorHead +
       inScope("") +
       sceneRooms(ti).map((room) => `<div class="list-room" data-scene-room="${Util.esc(room)}">${Util.esc(room)}</div>` + inScope(room)).join("");
     const ci = Panel.coverOfTab ? Panel.coverOfTab(ti) : -1;

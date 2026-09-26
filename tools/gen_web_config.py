@@ -532,7 +532,8 @@ def parse_areas(src, tabs):
 
 def parse_area_scenes(src, tabs):
     """PANEL_AREA_SCENES -> after its floor's own scenes in tabs[i]["scenes"],
-    each with the room ("area") it belongs to, and its swatch and script if any."""
+    each with the room ("area") it belongs to, and its swatch and script if any.
+    A row naming one of the floor's own scenes puts that one in the room."""
     names = [t["name"] for t in tabs]
     rows = table_rows(src, "PANEL_AREA_SCENES", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*([^,{}]+?)\s*,\s*([^,{}]+?)\s*,\s*(NULL|"[^"]*")\s*\}')
     for tab, area, sid, label, sw_a, sw_b, script in rows:
@@ -543,18 +544,22 @@ def parse_area_scenes(src, tabs):
             fail(f"PANEL_AREA_SCENES {label!r}: no room {area!r} on {tab!r} in PANEL_AREAS")
         if not re.fullmatch(r"scene\.[a-z0-9_]+", sid):
             fail(f"PANEL_AREA_SCENES {label!r}: {sid!r} is not a scene entity")
-        if any(s["id"] == sid for s in t["scenes"]):
-            fail(f"PANEL_AREA_SCENES {label!r}: {sid!r} is already a scene of {tab!r}")
+        own = next((s for s in t["scenes"] if s["id"] == sid), None)
+        if own is not None and own.get("area"):
+            fail(f"PANEL_AREA_SCENES {label!r}: {sid!r} is already in room {own['area']!r}")
         script = c_string_or_null(script)
         if script is not None and not re.fullmatch(r"script\.[a-z0-9_]+", script):
             fail(f"PANEL_AREA_SCENES {label!r}: {script!r} is not a script entity")
         colour = lambda tok: None if int(tok, 0) == 0 else "#%06x" % int(tok, 0)
-        scene = {"id": sid, "label": label, "area": area}
+        # one of the floor's own scenes moves into the room, in its place
+        scene = own if own is not None else {"id": sid}
+        scene.update({"label": label, "area": area})
         if colour(sw_a):
             scene["swatch"] = {"a": colour(sw_a), "b": colour(sw_b)}
         if script:
             scene["script"] = script
-        t["scenes"].append(scene)
+        if own is None:
+            t["scenes"].append(scene)
 
 
 def parse_layout(src, tabs):

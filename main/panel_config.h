@@ -98,13 +98,13 @@ static const panel_entity_t TAB_THUIS_DEVICES[] = {
     { "light.lamp_keuken_muur_1",            "Keuken muur 1" },
     { "light.lamp_keuken_muur_2",            "Keuken muur 2" },
     { "light.lamp_keuken_muur_3",            "Keuken muur 3" },
-    { "light.lamp_zitkamer_1",               "Zitkamer" },
+    { "light.lamp_zitkamer_1",               "Zitkamer lamp" },
     { "light.lamp_zitkamer_achter_1",        "Zitk. achter 1" },
     { "light.lamp_zitkamer_achter_2",        "Zitk. achter 2" },
     { "light.lamp_zitkamer_achter_3",        "Zitk. achter 3" },
     { "light.lamp_zitkamer_achter_muur_1",   "Zitk. muur 1" },
     { "light.lamp_zitkamer_achter_muur_2",   "Zitk. muur 2" },
-    { "light.lamp_playroom_1",               "Gameroom" },
+    { "light.lamp_playroom_1",               "Gameroom plafond" },
     { "light.lamp_playroom_muur_1",          "Gameroom muur 1" },
     { "light.lamp_playroom_muur_2",          "Gameroom muur 2" },
     { "light.lamp_playroom_muur_3",          "Gameroom muur 3" },
@@ -495,7 +495,11 @@ static const panel_area_t PANEL_AREAS[] = {
 
 /* Scenes of one room, in the web app only (the panel's firmware keeps its
  * tabs' scenes). They join their floor's scenes under the room's name, and a
- * room chosen in the bottom row shows just its own. The bathroom's are for
+ * room chosen in the bottom row shows just its own. A row naming one of the
+ * floor's own scenes moves that scene into the room, under this label (the
+ * bedroom's, which the firmware shows as the tab's chips). Downstairs the gameroom
+ * and the front sitting room (HA's "voorkamer" scenes) have their own, beside
+ * the floor's for all its rooms. The bathroom's are for
  * its three ceiling globes and two wall lamps, the landing's for its four
  * ceiling lamps and the wardrobe's two (packages/gang_boven.yaml: the six
  * lamps hang on a relay, which its script switches on before the scene). */
@@ -509,20 +513,37 @@ typedef struct {
     const char *script; /* NULL, or a script that sets the scene, given it as `scene` */
 } panel_area_scene_t;
 static const panel_area_scene_t PANEL_AREA_SCENES[] = {
-    { "Boven", "Badkamer", "scene.badkamer_heel_warm",       "Heel warm",     0,        0,        NULL },
-    { "Boven", "Badkamer", "scene.badkamer_beetje_warm",     "Beetje warm",   0,        0,        NULL },
-    { "Boven", "Badkamer", "scene.badkamer_vol_aan",         "Vol aan",       0,        0,        NULL },
-    { "Boven", "Badkamer", "scene.badkamer_party",           "Party",         0,        0,        NULL },
-    { "Boven", "Badkamer", "scene.badkamer_erotisch",        "Erotisch",      0,        0,        NULL },
-    { "Boven", "Badkamer", "scene.badkamer_blauw",           "Blauw",         0,        0,        NULL },
-    { "Boven", "Badkamer", "scene.badkamer_groen",           "Groen",         0,        0,        NULL },
-    { "Boven", "Gang",     "scene.gang_boven_hoog",          "Hoog",          0xffe2c0, 0,        "script.gang_boven_scene" },
-    { "Boven", "Gang",     "scene.gang_boven_helder_warm",   "Helder warm",   0xffc27a, 0,        "script.gang_boven_scene" },
-    { "Boven", "Gang",     "scene.gang_boven_laag",          "Laag",          0x9c6a34, 0,        "script.gang_boven_scene" },
-    { "Boven", "Gang",     "scene.gang_boven_sfeervol",      "Sfeervol",      0xd97a26, 0x6e3f14, "script.gang_boven_scene" },
-    { "Boven", "Gang",     "scene.gang_boven_zonsondergang", "Zonsondergang", 0xff7814, 0xff9a3c, "script.gang_boven_scene" },
-    { "Boven", "Gang",     "scene.gang_boven_avond_paars",   "Avond paars",   0x8f3cff, 0xb450ff, "script.gang_boven_scene" },
-    { "Boven", "Gang",     "scene.gang_boven_nacht",         "Nacht",         0x7a1600, 0,        "script.gang_boven_scene" },
+    { "Beneden", "Gameroom",       "scene.gameroom_vol_aan",         "Vol aan",       0,        0,        NULL },
+    { "Beneden", "Gameroom",       "scene.gameroom_warm",            "Warm",          0,        0,        NULL },
+    { "Beneden", "Gameroom",       "scene.gameroom_gamen",           "Gamen",         0,        0,        NULL },
+    { "Beneden", "Gameroom",       "scene.gameroom_film",            "Film",          0,        0,        NULL },
+    { "Beneden", "Gameroom",       "scene.gameroom_party",           "Party",         0,        0,        NULL },
+    { "Beneden", "Gameroom",       "scene.gameroom_neon",            "Neon",          0,        0,        NULL },
+    { "Beneden", "Gameroom",       "scene.gameroom_uit",             "Uit",           0,        0,        NULL },
+    { "Beneden", "Zitkamer",       "scene.voorkamer_vol_aan",        "Vol aan",       0,        0,        NULL },
+    { "Beneden", "Zitkamer",       "scene.voorkamer_helder_warm",    "Helder warm",   0,        0,        NULL },
+    { "Beneden", "Zitkamer",       "scene.voorkamer_gezellig",       "Gezellig",      0,        0,        NULL },
+    { "Beneden", "Zitkamer",       "scene.voorkamer_lezen",          "Lezen",         0,        0,        NULL },
+    { "Beneden", "Zitkamer",       "scene.voorkamer_film",           "Film",          0,        0,        NULL },
+    { "Beneden", "Zitkamer",       "scene.voorkamer_kaarslicht",     "Kaarslicht",    0,        0,        NULL },
+    { "Beneden", "Zitkamer",       "scene.voorkamer_uit",            "Uit",           0,        0,        NULL },
+    { "Boven",   "Gillis en Ilse", "scene.slaapkamer_aan",           "Aan",           0,        0,        NULL },
+    { "Boven",   "Gillis en Ilse", "scene.slaapkamer_aan_fel",       "Fel",           0,        0,        NULL },
+    { "Boven",   "Gillis en Ilse", "scene.slaapkamer_uit",           "Uit",           0,        0,        NULL },
+    { "Boven",   "Badkamer",       "scene.badkamer_heel_warm",       "Heel warm",     0,        0,        NULL },
+    { "Boven",   "Badkamer",       "scene.badkamer_beetje_warm",     "Beetje warm",   0,        0,        NULL },
+    { "Boven",   "Badkamer",       "scene.badkamer_vol_aan",         "Vol aan",       0,        0,        NULL },
+    { "Boven",   "Badkamer",       "scene.badkamer_party",           "Party",         0,        0,        NULL },
+    { "Boven",   "Badkamer",       "scene.badkamer_erotisch",        "Erotisch",      0,        0,        NULL },
+    { "Boven",   "Badkamer",       "scene.badkamer_blauw",           "Blauw",         0,        0,        NULL },
+    { "Boven",   "Badkamer",       "scene.badkamer_groen",           "Groen",         0,        0,        NULL },
+    { "Boven",   "Gang",           "scene.gang_boven_hoog",          "Hoog",          0xffe2c0, 0,        "script.gang_boven_scene" },
+    { "Boven",   "Gang",           "scene.gang_boven_helder_warm",   "Helder warm",   0xffc27a, 0,        "script.gang_boven_scene" },
+    { "Boven",   "Gang",           "scene.gang_boven_laag",          "Laag",          0x9c6a34, 0,        "script.gang_boven_scene" },
+    { "Boven",   "Gang",           "scene.gang_boven_sfeervol",      "Sfeervol",      0xd97a26, 0x6e3f14, "script.gang_boven_scene" },
+    { "Boven",   "Gang",           "scene.gang_boven_zonsondergang", "Zonsondergang", 0xff7814, 0xff9a3c, "script.gang_boven_scene" },
+    { "Boven",   "Gang",           "scene.gang_boven_avond_paars",   "Avond paars",   0x8f3cff, 0xb450ff, "script.gang_boven_scene" },
+    { "Boven",   "Gang",           "scene.gang_boven_nacht",         "Nacht",         0x7a1600, 0,        "script.gang_boven_scene" },
 };
 
 /* Appliances in the web app's "Apparaten" section (the panel's firmware does
