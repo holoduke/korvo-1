@@ -243,7 +243,9 @@ static int s_tab_brightness[PANEL_TAB_COUNT]; /* last known area brightness, -1 
 
 /* Scene buttons per tab (bottom chips, or grid tiles on a scene tab), so
  * activating one can highlight it and clear the others. */
-#define MAX_SCENES 12
+/* Scenes per tab. A scene tab's compact grid holds 12 tiles (4x3) plus its
+ * quick buttons in the bottom row: Beneden has 11 tiles and 2 quick buttons. */
+#define MAX_SCENES 16
 static lv_obj_t *s_scene_chips[PANEL_TAB_COUNT][MAX_SCENES];
 static int s_scene_counts[PANEL_TAB_COUNT];
 /* Scene-tab extras: per-tile sub-labels ("actief"), the tile icon/name labels

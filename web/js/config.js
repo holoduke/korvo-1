@@ -58,6 +58,10 @@ window.PANEL_CONFIG = {
           "label": "Party"
         },
         {
+          "id": "scene.beneden_ochtend",
+          "label": "Ochtend"
+        },
+        {
           "id": "scene.woonkamer_min",
           "label": "Min"
         },
@@ -245,6 +249,7 @@ window.PANEL_CONFIG = {
         null,
         null,
         null,
+        null,
         "minus",
         "plus"
       ],
@@ -273,6 +278,10 @@ window.PANEL_CONFIG = {
         {
           "a": "#a020f0",
           "b": "#2f50ff"
+        },
+        {
+          "a": "#fff1dc",
+          "b": null
         },
         null,
         null

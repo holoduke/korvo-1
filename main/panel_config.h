@@ -65,6 +65,9 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
     { "scene.beneden_fridge",        "Koelkast" },
     { "scene.beneden_kitchen",       "Keuken" },
     { "scene.beneden_party",         "Party" },
+    /* Morning: the kitchen at 80 % neutral white, the gameroom and the back
+     * sitting room off, the other rooms as they are (HA scene editor, 2026-09-29). */
+    { "scene.beneden_ochtend",       "Ochtend" },
     /* Quick buttons (bottom row): every ground-floor light on at minimum /
      * full brightness. Scenes created in HA's scene editor on 2026-09-06. */
     { "scene.woonkamer_min",         "Min" },
@@ -73,7 +76,7 @@ static const panel_entity_t TAB_THUIS_SCENES[] = {
 /* Tile icons, same order as TAB_THUIS_SCENES. */
 static const char *const TAB_THUIS_ICONS[] = {
     LV_SYMBOL_CHARGE, LV_SYMBOL_EYE_CLOSE, LV_SYMBOL_EYE_OPEN, LV_SYMBOL_TINT, LV_SYMBOL_POWER,
-    NULL, NULL, NULL, NULL, NULL, LV_SYMBOL_MINUS, LV_SYMBOL_PLUS,
+    NULL, NULL, NULL, NULL, NULL, NULL, LV_SYMBOL_MINUS, LV_SYMBOL_PLUS,
 };
 /* Swatches, same order; 0 = use the icon instead. */
 static const panel_swatch_t TAB_THUIS_SWATCHES[] = {
@@ -83,6 +86,7 @@ static const panel_swatch_t TAB_THUIS_SWATCHES[] = {
     { 0x6b3d17, 0 },        /* Koelkast: dim warm night light */
     { 0xfff1dc, 0 },        /* Keuken: neutral white (4000 K) */
     { 0xa020f0, 0x2f50ff }, /* Party: purple -> blue */
+    { 0xfff1dc, 0 },        /* Ochtend: the kitchen in neutral white (4000 K) */
     { 0, 0 }, { 0, 0 },
 };
 /* Drawer: every individual ground-floor light, grouped by room, taken from the
