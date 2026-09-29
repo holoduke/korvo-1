@@ -776,6 +776,10 @@ window.PANEL_CONFIG = {
         {
           "id": "scene.garage_regenboog",
           "label": "Regenboog"
+        },
+        {
+          "id": "scene.garage_uit",
+          "label": "Uit"
         }
       ],
       "devices": [
@@ -856,7 +860,20 @@ window.PANEL_CONFIG = {
           "label": "Lamp 21"
         }
       ],
-      "icons": null,
+      "icons": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        "power"
+      ],
       "swatches": [
         {
           "a": "#ffffff",
@@ -901,7 +918,8 @@ window.PANEL_CONFIG = {
         {
           "a": "rainbow",
           "b": null
-        }
+        },
+        null
       ],
       "sceneTiles": true,
       "areas": []

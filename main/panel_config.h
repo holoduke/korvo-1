@@ -207,7 +207,7 @@ static const panel_entity_t TAB_ZOLDER_DEVICES[] = {
       devices, sizeof(devices) / sizeof((devices)[0]), icons, swatches, quick, true }
 
 /* ---- Tab: Garage -------------------------------------------------------- */
-/* 17 colour bulbs driven by scenes: four white levels, then colour moods. The
+/* 24 colour bulbs driven by scenes: four white levels, then colour moods, and all off. The
  * power toggle in the bottom row and the brightness slider act on the group. */
 static const panel_entity_t TAB_GARAGE_LIGHTS[] = {
     { "light.lampen_garage", "Garage" },
@@ -224,6 +224,12 @@ static const panel_entity_t TAB_GARAGE_SCENES[] = {
     { "scene.garage_pink_paars_groen", "Roze paars" },
     { "scene.garage_cuba",             "Cuba" },
     { "scene.garage_regenboog",        "Regenboog" },
+    /* Every garage lamp off: Zigbee2MQTT's group of all 24, one broadcast (HA scene editor, 2026-09-29). */
+    { "scene.garage_uit",              "Uit" },
+};
+/* Tile icons, same order: only Uit has one (the others have a swatch). */
+static const char *const TAB_GARAGE_ICONS[] = {
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, LV_SYMBOL_POWER,
 };
 /* Swatch per scene, same order as TAB_GARAGE_SCENES. */
 static const panel_swatch_t TAB_GARAGE_SWATCHES[] = {
@@ -238,6 +244,7 @@ static const panel_swatch_t TAB_GARAGE_SWATCHES[] = {
     { 0xff5fb4, 0x39d98a }, /* Roze paars groen */
     { 0x1fb8a6, 0xffc857 }, /* Cuba */
     { SWATCH_RAINBOW, 0 },  /* Regenboog */
+    { 0, 0 },               /* Uit: the power icon */
 };
 static const panel_entity_t TAB_GARAGE_DEVICES[] = {
     /* HA has no lamp_garage_4 / _10 (the numbers were skipped); 18-21 are Innr GU10s added 2026-09-09. */
@@ -268,7 +275,7 @@ static const panel_tab_t PANEL_TABS[] = {
                      TAB_THUIS_SWATCHES, 2, TAB_THUIS_DEVICES),
     TAB_ENTRY("Boven", TAB_BOVEN_LIGHTS, TAB_BOVEN_SCENES, TAB_BOVEN_DEVICES),
     TAB_ENTRY_NS("Zolder", TAB_ZOLDER_LIGHTS, TAB_ZOLDER_DEVICES),
-    TAB_ENTRY_SCENES("Garage", TAB_GARAGE_LIGHTS, TAB_GARAGE_SCENES, NULL, TAB_GARAGE_SWATCHES, 0,
+    TAB_ENTRY_SCENES("Garage", TAB_GARAGE_LIGHTS, TAB_GARAGE_SCENES, TAB_GARAGE_ICONS, TAB_GARAGE_SWATCHES, 0,
                      TAB_GARAGE_DEVICES),
 };
 #define PANEL_TAB_COUNT (sizeof(PANEL_TABS) / sizeof(PANEL_TABS[0]))
