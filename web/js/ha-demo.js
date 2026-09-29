@@ -872,6 +872,23 @@
             out[id] = rows;
             return;
           }
+          const meter = (cfg.energy || []).find((d) => d.kind === "grid");
+          if (meter && id === meter.entities.powerOut) {
+            /* What goes back to the grid: the solar panels' day (07-19 h, about 2 kW at noon) less what the house uses. */
+            if (!states.has(id)) return;
+            const kw = (states.get(id).attributes || {}).unit_of_measurement === "kW";
+            const rows = [];
+            for (let t = start.getTime(); t < Date.now(); t += 10 * 60e3) {
+              const d = new Date(t);
+              const hour = d.getHours() + d.getMinutes() / 60;
+              const sun = hour > 7 && hour < 19 ? Math.sin(((hour - 7) / 12) * Math.PI) : 0;
+              const w = Math.max(0, Math.round(sun * 2400 - 450 - 150 * Math.sin(t / 2.3e6)));
+              rows.push({ s: String(kw ? w / 1000 : w), t });
+            }
+            rows.push({ s: states.get(id).state, t: Date.now() });
+            out[id] = rows;
+            return;
+          }
           if (/power(_phase_\d)?$/.test(id)) {
             /* Power: mostly idle, a cycle at full load every 8 hours (a battery swings both ways). */
             if (!states.has(id)) return;

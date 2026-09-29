@@ -302,7 +302,7 @@
   const charted = () => devices.filter((d) => (d === grid ? gridLive() : chartId(d) && !Panel.unavailable(Panel.st(chartId(d)))));
   let picked = null; /* the device chosen for the power chart (null: the first one) */
   const chartDevice = () => (charted().includes(picked) ? picked : charted()[0] || null);
-  const shown = { power: 1, week: 1 }; /* reveal progress per chart */
+  const shown = { power: 1, week: 1, export: 1, exportWeek: 1 }; /* reveal progress per chart */
   let frame = 0;
 
   function renderPick() {
@@ -363,10 +363,58 @@
       (otherWeek > 0 ? legendItem("Overig", OTHER, kwhText(otherWeek)) : "");
   }
 
+  /* ---- Given back to the grid ------------------------------------------------------ */
+  /* Its own row under the charts while the meter reports what goes back: the
+   * power over the last day, and the kWh per day with what they earned (the
+   * export price in Home Assistant's energy settings). */
+  const exportLive = () => gridLive() && exists(G.powerOut);
+  /* € for what went back on a day, NaN without prices or counters. */
+  function earnedOn(back) {
+    let sum = 0;
+    let known = false;
+    EXPORT.forEach((k) => {
+      const v = useOn(G[k], back);
+      const pr = priceOf(G[k]);
+      if (Number.isFinite(v) && Number.isFinite(pr)) {
+        sum += v * pr;
+        known = true;
+      }
+    });
+    return known ? sum : NaN;
+  }
+  function drawExport() {
+    const row = q(".en-export-row");
+    if (!row) return;
+    row.hidden = !exportLive();
+    if (row.hidden) return;
+    const good = Panel.cssVar("--ok");
+    const id = G.powerOut;
+    const unit = unitOf(id) || "W";
+    const { series, spanH } = Panel.drawChart(
+      q(".en-export canvas"),
+      { left: { id, colour: good, range: powerRange(unit), fmt: axisLabel(unit), hold: 25 * 3600e3 } },
+      shown.export
+    );
+    q(".en-export .dc-title").textContent = `Teruglevering in kW, laatste ${spanH} uur`;
+    const vals = series[0].vals;
+    q(".en-export-foot").innerHTML = vals.length
+      ? `<span>Nu <b>${power(scaled(id)).join(" ")}</b></span><span>Piek <b>${power(Util.minMax(vals)[1] * (SCALE[unit] ?? 1)).join(" ")}</b></span><span>Vandaag <b>${kwhText(exportOn(0))}</b></span>`
+      : "Nog geen geschiedenis (wordt opgehaald)";
+    const days = [6, 5, 4, 3, 2, 1, 0];
+    const bars = days.map((back) => ({ label: Util.DAYS_SHORT[dayStart(back).getDay()], parts: [{ v: exportOn(back) || 0, colour: good }], strong: back === 0 }));
+    Panel.drawBars(q(".en-export-week canvas"), { bars, fmt: (v) => fmt(v, v < 10 ? 1 : 0) }, shown.exportWeek);
+    const week = days.reduce((s, back) => s + (exportOn(back) || 0), 0);
+    const earned = days.reduce((s, back) => s + (Number.isFinite(earnedOn(back)) ? earnedOn(back) : 0), 0);
+    const priced = days.some((back) => Number.isFinite(earnedOn(back)));
+    q(".en-export-week .en-legend").innerHTML =
+      legendItem("Deze week", good, kwhText(week)) + (priced ? legendItem("Opbrengst", good, eur(earned)) : "");
+  }
+
   function drawCharts() {
     if (!root) return;
     drawPower();
     drawWeek();
+    drawExport();
   }
   /* Draws the charts growing in (keys: "power", "week"). */
   function reveal(keys) {
@@ -405,6 +453,12 @@
       `<div class="en-chart"><canvas></canvas></div><footer class="en-power-foot"></footer></section>` +
       `<section class="dc-panel en-week"><h2 class="dc-title">Laatste 7 dagen</h2><div class="en-chart"><canvas></canvas></div><div class="en-legend"></div></section>` +
       `</div>` +
+      (grid
+        ? `<div class="en-row charts en-export-row" hidden>` +
+          `<section class="dc-panel en-export"><h2 class="dc-title">Teruglevering</h2><div class="en-chart"><canvas></canvas></div><footer class="en-power-foot en-export-foot"></footer></section>` +
+          `<section class="dc-panel en-export-week"><h2 class="dc-title">Teruggeleverd per dag, kWh</h2><div class="en-chart"><canvas></canvas></div><div class="en-legend"></div></section>` +
+          `</div>`
+        : "") +
       `<section class="dc-group"><h2 class="dc-title">Per apparaat</h2><div class="dc-grid">` +
       others.map((d) => Panel.cardHtml(`data-energy-card="${devices.indexOf(d)}" style="--dc-icon:${colour.get(d)}"`, kinds[d.kind].icon, d.label)).join("") +
       `</div></section>`;
@@ -438,7 +492,7 @@
     /* The meter's chart line is its net power when Home Assistant derives one,
      * else what it takes; which of the two exists is only known once the states
      * are in, so the history of both is kept. */
-    Panel.keepHistory([...devices.map(chartId), ...(grid ? [G.net, G.powerIn] : [])].filter(Boolean));
+    Panel.keepHistory([...devices.map(chartId), ...(grid ? [G.net, G.powerIn, G.powerOut] : [])].filter(Boolean));
 
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-energy-chart]");
@@ -448,7 +502,8 @@
       reveal(["power"]);
       Panel.emit("route");
     });
-    new ResizeObserver(drawCharts).observe(root.querySelector(".en-row.charts"));
+    const ro = new ResizeObserver(drawCharts);
+    root.querySelectorAll(".en-row.charts").forEach((el) => ro.observe(el));
   }
 
   Panel.definePage("energy", {
@@ -487,13 +542,15 @@
   });
   Panel.on("history", drawCharts);
   Panel.on("reading", (id) => {
-    const d = root && Panel.onScreen("energy") && chartDevice();
+    if (!root || !Panel.onScreen("energy")) return;
+    const d = chartDevice();
     if (d && chartId(d) === id) drawPower();
+    if (grid && id === G.powerOut) drawExport();
   });
   Panel.on("section", (i) => {
     if (cfg.sections[i].kind !== "energy") return;
     drawCharts(); /* readings came in while another section was shown */
-    reveal(["power", "week"]);
+    reveal(["power", "week", "export", "exportWeek"]);
     if (Panel.isLoaded() && Date.now() - statsAt > 60e3) loadStats();
   });
   Panel.everyAwake(5 * 60e3, () => Panel.isLoaded() && loadStats());
