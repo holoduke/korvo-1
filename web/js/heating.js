@@ -14,7 +14,8 @@
   const pump = (cfg.appliances || []).find((a) => a.kind === "heatpump");
   const E = pump ? pump.entities : {};
   const SETTLE_MS = 1200;
-  const CONFIRM_MS = 20000;
+  /* the pump is read through myUplink (NIBE's cloud), polled: its confirmation can take a while */
+  const CONFIRM_MS = 90000;
   const fmt = Util.fmt;
 
   const num = (id) => Panel.num(id);
