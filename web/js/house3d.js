@@ -29,6 +29,12 @@
    * difference, and a wall tablet runs it all day. */
   const IDLE_FRAME_MS = 32;
   const ZOOM_MAX = 2.2;
+  /* Cinema (the screensaver): once per full turn the camera glides in and out
+   * again — closest at half a turn, CINEMA_ZOOM nearer and CINEMA_PITCH lower —
+   * fading in and out over CINEMA_EASE_S so neither start nor wake jumps. */
+  const CINEMA_ZOOM = 0.2; /* nearer than that and the roof leaves the frame */
+  const CINEMA_PITCH = (7 * Math.PI) / 180;
+  const CINEMA_EASE_S = 2.2;
   const MAX_DPR = 2;
   const LINE_PX = 1.5; /* core width of an edge, css px */
   const BLOOM = 1.15;
@@ -600,6 +606,9 @@
      * it and comes closer, holds, then the orbit goes on from there. */
     let focus = null; /* {from, to, t0, dur, until} */
     let orbitScale = 1;
+    let cinemaOn = false;
+    let cinema = 0; /* 0..1: how much of the glide shows */
+    let cinemaYaw0 = 0; /* where the turn started, for its phase */
     let frames = 0;
     let accent = [0.3, 0.85, 1.0];
     let bg = [0.06, 0.07, 0.1];
@@ -731,9 +740,15 @@
         if (Math.abs(yawVel) < 0.02) yawVel = 0;
         if (!reduced && now - lastTouch > IDLE_MS) cam.yaw += AUTO_SPEED * orbitScale * dt;
       }
-      const dist = fitDistance() * cam.zoom;
+      /* the cinema glide, on top of where the camera is (never written to it) */
+      cinema += ((cinemaOn && !reduced ? 1 : 0) - cinema) * (1 - Math.exp(-dt / (CINEMA_EASE_S / 3)));
+      if (cinema < 1e-3 && !cinemaOn) cinema = 0;
+      const near = cinema * (1 - Math.cos(cam.yaw - cinemaYaw0)) / 2; /* 0 at the start of a turn, 1 halfway */
+      const zoom = Math.max(ZOOM_MIN, cam.zoom * (1 - CINEMA_ZOOM * near));
+      const pitch = Math.max(PITCH_MIN, cam.pitch - CINEMA_PITCH * near);
+      const dist = fitDistance() * zoom;
       const c = geo.centre;
-      const eye = [c[0] + dist * Math.cos(cam.pitch) * Math.sin(cam.yaw), c[1] + dist * Math.sin(cam.pitch), c[2] + dist * Math.cos(cam.pitch) * Math.cos(cam.yaw)];
+      const eye = [c[0] + dist * Math.cos(pitch) * Math.sin(cam.yaw), c[1] + dist * Math.sin(pitch), c[2] + dist * Math.cos(pitch) * Math.cos(cam.yaw)];
       const vp = mul(perspective(FOV, W / H, 1, dist + geo.radius * 4), lookAt(eye, c, [0, 1, 0]));
       lastVP = vp;
       const sweepY = ((now / 1000) % SWEEP_PERIOD_S) / SWEEP_PERIOD_S * 13 - 2;
@@ -927,6 +942,12 @@
       },
       /* The orbit's speed as a share of the usual (the screensaver turns slower). */
       setOrbitScale: (f) => (orbitScale = f),
+      /* The screensaver's glide in and out over each turn (on), or back to the plain orbit. */
+      setCinema(on) {
+        if (on && !cinemaOn) cinemaYaw0 = cam.yaw;
+        cinemaOn = !!on;
+      },
+      cinema: () => cinema,
       /* The time of day: col = the colour to lean to, k = how far (0..1). */
       setMood(col, k) {
         mood = { col, k };

@@ -79,7 +79,11 @@
       void app.offsetHeight; /* the rows start from their measured height */
       document.body.classList.add("saver-house");
       rows(0, 0);
-      if (Panel.house) Panel.house.setOrbitScale(0.45); /* slower on its own, all evening */
+      /* on its own all evening: a steady turn (about 52 s), gliding in and out once per turn */
+      if (Panel.house) {
+        Panel.house.setOrbitScale(0.75);
+        Panel.house.setCinema(true);
+      }
       return;
     }
     /* Back in one step, not by animating the rows: a stage whose height changes
@@ -88,7 +92,10 @@
      * header and tabs only fade and slide in, which the compositor does alone. */
     document.body.classList.remove("chrome-anim", "saver-house");
     document.body.classList.add("chrome-snap");
-    if (Panel.house) Panel.house.setOrbitScale(1);
+    if (Panel.house) {
+      Panel.house.setOrbitScale(1);
+      Panel.house.setCinema(false);
+    }
     app.style.removeProperty("--hdr-row");
     app.style.removeProperty("--tab-row");
     void app.offsetHeight; /* the final layout, before the transition comes back */
