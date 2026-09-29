@@ -273,7 +273,26 @@ body.saver-house .hud-watch { display: flex; }
 .cw .cover-actions .ap-btn .ic { font-size: 14px; }
 body.saver-house .house-cover { opacity: 0; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .cw .cw-shutter, .cw-glow { transition: none; animation: none; } .cw.moving .cw-state { animation: none; } }
-@media (max-width: 700px) { .house-cover { display: none; } } /* a phone: the door is on the Garage floor and in the room panel */
+/* A phone: a slim column on the right — the drawn door with its state, then
+ * Open, Stop and Dicht as icon buttons of a thumb's size. Kier stays on the
+ * Garage floor and in the room panel. */
+@media (max-width: 700px) {
+  .house-cover { right: 10px; width: 64px; }
+  .house-cover .cw { padding: 10px 6px; gap: 6px; }
+  .house-cover .cw::before { top: 14px; }
+  .house-cover .cw-title { justify-content: center; }
+  .house-cover .cw-title span { display: none; }
+  .house-cover .cw-title .ic { width: 18px; height: 18px; }
+  .house-cover .cw-door { height: 40px; margin: 0; }
+  .house-cover .cw-frame { left: 5px; right: 5px; bottom: 6px; border-radius: 5px 5px 0 0; }
+  .house-cover .cw-ground { bottom: 4px; }
+  .house-cover .cw-state { font-size: 9px; letter-spacing: 0.04em; line-height: 1.2; min-height: 2.4em; overflow-wrap: anywhere; }
+  .house-cover .cw .cover-actions { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .house-cover .cw .cover-actions .ap-btn { min-height: 44px; padding: 0; }
+  .house-cover .cw .cover-actions .ap-btn span { display: none; }
+  .house-cover .cw .cover-actions .ap-btn .ic { font-size: 18px; }
+  .house-cover .cw [data-coveract$="|vent"] { display: none; }
+}
 .house-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; opacity: 0; transition: opacity 0.2s; }
 .house-leader.on { opacity: 1; }
 .house-leader .hl-path { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 70%, transparent)); stroke-dasharray: 2000; stroke-dashoffset: 2000; }
