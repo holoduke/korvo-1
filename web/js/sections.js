@@ -88,11 +88,7 @@
       track.style.transform = `translate3d(${x}px,0,0)`;
     };
     if (!animate) return place(to);
-    document.body.classList.add("gliding"); /* the pages step back a little while they move */
-    glide = Util.glide(trackX, to, SNAP_MS, place, () => {
-      glide = null;
-      document.body.classList.remove("gliding");
-    }, velocity);
+    glide = Util.glide(trackX, to, SNAP_MS, place, () => (glide = null), velocity);
   }
   /* Whether the track is gliding into place (diag.js reports it). */
   Panel.sectionGliding = () => !!glide;
