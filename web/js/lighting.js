@@ -101,7 +101,9 @@
     const full = fullLabel(id);
     if (!room) return full;
     const rest = full.slice(room.length).trim();
-    return full.toLowerCase().startsWith(room.toLowerCase() + " ") && rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : full;
+    if (!full.toLowerCase().startsWith(room.toLowerCase() + " ") || !rest) return full;
+    /* a bare number says nothing on its own: "Zitk. achter 3" is "Lamp 3" there */
+    return /^\d+$/.test(rest) ? `Lamp ${rest}` : rest.charAt(0).toUpperCase() + rest.slice(1);
   };
   function fullLabel(id) {
     if (names.has(id)) return names.get(id);

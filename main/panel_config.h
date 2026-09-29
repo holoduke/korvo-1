@@ -102,12 +102,17 @@ static const panel_entity_t TAB_THUIS_DEVICES[] = {
     { "light.lamp_keuken_muur_1",            "Keuken muur 1" },
     { "light.lamp_keuken_muur_2",            "Keuken muur 2" },
     { "light.lamp_keuken_muur_3",            "Keuken muur 3" },
-    { "light.lamp_zitkamer_1",               "Zitkamer lamp" },
-    { "light.lamp_zitkamer_achter_1",        "Zitk. achter 1" },
-    { "light.lamp_zitkamer_achter_2",        "Zitk. achter 2" },
-    { "light.lamp_zitkamer_achter_3",        "Zitk. achter 3" },
-    { "light.lamp_zitkamer_achter_muur_1",   "Zitk. muur 1" },
-    { "light.lamp_zitkamer_achter_muur_2",   "Zitk. muur 2" },
+    /* The back sitting room, as HA's area "Achter zitkamer" has it (2026-09-29):
+     * the two ceiling lamps (once lamp_zitkamer_voor_1/2), three wall lamps,
+     * the standing lamp (once _achter_2), and the Hue and globe lamps. */
+    { "light.lamp_zitkamer_achter_plafond_1", "Zitk. achter plafond 1" },
+    { "light.lamp_zitkamer_achter_plafond_2", "Zitk. achter plafond 2" },
+    { "light.lamp_zitkamer_achter_muur_1",   "Zitk. achter muur 1" },
+    { "light.lamp_zitkamer_achter_muur_2",   "Zitk. achter muur 2" },
+    { "light.lamp_zitkamer_achter_muur_3",   "Zitk. achter muur 3" },
+    { "light.lamp_zitkamer_achter_staand_1", "Zitk. achter staande lamp" },
+    { "light.lamp_zitkamer_1",               "Zitk. achter Hue lamp" },
+    { "light.lamp_zitkamer_achter_3",        "Zitk. achter bollamp" },
     { "light.lamp_playroom_1",               "Gameroom plafond" },
     { "light.lamp_playroom_muur_1",          "Gameroom muur 1" },
     { "light.lamp_playroom_muur_2",          "Gameroom muur 2" },
@@ -479,8 +484,8 @@ typedef struct {
 static const panel_area_t PANEL_AREAS[] = {
     { "Beneden", "Keuken", "light.lamp_keuken_plafond_1 light.lamp_keuken_plafond_2 light.lamp_keuken_plafond_3 light.lamp_keuken_plafond_4 light.lamp_keuken_plafond_5 light.lamp_keuken_plafond_6 light.lamp_keuken_plafond_7 light.lamp_keuken_muur_1 light.lamp_keuken_muur_2 light.lamp_keuken_muur_3" },
     { "Beneden", "Eetkamer", "light.lamp_keuken_eettafel_1" },
-    { "Beneden", "Zitkamer", "light.lamp_zitkamer_voor_1 light.lamp_zitkamer_voor_2 light.lamp_zitkamer_1 light.lamp_grond_1 light.lamp_woonkamer_kubus_1 light.lamp_valerie_rieten_1" },
-    { "Beneden", "Zitk. achter", "light.lamp_zitkamer_achter_1 light.lamp_zitkamer_achter_2 light.lamp_zitkamer_achter_3 light.lamp_zitkamer_achter_muur_1 light.lamp_zitkamer_achter_muur_2" },
+    { "Beneden", "Zitkamer", "light.lamp_grond_1 light.lamp_woonkamer_kubus_1 light.lamp_valerie_rieten_1" },
+    { "Beneden", "Zitk. achter", "light.lamp_zitkamer_achter_plafond_1 light.lamp_zitkamer_achter_plafond_2 light.lamp_zitkamer_achter_muur_1 light.lamp_zitkamer_achter_muur_2 light.lamp_zitkamer_achter_muur_3 light.lamp_zitkamer_achter_staand_1 light.lamp_zitkamer_1 light.lamp_zitkamer_achter_3" },
     { "Beneden", "Gameroom", "light.lamp_playroom_1 light.lamp_playroom_led_1 light.lamp_playroom_muur_1 light.lamp_playroom_muur_2 light.lamp_playroom_muur_3" },
     { "Beneden", "Gang", "light.lamp_gang_plafond_1 light.lamp_gang_plafond_2 light.lamp_gang_plafond_3 light.lamp_gang_deur_1 light.lamp_gang_trap_beneden_1 light.lamp_wc_beneden_1" },
     { "Beneden", "Buiten", "light.lamp_buiten_1" },
@@ -499,7 +504,10 @@ static const panel_area_t PANEL_AREAS[] = {
 
 /* Scenes of one room, in the web app only (the panel's firmware keeps its
  * tabs' scenes). They join their floor's scenes under the room's name, and a
- * room chosen in the bottom row shows just its own. A row naming one of the
+ * room chosen in the bottom row shows just its own. HA's "voorkamer" scenes
+ * set the back sitting room's ceiling lamps and Hue lamp (the ceiling lamps
+ * were lamp_zitkamer_voor_1/2 until 2026-09-29), so they are Zitk. achter's.
+ * A row naming one of the
  * floor's own scenes moves that scene into the room, under this label (the
  * bedroom's, which the firmware shows as the tab's chips). Downstairs the gameroom
  * and the front sitting room (HA's "voorkamer" scenes) have their own, beside
@@ -524,13 +532,13 @@ static const panel_area_scene_t PANEL_AREA_SCENES[] = {
     { "Beneden", "Gameroom",       "scene.gameroom_party",           "Party",         0,        0,        NULL },
     { "Beneden", "Gameroom",       "scene.gameroom_neon",            "Neon",          0,        0,        NULL },
     { "Beneden", "Gameroom",       "scene.gameroom_uit",             "Uit",           0,        0,        NULL },
-    { "Beneden", "Zitkamer",       "scene.voorkamer_vol_aan",        "Vol aan",       0,        0,        NULL },
-    { "Beneden", "Zitkamer",       "scene.voorkamer_helder_warm",    "Helder warm",   0,        0,        NULL },
-    { "Beneden", "Zitkamer",       "scene.voorkamer_gezellig",       "Gezellig",      0,        0,        NULL },
-    { "Beneden", "Zitkamer",       "scene.voorkamer_lezen",          "Lezen",         0,        0,        NULL },
-    { "Beneden", "Zitkamer",       "scene.voorkamer_film",           "Film",          0,        0,        NULL },
-    { "Beneden", "Zitkamer",       "scene.voorkamer_kaarslicht",     "Kaarslicht",    0,        0,        NULL },
-    { "Beneden", "Zitkamer",       "scene.voorkamer_uit",            "Uit",           0,        0,        NULL },
+    { "Beneden", "Zitk. achter",   "scene.voorkamer_vol_aan",        "Vol aan",       0,        0,        NULL },
+    { "Beneden", "Zitk. achter",   "scene.voorkamer_helder_warm",    "Helder warm",   0,        0,        NULL },
+    { "Beneden", "Zitk. achter",   "scene.voorkamer_gezellig",       "Gezellig",      0,        0,        NULL },
+    { "Beneden", "Zitk. achter",   "scene.voorkamer_lezen",          "Lezen",         0,        0,        NULL },
+    { "Beneden", "Zitk. achter",   "scene.voorkamer_film",           "Film",          0,        0,        NULL },
+    { "Beneden", "Zitk. achter",   "scene.voorkamer_kaarslicht",     "Kaarslicht",    0,        0,        NULL },
+    { "Beneden", "Zitk. achter",   "scene.voorkamer_uit",            "Uit",           0,        0,        NULL },
     { "Boven",   "Gillis en Ilse", "scene.slaapkamer_aan",           "Aan",           0,        0,        NULL },
     { "Boven",   "Gillis en Ilse", "scene.slaapkamer_aan_fel",       "Fel",           0,        0,        NULL },
     { "Boven",   "Gillis en Ilse", "scene.slaapkamer_uit",           "Uit",           0,        0,        NULL },

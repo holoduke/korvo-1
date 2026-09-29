@@ -107,37 +107,37 @@ window.PANEL_CONFIG = {
         {
           "id": "scene.voorkamer_vol_aan",
           "label": "Vol aan",
-          "area": "Zitkamer"
+          "area": "Zitk. achter"
         },
         {
           "id": "scene.voorkamer_helder_warm",
           "label": "Helder warm",
-          "area": "Zitkamer"
+          "area": "Zitk. achter"
         },
         {
           "id": "scene.voorkamer_gezellig",
           "label": "Gezellig",
-          "area": "Zitkamer"
+          "area": "Zitk. achter"
         },
         {
           "id": "scene.voorkamer_lezen",
           "label": "Lezen",
-          "area": "Zitkamer"
+          "area": "Zitk. achter"
         },
         {
           "id": "scene.voorkamer_film",
           "label": "Film",
-          "area": "Zitkamer"
+          "area": "Zitk. achter"
         },
         {
           "id": "scene.voorkamer_kaarslicht",
           "label": "Kaarslicht",
-          "area": "Zitkamer"
+          "area": "Zitk. achter"
         },
         {
           "id": "scene.voorkamer_uit",
           "label": "Uit",
-          "area": "Zitkamer"
+          "area": "Zitk. achter"
         }
       ],
       "devices": [
@@ -182,28 +182,36 @@ window.PANEL_CONFIG = {
           "label": "Keuken muur 3"
         },
         {
-          "id": "light.lamp_zitkamer_1",
-          "label": "Zitkamer lamp"
+          "id": "light.lamp_zitkamer_achter_plafond_1",
+          "label": "Zitk. achter plafond 1"
         },
         {
-          "id": "light.lamp_zitkamer_achter_1",
-          "label": "Zitk. achter 1"
-        },
-        {
-          "id": "light.lamp_zitkamer_achter_2",
-          "label": "Zitk. achter 2"
-        },
-        {
-          "id": "light.lamp_zitkamer_achter_3",
-          "label": "Zitk. achter 3"
+          "id": "light.lamp_zitkamer_achter_plafond_2",
+          "label": "Zitk. achter plafond 2"
         },
         {
           "id": "light.lamp_zitkamer_achter_muur_1",
-          "label": "Zitk. muur 1"
+          "label": "Zitk. achter muur 1"
         },
         {
           "id": "light.lamp_zitkamer_achter_muur_2",
-          "label": "Zitk. muur 2"
+          "label": "Zitk. achter muur 2"
+        },
+        {
+          "id": "light.lamp_zitkamer_achter_muur_3",
+          "label": "Zitk. achter muur 3"
+        },
+        {
+          "id": "light.lamp_zitkamer_achter_staand_1",
+          "label": "Zitk. achter staande lamp"
+        },
+        {
+          "id": "light.lamp_zitkamer_1",
+          "label": "Zitk. achter Hue lamp"
+        },
+        {
+          "id": "light.lamp_zitkamer_achter_3",
+          "label": "Zitk. achter bollamp"
         },
         {
           "id": "light.lamp_playroom_1",
@@ -312,9 +320,6 @@ window.PANEL_CONFIG = {
         {
           "label": "Zitkamer",
           "lights": [
-            "light.lamp_zitkamer_voor_1",
-            "light.lamp_zitkamer_voor_2",
-            "light.lamp_zitkamer_1",
             "light.lamp_grond_1",
             "light.lamp_woonkamer_kubus_1",
             "light.lamp_valerie_rieten_1"
@@ -323,11 +328,14 @@ window.PANEL_CONFIG = {
         {
           "label": "Zitk. achter",
           "lights": [
-            "light.lamp_zitkamer_achter_1",
-            "light.lamp_zitkamer_achter_2",
-            "light.lamp_zitkamer_achter_3",
+            "light.lamp_zitkamer_achter_plafond_1",
+            "light.lamp_zitkamer_achter_plafond_2",
             "light.lamp_zitkamer_achter_muur_1",
-            "light.lamp_zitkamer_achter_muur_2"
+            "light.lamp_zitkamer_achter_muur_2",
+            "light.lamp_zitkamer_achter_muur_3",
+            "light.lamp_zitkamer_achter_staand_1",
+            "light.lamp_zitkamer_1",
+            "light.lamp_zitkamer_achter_3"
           ]
         },
         {
