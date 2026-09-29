@@ -444,6 +444,7 @@
     }
 
     const savedScenes = new Map(); /* scene id -> config saved from the panel */
+    let doorRun = 0; /* the door's run under way (its arrival) */
     /* A scene's stored states: one saved from the panel, else every lamp of its tab (or room). */
     function storedScene(sceneEntityId) {
       if (savedScenes.has(sceneEntityId)) return savedScenes.get(sceneEntityId);
@@ -603,17 +604,26 @@
           change(applEntities);
           return returnResponse ? { response: {} } : null;
         }
-        /* A door: it moves for a moment, then reports where it ended up. */
+        /* A door, as the garagedeur package reports it: it moves for a moment,
+         * then reports where it ended up (0 closed, 20 op kier, 100 open); a
+         * stop on the way cancels the run and leaves it halfway (50). */
         const door = (cfg.covers || []).find((c) => ids.includes(c.entities.cover) || (c.entities.vent && ids.includes(c.entities.vent)));
         if (door) {
           const id = door.entities.cover;
           const t = Date.now();
           const a = (states.get(id) || {}).attributes || {};
+          const moving = ["opening", "closing"].includes((states.get(id) || {}).state);
           const put = (state, pos, at) => (set(id, state, { ...a, current_position: pos }, at), change([id]));
-          if (domain === "cover" && service === "stop_cover") put(a.current_position > 0 && a.current_position < 100 ? "open" : (states.get(id) || {}).state === "opening" ? "open" : "closed", a.current_position === 100 ? 100 : a.current_position === 0 ? 0 : a.current_position, t);
-          else if (domain === "cover" && service === "open_cover") (put("opening", a.current_position, t), setTimeout(() => put("open", 100, Date.now()), 2500));
-          else if (domain === "cover" && service === "close_cover") (put("closing", a.current_position, t), setTimeout(() => put("closed", 0, Date.now()), 2500));
-          else if (domain === "button" && ids.includes(door.entities.vent)) (set(door.entities.vent, new Date(t).toISOString(), {}, t), put("opening", a.current_position, t), setTimeout(() => put("open", 20, Date.now()), 1500));
+          const run = (state, pos, endState, endPos, ms) => {
+            clearTimeout(doorRun);
+            put(state, pos, t);
+            doorRun = setTimeout(() => put(endState, endPos, Date.now()), ms);
+          };
+          if (domain === "cover" && service === "stop_cover") {
+            if (moving) (clearTimeout(doorRun), put("open", 50, t));
+          } else if (domain === "cover" && service === "open_cover") run("opening", a.current_position, "open", 100, 2500);
+          else if (domain === "cover" && service === "close_cover") run("closing", a.current_position, "closed", 0, 2500);
+          else if (domain === "button" && ids.includes(door.entities.vent)) (set(door.entities.vent, new Date(t).toISOString(), {}, t), run("opening", a.current_position, "open", 20, 1500));
           return returnResponse ? { response: {} } : null;
         }
         /* Car commands (before the vacuum branch, which also takes buttons). */
