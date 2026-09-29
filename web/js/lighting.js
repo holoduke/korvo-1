@@ -478,10 +478,13 @@
         await Promise.all(
           t.scenes.map(async (sc) => {
             let entities = null;
-            try {
-              entities = ((await Panel.client.sceneConfig(sc.id)) || {}).entities || null;
-            } catch (e) {
-              entities = null;
+            /* a scene the config gives a swatch is a YAML scene: HA's config API has none to give */
+            if (!sc.swatch) {
+              try {
+                entities = ((await Panel.client.sceneConfig(sc.id)) || {}).entities || null;
+              } catch (e) {
+                entities = null;
+              }
             }
             if (entities) sceneStates.set(sc.id, entities);
             const lit = entities
