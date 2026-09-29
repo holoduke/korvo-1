@@ -48,7 +48,7 @@ window.HOUSE_PLAN = {
       { name: "Gang", presence: "Gang beneden", x: 0, z: 3.6, w: 5.6, d: 3.45 },
       /* One open space: no outline of their own, their walls are in walls. */
       { name: "Keuken", climate: "Keuken", x: 0, z: 7.05, w: 5.6, d: 3.45, outline: false },
-      { name: "Eetkamer", climate: "Keuken", areas: ["Eetkamer", "Zitkamer"], x: 0, z: 10.5, w: 5.6, d: 4.4, outline: false },
+      { name: "Eetkamer", climate: "Keuken", x: 0, z: 10.5, w: 5.6, d: 4.4, outline: false },
       { name: "Garage", climate: "Garage", presence: "Garage", tab: "Garage", x: 5.6, z: 4.95, w: 3.75, d: 7.75 },
       /* The garage block's part behind the garage wall, open to the big room:
        * the back sitting room (the Gameroom's lamps are in here too). */

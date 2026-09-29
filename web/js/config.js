@@ -103,52 +103,9 @@ window.PANEL_CONFIG = {
           "id": "scene.gameroom_uit",
           "label": "Uit",
           "area": "Gameroom"
-        },
-        {
-          "id": "scene.voorkamer_vol_aan",
-          "label": "Vol aan",
-          "area": "Zitk. achter"
-        },
-        {
-          "id": "scene.voorkamer_helder_warm",
-          "label": "Helder warm",
-          "area": "Zitk. achter"
-        },
-        {
-          "id": "scene.voorkamer_gezellig",
-          "label": "Gezellig",
-          "area": "Zitk. achter"
-        },
-        {
-          "id": "scene.voorkamer_lezen",
-          "label": "Lezen",
-          "area": "Zitk. achter"
-        },
-        {
-          "id": "scene.voorkamer_film",
-          "label": "Film",
-          "area": "Zitk. achter"
-        },
-        {
-          "id": "scene.voorkamer_kaarslicht",
-          "label": "Kaarslicht",
-          "area": "Zitk. achter"
-        },
-        {
-          "id": "scene.voorkamer_uit",
-          "label": "Uit",
-          "area": "Zitk. achter"
         }
       ],
       "devices": [
-        {
-          "id": "light.lamp_woonkamer_kubus_1",
-          "label": "Kubus"
-        },
-        {
-          "id": "light.lamp_valerie_rieten_1",
-          "label": "Rieten"
-        },
         {
           "id": "light.lamp_woonkamer_plafond_tv_2",
           "label": "Plafond TV 2"
@@ -159,7 +116,7 @@ window.PANEL_CONFIG = {
         },
         {
           "id": "light.lamp_grond_1",
-          "label": "Grond"
+          "label": "Gameroom grondlamp"
         },
         {
           "id": "light.lamp_keuken_eettafel_1",
@@ -204,10 +161,6 @@ window.PANEL_CONFIG = {
         {
           "id": "light.lamp_zitkamer_achter_staand_1",
           "label": "Zitk. achter staande lamp"
-        },
-        {
-          "id": "light.lamp_zitkamer_1",
-          "label": "Zitk. achter Hue lamp"
         },
         {
           "id": "light.lamp_zitkamer_achter_3",
@@ -318,14 +271,6 @@ window.PANEL_CONFIG = {
           ]
         },
         {
-          "label": "Zitkamer",
-          "lights": [
-            "light.lamp_grond_1",
-            "light.lamp_woonkamer_kubus_1",
-            "light.lamp_valerie_rieten_1"
-          ]
-        },
-        {
           "label": "Zitk. achter",
           "lights": [
             "light.lamp_zitkamer_achter_plafond_1",
@@ -334,7 +279,6 @@ window.PANEL_CONFIG = {
             "light.lamp_zitkamer_achter_muur_2",
             "light.lamp_zitkamer_achter_muur_3",
             "light.lamp_zitkamer_achter_staand_1",
-            "light.lamp_zitkamer_1",
             "light.lamp_zitkamer_achter_3"
           ]
         },
@@ -345,7 +289,8 @@ window.PANEL_CONFIG = {
             "light.lamp_playroom_led_1",
             "light.lamp_playroom_muur_1",
             "light.lamp_playroom_muur_2",
-            "light.lamp_playroom_muur_3"
+            "light.lamp_playroom_muur_3",
+            "light.lamp_grond_1"
           ]
         },
         {
