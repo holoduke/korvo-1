@@ -220,6 +220,73 @@ body.saver-house .hud-watch { display: flex; }
 .hi-actions { display: flex; gap: 8px; }
 .hi-actions .ap-btn { flex: 1; min-height: 42px; }
 
+/* The ground floor's thermostat beside the house (left, halfway down; the
+ * garage door has the right): now, the target to turn up or down, and what
+ * the heat pump is doing. Glass like the door's; warm while it heats. */
+.house-heat {
+  /* a little above the middle: clear of the ask bar across the bottom */
+  position: absolute; left: 18px; top: calc(50% - 36px); transform: translateY(-50%); width: 168px; z-index: 3;
+  display: flex; flex-direction: column; gap: 8px; padding: 12px;
+  background: color-mix(in srgb, var(--tile) 82%, transparent); backdrop-filter: blur(12px);
+  border-radius: calc(14px * var(--round));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 12px 40px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.6s, box-shadow 0.4s;
+}
+.house-heat::before { content: ""; position: absolute; right: -1px; top: 18px; width: 2px; height: 16px; background: var(--accent); }
+.house-heat.warm { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 70%, transparent), 0 0 26px color-mix(in srgb, var(--warn) 30%, transparent), 0 12px 40px rgba(0, 0, 0, 0.35); }
+.hh-title {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text);
+}
+.hh-title .ic { width: 16px; height: 16px; color: var(--accent); flex: none; }
+.house-heat.warm .hh-title .ic { color: var(--warn); }
+.hh-now { display: flex; align-items: baseline; gap: 6px; }
+.hh-now b { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hh-now span, .hh-target span { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.hh-set { display: flex; align-items: center; gap: 6px; }
+.hh-btn { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: calc(10px * var(--round)); background: var(--tile_off); color: var(--text); transition: transform 0.12s, opacity 0.2s; }
+.hh-btn .ic { width: 18px; height: 18px; }
+.hh-btn:active { transform: scale(0.92); }
+.hh-btn:disabled { opacity: 0.35; }
+.hh-target { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.hh-target b { font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; transition: color 0.2s; }
+.pending .hh-target b { color: var(--warn); }
+.hh-state {
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text_dim); text-align: center;
+}
+.house-heat.warm .hh-state { color: var(--warn); }
+body.saver-house .house-heat { opacity: 0; pointer-events: none; }
+/* A phone: a slim column on the left, the door's mirror — now, the target between its buttons, the state. */
+@media (max-width: 700px) {
+  .house-heat { left: 10px; top: 50%; width: 64px; padding: 10px 6px; gap: 6px; align-items: stretch; }
+  .house-heat::before { top: 14px; }
+  .hh-title { justify-content: center; }
+  .hh-title span { display: none; }
+  .hh-title .ic { width: 18px; height: 18px; }
+  .hh-now { flex-direction: column; align-items: center; gap: 0; }
+  .hh-now b { font-size: 16px; }
+  .hh-now span { font-size: 9px; }
+  .hh-set { flex-direction: column-reverse; gap: 6px; }
+  .hh-btn { width: 52px; height: 44px; }
+  .hh-target b { font-size: 17px; }
+  .hh-target span { font-size: 9px; }
+  .hh-state { font-size: 9px; letter-spacing: 0.04em; line-height: 1.2; }
+}
+
+/* The heating row in a ground-floor room's panel. */
+.hi-heat-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: calc(12px * var(--round)); background: var(--tile_off); }
+.hi-heat-row > .ic { width: 20px; height: 20px; color: var(--accent); flex: none; }
+.hi-heat-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.hi-heat-text b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hi-heat-text span { font-size: 12px; font-weight: 600; line-height: 1.25; color: var(--text_dim); }
+.hi-heat-row .hh-btn { width: 36px; height: 36px; }
+.hi-heat-row .hh-target { flex: 0 0 auto; min-width: 46px; }
+.hi-heat-row .hh-target b { font-size: 17px; }
+.hi-heat-slot { flex: none; }
+.hi-heat-slot:empty { display: none; }
+
 /* The garage door beside the house (right, halfway down): a drawn door whose
  * shutter stands where the real one does and rolls while it moves, the
  * state under it, the buttons. Hidden while a room's panel is there. */

@@ -250,6 +250,8 @@
     list.flatMap((a) => Object.values(a.entities)),
     shown
   );
+  /* The room setpoint while it waits to be sent (heating.js). */
+  Panel.on("heating", shown);
   /* Time left moves on its own (the washer reports a finish time). */
   Panel.everyAwake(30000, shown);
 })();

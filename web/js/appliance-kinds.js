@@ -63,7 +63,8 @@
   const hpStep = (i, key, e, label, unit, digits) => {
     if (!s(e[key])) return "";
     const at = attrs(e[key]);
-    const v = num(e[key]);
+    /* the room setpoint goes through the heating (heating.js): one write for a run of taps */
+    const v = key === "roomHeat" && Panel.heating ? Panel.heating.target() : num(e[key]);
     return field(label, stepper(i, `num|${key}`, known(v) ? `${fmt(v, digits)}${unit}` : "--", {
       canDown: known(v) && v > (at.min ?? -100),
       canUp: known(v) && v < (at.max ?? 100),
@@ -157,6 +158,7 @@
       toggle,
       pick: (a, [key, ...option], call) => call("select", "select_option", { option: option.join("|") }, a.entities[key]),
       num: (a, [key, dir], call) => {
+        if (key === "roomHeat" && Panel.heating) return Panel.heating.step(Number(dir));
         const id = a.entities[key];
         const at = attrs(id);
         const cur = num(id);

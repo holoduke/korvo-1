@@ -20,6 +20,7 @@
     `<aside class="house-info" hidden>` +
     `<div class="hi-head"><div class="hi-title" data-hi-title></div><button class="hi-close" data-hi-climate aria-label="Klimaat" hidden>${icon("thermometer")}</button><button class="hi-close" data-hi-close aria-label="Sluiten">${icon("close")}</button></div>` +
     `<div class="hi-facts" data-hi-facts></div>` +
+    `<div class="hi-heat-slot" data-hi-heat></div>` +
     `<div class="hi-scenes" data-hi-scenes hidden></div>` +
     `<div class="hi-lamps" data-hi-lamps></div>` +
     `<div class="hi-cover" data-hi-cover hidden></div>` +
@@ -37,6 +38,11 @@
     $q("[data-hi-lamps]").hidden = !!current.door;
     $q("[data-hi-lamps]").innerHTML = current.door ? "" : lights.length ? lights.map((id) => Panel.lightTile(id, current.name)).join("") : `<div class="hi-empty">Geen lampen in deze kamer</div>`;
     lights.forEach(Panel.renderLight); /* the tiles then follow their lamps on their own */
+    /* downstairs (the heat pump's floor): the heating's target, to turn up or down here */
+    const heat = $q("[data-hi-heat]");
+    const heated = Panel.heating && Panel.heating.heats(current) && Panel.heating.available();
+    heat.innerHTML = heated ? Panel.heating.rowHtml() : "";
+    if (heated) Panel.heating.fill(heat);
     const scenes = current.door ? [] : current.scenes || [];
     const row = $q("[data-hi-scenes]");
     row.hidden = !scenes.length;
@@ -143,6 +149,11 @@
       const lamp = e.target.closest("[data-lamp]");
       if (power) Panel.toggleLight(power.dataset.power);
       else if (lamp) Panel.openLightPopup(lamp.dataset.lamp);
+    });
+    $q("[data-hi-heat]").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-heat-step]");
+      if (!b || b.disabled || performance.now() - openedAt < 500) return;
+      Panel.heating.step(+b.dataset.heatStep);
     });
     $q("[data-hi-scenes]").addEventListener("click", (e) => {
       const b = e.target.closest("[data-scene]");
