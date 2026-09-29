@@ -84,3 +84,9 @@ body.chrome-anim #header, body.chrome-anim #tabbar { min-height: 0; height: 100%
 body.saver-house #header, body.saver-house #tabbar { opacity: 0; }
 /* The header's own padding (phones) and border would keep a sliver: they go too. */
 body.saver-house #header { padding-top: 0; padding-bottom: 0; border-bottom-width: 0; }
+/* Coming back: the rows take their height in one step (no transition on the
+ * rows or the header's padding), then the header and tabs fade and slide in. */
+body.chrome-snap #app, body.chrome-snap #header, body.chrome-snap #tabbar { transition: none; }
+body.chrome-in #header, body.chrome-in #tabbar { animation: chrome-in 0.28s var(--ease-out) both; }
+@keyframes chrome-in { from { opacity: 0; transform: translate3d(0, -12px, 0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { body.chrome-in #header, body.chrome-in #tabbar { animation: none; } }

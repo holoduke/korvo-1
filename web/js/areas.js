@@ -32,11 +32,12 @@
     chosen.set(fi, ai);
     const row = document.querySelector(`[data-floor-row="${fi}"]`);
     row.querySelectorAll("[data-area]").forEach((c) => c.classList.toggle("active", +c.dataset.area === ai));
+    /* The same room again (a hash applied on return from the screensaver)
+     * leaves the lists as they are: their tiles and where they were scrolled. */
+    if (!changed) return;
     Panel.renderLamps(fi, Panel.areaOf(fi));
-    if (changed) {
-      Panel.emit("area", fi);
-      Panel.emit("route");
-    }
+    Panel.emit("area", fi);
+    Panel.emit("route");
   };
   Panel.setAreaBySlug = (fi, slug) => Panel.setArea(fi, slug ? areasOf(fi).findIndex((a) => Util.slug(a.label) === slug) : -1);
 

@@ -51,20 +51,35 @@
   });
 
   /* The track moves frame by frame, under the finger and when it glides into
-   * place (Util.glide; see there why not a CSS transition). */
+   * place (Util.glide; see there why not a CSS transition), in pixels. At rest
+   * it stands in floors, as a percentage of its own height (the view's): when
+   * the view's height changes (the header and tabs sliding back after the
+   * screensaver, a rotation, a toolbar) the floor stays exactly in view
+   * instead of drifting until a resize event puts it back. */
   const SNAP_MS = 320;
-  let trackY = 0;
+  let trackY = 0; /* px, while it moves */
+  let restPos = 0; /* the floor it stands at, or null while it moves */
   let glide = null;
+  function rest(pos) {
+    restPos = pos;
+    track.style.transform = `translate3d(0,${-pos * 100}%,0)`;
+  }
   function setTrack(pos, offPx, animate, velocity) {
     const to = -pos * view.clientHeight + offPx;
+    /* from where it is now, at the view's present height */
+    const from = restPos !== null ? -restPos * view.clientHeight : trackY;
     if (glide) glide.cancel();
     glide = null;
     const place = (y) => {
       trackY = y;
+      restPos = null;
       track.style.transform = `translate3d(0,${y}px,0)`;
     };
-    if (!animate) return place(to);
-    glide = Util.glide(trackY, to, SNAP_MS, place, () => (glide = null), velocity);
+    if (!animate) return offPx ? place(to) : rest(pos);
+    glide = Util.glide(from, to, SNAP_MS, place, () => {
+      glide = null;
+      if (!offPx) rest(pos);
+    }, velocity);
   }
   const gliding = () => !!glide;
 

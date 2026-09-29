@@ -124,10 +124,25 @@
       dispatch(ids);
     }
   };
-  /* A repeating job that rests while the panel sleeps and runs once on waking. */
+  /* A repeating job that rests while the panel sleeps. On waking it runs only
+   * when it is due (its interval passed during the sleep), and not in the
+   * frames that bring the app back: after WAKE_SETTLE_MS, the jobs one after
+   * another rather than all fetching and redrawing at once. */
+  const WAKE_SETTLE_MS = 700;
+  const WAKE_STAGGER_MS = 250;
+  let wakeSlot = 0;
+  bus.on("sleep", (on) => !on && (wakeSlot = 0));
   Panel.everyAwake = function (ms, fn) {
-    setInterval(() => !sleeping && fn(), ms);
-    bus.on("sleep", (on) => !on && fn());
+    let last = 0;
+    const run = () => {
+      last = Date.now();
+      fn();
+    };
+    setInterval(() => !sleeping && run(), ms);
+    bus.on("sleep", (on) => {
+      if (on || Date.now() - last < ms) return;
+      setTimeout(() => !sleeping && Date.now() - last >= ms && run(), WAKE_SETTLE_MS + wakeSlot++ * WAKE_STAGGER_MS);
+    });
   };
   function dispatch(changed) {
     const first = !loaded;

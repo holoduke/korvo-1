@@ -48,7 +48,8 @@
     }
     document.querySelectorAll("[data-light] .t-name").forEach((el) => {
       const tile = el.closest("[data-light]");
-      el.textContent = Panel.lightLabel(tile.dataset.light, tile.dataset.room);
+      const name = Panel.lightLabel(tile.dataset.light, tile.dataset.room);
+      if (el.textContent !== name) el.textContent = name;
     });
   }
   Panel.on("loaded", loadNames);
@@ -151,7 +152,8 @@
         ic.innerHTML = icon(want);
       }
       const sub = el.querySelector(".t-sub");
-      if (sub) sub.textContent = !s && !loaded ? "..." : un ? "niet beschikbaar" : on ? "aan" : "uit";
+      const text = !s && !loaded ? "..." : un ? "niet beschikbaar" : on ? "aan" : "uit";
+      if (sub && sub.textContent !== text) sub.textContent = text; /* unchanged text: no relayout */
       /* The power button fills with the lamp's colour; its icon goes dark on a light colour. */
       if (ic.classList.contains("t-power")) {
         const c = !un && on ? Panel.lightColour(id) : null;

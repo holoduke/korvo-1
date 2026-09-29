@@ -59,7 +59,7 @@
    * tab bar slide away, and back at the first touch, key or mouse move. Their
    * grid rows animate between their measured height and nothing (an "auto" row
    * cannot animate), with the rows' content clipped and fading meanwhile. */
-  const CHROME_MS = 600;
+  const CHROME_IN_MS = 280; /* coming back (saver.css chrome-in); sliding away takes the rows' 0.6 s */
   const app = $("app");
   let houseSaver = false;
   let before = ""; /* where the app was (its URL hash) when the house took over */
@@ -71,8 +71,9 @@
       app.style.setProperty("--hdr-row", hdr + "px");
       app.style.setProperty("--tab-row", tab + "px");
     };
-    document.body.classList.add("chrome-anim");
     if (!show) {
+      document.body.classList.remove("chrome-in");
+      document.body.classList.add("chrome-anim");
       natural = { hdr: $("header").offsetHeight, tab: $("tabbar").offsetHeight };
       rows(natural.hdr, natural.tab);
       void app.offsetHeight; /* the rows start from their measured height */
@@ -81,18 +82,24 @@
       if (Panel.house) Panel.house.setOrbitScale(0.45); /* slower on its own, all evening */
       return;
     }
-    document.body.classList.remove("saver-house");
+    /* Back in one step, not by animating the rows: a stage whose height changes
+     * frame by frame for 0.6 s makes every list on it reflow and shift under
+     * the eye. The rows take their own height at once (no transition), and the
+     * header and tabs only fade and slide in, which the compositor does alone. */
+    document.body.classList.remove("chrome-anim", "saver-house");
+    document.body.classList.add("chrome-snap");
     if (Panel.house) Panel.house.setOrbitScale(1);
-    rows(natural.hdr, natural.tab);
-    chromeTimer = setTimeout(() => {
-      app.style.removeProperty("--hdr-row");
-      app.style.removeProperty("--tab-row");
-      document.body.classList.remove("chrome-anim");
-      /* The stage is shorter again: the sections and floors place themselves
-       * for it, as after a resize (a floor set while the rows were away sat
-       * half out of view). */
-      window.dispatchEvent(new Event("resize"));
-    }, CHROME_MS + 50);
+    app.style.removeProperty("--hdr-row");
+    app.style.removeProperty("--tab-row");
+    void app.offsetHeight; /* the final layout, before the transition comes back */
+    document.body.classList.remove("chrome-snap");
+    document.body.classList.remove("chrome-in");
+    void $("header").offsetWidth; /* restart the entrance */
+    document.body.classList.add("chrome-in");
+    chromeTimer = setTimeout(() => document.body.classList.remove("chrome-in"), CHROME_IN_MS + 50);
+    /* The stage is shorter again: the parts that measure it (the section track,
+     * the tab indicator) place themselves for it, as after a resize. */
+    window.dispatchEvent(new Event("resize"));
   }
   /* Awake: the header and tabs come back, and so does the place the app was
    * at (the section, and its floor or device) before the house took over. */
