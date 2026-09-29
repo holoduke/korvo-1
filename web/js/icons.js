@@ -75,6 +75,13 @@
     garage: '<path d="M3 10.5 12 4l9 6.5V21H3z"/><rect x="6.5" y="12.5" width="11" height="8.5"/><path d="M6.5 15.5h11M6.5 18.2h11"/>',
     refresh: '<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.8 4.4V10h-5.6"/>',
     leaf: '<path d="M5 19.5C5 11 10.5 4.5 20 4.5c0 9.5-5.8 15-14.2 15"/><path d="M5 19.5c3.2-4.4 6.6-7.6 10.6-9.8"/>',
+    wifi: '<path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.8 12.4a9.2 9.2 0 0 1 12.4 0"/><path d="M9.1 15.8a4.6 4.6 0 0 1 5.8 0"/><circle cx="12" cy="19" r=".9" fill="currentColor"/>',
+    ap: '<ellipse cx="12" cy="13" rx="8.5" ry="4.5"/><path d="M3.5 13v1.2c0 2.5 3.8 4.5 8.5 4.5s8.5-2 8.5-4.5V13"/><path d="M8.5 5.8a5 5 0 0 1 7 0"/><circle cx="12" cy="13" r=".8" fill="currentColor"/>',
+    switch: '<rect x="2.5" y="7" width="19" height="10" rx="1.8"/><path d="M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01"/>',
+    router: '<rect x="3" y="12" width="18" height="7" rx="1.8"/><path d="M7 15.5h.01M10.5 15.5h.01"/><path d="M8 12 6 5M16 12l2-7"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3z"/>',
+    cable: '<path d="M7 3v5M11 3v5"/><rect x="5" y="8" width="8" height="5" rx="1"/><path d="M9 13v3a4 4 0 0 0 4 4h2a4 4 0 0 0 4-4V9"/>',
+    shield: '<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/>',
     heatpump: '<rect x="2.5" y="4.5" width="19" height="15" rx="2"/><circle cx="8.5" cy="12" r="3.4"/><path d="M8.5 8.6V12l2.8 1.7"/><path d="M15.4 9.2c1.4.7 1.4 2 0 2.7s-1.4 2 0 2.7"/><path d="M18.4 9.2c1.4.7 1.4 2 0 2.7s-1.4 2 0 2.7"/>',
   };
   window.icon = function (name, cls) {

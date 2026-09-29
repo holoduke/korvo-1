@@ -498,6 +498,9 @@
       /* Home Assistant's energy dashboard settings: its sources, the counters
        * and prices of each (energy/get_prefs). */
       energyPrefs: () => send({ type: "energy/get_prefs" }),
+      /* The home network from the thuispaneel integration (UniFi and the
+       * internet latency, without MAC addresses); admins only. */
+      network: () => send({ type: "thuispaneel/network" }),
       /* Names an entity in the registry (empty: back to its own name); admins only. */
       renameEntity: (entityId, name) => send({ type: "config/entity_registry/update", entity_id: entityId, name: name || null }),
       /* Also follow these entities, now and after every reconnect. */

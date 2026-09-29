@@ -325,6 +325,14 @@
       set(c.entities.cover, "closed", { current_position: 0, device_class: "garage", supported_features: 11 });
       if (c.entities.vent) set(c.entities.vent, "unknown", {});
     });
+    /* The provider's router and the DNS filter of the Internet tab. */
+    const NET = (cfg.network || {}).entities || {};
+    if (NET.wan) set(NET.wan, "on", {});
+    if (NET.down) set(NET.down, "1843.2", { unit_of_measurement: "KiB/s" });
+    if (NET.up) set(NET.up, "212.6", { unit_of_measurement: "KiB/s" });
+    if (NET.dnsQueries) set(NET.dnsQueries, "88169", { unit_of_measurement: "queries" });
+    if (NET.dnsBlocked) set(NET.dnsBlocked, "6.29", { unit_of_measurement: "%" });
+    if (NET.dnsSpeed) set(NET.dnsSpeed, "1.01", { unit_of_measurement: "ms" });
     /* Sensor cards: someone in the first presence room, the first door open, a gone outdoor sensor. */
     const firstOfKind = new Set();
     (cfg.sensorCards || []).forEach((c, n) => {
@@ -810,6 +818,37 @@
         return out;
       },
       /* The energy dashboard's settings: two grid sources, one per tariff. */
+      /* The home network as the thuispaneel integration reports it: the
+       * switch and the four access points, a day of latency, ~30 devices. */
+      async network() {
+        const now = Date.now();
+        const series = [];
+        for (let k = 1440; k >= 0; k--) {
+          const t = now - k * 60e3;
+          const h = new Date(t).getHours();
+          const busy = h >= 18 && h <= 22 ? 6 : 0;
+          const drop = k === 300 || k === 301; /* a short outage this afternoon */
+          series.push([t, drop ? null : Math.round((13 + busy + 3 * Math.abs(Math.sin(k / 37)) + (k === 700 || k === 1100 ? 38 : 0)) * 10) / 10]);
+        }
+        const sw = { id: "sw1", name: "USW Pro Max 16 PoE", model: "USW Pro Max 16 PoE", type: "usw", ip: "192.168.2.20", online: true, uptime: 1209600, clients: 9, satisfaction: null, uplink: { to: "gateway", type: "wire", speed: 1000, port: 1 }, radios: [], ports: { up: 9, total: 16, poe: 61.4 } };
+        const ap = (id, name, clients, sat, load5, load2, temp) => ({ id, name, model: "U7 Pro", type: "uap", ip: `192.168.2.${30 + clients}`, online: true, uptime: 1203000, clients, satisfaction: sat, temperature: temp, uplink: { to: "sw1", type: "wire", speed: 2500, port: 3 }, radios: [{ band: "2,4 GHz", channel: 6, load: load2, clients: Math.round(clients / 3) }, { band: "5 GHz", channel: 36, load: load5, clients: clients - Math.round(clients / 3) }, { band: "6 GHz", channel: 37, load: 4, clients: 0 }], ports: null });
+        const devices = [sw, ap("ap1", "Meterkast", 9, 96, 18, 31, 47), ap("ap2", "Achterkamer", 8, 88, 34, 42, 49), ap("ap3", "Slaapkamer", 5, 97, 9, 22, 45), ap("ap4", "Voorslaapkamer", 4, 71, 12, 58, 46)];
+        const names = [["iPhone", "Apple"], ["iPad", "Apple"], ["MacBook Pro", "Apple"], ["Wandpaneel", "Espressif"], ["Sonos Beam", "Sonos"], ["Televisie", "Samsung"], ["Robotstofzuiger", "Xiaomi"], ["Printer", "Epson"], ["Nintendo Switch", "Nintendo"], ["Laptop", "Dell"], ["Wasmachine", "Samsung"], ["Vaatwasser", "BSH"], ["Warmtepomp", "NIBE"], ["Tesla", "Tesla"], ["Chromecast", "Google"], ["Deurbel", "Ring"], ["Thermostaat", "Tado"], ["Telefoon", "Samsung"], ["Smartwatch", "Apple"], ["Zigbee-coördinator", "SMLight"], ["Home Assistant", "Intel"], ["NAS", "Synology"], ["Camera tuin", "Reolink"], ["Omvormer", "Growatt"], ["Speaker keuken", "WiiM"], ["Speaker zolder", "WiiM"], ["Laptop werk", "Lenovo"], ["Tablet", "Samsung"]];
+        const wiredNames = new Set(["Home Assistant", "NAS", "Televisie", "Zigbee-coördinator", "Camera tuin"]);
+        const aps = devices.filter((d) => d.type === "uap");
+        const clients = names.map(([name, vendor], i) => {
+          const wired = wiredNames.has(name);
+          const via = wired ? sw : aps[i % aps.length];
+          const signal = -44 - ((i * 7) % 36);
+          const five = i % 3 !== 0;
+          return { id: `c${i}`, name, vendor, ip: `192.168.2.${100 + i}`, wired, device: via.id, port: wired ? 4 + (i % 10) : null, ssid: wired ? null : "Thuis", band: wired ? null : five ? "5 GHz" : "2,4 GHz", channel: wired ? null : five ? 36 : 6, signal: wired ? null : signal, satisfaction: wired ? 100 : Math.max(35, Math.min(100, 100 + (signal + 50) * 2)), rx: wired ? 1000000 : five ? 866000 - i * 12000 : 144000, tx: wired ? 1000000 : five ? 780000 : 130000, uptime: 3600 * (2 + i * 5) };
+        });
+        return {
+          configured: true, at: now / 1000, devices, clients,
+          health: { wifi_clients: clients.filter((c) => !c.wired).length, wired_clients: clients.filter((c) => c.wired).length, aps: 4, switches: 1 },
+          internet: { latency: series[series.length - 1][1], avg: 15.2, loss: 2 / 1441, series },
+        };
+      },
       async energyPrefs() {
         const m = (cfg.energy || []).find((d) => d.kind === "grid");
         if (!m) return { energy_sources: [] };

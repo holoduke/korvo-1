@@ -21,6 +21,7 @@
     ["none", "Huis"],
     ["climate", "Klimaat"],
     ["lights", "Lampen"],
+    ["net", "Netwerk"],
   ];
   const html = () =>
     `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-watch" data-hud-watch></div><div class="hud-rows" data-hud-rows></div><div class="hud-events" data-hud-events></div></div>` +
@@ -168,7 +169,7 @@
 
   /* ---- Layers -------------------------------------------------------------------- */
   const TONE_RGB = { cold: [0.4, 0.62, 1.0], ok: [0.3, 0.9, 0.5], warn: [1.0, 0.65, 0.25], bad: [1.0, 0.35, 0.3], lamp: [1.0, 0.78, 0.3] };
-  let layer = ["none", "climate", "lights"].includes(Panel.prefs.houseLayer) ? Panel.prefs.houseLayer : "climate";
+  let layer = LAYERS.some(([k]) => k === Panel.prefs.houseLayer) ? Panel.prefs.houseLayer : "climate";
   /* The inner walls (and the rooms' outlines) can go, for a clear view of the
    * shell with its windows and doors; a choice kept per tablet. */
   let innerWalls = Panel.prefs.houseWalls !== false;
@@ -210,6 +211,16 @@
       if (!on) return null;
       return { tone: "lamp", html: `<span class="hl-vals"><b class="lamp">${on} aan</b></span><span class="hl-name">${esc(r.name)}</span>`, alpha: 0.07 + 0.2 * Math.min(1, on / Math.max(3, r.lights.length)) };
     }
+    if (layer === "net") {
+      /* the access point hanging in the room: its devices, tinted by its wifi quality */
+      const ap = Panel.network && Panel.network.aps().find((a) => a.floor === r.floor && a.room === r.name);
+      if (!ap) return null;
+      return {
+        tone: ap.tone,
+        html: `<span class="hl-vals">${icon("wifi")}<b class="${ap.tone}">${ap.online ? ap.clients : "uit"}</b></span><span class="hl-name">${esc(ap.name)}${Number.isFinite(ap.quality) ? ` · ${Math.round(ap.quality)}%` : ""}</span>`,
+        alpha: 0.16,
+      };
+    }
     return null;
   }
   function renderLayer() {
@@ -235,7 +246,7 @@
       if (!v) return;
       if (house) house.tintRoom(r.floor, r.name, TONE_RGB[v.tone], v.alpha);
       /* the label: on the room that owns the reading (a shared reading only tints) */
-      if ((layer !== "lights" && labelRoom.get(r.card.label) !== r)) return;
+      if (layer === "climate" && labelRoom.get(r.card.label) !== r) return;
       const el = document.createElement("div");
       el.className = "house-label";
       el.innerHTML = v.html;
@@ -301,7 +312,24 @@
     Panel.setPref("houseLayer", k);
     renderLayer();
     startFollowing();
+    if (k === "net") showNetwork();
   }
+  /* The Netwerk layer follows the network as it is fetched (network.js). */
+  let netHinted = false;
+  function showNetwork() {
+    if (!Panel.network || !Panel.isLoaded()) return;
+    Panel.network.load().then(() => {
+      if (layer !== "net") return;
+      renderLayer();
+      startFollowing();
+      if (!Panel.network.configured() && !netHinted) {
+        netHinted = true;
+        Panel.toast("UniFi is nog niet gekoppeld: zie de tab Internet", "warn");
+      }
+    });
+  }
+  Panel.on("loaded", () => layer === "net" && showNetwork());
+  Panel.on("start", () => Panel.network && Panel.network.listen(() => layer === "net" && (renderLayer(), startFollowing())));
   Panel.defineAction("layer", (el) => setLayer(el.dataset.layer));
   /* A tap on the house opens the room under it: the room whose floor
    * rectangle (projected) holds the tap, the nearest floor when several do.

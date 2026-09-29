@@ -530,6 +530,30 @@ def parse_areas(src, tabs):
         tabs[names.index(tab)]["areas"].append({"label": label, "lights": ids})
 
 
+def parse_network(src, floors):
+    """PANEL_NETWORK and PANEL_NETWORK_APS -> {entities, aps: [{name, floor, room}]}."""
+    keys = ["wan", "down", "up", "dnsQueries", "dnsBlocked", "dnsSpeed"]
+    m = re.search(r"static const panel_network_t PANEL_NETWORK\s*=\s*\{(.*?)\};", src, re.S)
+    if not m:
+        fail("PANEL_NETWORK is missing")
+    vals = [c_string_or_null(v) for v in m.group(1).split(",") if v.strip()]
+    if len(vals) != len(keys):
+        fail(f"PANEL_NETWORK: expected {len(keys)} entries, got {len(vals)}")
+    for v in vals:
+        if v is not None and not re.fullmatch(r"(sensor|binary_sensor)\.[a-z0-9_]+", v):
+            fail(f"PANEL_NETWORK: {v!r} is not a sensor")
+    labels = [f["label"] for f in floors]
+    plan = (ROOT / "web" / "js" / "house-plan.js").read_text()
+    aps = []
+    for name, floor, room in table_rows(src, "PANEL_NETWORK_APS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}'):
+        if floor not in labels:
+            fail(f"PANEL_NETWORK_APS {name!r}: no floor {floor!r} in PANEL_FLOORS")
+        if not re.search(r'name:\s*"' + re.escape(room) + '"', plan):
+            fail(f"PANEL_NETWORK_APS {name!r}: no room {room!r} in house-plan.js")
+        aps.append({"name": name, "floor": floor, "room": room})
+    return {"entities": dict(zip(keys, vals)), "aps": aps}
+
+
 def parse_area_scenes(src, tabs):
     """PANEL_AREA_SCENES -> after its floor's own scenes in tabs[i]["scenes"],
     each with the room ("area") it belongs to, and its swatch and script if any.
@@ -575,7 +599,7 @@ def parse_layout(src, tabs):
     # Tab icon per section kind (name from web/js/icons.js). "tab" is the
     # garage lights page; adjust here if a different tab is ever added.
     section_icons = {"start": "home", "floors": "lights", "appliances": "plug", "vacuum": "vacuum",
-                     "car": "car", "sensors": "eye", "energy": "bolt", "tab": "garage"}
+                     "car": "car", "sensors": "eye", "energy": "bolt", "network": "wifi", "tab": "garage"}
     sections = []
     for name, kind, tab in table_rows(src, "PANEL_SECTIONS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}'):
         if kind not in section_icons:
@@ -670,6 +694,7 @@ def main():
         "sensorCards": parse_device_table(cfg, "PANEL_SENSOR_CARDS", SENSOR_ENTITIES),
         "covers": parse_covers(cfg, tabs),
         "energy": parse_energy(cfg),
+        "network": parse_network(cfg, floors),
         "media": media,
         "comfort": {
             "tempMin": define(cfg, "COMFORT_TEMP_MIN", "num"),

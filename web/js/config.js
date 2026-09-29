@@ -971,6 +971,12 @@ window.PANEL_CONFIG = {
       "kind": "energy",
       "icon": "bolt",
       "tab": null
+    },
+    {
+      "name": "Internet",
+      "kind": "network",
+      "icon": "wifi",
+      "tab": null
     }
   ],
   "sensors": [
@@ -1998,6 +2004,38 @@ window.PANEL_CONFIG = {
       }
     }
   ],
+  "network": {
+    "entities": {
+      "wan": "binary_sensor.internetbox_wan_status",
+      "down": "sensor.internetbox_download_speed",
+      "up": "sensor.internetbox_upload_speed",
+      "dnsQueries": "sensor.adguard_home_dns_queries",
+      "dnsBlocked": "sensor.adguard_home_dns_queries_blocked_ratio",
+      "dnsSpeed": "sensor.adguard_home_average_processing_speed"
+    },
+    "aps": [
+      {
+        "name": "Meterkast",
+        "floor": "0",
+        "room": "Gang"
+      },
+      {
+        "name": "Achterkamer",
+        "floor": "0",
+        "room": "Zitk. achter"
+      },
+      {
+        "name": "Slaapkamer",
+        "floor": "1",
+        "room": "Gillis en Ilse"
+      },
+      {
+        "name": "Voorslaapkamer",
+        "floor": "1",
+        "room": "Valerie"
+      }
+    ]
+  },
   "media": [
     {
       "id": "media_player.living_room",

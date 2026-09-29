@@ -687,6 +687,42 @@ static const panel_energy_t PANEL_ENERGY[] = {
     { "heatpump", "Warmtepomp",   "f1253_6_r_pc_em" },
 };
 
+/* The home network in the web app's Internet tab (the panel's firmware does
+ * not show it). The UniFi devices and clients come from the thuispaneel
+ * integration (ha/custom_components/thuispaneel/network.py, websocket
+ * "thuispaneel/network"); these are the Home Assistant entities beside them:
+ * the provider's router (the KPN Box, over UPnP) and the DNS filter. */
+typedef struct {
+    const char *wan;           /* binary_sensor: the internet connection is up */
+    const char *down;          /* sensor: traffic in now (a rate) */
+    const char *up;            /* sensor: traffic out now */
+    const char *dns_queries;   /* sensor: DNS queries (AdGuard) */
+    const char *dns_blocked;   /* sensor: share blocked, % */
+    const char *dns_speed;     /* sensor: average processing time, ms */
+} panel_network_t;
+static const panel_network_t PANEL_NETWORK = {
+    "binary_sensor.internetbox_wan_status",
+    "sensor.internetbox_download_speed",
+    "sensor.internetbox_upload_speed",
+    "sensor.adguard_home_dns_queries",
+    "sensor.adguard_home_dns_queries_blocked_ratio",
+    "sensor.adguard_home_average_processing_speed",
+};
+/* Where each access point hangs, by its name in UniFi: its floor (PANEL_FLOORS
+ * label) and room (as house-plan.js names it), for the Netwerk layer of the
+ * house. */
+typedef struct {
+    const char *name;
+    const char *floor;
+    const char *room;
+} panel_network_ap_t;
+static const panel_network_ap_t PANEL_NETWORK_APS[] = {
+    { "Meterkast",      "0", "Gang" },
+    { "Achterkamer",    "0", "Zitk. achter" },
+    { "Slaapkamer",     "1", "Gillis en Ilse" },
+    { "Voorslaapkamer", "1", "Valerie" },
+};
+
 /* Web app layout (the panel's firmware keeps its own tabs). The top tabs are
  * sections; "Verlichting" shows one floor at a time, picked with the vertical
  * floor buttons on the left. Floors refer to tabs in PANEL_TABS by name. */
@@ -716,4 +752,5 @@ static const panel_section_t PANEL_SECTIONS[] = {
     { "Tesla",       "car",    NULL },
     { "Sensoren",    "sensors", NULL },
     { "Energie",     "energy", NULL },
+    { "Internet",    "network", NULL },
 };

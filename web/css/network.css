@@ -1,0 +1,110 @@
+/* Internet: the home network (network.js). Built on the card panels of
+ * cards.css and the rows of energy.css; tones in the panel's colours. */
+.network-page .dc-page { gap: 14px; }
+.nw-note { padding: 12px 16px; border-radius: calc(12px * var(--round)); background: color-mix(in srgb, var(--warn) 14%, var(--tile)); color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.4; }
+
+.nw-row .dc-panel { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.nw-status { display: flex; align-items: center; gap: 10px; }
+.nw-status .ic { width: 26px; height: 26px; color: var(--ok); flex: none; }
+.nw-status b { font-size: 22px; font-weight: 700; }
+.nw-status span { margin-left: auto; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.nw-status.warn .ic, .nw-status.warn span { color: var(--warn); }
+.nw-status.bad .ic, .nw-status.bad b { color: var(--bad); }
+.nw-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
+.nw-facts span { display: inline-flex; align-items: center; gap: 4px; }
+.nw-facts b { color: var(--text); font-variant-numeric: tabular-nums; }
+.nw-facts .ic { width: 14px; height: 14px; }
+.nw-chart-title { margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+
+.nw-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.nw-stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: calc(10px * var(--round)); background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.nw-stat b { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.nw-stat span { font-size: 12.5px; font-weight: 600; color: var(--text_dim); }
+.nw-stat.ok b { color: var(--ok); }
+.nw-stat.warn b { color: var(--warn); }
+.nw-stat.bad b { color: var(--bad); }
+.nw-dns { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
+.nw-dns .ic { width: 15px; height: 15px; align-self: center; color: var(--accent); }
+.nw-dns b { color: var(--text); font-variant-numeric: tabular-nums; margin-left: 8px; }
+.nw-dns > span:first-of-type { color: var(--text); }
+
+/* Topology: columns left to right, the lines behind them. */
+.nw-topo { padding: 16px 18px; }
+.nw-topo-body { position: relative; display: flex; align-items: center; gap: 44px; overflow-x: auto; padding: 4px 2px 8px; scrollbar-width: thin; touch-action: pan-x pan-y; }
+.nw-col { display: flex; flex-direction: column; gap: 10px; flex: none; position: relative; z-index: 1; }
+.nw-lines { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.nw-lines path { fill: none; stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 1.6; }
+.nw-lines path.mesh { stroke-dasharray: 4 4; }
+.nw-node { display: flex; align-items: center; gap: 9px; min-width: 150px; max-width: 210px; padding: 9px 12px; border-radius: calc(11px * var(--round)); background: var(--tile_off); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); }
+.nw-node .ic { width: 20px; height: 20px; flex: none; color: var(--accent); }
+.nw-node-text { display: flex; flex-direction: column; min-width: 0; }
+.nw-node-text b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nw-node-text span { font-size: 12px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nw-node.warn { box-shadow: inset 0 0 0 1.5px var(--warn); }
+.nw-node.bad { box-shadow: inset 0 0 0 1.5px var(--bad); }
+.nw-node.bad .ic { color: var(--bad); }
+.nw-empty { padding: 8px 2px; font-size: 14px; font-weight: 600; color: var(--text_dim); line-height: 1.45; list-style: none; }
+
+/* Access points */
+.nw-aps .dc-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); } /* four fit as 2x2 on the panel, one row on an iPad */
+.nw-ap { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+.nw-ap header { display: flex; align-items: center; gap: 8px; }
+.nw-ap header .ic { width: 20px; height: 20px; color: var(--accent); flex: none; }
+.nw-ap header b { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nw-ap.bad header .ic { color: var(--bad); }
+.nw-ap-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12.5px; font-weight: 600; color: var(--text_dim); }
+.nw-ap-facts b { color: var(--text); }
+.nw-radios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.nw-radios li { display: flex; flex-direction: column; gap: 5px; padding: 7px 9px; border-radius: calc(8px * var(--round)); background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.nw-radio-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 12.5px; font-weight: 600; color: var(--text_dim); }
+.nw-radio-head > b { color: var(--text); font-size: 13px; margin-right: auto; }
+.nw-radio-head span b { color: var(--text); font-variant-numeric: tabular-nums; }
+/* the channel's utilisation as a bar with its figure */
+.nw-load { position: relative; height: 16px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--text_dim) 14%, transparent); }
+.nw-load i { position: absolute; left: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--text_dim) 40%, transparent); }
+.nw-load.ok i { background: color-mix(in srgb, var(--ok) 50%, transparent); }
+.nw-load.warn i { background: color-mix(in srgb, var(--warn) 60%, transparent); }
+.nw-load.bad i { background: color-mix(in srgb, var(--bad) 60%, transparent); }
+.nw-load span { position: relative; display: block; padding-left: 6px; font-size: 11px; font-weight: 700; line-height: 16px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Quality as a small pill */
+.nw-q { flex: none; font-size: 12.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--tile_off); color: var(--text_dim); font-variant-numeric: tabular-nums; }
+.nw-q.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.nw-q.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.nw-q.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 16%, transparent); }
+
+/* Devices */
+.nw-clients { padding: 16px 18px; }
+.nw-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.nw-chip { min-height: 34px; padding: 0 12px; font-size: 13px; font-weight: 700; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+.nw-chip .ic { width: 14px; height: 14px; }
+.nw-sort { margin-left: auto; }
+.nw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.nw-client { display: grid; grid-template-columns: 26px minmax(0, 1.6fr) minmax(0, 1.4fr) 64px 52px 86px; align-items: center; gap: 10px; padding: 8px 2px; border-top: 1px solid color-mix(in srgb, var(--text_dim) 14%, transparent); }
+.nw-client:first-child { border-top: 0; }
+.nw-c-icon .ic { width: 18px; height: 18px; color: var(--text_dim); }
+.nw-c-name { display: flex; flex-direction: column; min-width: 0; }
+.nw-c-name b { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nw-c-name span, .nw-c-via, .nw-c-rate { font-size: 12.5px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nw-c-rate { text-align: right; font-variant-numeric: tabular-nums; }
+.nw-signal { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; color: var(--text_dim); }
+.nw-signal i { width: 4px; border-radius: 1px; background: color-mix(in srgb, var(--text_dim) 30%, transparent); }
+.nw-signal i:nth-child(1) { height: 25%; } .nw-signal i:nth-child(2) { height: 50%; } .nw-signal i:nth-child(3) { height: 75%; } .nw-signal i:nth-child(4) { height: 100%; }
+.nw-signal i.on { background: var(--text); }
+.nw-signal.ok i.on { background: var(--ok); }
+.nw-signal.warn i.on { background: var(--warn); }
+.nw-signal.bad i.on { background: var(--bad); }
+.nw-signal em { margin-left: 5px; font-style: normal; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.nw-signal .ic { width: 16px; height: 16px; }
+
+@media (max-width: 760px) {
+  .nw-client { grid-template-columns: 22px minmax(0, 1fr) auto auto; row-gap: 2px; }
+  .nw-c-via { grid-column: 2 / 3; grid-row: 2; }
+  .nw-c-rate { grid-column: 3 / 5; grid-row: 2; }
+  .nw-topo-body { gap: 28px; }
+  .nw-node { min-width: 132px; }
+}
+@media (max-width: 480px) {
+  .nw-stats { gap: 8px; }
+  .nw-stat b { font-size: 22px; }
+}

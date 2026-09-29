@@ -104,6 +104,7 @@ body.saver-house .hud-clock { display: block; }
 .house-label.plant.warn .ic { color: var(--warn); }
 .house-label.plant.dim .ic, .house-label.plant.hum .ic { color: var(--text_dim); }
 .house-label.plant.warn .hl-name { color: var(--warn); }
+.house-label .hl-vals > .ic { width: 13px; height: 13px; align-self: center; } /* the Netwerk layer's wifi */
 .house-label.out::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--text_dim); margin-bottom: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }

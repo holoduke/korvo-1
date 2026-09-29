@@ -1,0 +1,23 @@
+{
+  "config": {
+    "abort": {
+      "yaml": "Thuispaneel is set up in configuration.yaml (thuispaneel: xai_key: !secret xai_key).",
+      "already_configured": "Thuispaneel is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "UniFi for the Internet tab",
+        "description": "The UniFi Network Application the panel reads the home network from. Preferably use a separate read-only account. Leave the password empty to keep the stored one.",
+        "data": {
+          "unifi_host": "Controller address",
+          "unifi_port": "Port",
+          "unifi_site": "Site",
+          "unifi_username": "Username",
+          "unifi_password": "Password"
+        }
+      }
+    }
+  }
+}

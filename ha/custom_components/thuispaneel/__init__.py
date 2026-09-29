@@ -14,6 +14,8 @@ neerzet) onder /thuis/:
 
 Daarnaast de gespreksagent "Thuis" (conversation.py): vragen over het huis,
 beantwoord door een taalmodel van xAI met een momentopname van het huis erbij.
+En het thuisnetwerk voor de Internet-tab (network.py): de UniFi-controller en
+de vertraging naar internet, via het websocket-commando thuispaneel/network.
 
 Configuratie in configuration.yaml:
 
@@ -37,6 +39,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
+from . import network
 from .const import CONF_MODEL, CONF_XAI_KEY, DEFAULT_MODEL, DOMAIN
 
 URL = "/thuis"
@@ -60,6 +63,7 @@ PLATFORMS = ["conversation"]
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.http.register_view(PanelView(hass, Path(hass.config.path("www", "panel"))))
+    network.async_register(hass)
     conf = config.get(DOMAIN) or {}
     if conf.get(CONF_XAI_KEY):
         hass.async_create_task(
@@ -72,6 +76,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await network.async_setup_entry(hass, entry)
     entry.async_on_unload(entry.add_update_listener(_reload))
     return True
 
@@ -81,6 +86,7 @@ async def _reload(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    await network.async_unload_entry(hass)
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
