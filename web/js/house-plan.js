@@ -66,12 +66,14 @@ window.HOUSE_PLAN = {
       { name: "Gillis en Ilse", climate: "Gillis en Ilse", x: 0, z: 8.8, w: 5.6, d: 4.2 },
     ],
     /* Attic (plan, page 7): the stair and the technical room along the
-     * neighbour's wall, the front room, a small hall with the baby's room off
-     * it, and the back room; their walls are in walls, so no outlines here. */
+     * neighbour's wall, the front room, a small hall with the bathroom off it
+     * (the drawing's baby's room; since 2026-09-30 the bathroom with its three
+     * ceiling globes), and the back room; their walls are in walls, so no
+     * outlines here. */
     2: [
       { name: "Voorkamer", climate: "Zolder voor", x: 1.45, z: 1.44, w: 4.15, d: 4.46, outline: false },
       { name: "Gang", climate: "Zoldergang", x: 1.45, z: 5.9, w: 1.35, d: 2.8, outline: false },
-      { name: "Babykamer", x: 2.8, z: 5.9, w: 2.8, d: 2.1, outline: false },
+      { name: "Badkamer", x: 2.8, z: 5.9, w: 2.8, d: 2.1, outline: false },
       { name: "Achterkamer", climate: "Zolder achter", x: 0, z: 8.7, w: 5.6, d: 4.3, outline: false },
     ],
   },
@@ -105,9 +107,9 @@ window.HOUSE_PLAN = {
     { plane: "x", at: 1.45, a: 3.6, w: 7.0, y: 6.0, h: 2.3 } /* stair, technical room | the rooms */,
     { plane: "z", at: 7.1, a: 0, w: 1.45, y: 6.0, h: 2.3 } /* stair | technical room */,
     { plane: "z", at: 10.6, a: 0, w: 1.45, y: 6.0, h: 2.3 } /* technical room | back room */,
-    { plane: "z", at: 5.9, a: 1.45, w: 4.15, y: 6.0, h: 2.3 } /* front room | hall, baby's room */,
-    { plane: "x", at: 2.8, a: 5.9, w: 2.8, y: 6.0, h: 2.3 } /* hall | baby's room, back room */,
-    { plane: "z", at: 8.0, a: 2.8, w: 2.8, y: 6.0, h: 2.3 } /* baby's room | back room */,
+    { plane: "z", at: 5.9, a: 1.45, w: 4.15, y: 6.0, h: 2.3 } /* front room | hall, bathroom */,
+    { plane: "x", at: 2.8, a: 5.9, w: 2.8, y: 6.0, h: 2.3 } /* hall | bathroom, back room */,
+    { plane: "z", at: 8.0, a: 2.8, w: 2.8, y: 6.0, h: 2.3 } /* bathroom | back room */,
     { plane: "z", at: 8.7, a: 1.45, w: 1.35, y: 6.0, h: 2.3 } /* hall | back room */,
   ],
   /* Windows and doors, as rectangles on a wall: plane "z" is a wall along the
@@ -141,7 +143,7 @@ window.HOUSE_PLAN = {
     { plane: "x", at: 2.84, a: 6.05, w: 0.9, y: 3.0, h: 2.3 },
     { plane: "x", at: 1.25, a: 7.85, w: 0.8, y: 3.0, h: 2.3 },
     { plane: "z", at: 8.8, a: 1.65, w: 0.9, y: 3.0, h: 2.3 },
-    /* attic (page 7): the hall's doors to the front room, the baby's room, the
+    /* attic (page 7): the hall's doors to the front room, the bathroom, the
      * back room and the technical room (the dormer windows are in dormers) */
     { plane: "z", at: 5.9, a: 1.7, w: 0.9, y: 6.0, h: 2.1 },
     { plane: "x", at: 2.8, a: 6.0, w: 0.9, y: 6.0, h: 2.1 },

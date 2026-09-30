@@ -669,14 +669,6 @@ window.PANEL_CONFIG = {
           "label": "Gang"
         },
         {
-          "id": "light.lamp_zolder_baby_kamer_1",
-          "label": "Baby 1"
-        },
-        {
-          "id": "light.lamp_zolder_baby_kamer_2",
-          "label": "Baby 2"
-        },
-        {
           "id": "light.lamp_zolder_badkamer_plafond_1",
           "label": "Badkamer plafond 1"
         },
@@ -694,14 +686,6 @@ window.PANEL_CONFIG = {
         {
           "id": "light.lamp_zolder_gang",
           "label": "Gang"
-        },
-        {
-          "id": "light.lamp_zolder_baby_kamer_1",
-          "label": "Baby 1"
-        },
-        {
-          "id": "light.lamp_zolder_baby_kamer_2",
-          "label": "Baby 2"
         },
         {
           "id": "light.lamp_zolder_badkamer_plafond_1",
@@ -725,13 +709,6 @@ window.PANEL_CONFIG = {
           "lights": [
             "light.lamp_zolder_gang",
             "light.lamp_zolder_tussengang_1"
-          ]
-        },
-        {
-          "label": "Babykamer",
-          "lights": [
-            "light.lamp_zolder_baby_kamer_1",
-            "light.lamp_zolder_baby_kamer_2"
           ]
         },
         {
