@@ -186,11 +186,19 @@ static const panel_entity_t TAB_ZOLDER_LIGHTS[] = {
     { "light.lamp_zolder_gang",         "Gang" },
     { "light.lamp_zolder_baby_kamer_1", "Baby 1" },
     { "light.lamp_zolder_baby_kamer_2", "Baby 2" },
+    /* the bathroom's three ceiling globes (IKEA KAJPLATS, Matter), 2026-09-30 */
+    { "light.lamp_zolder_badkamer_plafond_1", "Badkamer plafond 1" },
+    { "light.lamp_zolder_badkamer_plafond_2", "Badkamer plafond 2" },
+    { "light.lamp_zolder_badkamer_plafond_3", "Badkamer plafond 3" },
 };
 static const panel_entity_t TAB_ZOLDER_DEVICES[] = {
     { "light.lamp_zolder_gang",         "Gang" },
     { "light.lamp_zolder_baby_kamer_1", "Baby 1" },
     { "light.lamp_zolder_baby_kamer_2", "Baby 2" },
+    /* the bathroom's three ceiling globes (IKEA KAJPLATS, Matter), 2026-09-30 */
+    { "light.lamp_zolder_badkamer_plafond_1", "Badkamer plafond 1" },
+    { "light.lamp_zolder_badkamer_plafond_2", "Badkamer plafond 2" },
+    { "light.lamp_zolder_badkamer_plafond_3", "Badkamer plafond 3" },
 };
 
 #define TAB_ENTRY(name, lights, scenes, devices) \
@@ -503,6 +511,7 @@ static const panel_area_t PANEL_AREAS[] = {
     { "Zolder", "Babykamer", "light.lamp_zolder_baby_kamer_1 light.lamp_zolder_baby_kamer_2" },
     { "Zolder", "Voorkamer", "light.lamp_zolder_voorkamer_1" },
     { "Zolder", "Achterkamer", "light.lamp_zolder_achterkamer_1" },
+    { "Zolder", "Badkamer", "light.lamp_zolder_badkamer_plafond_1 light.lamp_zolder_badkamer_plafond_2 light.lamp_zolder_badkamer_plafond_3" },
 };
 
 /* Scenes of one room, in the web app only (the panel's firmware keeps its

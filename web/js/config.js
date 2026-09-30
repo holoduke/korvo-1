@@ -675,6 +675,18 @@ window.PANEL_CONFIG = {
         {
           "id": "light.lamp_zolder_baby_kamer_2",
           "label": "Baby 2"
+        },
+        {
+          "id": "light.lamp_zolder_badkamer_plafond_1",
+          "label": "Badkamer plafond 1"
+        },
+        {
+          "id": "light.lamp_zolder_badkamer_plafond_2",
+          "label": "Badkamer plafond 2"
+        },
+        {
+          "id": "light.lamp_zolder_badkamer_plafond_3",
+          "label": "Badkamer plafond 3"
         }
       ],
       "scenes": [],
@@ -690,6 +702,18 @@ window.PANEL_CONFIG = {
         {
           "id": "light.lamp_zolder_baby_kamer_2",
           "label": "Baby 2"
+        },
+        {
+          "id": "light.lamp_zolder_badkamer_plafond_1",
+          "label": "Badkamer plafond 1"
+        },
+        {
+          "id": "light.lamp_zolder_badkamer_plafond_2",
+          "label": "Badkamer plafond 2"
+        },
+        {
+          "id": "light.lamp_zolder_badkamer_plafond_3",
+          "label": "Badkamer plafond 3"
         }
       ],
       "icons": null,
@@ -720,6 +744,14 @@ window.PANEL_CONFIG = {
           "label": "Achterkamer",
           "lights": [
             "light.lamp_zolder_achterkamer_1"
+          ]
+        },
+        {
+          "label": "Badkamer",
+          "lights": [
+            "light.lamp_zolder_badkamer_plafond_1",
+            "light.lamp_zolder_badkamer_plafond_2",
+            "light.lamp_zolder_badkamer_plafond_3"
           ]
         }
       ]
