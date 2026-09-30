@@ -150,22 +150,6 @@
     /* touches on the widget stay with it: no section swipe, no house orbit */
     ["pointerdown", "touchstart"].forEach((ev) => widget.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));
     renderWidget(widget);
-    /* Just above the middle (clear of the ask bar), and below the lines of the
-     * readout at the top left, however many of them there are. */
-    const hud = house.querySelector("[data-hud]");
-    const place = () => {
-      if (!widget.offsetParent) return;
-      const box = house.getBoundingClientRect();
-      const h = widget.offsetHeight;
-      const wanted = box.height / 2 - 36 - h / 2;
-      const below = hud ? hud.getBoundingClientRect().bottom - box.top + 12 : 0;
-      const lowest = box.height - h - 64; /* above the layer buttons along the bottom */
-      widget.style.top = `${Math.round(Math.max(0, Math.min(Math.max(wanted, below), lowest)))}px`;
-    };
-    const ro = new ResizeObserver(place);
-    ro.observe(house);
-    if (hud) ro.observe(hud);
-    ro.observe(widget);
   });
   /* it steps aside while a room's panel is open (that panel has the row itself) */
   Panel.on("room", (room) => widget && (widget.hidden = !!room));

@@ -162,16 +162,13 @@
   .clock { font-size: 28px; }
   .gear { font-size: 26px; }
   .hdr-strip { flex: 1 1 100%; padding-bottom: 2px; }
-  /* The section names in small caps, a little tighter: 12 px, and 10.5 px on
-   * the common 390-420 px phones. A phone narrower still scrolls the bar
-   * sideways (sections.js keeps the active tab in view). */
-  .tabbar { padding: 0 6px; overflow-x: auto; scrollbar-width: none; }
-  .tabbar::-webkit-scrollbar { display: none; }
-  .tab { font-size: 12px; flex: 1 0 auto; padding: 0 3px; letter-spacing: 0.02em; }
-}
-@media (max-width: 420px) {
+  /* A phone has no room for eight names at a readable size: each tab is its
+   * icon alone (the name is its aria-label), at a normal size, the eight
+   * sharing the width evenly — no scrolling bar, no tiny text. */
   .tabbar { padding: 0 4px; }
-  .tab { font-size: 10.5px; }
+  .tab { flex: 1 1 0; min-width: 0; padding: 0; }
+  .tab .tab-label { display: none; }
+  .tab .ic, .tab[data-kind="start"] .ic { display: block; width: 25px; height: 25px; }
 }
 
 /* Between 1100 and 1400 px (an 11" or 13" iPad) the eight climate columns,

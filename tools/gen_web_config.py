@@ -598,8 +598,8 @@ def parse_layout(src, tabs):
               for t, l, n in table_rows(src, "PANEL_FLOORS", r'\{\s*"([^"]+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\}')]
     # Tab icon per section kind (name from web/js/icons.js). "tab" is the
     # garage lights page; adjust here if a different tab is ever added.
-    section_icons = {"start": "home", "floors": "lights", "appliances": "plug", "vacuum": "vacuum",
-                     "car": "car", "sensors": "eye", "energy": "bolt", "network": "wifi", "tab": "garage"}
+    section_icons = {"start": "tab-home", "floors": "tab-lights", "appliances": "tab-appliances", "vacuum": "tab-clean",
+                     "car": "tab-car", "sensors": "tab-sensors", "energy": "tab-energy", "network": "tab-network", "tab": "garage"}
     sections = []
     for name, kind, tab in table_rows(src, "PANEL_SECTIONS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}'):
         if kind not in section_icons:

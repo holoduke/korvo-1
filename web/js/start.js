@@ -8,6 +8,40 @@
 
   const HINT_MS = 9000; /* the gesture hint goes on its own after this */
 
+  /* The quick controls beside the house — the heating's thermostat on the
+   * left (heating.js), the garage door on the right (covers.js) — stand with
+   * their bottoms on one line with the ask bar (ask.js): level with its
+   * bottom where it runs between them (a panel, an iPad), just above its top
+   * where it runs under them (a phone). The thermostat stays below the
+   * readout at the top left (hud.js), however many lines that has. */
+  function layoutSides(house) {
+    const box = house.getBoundingClientRect();
+    const ask = house.querySelector(".house-ask");
+    const a = ask && ask.offsetParent ? ask.getBoundingClientRect() : null;
+    const hud = house.querySelector("[data-hud]");
+    for (const [sel, left] of [["[data-house-heat]", true], ["[data-house-cover]", false]]) {
+      const w = house.querySelector(sel);
+      if (!w || w.hidden || !w.offsetParent) continue;
+      const r = w.getBoundingClientRect();
+      const beside = a && (left ? a.left >= r.right : a.right <= r.left);
+      const bottom = a ? (beside ? a.bottom : a.top - 12) : box.bottom - 70;
+      const floor = left && hud ? hud.getBoundingClientRect().bottom - box.top + 12 : 8;
+      w.style.top = `${Math.round(Math.max(floor, bottom - box.top - r.height))}px`;
+    }
+  }
+  Panel.on("start", () =>
+    /* after every module has put its part in (they do on "start" too) */
+    requestAnimationFrame(() => {
+      const house = document.querySelector(".start-page .house");
+      if (!house) return;
+      const place = () => layoutSides(house);
+      const ro = new ResizeObserver(place);
+      [house, ...house.querySelectorAll(".house-ask, [data-hud], [data-house-heat], [data-house-cover]")].forEach((el) => ro.observe(el));
+      Panel.on("room", () => requestAnimationFrame(place)); /* a widget back from behind a room's panel */
+      place();
+    })
+  );
+
   Panel.definePage("start", {
     className: "start-page",
     html: () =>

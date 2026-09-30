@@ -951,49 +951,49 @@ window.PANEL_CONFIG = {
     {
       "name": "Start",
       "kind": "start",
-      "icon": "home",
+      "icon": "tab-home",
       "tab": null
     },
     {
       "name": "Verlichting",
       "kind": "floors",
-      "icon": "lights",
+      "icon": "tab-lights",
       "tab": null
     },
     {
       "name": "Apparaten",
       "kind": "appliances",
-      "icon": "plug",
+      "icon": "tab-appliances",
       "tab": null
     },
     {
       "name": "Schoonmaak",
       "kind": "vacuum",
-      "icon": "vacuum",
+      "icon": "tab-clean",
       "tab": null
     },
     {
       "name": "Tesla",
       "kind": "car",
-      "icon": "car",
+      "icon": "tab-car",
       "tab": null
     },
     {
       "name": "Sensoren",
       "kind": "sensors",
-      "icon": "eye",
+      "icon": "tab-sensors",
       "tab": null
     },
     {
       "name": "Energie",
       "kind": "energy",
-      "icon": "bolt",
+      "icon": "tab-energy",
       "tab": null
     },
     {
       "name": "Internet",
       "kind": "network",
-      "icon": "wifi",
+      "icon": "tab-network",
       "tab": null
     }
   ],
