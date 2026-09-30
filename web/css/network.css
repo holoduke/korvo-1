@@ -108,3 +108,4 @@
   .nw-stats { gap: 8px; }
   .nw-stat b { font-size: 22px; }
 }
+@media (pointer: coarse) { .nw-chip { min-height: 40px; } }

@@ -52,7 +52,7 @@
 .dc-chips span { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--bg) 40%, transparent); }
 .dc-chips .ic { font-size: 13px; color: var(--text_dim); }
 .dc-chips .warn, .dc-chips .warn .ic { color: var(--warn); }
-.dc-foot { margin-top: auto; display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text_dim); }
+.dc-foot { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; /* a second figure that does not fit goes on its own line, never cut */ font-size: 12px; font-weight: 600; color: var(--text_dim); }
 .dc-foot span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .dc-foot b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
 .dc-foot .ic { font-size: 13px; }

@@ -138,3 +138,4 @@
   .em-phase-head { font-size: 10px; letter-spacing: 0.04em; }
   .em-label { min-width: 0; width: 100%; }
 }
+@media (pointer: coarse) { .en-pick button { height: 40px; } } /* a finger needs 40 px */

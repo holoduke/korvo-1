@@ -50,6 +50,7 @@
       .map(([ti, i]) => `<button class="hi-scene" data-scene="${ti}:${i}">${Panel.sceneLead(ti, i)}<span class="t-name">${Util.esc(Panel.cfg.tabs[ti].scenes[i].label)}</span></button>`)
       .join("");
     Panel.renderScenes(); /* the active one lit */
+    row.dispatchEvent(new Event("scroll")); /* its fade follows the new chips */
     const cover = $q("[data-hi-cover]");
     cover.hidden = current.cover == null;
     cover.innerHTML = current.cover == null ? "" : Panel.coverBlock(current.cover);
@@ -158,6 +159,7 @@
       if (!b || b.disabled || performance.now() - openedAt < 500) return;
       Panel.heating.step(+b.dataset.heatStep);
     });
+    Util.watchOverflow($q("[data-hi-scenes]")); /* a strip too long for the panel fades at its end */
     $q("[data-hi-scenes]").addEventListener("click", (e) => {
       const b = e.target.closest("[data-scene]");
       if (!b || performance.now() - openedAt < 500) return;

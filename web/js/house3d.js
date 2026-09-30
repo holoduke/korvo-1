@@ -749,7 +749,11 @@
       const dist = fitDistance() * zoom;
       const c = geo.centre;
       const eye = [c[0] + dist * Math.cos(pitch) * Math.sin(cam.yaw), c[1] + dist * Math.sin(pitch), c[2] + dist * Math.cos(pitch) * Math.cos(cam.yaw)];
-      const vp = mul(perspective(FOV, W / H, 1, dist + geo.radius * 4), lookAt(eye, c, [0, 1, 0]));
+      /* On a tall canvas (an upright iPad or phone) the controls fill its lower
+       * part and the sky above stays empty: the house is framed a little
+       * higher, in clip space, so the labels and taps (lastVP) move with it. */
+      const lift = Util.clamp((H / W - 1) * 0.6, 0, 0.2);
+      const vp = mul([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, lift, 0, 1], mul(perspective(FOV, W / H, 1, dist + geo.radius * 4), lookAt(eye, c, [0, 1, 0])));
       lastVP = vp;
       const sweepY = ((now / 1000) % SWEEP_PERIOD_S) / SWEEP_PERIOD_S * 13 - 2;
 

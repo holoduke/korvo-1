@@ -179,7 +179,7 @@
   .sensors { gap: 5px; }
   .s-temp { font-size: 18px; }
   .s-name, .s-hum { font-size: 11.5px; }
-  .air-grid { column-gap: 0; }
+  .air-grid { column-gap: 0; grid-template-columns: auto; } /* one column: PM2.5 under the CO₂, not run into it */
   .air-grid .a-temp, .air-grid .a-hum, .aq-txt { display: none; } /* the dot still says how the air is */
   .dev-hdr .s-name span { display: none; } /* the device columns keep their icon */
   .dev-hdr .s-name .ic { font-size: 15px; }

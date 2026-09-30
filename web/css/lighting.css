@@ -304,3 +304,20 @@
   .tile.lamp .t-power { width: 38px; height: 38px; }
 }
 
+
+/* A phone on its side: little height, enough width. Scenes and lamps stand
+ * side by side (not stacked, which left each about one row), in lower tiles,
+ * and the bottom row of areas is slimmer; each half scrolls on its own. */
+@media (orientation: landscape) and (max-height: 440px) {
+  :root { --row-h: 60px; --lane: 64px; }
+  .split, .split.no-scenes { grid-template-rows: minmax(0, 1fr); padding: 6px var(--lane) 6px 8px; gap: 12px; }
+  .split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .split.no-scenes { grid-template-columns: minmax(0, 1fr); }
+  .split.no-scenes .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .split .grid[data-scenes] > .tile, .split .grid[data-lamps] > .tile { height: 56px; }
+  .split-half { gap: 4px; }
+  .split-title { font-size: 11px; }
+  .list-room { padding-top: 2px; font-size: 11px; }
+  .split .tile .t-name { font-size: 14px; }
+  .split .tile .t-sub { font-size: 12px; }
+}
