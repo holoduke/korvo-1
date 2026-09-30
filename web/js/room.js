@@ -113,6 +113,7 @@
     current = room;
     render();
     panel.hidden = false;
+    host.classList.add("room-open");
     openedAt = performance.now();
     leader.classList.add("on");
     leader.classList.remove("drawn");
@@ -125,6 +126,7 @@
     if (!current) return;
     current = null;
     panel.hidden = true;
+    host.classList.remove("room-open");
     leader.classList.remove("on", "drawn");
     cancelAnimationFrame(raf);
     raf = 0;

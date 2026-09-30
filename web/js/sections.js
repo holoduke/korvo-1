@@ -62,6 +62,7 @@
 
   function setIndicator(pos, animate) {
     const t = tabs();
+    if (!t.length) return; /* a resize before the tab bar is built (a phone at startup) */
     const i = Util.clamp(Math.floor(pos), 0, t.length - 1);
     const f = Util.clamp(pos - i, 0, 1);
     const a = t[i];

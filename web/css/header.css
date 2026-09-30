@@ -185,3 +185,26 @@
   .dev-hdr .s-name .ic { font-size: 15px; }
   #fc2 { display: none; } /* two days of forecast */
 }
+
+/* A phone on its side: height is what it lacks. The header is one slim line —
+ * the temperatures without humidity, no forecast, the clock without its date —
+ * and the tabs are their icons, as upright. (The wall panel is 480 px high.) */
+@media (orientation: landscape) and (max-height: 440px) {
+  :root { --tabbar-h: 40px; --header-h: 0px; }
+  /* one line at any width (below 760 px the upright phone's rules would wrap it in two) */
+  #header { min-height: 0; padding: 4px 12px; gap: 10px; flex-wrap: nowrap; }
+  .hdr-right { order: 0; width: auto; }
+  .hdr-strip { flex: 1 1 auto; padding-bottom: 0; }
+  .timebox { flex-direction: row; margin-right: 0; }
+  .fc, .rule, .s-hum, .air-grid .a-temp, .daterow, .dev-hdr .vh-status { display: none; }
+  .sensor-col { flex-direction: row; align-items: center; gap: 5px; padding: 2px 4px; min-height: 40px; } /* still a tap for its climate chart */
+  .s-temp { font-size: 17px; }
+  .s-name { font-size: 12px; }
+  .air-col .s-name .aq-txt { display: none; }
+  .clock { font-size: 22px; }
+  .gear { font-size: 22px; }
+  .tabbar { padding: 0 4px; }
+  .tab { flex: 1 1 0; min-width: 0; padding: 0; }
+  .tab .tab-label { display: none; }
+  .tab .ic, .tab[data-kind="start"] .ic { display: block; width: 23px; height: 23px; }
+}

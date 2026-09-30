@@ -23,6 +23,9 @@
 .tile.lamp .t-power { flex: none; width: 44px; height: 44px; border-radius: calc(12px * var(--round)); display: grid; place-items: center; background: color-mix(in srgb, currentColor 9%, transparent); transition: background-color 0.25s, transform 0.12s; }
 .tile.lamp.on .t-power { background: rgba(255, 255, 255, 0.18); }
 .tile.lamp .t-power.pressed { transform: scale(0.9); }
+/* the power button answers a tap a little beyond its edge: at least 44 px wherever it is drawn smaller */
+.tile.lamp .t-power { position: relative; z-index: 1; }
+.tile.lamp .t-power::after { content: ""; position: absolute; inset: -6px; }
 .tile.lamp .t-text { flex: 1; align-self: stretch; justify-content: center; text-align: left; }
 /* While the lamp is on, its power button fills with the colour it gives; the
  * icon turns dark on a light colour (lighting.js decides). */
@@ -269,6 +272,7 @@
   .split .grid, .split.no-scenes .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 64px; gap: 8px; }
   .split .grid[data-scenes], .split .grid[data-lamps] { grid-auto-rows: auto; }
   .split .grid[data-scenes] > .tile, .split .grid[data-lamps] > .tile { height: 64px; }
+  .split.no-scenes { grid-template-rows: minmax(0, 1fr); } /* a floor without scenes: its lamps take the whole height */
   .split .tile { padding: 8px 10px; }
   .split .tile .t-name { font-size: 15px; }
   .row { gap: 8px; padding: 0 12px 12px; }
@@ -283,7 +287,9 @@
   .vs-knob { height: 38px; }
   .drawer-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 12px; }
   .drawer .tile .t-icon { font-size: 16px; }
-  .drawer .tile .t-name { font-size: 16px; }
+  /* a name takes two lines rather than an ellipsis ("Zitk. achter plafond 1"); the tile grows with it */
+  .drawer .tile .t-name { font-size: 15px; line-height: 1.15; white-space: normal; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .drawer-grid { grid-auto-rows: minmax(96px, auto); }
   .drawer .tile .t-sub { font-size: 14px; }
 }
 
@@ -291,6 +297,7 @@
 @media (max-width: 480px) {
   .split .tile { padding: 8px; gap: 7px; }
   .split .swatch { width: 24px; height: 24px; }
+  /* small to leave the name its room, but a thumb's reach to tap: 44 px (see .t-power::after) */
   .split .tile.lamp .t-power { width: 32px; height: 32px; }
   .split .tile .t-name { font-size: 14px; }
   .split .tile .t-sub { font-size: 12.5px; }
