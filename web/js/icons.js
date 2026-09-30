@@ -84,6 +84,10 @@
     "tab-sensors": '<circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M8.3 8.3a5.2 5.2 0 0 0 0 7.4M15.7 8.3a5.2 5.2 0 0 1 0 7.4"/><path d="M5.3 5.3a9.4 9.4 0 0 0 0 13.4M18.7 5.3a9.4 9.4 0 0 1 0 13.4"/>',
     "tab-energy": '<path d="M13.2 2.5 4.6 13.6h6.6l-1 7.9 8.6-11.3h-6.6z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M13.2 2.5 4.6 13.6h6.6l-1 7.9 8.6-11.3h-6.6z"/>',
     "tab-network": '<path d="M12 20.2 2.6 9.1a14.4 14.4 0 0 1 18.8 0z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M2.5 9a14.3 14.3 0 0 1 19 0"/><path d="M5.8 12.5a9.3 9.3 0 0 1 12.4 0"/><path d="M9.1 16a4.6 4.6 0 0 1 5.8 0"/><circle cx="12" cy="19.4" r="1.1" fill="currentColor" stroke="none"/>',
+    /* the house's inner walls: a floor plan and its dividing walls */
+    walls: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.8" fill="currentColor" fill-opacity=".18" stroke="none"/><rect x="3.5" y="3.5" width="17" height="17" rx="1.8"/><path d="M3.5 11.2h6.8M10.3 3.5v4.4M13.8 11.2h6.7M13.8 11.2v9.3"/>',
+    /* the Klimaat layer, in the tab set's style */
+    "layer-climate": '<path d="M14 14.6V5.2a2 2 0 0 0-4 0v9.4a4 4 0 1 0 4 0z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M14 14.6V5.2a2 2 0 0 0-4 0v9.4a4 4 0 1 0 4 0z"/><path d="M12 9.5v6.8"/><circle cx="12" cy="17.6" r="1.4" fill="currentColor" stroke="none"/>',
     wifi: '<path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.8 12.4a9.2 9.2 0 0 1 12.4 0"/><path d="M9.1 15.8a4.6 4.6 0 0 1 5.8 0"/><circle cx="12" cy="19" r=".9" fill="currentColor"/>',
     ap: '<ellipse cx="12" cy="13" rx="8.5" ry="4.5"/><path d="M3.5 13v1.2c0 2.5 3.8 4.5 8.5 4.5s8.5-2 8.5-4.5V13"/><path d="M8.5 5.8a5 5 0 0 1 7 0"/><circle cx="12" cy="13" r=".8" fill="currentColor"/>',
     switch: '<rect x="2.5" y="7" width="19" height="10" rx="1.8"/><path d="M6 12h.01M9 12h.01M12 12h.01M15 12h.01M18 12h.01"/>',

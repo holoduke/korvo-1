@@ -17,18 +17,19 @@
   let status = "connecting";
   let timer = 0;
 
+  /* [key, label, icon]: a phone shows the icons, larger screens the labels */
   const LAYERS = [
-    ["none", "Huis"],
-    ["climate", "Klimaat"],
-    ["lights", "Lampen"],
-    ["net", "Netwerk"],
+    ["none", "Huis", "tab-home"],
+    ["climate", "Klimaat", "layer-climate"],
+    ["lights", "Lampen", "tab-lights"],
+    ["net", "Netwerk", "tab-network"],
   ];
   const html = () =>
     `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-watch" data-hud-watch></div><div class="hud-rows" data-hud-rows></div><div class="hud-events" data-hud-events></div></div>` +
     `<div class="house-robot" data-robot hidden><span class="hr-icon">${icon("vacuum")}</span><span class="hr-text"><b data-robot-label></b><span data-robot-where></span></span></div>` +
     `<div class="house-labels" data-labels></div>` +
-    `<div class="house-layers">${LAYERS.map(([k, l]) => `<button class="hl-btn" data-layer="${k}">${l}</button>`).join("")}</div>` +
-    `<div class="house-walls"><button class="hl-btn" data-walls>${icon("home")}<span>Binnenmuren</span></button></div>`;
+    `<div class="house-layers">${LAYERS.map(([k, l, ic]) => `<button class="hl-btn" data-layer="${k}" aria-label="${l}">${icon(ic)}<span class="hl-txt">${l}</span></button>`).join("")}</div>` +
+    `<div class="house-walls"><button class="hl-btn" data-walls aria-label="Binnenmuren">${icon("walls")}<span class="hl-txt">Binnenmuren</span></button></div>`;
 
   /* ---- What is wrong ------------------------------------------------------------ */
   const state = (id) => (Panel.st(id) || {}).state;

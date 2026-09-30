@@ -79,6 +79,16 @@ body.saver-house .hud-clock { display: block; }
 }
 .house-walls .hl-btn { display: flex; align-items: center; gap: 7px; }
 .house-walls .ic { width: 14px; height: 14px; }
+/* the layers show their labels here; their icons are for a phone */
+.house-layers .hl-btn .ic { display: none; }
+/* A phone, upright or on its side: every button of the house is its icon (its
+ * name the aria-label), square and a thumb's size, the active one lit. */
+@media (max-width: 700px), (orientation: landscape) and (max-height: 440px) {
+  .house-layers, .house-walls { display: flex; gap: 6px; }
+  .house-layers .hl-btn, .house-walls .hl-btn { width: 46px; height: 44px; padding: 0; display: grid; place-items: center; }
+  .house-layers .hl-btn .ic, .house-walls .hl-btn .ic { display: block; width: 22px; height: 22px; }
+  .hl-btn .hl-txt { display: none; }
+}
 .house-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .house-label {
   position: absolute; left: 0; top: 0; transform: translate(-1000px, -1000px);
@@ -116,15 +126,13 @@ body.saver-house .hud-clock { display: block; }
   .hud-rows { grid-template-columns: auto; }
   .hud-row:not(:first-child), .hud-v, .hud .hud-events { display: none; } /* .hud .hud-events: the log's own rule comes later in this file */
   .hud-dot { width: 8px; height: 8px; margin-top: 3px; }
-  .house-walls { left: 18px; right: auto; bottom: 58px; }
   .house-hint { bottom: 100px; }
   .house-label b { font-size: 12px; }
   .house-label i { font-size: 10px; }
   .hl-name { font-size: 10px; letter-spacing: 0.1em; }
-  /* the layers in one row across the width, big enough to read and to tap */
-  .house-layers { left: 12px; right: 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .house-layers .hl-btn { font-size: 11.5px; letter-spacing: 0.06em; min-height: 42px; padding: 0 4px; }
-  .house-walls .hl-btn { font-size: 11.5px; min-height: 42px; }
+  /* the layers as a group of icons on the left, the inner walls' switch on the right (see the icon buttons below) */
+  .house-layers { left: 12px; }
+  .house-walls { right: 12px; left: auto; }
   .hr-icon { width: 40px; height: 40px; }
   .hr-icon .ic { width: 22px; height: 22px; }
   .hr-text b { font-size: 11px; }
@@ -182,8 +190,8 @@ body.saver-house .hud-watch { display: flex; }
 @media (max-width: 700px) {
   /* a phone: the side columns stand above it, so it takes the width */
   .house-ask, .ask-answer { width: calc(100% - 36px); }
-  .house-ask { bottom: 108px; }
-  .ask-answer { bottom: 166px; }
+  .house-ask { bottom: 72px; } /* above the one row of layer icons */
+  .ask-answer { bottom: 130px; }
   .start-page .house-hint { display: none; }
 }
 
@@ -282,7 +290,7 @@ body.saver-house .house-heat { opacity: 0; pointer-events: none; }
   .hh-btn { width: 52px; height: 44px; }
   .hh-target b { font-size: 17px; }
   .hh-target span { font-size: 10px; }
-  .hh-state { font-size: 10px; letter-spacing: 0.03em; line-height: 1.2; }
+  .hh-state { font-size: 10px; letter-spacing: 0.02em; line-height: 1.2; font-family: inherit; font-weight: 700; } /* the display face is too wide for "VERWARMT" in 52 px */
 }
 
 /* The heating row in a ground-floor room's panel. */
@@ -397,7 +405,6 @@ body.saver-house .house-cover { opacity: 0; pointer-events: none; }
   .ask-answer { bottom: 72px; }
   .house-layers { top: 8px; bottom: auto; left: 50%; right: auto; transform: translateX(-50%); flex-wrap: nowrap; }
   .house-walls, .start-page .house-hint { display: none; }
-  .house-layers .hl-btn { font-size: 11.5px; letter-spacing: 0.08em; min-height: 36px; }
   .hi-close, .hi-heat-row .hh-btn { width: 44px; height: 44px; }
 }
 /* and on the lowest of them the side columns keep only what is used: no drawn
