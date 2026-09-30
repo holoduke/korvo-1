@@ -593,6 +593,8 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
 /* Health (the web app's Instellingen and the house readout): the Zigbee
  * bridge and the internet connection, as Home Assistant reports them. */
 #define PANEL_ZIGBEE_BRIDGE "binary_sensor.zigbee2mqtt_bridge_connection_state"
+/* Zigbee2MQTT's permit join (on: new devices may join for 254 s), switched from Instellingen. */
+#define PANEL_ZIGBEE_PERMIT "switch.zigbee2mqtt_bridge_permit_join"
 #define PANEL_INTERNET      "binary_sensor.internetbox_wan_status"
 /* Rain over the house right now: Buienradar's radar nowcast at the house's
  * coordinates (mm/h over the next 10 minutes), not a weather station's condition. */

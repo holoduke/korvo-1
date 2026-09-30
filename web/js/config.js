@@ -4,6 +4,7 @@ window.PANEL_CONFIG = {
   "weather": "weather.buienradar",
   "health": {
     "zigbee": "binary_sensor.zigbee2mqtt_bridge_connection_state",
+    "permitJoin": "switch.zigbee2mqtt_bridge_permit_join",
     "internet": "binary_sensor.internetbox_wan_status",
     "rain": "sensor.buienradar_precipitation_forecast_average"
   },

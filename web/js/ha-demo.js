@@ -325,6 +325,8 @@
       set(c.entities.cover, "closed", { current_position: 0, device_class: "garage", supported_features: 11 });
       if (c.entities.vent) set(c.entities.vent, "unknown", {});
     });
+    /* Zigbee2MQTT's permit join, off. */
+    if ((cfg.health || {}).permitJoin) set(cfg.health.permitJoin, "off", {});
     /* The provider's router and the DNS filter of the Internet tab. */
     const NET = (cfg.network || {}).entities || {};
     if (NET.wan) set(NET.wan, "on", {});

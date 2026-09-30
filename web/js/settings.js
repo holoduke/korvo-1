@@ -1,4 +1,5 @@
-/* Settings (the gear): theme, screensaver mode and delay, the connection. */
+/* Settings (the gear): theme, screensaver mode and delay, Zigbee pairing,
+ * the health of the chain, the connection. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -55,6 +56,50 @@
     ];
     $("health").innerHTML = rows.map(([k, v, tone]) => `<div class="health-row"><i class="hud-dot ${tone}"></i><span class="health-k">${k}</span><span class="health-v">${Util.esc(v)}</span></div>`).join("");
   }
+  /* ---- Zigbee pairing: Zigbee2MQTT's permit join, for a lamp that dropped
+   * out to join again. On, it stays open for JOIN_S (Zigbee2MQTT's default);
+   * the countdown runs from when Home Assistant reports it on, so every
+   * screen shows the same time left. */
+  const JOIN_S = 254;
+  const joinId = (cfg.health || {}).permitJoin;
+  let joinTimer = 0;
+  let joinBusy = false;
+  let joinSeenOn = 0; /* when this screen saw it go on: the fallback without a last_changed */
+  function renderJoin() {
+    const row = $("joinRow");
+    row.hidden = !joinId || !Panel.st(joinId);
+    if (row.hidden) return;
+    const s = Panel.st(joinId);
+    const open = s.state === "on";
+    const since = Date.parse(s.last_changed) || joinSeenOn || Date.now();
+    const left = open ? Math.max(0, JOIN_S - Math.round((Date.now() - since) / 1000)) : 0;
+    const mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    $("join").className = `join${open ? " open" : ""}`;
+    $("join").innerHTML = open
+      ? `<span class="join-state"><i class="hud-dot ok"></i>Koppelen staat open${left ? ` · nog <b>${mmss}</b>` : ""}</span><button class="ap-btn" data-join="off"${joinBusy ? " disabled" : ""}>${icon("close")}<span>Sluiten</span></button>`
+      : `<button class="ap-btn primary" data-join="on"${joinBusy ? " disabled" : ""}>${icon("link")}<span>Koppelen openzetten</span></button>`;
+    clearTimeout(joinTimer);
+    if (open && !$("settings").hidden) joinTimer = setTimeout(renderJoin, 1000);
+  }
+  async function setJoin(on) {
+    joinBusy = true;
+    renderJoin();
+    try {
+      await Panel.client.callService("switch", on ? "turn_on" : "turn_off", null, { entity_id: joinId });
+    } catch (e) {
+      Panel.commandFailed("Zigbee koppelen")(e);
+    } finally {
+      joinBusy = false;
+      renderJoin();
+    }
+  }
+  if (joinId)
+    Panel.track([joinId], () => {
+      const on = (Panel.st(joinId) || {}).state === "on";
+      joinSeenOn = on ? joinSeenOn || Date.now() : 0;
+      if (!$("settings").hidden) renderJoin();
+    });
+
   const bootedAt = new Date();
   const healthIds = () => [(cfg.health || {}).zigbee, (cfg.health || {}).internet].filter(Boolean);
   Panel.track(healthIds(), () => !$("settings").hidden && renderHealth());
@@ -63,6 +108,7 @@
 
   $("gear").addEventListener("click", () => {
     render();
+    renderJoin();
     renderHealth();
     Panel.openOverlay($("settings"));
   });
@@ -75,6 +121,8 @@
     const time = e.target.closest("[data-time]");
     const deep = e.target.closest("[data-deep]");
     const sound = e.target.closest("[data-sound]");
+    const join = e.target.closest("[data-join]");
+    if (join && !join.disabled) setJoin(join.dataset.join === "on");
     if (sound) {
       Panel.setPref("sound", sound.dataset.sound === "1");
       if (Panel.prefs.sound) Panel.sound.tap();

@@ -26,3 +26,12 @@
 .health .hud-dot.ok { background: var(--ok); }
 .health .hud-dot.warn { background: var(--warn); }
 .health .hud-dot.bad { background: var(--bad); }
+
+/* Zigbee pairing: the button, or while open the time left and a way to close it early. */
+.join { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.join .ap-btn { min-height: 48px; padding: 0 18px; display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+.join .ap-btn .ic { width: 18px; height: 18px; }
+.join-state { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; color: var(--ok); }
+.join-state b { font-variant-numeric: tabular-nums; color: var(--text); }
+.join-state .hud-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); animation: pulse 1s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .join-state .hud-dot { animation: none; } }
