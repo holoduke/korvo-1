@@ -28,6 +28,7 @@ bijgewerkt), want een conversation-platform bestaat alleen bij een entry.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from aiohttp import web
@@ -90,6 +91,39 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
+# De app laadt alleen zichzelf (en de lettertypen van Google); ze praat alleen
+# met Home Assistant op dezelfde host (connect-src, per verzoek: oudere Safari
+# rekent de websocket niet tot 'self'). Afbeeldingen mogen van buiten komen
+# (hoezen van muziek), maar scripts nooit, en de app laat zich niet inlijsten.
+CSP = "; ".join(
+        (
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com",
+            "img-src 'self' data: blob: https:",
+            "media-src 'self' blob:",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'",
+        )
+    )
+HOST = re.compile(r"[A-Za-z0-9.-]+(:\d{1,5})?|\[[0-9A-Fa-f:.]+\](:\d{1,5})?")
+
+
+def _csp(host: str) -> str:
+    """De policy met de websocket van de host waarlangs de app kwam."""
+    ws = f" ws://{host} wss://{host}" if HOST.fullmatch(host or "") else ""
+    return f"{CSP}; connect-src 'self'{ws}"
+
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+
 class PanelView(HomeAssistantView):
     """De webapp zelf; inloggen gebeurt in de app via de gewone HA-login."""
 
@@ -119,4 +153,11 @@ class PanelView(HomeAssistantView):
         if bestand is None:
             raise web.HTTPNotFound()
         cache = VERSIONED if "v" in request.query else NO_CACHE
-        return web.FileResponse(bestand, headers={"Cache-Control": cache})
+        return web.FileResponse(
+            bestand,
+            headers={
+                "Cache-Control": cache,
+                "Content-Security-Policy": _csp(request.host),
+                **SECURITY_HEADERS,
+            },
+        )

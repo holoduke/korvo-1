@@ -226,7 +226,7 @@
             const load = Number.isFinite(r.load) ? r.load : null;
             const busy = load == null ? "" : load > 60 ? "bad" : load > 40 ? "warn" : "ok";
             return (
-              `<li><div class="nw-radio-head"><b>${esc(r.band || "")}</b><span>kanaal <b>${r.channel ?? "--"}</b></span><span><b>${r.clients ?? 0}</b> app.</span></div>` +
+              `<li><div class="nw-radio-head"><b>${esc(r.band || "")}</b><span>kanaal <b>${esc(r.channel ?? "--")}</b></span><span><b>${esc(r.clients ?? 0)}</b> app.</span></div>` +
               `<div class="nw-load ${busy}"><i style="width:${load ?? 0}%"></i><span>${load == null ? "belasting onbekend" : `${load}% belast`}</span></div></li>`
             );
           })
@@ -263,7 +263,7 @@
           .map((c) => {
             const via = ids.get(c.device);
             const where = c.wired
-              ? `${via ? esc(via.name) : "Kabel"}${c.port ? ` · poort ${c.port}` : ""}`
+              ? `${via ? esc(via.name) : "Kabel"}${c.port ? ` · poort ${esc(c.port)}` : ""}`
               : `${via ? esc(via.name) : "Wifi"}${c.band ? ` · ${esc(c.band)}` : ""}${c.ssid ? ` · ${esc(c.ssid)}` : ""}`;
             const bars = barsOf(c.signal);
             const signal = c.wired

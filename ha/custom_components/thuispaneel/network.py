@@ -22,6 +22,7 @@ import asyncio
 from collections import deque
 import hashlib
 import logging
+import math
 import time
 from typing import Any
 
@@ -84,9 +85,9 @@ class Network:
         self._task = self._hass.async_create_background_task(self._loop(), f"{DOMAIN} network")
 
     async def stop(self) -> None:
+        # de sessie ruimt Home Assistant zelf op bij het ontladen van de entry
         if self._task:
             self._task.cancel()
-        await self._session.close()
 
     async def _loop(self) -> None:
         while True:
@@ -188,9 +189,9 @@ class Network:
                 radios.append(
                     {
                         "band": RADIO_BAND.get(r.get("radio"), r.get("radio")),
-                        "channel": r.get("channel"),
+                        "channel": _int(r.get("channel")),
                         "load": r.get("cu_total"),
-                        "clients": r.get("num_sta") or r.get("user-num_sta"),
+                        "clients": _int(r.get("num_sta") or r.get("user-num_sta")),
                         "satisfaction": r.get("satisfaction"),
                     }
                 )
@@ -238,10 +239,10 @@ class Network:
                     "ip": c.get("ip"),
                     "wired": wired,
                     "device": self._anon(c.get("sw_mac") if wired else c.get("ap_mac")),
-                    "port": c.get("sw_port") if wired else None,
+                    "port": _int(c.get("sw_port")) if wired else None,
                     "ssid": None if wired else c.get("essid"),
                     "band": None if wired else RADIO_BAND.get(c.get("radio"), c.get("radio")),
-                    "channel": None if wired else c.get("channel"),
+                    "channel": None if wired else _int(c.get("channel")),
                     "signal": None if wired else c.get("signal"),
                     "satisfaction": c.get("satisfaction"),
                     "rx": c.get("rx_rate"),
@@ -265,6 +266,12 @@ class Network:
     @property
     def snapshot(self) -> dict[str, Any]:
         return self._snapshot
+
+
+def _int(v: Any) -> int | None:
+    """Een geheel getal van de controller, of None: wat het paneel toont is nooit tekst van buiten."""
+    n = _num(v)
+    return int(n) if n is not None and math.isfinite(n) else None
 
 
 def _num(v: Any) -> float | None:

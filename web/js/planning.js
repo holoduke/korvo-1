@@ -141,11 +141,11 @@
     const next = on && nextRun(s);
     return (
       `<div class="pl-row${on ? "" : " off"}">` +
-      `<button class="pl-main" data-plan="edit|${s.id}"><b class="pl-time">${s.time}</b>` +
+      `<button class="pl-main" data-plan="edit|${esc(s.id)}"><b class="pl-time">${esc(s.time)}</b>` +
       `<span class="pl-info"><span class="pl-rooms">${esc(roomsText(s.robot, s.rooms))}</span>` +
       `<span class="pl-days">${DAYS.map(([key, label]) => `<i class="${s.days.includes(key) ? "on" : ""}">${label}</i>`).join("")}</span>` +
       `<small>${on ? (next ? `volgende ${when(next)}` : "") : "staat uit"}</small></span></button>` +
-      `<button class="pl-switch${on ? " on" : ""}" data-plan="toggle|${s.id}" aria-label="${on ? "Planning uitzetten" : "Planning aanzetten"}"><i class="toggle-pill"></i></button>` +
+      `<button class="pl-switch${on ? " on" : ""}" data-plan="toggle|${esc(s.id)}" aria-label="${on ? "Planning uitzetten" : "Planning aanzetten"}"><i class="toggle-pill"></i></button>` +
       `</div>`
     );
   }
@@ -237,7 +237,7 @@
       `<div class="pl-field"><span class="vlabel">Tijd</span><div class="pl-time-edit">` +
       `<button class="vchip" data-edit="time|-60" aria-label="Een uur eerder">−1 u</button>` +
       `<button class="vchip" data-edit="time|-15" aria-label="Kwartier eerder">${icon("minus")}</button>` +
-      `<b>${draft.time}</b>` +
+      `<b>${esc(draft.time)}</b>` +
       `<button class="vchip" data-edit="time|15" aria-label="Kwartier later">${icon("plus")}</button>` +
       `<button class="vchip" data-edit="time|60" aria-label="Een uur later">+1 u</button>` +
       `</div></div>` +
