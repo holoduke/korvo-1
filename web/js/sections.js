@@ -110,6 +110,8 @@
     const changed = i !== Panel.section;
     Panel.section = i;
     tabs().forEach((el, k) => el.classList.toggle("active", k === i));
+    /* the other sections sit beside the screen on the track: their ongoing animations pause (base.css) */
+    document.querySelectorAll("#track > .page").forEach((el) => el.classList.toggle("away", +el.dataset.page !== i));
     setTrack(0, animate, velocity);
     setIndicator(i, animate);
     revealTab(i, animate);

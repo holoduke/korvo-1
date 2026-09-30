@@ -77,7 +77,8 @@
    * 45°, then straight to the panel's edge at the height of its title. */
   function draw() {
     raf = 0;
-    if (!current || panel.hidden) return;
+    /* asleep or out of sight nothing is looked at: the line waits (resume()) */
+    if (!current || panel.hidden || Panel.sleeping() || document.hidden) return;
     const house = Panel.house;
     const p = house && house.project(current.centre);
     const path = leader.querySelector(".hl-path");
@@ -176,6 +177,10 @@
     ["pointerdown", "touchstart"].forEach((ev) => panel.addEventListener(ev, (e) => e.stopPropagation(), { passive: true }));
   });
   Panel.on("light", (id) => current && !panel.hidden && current.lights.includes(id) && facts());
+  Panel.on("minute", () => current && !panel.hidden && facts()); /* its temperature and who is in */
+  const resume = () => current && !panel.hidden && !raf && (raf = requestAnimationFrame(draw));
+  Panel.on("sleep", (on) => !on && resume());
+  document.addEventListener("visibilitychange", () => !document.hidden && resume());
   Panel.on("section", () => Panel.currentRoom() && !Panel.onScreen("start") && Panel.closeRoom());
   Panel.on("escape", Panel.closeRoom);
 })();

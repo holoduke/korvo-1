@@ -1,0 +1,12 @@
+{
+  "name": "thuis-panel-tests",
+  "private": true,
+  "description": "Browser tests for the web panel, in demo mode (no Home Assistant needed)",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

@@ -70,6 +70,15 @@
     return !!x && x.state !== "unavailable";
   };
   const val = (key) => (E[key] ? Panel.num(E[key]) : NaN);
+  /* What was last asked of an entity, while the car has not confirmed it yet
+   * (it may be asleep): taps step on from there, not from the old reading. */
+  const asked = new Map(); /* key -> {value, until} */
+  function latest(key, reported) {
+    const a = asked.get(key);
+    if (a && Date.now() < a.until && a.value !== reported) return a.value;
+    asked.delete(key);
+    return reported;
+  }
   const on = (key) => (s(key) || {}).state === "on";
   const stateOf = (key) => ((s(key) || {}).state || "").toLowerCase();
   const attrs = (key) => (s(key) || {}).attributes || {};
@@ -433,6 +442,9 @@
     /* repeatable: the command may be sent again when the car was not reachable. */
     const call = (domain, service, data, key, repeatable = true) => {
       if (!E[key]) return;
+      if (data && ("value" in data || "temperature" in data || "option" in data)) {
+        asked.set(key, { value: data.value ?? data.temperature ?? data.option, until: Date.now() + RETRY_WINDOW_MS });
+      }
       /* A newer command for the same entity takes over: an earlier one still
        * waiting for the car to wake must not land after it (unlock after lock). */
       clearTimeout(retries.get(key));
@@ -447,6 +459,7 @@
             return retries.set(key, setTimeout(() => attempt(tries + 1), RETRY_DELAYS_MS[tries]));
           }
           pending.drop(control);
+          asked.delete(key);
           render();
           Panel.toast(`${car.label}: ${t.plain ? t.text : `niet gelukt, ${t.text}`}`);
         });
@@ -476,13 +489,13 @@
       case "limit":
       case "limit-set": {
         const a = attrs("chargeLimit");
-        const next = action === "limit-set" ? +el.dataset.value : val("chargeLimit") + Number(el.dataset.step);
+        const next = action === "limit-set" ? +el.dataset.value : latest("chargeLimit", val("chargeLimit")) + Number(el.dataset.step);
         if (!Number.isFinite(next)) return;
         return call("number", "set_value", { value: clamp(next, a.min ?? 50, a.max ?? 100) }, "chargeLimit");
       }
       case "amps": {
         const a = attrs("chargeAmps");
-        const next = val("chargeAmps") + Number(el.dataset.step);
+        const next = latest("chargeAmps", val("chargeAmps")) + Number(el.dataset.step);
         if (!Number.isFinite(next)) return;
         return call("number", "set_value", { value: clamp(next, a.min ?? 0, a.max ?? 32) }, "chargeAmps");
       }
@@ -493,7 +506,7 @@
       }
       case "temp": {
         const a = attrs("climate");
-        const base = a.temperature != null && Number.isFinite(Number(a.temperature)) ? Number(a.temperature) : 21;
+        const base = latest("climate", a.temperature != null && Number.isFinite(Number(a.temperature)) ? Number(a.temperature) : 21);
         const next = clamp(Math.round((base + Number(el.dataset.step)) * 2) / 2, a.min_temp ?? 15, a.max_temp ?? 28);
         return call("climate", "set_temperature", { temperature: next }, "climate");
       }
@@ -502,7 +515,7 @@
       case "heat": {
         const key = el.dataset.key;
         const options = attrs(key).options || ["off", "low", "medium", "high"];
-        const next = options[(options.indexOf(stateOf(key)) + 1) % options.length];
+        const next = options[(options.indexOf(latest(key, stateOf(key))) + 1) % options.length];
         return call("select", "select_option", { option: next }, key);
       }
       case "lock":

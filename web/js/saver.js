@@ -213,6 +213,7 @@
     saverAt = Date.now();
     Panel.closeDialogs();
     Panel.closeDrawer();
+    if (Panel.closeRoom) Panel.closeRoom(); /* the house turns on its own now; a room's panel would sit on top all night */
     if (Panel.prefs.saverMode === 2) {
       houseSaver = true;
       before = location.hash;

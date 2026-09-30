@@ -36,7 +36,7 @@ static const panel_theme_t PANEL_THEMES[] = {
     { .name = "Nacht",       /* the original: graphite with amber */
       .bg = 0x111318, .toolbar = 0x0c0e12, .tile = 0x232833, .tile_off = 0x1a1d24,
       .tile_on = 0xffb84d, .on_text = 0x241a05, .on_sub = 0x6b5518,
-      .text = 0xeef0f5, .text_dim = 0x848b9c, .text_soft = 0xc6cbd6,
+      .text = 0xeef0f5, .text_dim = 0x8a91a1, .text_soft = 0xc6cbd6,
       .scene = 0x2b3444, .scene_on = 0xa78bfa, .scene_text = 0x1a1030, .scene_sub = 0x3b2d66,
       .accent = 0xffb84d, .grid = 0x2b3140 },
     { .name = "Middernacht", /* true black for the LCD at night, ice-cyan accents */
@@ -54,7 +54,7 @@ static const panel_theme_t PANEL_THEMES[] = {
     { .name = "Licht",       /* daylight: paper white, ink text, amber and violet */
       .bg = 0xf3f4f7, .toolbar = 0xffffff, .tile = 0xffffff, .tile_off = 0xe6e8ee,
       .tile_on = 0xffb84d, .on_text = 0x241a05, .on_sub = 0x6b5518,
-      .text = 0x1c2230, .text_dim = 0x6b7280, .text_soft = 0x4b5563,
+      .text = 0x1c2230, .text_dim = 0x606775, .text_soft = 0x4b5563,
       .scene = 0xe4e7ee, .scene_on = 0x8b5cf6, .scene_text = 0xffffff, .scene_sub = 0xede9fe,
       .accent = 0xd97706, .grid = 0xd9dce3 },
     { .name = "Bos",         /* deep forest greens with a lime highlight */
@@ -121,7 +121,7 @@ static const panel_theme_t PANEL_THEMES[] = {
     { .name = "IJs",         /* white and sky blue, ink text, a clean grotesk, thin grey edges */
       .bg = 0xf7f9fb, .toolbar = 0xffffff, .tile = 0xffffff, .tile_off = 0xe9eef3,
       .tile_on = 0x0ea5e9, .on_text = 0xffffff, .on_sub = 0xdbf2fd,
-      .text = 0x0f172a, .text_dim = 0x64748b, .text_soft = 0x334155,
+      .text = 0x0f172a, .text_dim = 0x5c6b81, .text_soft = 0x334155,
       .scene = 0xe6ecf2, .scene_on = 0x111827, .scene_text = 0xffffff, .scene_sub = 0x9ca3af,
       .accent = 0x0284c7, .grid = 0xdbe2ea,
       .font = "Inter", .display = "Inter", .round = 70, .edge = 0xd6dee8 },

@@ -71,7 +71,8 @@
     if (row.hidden) return;
     const s = Panel.st(joinId);
     const open = s.state === "on";
-    const since = Date.parse(s.last_changed) || joinSeenOn || Date.now();
+    /* when pairing opened, as Home Assistant has it: every screen counts down the same */
+    const since = s.lastChanged || Date.parse(s.last_changed) || joinSeenOn || Date.now();
     const left = open ? Math.max(0, JOIN_S - Math.round((Date.now() - since) / 1000)) : 0;
     const mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
     $("join").className = `join${open ? " open" : ""}`;

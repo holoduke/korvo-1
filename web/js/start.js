@@ -68,8 +68,8 @@
       const cards = cfg.sensorCards || [];
       const doors = (window.HOUSE_PLAN.openings || [])
         .filter((o) => o.key && o.sensor)
-        .map((o) => ({ key: o.key, id: (cards.find((c) => c.label === o.sensor) || { entities: {} }).entities.contact }))
-        .filter((d) => d.id || console.warn(`house: no sensor card "${d.key}" for the plan's ${d.key}`));
+        .map((o) => ({ key: o.key, sensor: o.sensor, id: (cards.find((c) => c.label === o.sensor) || { entities: {} }).entities.contact }))
+        .filter((d) => d.id || console.warn(`house: no sensor card "${d.sensor}" for the plan's ${d.key}`));
       const syncDoors = (changed, first) =>
         doors.forEach((d) => {
           const open = (Panel.st(d.id) || {}).state === "on";

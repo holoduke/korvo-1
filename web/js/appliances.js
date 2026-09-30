@@ -180,15 +180,39 @@
   /* A service call for an appliance, marked pending under key until the entity
    * it addresses reports something new (not any of the appliance's entities:
    * a washer's power meter ticks whether or not the command landed). */
+  /* Values sent with number.set_value, until the device reports them: a
+   * stepper steps on from what was tapped, not from the old reading (a
+   * sleeping car or a polled heat pump takes a while to confirm). */
+  const targets = new Map(); /* entity -> {value, until} */
+  Panel.applianceTarget = (id) => {
+    const t = targets.get(id);
+    const now = Panel.num(id);
+    if (t && Date.now() < t.until && now !== t.value) return t.value;
+    targets.delete(id);
+    return now;
+  };
+  /* A command that would not change anything (the option already chosen, the
+   * value already set) is not sent: nothing would confirm it. */
+  function alreadySo(domain, service, data, entity) {
+    const s = Panel.st(entity);
+    if (!s || !data) return false;
+    if (service === "select_option") return s.state === data.option;
+    if (domain === "media_player" && service === "select_source") return (s.attributes || {}).source === data.source;
+    if (domain === "number" && service === "set_value") return Panel.applianceTarget(entity) === data.value;
+    return false;
+  }
   function callFor(a, key) {
+    const wait = kindOf(a).pendingMs; /* the kind's own patience (a cloud-polled pump), else PENDING_MS */
     return (domain, service, data, entity) => {
-      if (!entity) return;
+      if (!entity || alreadySo(domain, service, data, entity)) return;
+      if (domain === "number" && service === "set_value") targets.set(entity, { value: data.value, until: Date.now() + (wait || PENDING_MS) });
       const snapshot = () => {
         const s = Panel.st(entity);
         return s ? JSON.stringify([s.state, s.attributes]) : "";
       };
-      pending.mark(key, snapshot);
+      pending.mark(key, snapshot, wait);
       Panel.client.callService(domain, service, data || null, { entity_id: entity }).catch((err) => {
+        targets.delete(entity);
         pending.drop(key);
         render();
         Panel.commandFailed(a.label)(err);

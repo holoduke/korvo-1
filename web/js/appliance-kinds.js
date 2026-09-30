@@ -75,6 +75,7 @@
 
   Panel.defineAppliance("heatpump", {
     icon: "heatpump",
+    pendingMs: 90000, /* read through myUplink (NIBE's cloud), polled: a change shows up late */
     view(a, i) {
       const e = a.entities;
       if (offline(e.status)) return offlineView("De warmtepomp is niet bereikbaar");
@@ -161,7 +162,7 @@
         if (key === "roomHeat" && Panel.heating) return Panel.heating.step(Number(dir));
         const id = a.entities[key];
         const at = attrs(id);
-        const cur = num(id);
+        const cur = Panel.applianceTarget(id);
         if (!known(cur)) return;
         const step = at.step || 1;
         const v = Util.clamp(cur + Number(dir) * step, at.min ?? -100, at.max ?? 100);
@@ -252,7 +253,7 @@
         `<div class="ap-chips">${programs.map((p) => chip(i, `program|${p}`, PROGRAM_NL[p] || p, p === program, !idle)).join("")}</div>` +
         `<div class="ap-row">` +
         (idle
-          ? btn(i, "start", "Start", { primary: true, ic: "play", disabled: !startAllowed || op !== "ready" })
+          ? btn(i, "start", "Start", { primary: true, ic: "play", disabled: !startAllowed || op !== "ready" || !known(program) })
           : btn(i, "stop", "Stop", { confirm: true, ic: "stop" })) +
         `</div>` +
         `<div class="ap-row ap-toggles">` +
@@ -553,7 +554,7 @@
     actions: {
       setpoint(a, [dir], call) {
         const sp = attrs(a.entities.setpoint);
-        const next = Util.clamp(num(a.entities.setpoint) + Number(dir) * (sp.step || 1), sp.min ?? 1, sp.max ?? 9);
+        const next = Util.clamp(Panel.applianceTarget(a.entities.setpoint) + Number(dir) * (sp.step || 1), sp.min ?? 1, sp.max ?? 9);
         if (Number.isFinite(next)) call("number", "set_value", { value: next }, a.entities.setpoint);
       },
       toggle,

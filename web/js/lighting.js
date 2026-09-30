@@ -181,8 +181,10 @@
     const s = st(id);
     if (Panel.unavailable(s)) return;
     if (tooSoon("t:" + id)) return;
-    const on = s.state !== "on";
-    clearTimeout((pending.get(id) || {}).timer);
+    /* a second tap before the lamp reported back flips what the first asked for */
+    const p = pending.get(id);
+    const on = p ? !p.on : s.state !== "on";
+    clearTimeout((p || {}).timer);
     pending.set(id, {
       on,
       timer: setTimeout(() => {
@@ -193,7 +195,7 @@
       }, 4000),
     });
     renderLight(id);
-    Panel.client.callService("light", "toggle", null, { entity_id: id }).catch(() => {
+    Panel.client.callService("light", on ? "turn_on" : "turn_off", null, { entity_id: id }).catch(() => {
       pending.delete(id);
       renderLight(id);
     });
@@ -280,7 +282,7 @@
       const sub = el.querySelector(".t-sub");
       if (!sub) return;
       const w = wattsText(sceneWatts(ti, i));
-      sub.textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scene";
+      sub.textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scène";
     });
   }
   Panel.renderScenes = renderSceneWatts;
@@ -392,7 +394,7 @@
       dirty.lights.add(id);
     }
     if (!dirty || !saveBar) return;
-    saveBar.querySelector(".ss-text").textContent = `Lampen van scene “${cfg.tabs[dirty.tab].scenes[dirty.idx].label}” veranderd. Scene opslaan?`;
+    saveBar.querySelector(".ss-text").textContent = `Lampen van scène “${cfg.tabs[dirty.tab].scenes[dirty.idx].label}” veranderd. Scène opslaan?`;
     syncSaveBar();
   }
   /* The offer shows with its own tab: it waits out a visit to another section. */
@@ -427,7 +429,7 @@
     } catch (e) {
       config = null;
     }
-    if (!config) return Panel.toast(`Scene ${sc.label} staat niet in de scene-editor van Home Assistant: opslaan kan niet`);
+    if (!config) return Panel.toast(`Scène ${sc.label} staat niet in de scène-editor van Home Assistant: opslaan kan niet`);
     const entities = { ...(config.entities || {}) };
     for (const id of d.lights) {
       const s = st(id);
@@ -439,9 +441,9 @@
       highlightScene(d.tab, d.idx); /* the saved scene stays the active one */
       sceneStates.set(sc.id, entities);
       renderSceneSwatches();
-      Panel.toast(`Scene ${sc.label} opgeslagen`, "ok");
+      Panel.toast(`Scène ${sc.label} opgeslagen`, "ok");
     } catch (e) {
-      Panel.toast(`Scene ${sc.label} opslaan lukte niet: ${e.message || e}`);
+      Panel.toast(`Scène ${sc.label} opslaan lukte niet: ${e.message || e}`);
     }
   }
   Panel.defineAction("ss", (el) => (el.dataset.ss === "yes" ? saveScene() : dismissSave()));
@@ -496,7 +498,7 @@
         lampsOfTab.set(ti, [...found].filter((id) => id.startsWith("light.") && !groupMembers.has(id) && (!knownIds || knownIds.has(id))));
       })
     );
-    Panel.track([...lampsOfTab.values()].flat(), onLights);
+    Panel.track([...lampsOfTab.values()].flat(), lampsChanged);
     tabs.forEach((ti) => renderTabLamps(ti));
     renderSceneSwatches();
   }
@@ -592,7 +594,7 @@
   /* A tab's page content: scenes left, lamps right (filled once they are known). */
   Panel.lightingPanel = function (ti) {
     const t = cfg.tabs[ti];
-    const tile = (s, i) => `<button class="tile scene" data-scene="${ti}:${i}">${Panel.sceneLead(ti, i)}<span class="t-text"><span class="t-name">${Util.esc(s.label)}</span><span class="t-sub">scene</span></span></button>`;
+    const tile = (s, i) => `<button class="tile scene" data-scene="${ti}:${i}">${Panel.sceneLead(ti, i)}<span class="t-text"><span class="t-name">${Util.esc(s.label)}</span><span class="t-sub">scène</span></span></button>`;
     const inScope = (scope) => t.scenes.map((s, i) => (scopeOf(ti, i) === scope ? tile(s, i) : "")).join("");
     /* the floor's own scenes (under "Alle kamers" beside rooms' own), then each room's under its name */
     const floorHead = sceneRooms(ti).length && t.scenes.some((sc) => !sc.area) ? `<div class="list-room" data-scene-room="">Alle kamers</div>` : "";
@@ -617,14 +619,14 @@
     const t = cfg.tabs[ti];
     const areas = t.areas || [];
     let row = `<div class="row${areas.length ? " has-areas" : ""}">`;
-    if (t.sceneTiles && t.lights.length) row += `<button class="sq" data-light="${t.lights[0].id}" data-power="${t.lights[0].id}">${icon("power")}</button>`;
+    if (t.sceneTiles && t.lights.length) row += `<button class="sq" data-light="${t.lights[0].id}" data-power="${t.lights[0].id}" aria-label="Aan of uit">${icon("power")}</button>`;
     if (areas.length) {
       row +=
         `<div class="areas"><button class="chip area-chip active" data-area="-1">Alle</button>` +
         areas.map((a, i) => `<button class="chip area-chip" data-area="${i}">${a.label}</button>`).join("") +
         `</div>`;
     } else if (t.scenes.length) {
-      row += `<div class="pill" data-pill="${ti}"><span><span class="lbl">Actieve scene:</span><b>-</b></span></div>`;
+      row += `<div class="pill" data-pill="${ti}"><span><span class="lbl">Actieve scène:</span><b>-</b></span></div>`;
     }
     row += `<button class="allbtn" data-all="${ti}">${icon("list")}<span class="txt">Alle lampen</span><span class="chev">${icon("chevron-down")}</span></button>`;
     return row + "</div>";
@@ -666,11 +668,13 @@
     [...t.lights, ...t.devices].forEach((e) => lightIds.add(e.id));
     (t.areas || []).forEach((a) => a.lights.forEach((id) => lightIds.add(id)));
   });
-  Panel.track(lightIds, (ids, first) => {
+  /* Every lamp the panel follows, the configured ones and those found through scenes. */
+  function lampsChanged(ids, first) {
     onLights(ids, first);
     if (!first && sceneBusy) sceneSettled(); /* the scene's lamps answered */
     markGone();
-  });
+  }
+  Panel.track(lightIds, lampsChanged);
   Panel.track(cfg.tabs.flatMap((t) => t.scenes.map((s) => s.id)), onScenes);
 
   Panel.on("build", () => {

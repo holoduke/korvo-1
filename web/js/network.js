@@ -37,7 +37,9 @@
       const series = ((net && net.internet) || {}).series || [];
       Panel.hist[LATENCY] = series.filter(([, v]) => v != null).map(([t, v]) => ({ t, v }));
     } catch (e) {
-      net = { configured: false, error: "integration", at: null };
+      /* a failed fetch keeps what was there (the house's network layer too);
+       * only with nothing yet does the page say why */
+      if (!net || !net.at || net.error === "integration") net = { configured: false, error: "integration", at: Date.now() };
     } finally {
       busy = false;
     }

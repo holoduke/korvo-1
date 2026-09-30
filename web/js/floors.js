@@ -126,8 +126,9 @@
 
   window.addEventListener("keydown", (e) => {
     if (!page || Panel.overlayOpen() || cfg.sections[Panel.section].kind !== "floors") return;
-    if (e.key === "ArrowUp") Panel.setFloor(Panel.floor + 1, true);
-    if (e.key === "ArrowDown") Panel.setFloor(Panel.floor - 1, true);
+    /* up and down as the rail shows them (the Garage sits under the storeys) */
+    const to = Panel.floorPos(Panel.floor) + (e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0);
+    if (to !== Panel.floorPos(Panel.floor) && to >= 0 && to < Panel.floorOrder.length) Panel.setFloor(Panel.floorOrder[to], true);
   });
   /* Safari resizes the viewport when its toolbar changes: a glide under way is
    * re-aimed, not cut short to its end. */

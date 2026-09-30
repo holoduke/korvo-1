@@ -11,17 +11,13 @@
   "use strict";
 
   const LS_TOKENS = "panel.tokens";
-  const LS_HASS = "panel.hassUrl";
   /* Units statistics are reported in, whatever the sensor itself uses. */
   const STAT_UNITS = { energy: "kWh", volume: "L" };
 
   /* ---- Auth ---------------------------------------------------------------- */
 
-  function hassUrl() {
-    const stored = localStorage.getItem(LS_HASS);
-    if (stored) return stored.replace(/\/$/, "");
-    return location.origin;
-  }
+  /* The app is served by Home Assistant itself (and the CSP allows no other host). */
+  const hassUrl = () => location.origin;
 
   const clientId = () => location.origin + "/";
   const redirectUri = () => location.origin + location.pathname;
@@ -57,6 +53,11 @@
     if (!res.ok) {
       const err = new Error("token request failed: " + res.status);
       err.status = res.status;
+      try {
+        err.code = (await res.json()).error; /* Home Assistant: "invalid_grant" for a refresh token it no longer knows */
+      } catch (e) {
+        /* not Home Assistant's answer (a proxy's error page) */
+      }
       throw err;
     }
     const d = await res.json();
@@ -80,6 +81,10 @@
     return new Promise(() => {}); /* the page navigates away */
   }
 
+  /* Whether a failed refresh means the login itself is gone (revoked or
+   * expired refresh token), rather than a proxy or a network hiccup. */
+  const loginGone = (e) => e.status === 400 && e.code === "invalid_grant";
+
   /* Returns a valid access token, completing or starting the OAuth flow. */
   async function getAccessToken() {
     const url = new URL(location.href);
@@ -101,11 +106,11 @@
         t = await tokenRequest({ grant_type: "refresh_token", refresh_token: t.refresh_token });
         saveTokens(t);
       } catch (e) {
-        if (e.status === 400 || e.status === 401 || e.status === 403) {
+        if (loginGone(e)) {
           localStorage.removeItem(LS_TOKENS);
           return redirectToLogin();
         }
-        throw e; /* network trouble: let the reconnect loop retry */
+        throw e; /* network or proxy trouble: let the reconnect loop retry */
       }
     }
     return t.access_token;
@@ -139,7 +144,7 @@
     let pingTimer = null;
     let lastPong = 0;
     let retry = 0;
-    let stopped = false;
+    let authRejected = 0; /* auth_invalid answers since the last auth_ok */
     let reconnectTimer = 0;
     let connecting = false; /* from starting a connection until it is authenticated or closed */
     let authed = false;
@@ -264,7 +269,6 @@
       pending.clear();
       authed = false;
       connecting = false;
-      if (stopped) return;
       ev.emit("status", "disconnected");
       scheduleReconnect();
     }
@@ -282,7 +286,7 @@
     }
 
     async function connect() {
-      if (stopped || connecting) return;
+      if (connecting) return;
       clearTimeout(reconnectTimer);
       connecting = true;
       ev.emit("status", "connecting");
@@ -323,13 +327,21 @@
         if (msg.type === "auth_required") {
           socket.send(JSON.stringify({ type: "auth", access_token: token }));
         } else if (msg.type === "auth_invalid") {
-          localStorage.removeItem(LS_TOKENS);
-          ev.emit("status", "auth-error");
+          /* The access token was refused, often only because the tablet's
+           * clock made an expired one look valid: refresh it and try again.
+           * Only when a fresh token is refused too is the login gone. */
+          const t = loadTokens();
+          if (t && t.refresh_token && authRejected++ === 0) {
+            saveTokens({ ...t, expires: 0 });
+          } else {
+            localStorage.removeItem(LS_TOKENS);
+            ev.emit("status", "auth-error");
+          }
           socket.close();
         } else if (msg.type === "auth_ok") {
           connecting = false;
           authed = true;
-          retry = 0;
+          authRejected = 0;
           clearTimeout(handshake);
           handshake = setTimeout(() => {
             if (socket === ws && !subscribed) {
@@ -362,7 +374,18 @@
         } else if (msg.type === "event" && msg.event) {
           const changed = applyEntities(msg.event);
           if (!subscribed) {
+            /* The first message holds every subscribed entity that exists:
+             * what the cache still has beyond that was removed or renamed. */
+            if (msg.event.a) {
+              for (const id of [...states.keys()]) {
+                if (!(id in msg.event.a)) {
+                  states.delete(id);
+                  changed.push(id);
+                }
+              }
+            }
             subscribed = true;
+            retry = 0; /* only a connection that delivers states resets the backoff */
             connectedAt = Date.now();
             clearTimeout(handshake);
             ev.emit("status", "connected");
@@ -413,11 +436,11 @@
     /* A watchdog behind every path: no socket, nothing connecting, then connect
      * (a scheduled retry that got lost would otherwise leave the panel offline). */
     setInterval(() => {
-      if (!stopped && !ws && !connecting) connect();
+      if (!ws && !connecting) connect();
     }, 30000);
     /* Connects at once instead of after the backoff (never a second socket). */
     function reconnectNow() {
-      if (stopped || connecting || ws) return;
+      if (connecting || ws) return;
       retry = 0;
       connect();
     }

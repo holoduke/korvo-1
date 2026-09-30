@@ -91,6 +91,8 @@
   };
   vTrack.addEventListener("pointerup", release);
   vTrack.addEventListener("pointercancel", release);
+  /* capture lost without an up (the slider hidden mid-drag): end the drag, or it would ignore Home Assistant from then on */
+  vTrack.addEventListener("lostpointercapture", release);
 
   Panel.on("section", sync);
   Panel.on("floor", sync);

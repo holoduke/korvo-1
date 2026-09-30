@@ -66,7 +66,7 @@
         level: soc,
         chips: [
           ["bolt", Panel.CHARGING_NL[charging] || null],
-          ["dock", stateOf(e.location) ? Util.place(stateOf(e.location)) : null],
+          ["dock", Util.known(stateOf(e.location)) ? Util.place(stateOf(e.location)) : null],
           active && ["battery", known(soc) ? `${fmt(soc)}%` : null],
           active && known(volts) && known(amps) && ["plug", `${fmt(volts)} V · ${fmt(amps)} A`],
           added > 0 && ["plus", `${fmt(added, 1)} kWh deze sessie`],

@@ -385,7 +385,8 @@ body.saver-house .house-cover { opacity: 0; pointer-events: none; }
 .house-leader .hl-path { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linejoin: round; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 70%, transparent)); stroke-dasharray: 2000; stroke-dashoffset: 2000; }
 .house-leader.drawn .hl-path { stroke-dashoffset: 0; transition: stroke-dashoffset 0.45s ease-out; }
 .house-leader .hl-dot { fill: var(--accent); }
-.house-leader .hl-ring { fill: none; stroke: var(--accent); stroke-width: 1; opacity: 0.7; animation: hl-ring 1.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.house-leader .hl-ring { fill: none; stroke: var(--accent); stroke-width: 1; opacity: 0.7; transform-box: fill-box; transform-origin: center; }
+.house-leader.on .hl-ring { animation: hl-ring 1.6s ease-out infinite; } /* only while a room is open: hidden it would still repaint */
 @keyframes hl-ring { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(1.8); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .house-leader .hl-ring { animation: none; } .house-info { animation: none; } }
 @media (max-width: 700px) {
@@ -413,3 +414,4 @@ body.saver-house .house-cover { opacity: 0; pointer-events: none; }
   .house-cover .cw-door, .house-heat .hh-title { display: none; }
   .house-info { top: 8px; max-height: calc(100% - 16px); }
 }
+.house-ask:focus-within { box-shadow: inset 0 0 0 1.5px var(--accent); } /* the input itself shows no ring: the bar does */

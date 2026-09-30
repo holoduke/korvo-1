@@ -21,9 +21,12 @@
     let index;
     try {
       const res = await fetch(`${BASE}photos.json`, { cache: "no-cache" });
-      index = res.ok ? await res.json() : {};
+      if (res.status === 404) index = {}; /* no photos: icons stay */
+      else if (!res.ok) throw new Error(`photos.json ${res.status}`);
+      else index = await res.json();
     } catch (e) {
-      return; /* no photos: icons stay */
+      asked = false; /* Home Assistant not reachable yet: try again when it is */
+      return;
     }
     for (const [slug, file] of Object.entries(index)) {
       const url = BASE + encodeURIComponent(file);
@@ -37,4 +40,5 @@
   }
 
   Panel.on("start", load);
+  Panel.on("status", (st) => st === "connected" && load()); /* a start while Home Assistant was away */
 })();

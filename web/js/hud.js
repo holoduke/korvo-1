@@ -39,7 +39,8 @@
   function connection() {
     if (Panel.client && Panel.client.demo) return { tone: "ok", text: "Demo" };
     if (status === "connected") return { tone: "ok", text: "Home Assistant online" };
-    if (status === "connecting") return { tone: "warn", text: "Verbinden met Home Assistant…" };
+    /* "stale": started from the cached states, the socket still opening */
+    if (status === "connecting" || status === "stale") return { tone: "warn", text: "Verbinden met Home Assistant…" };
     return { tone: "bad", text: "Geen verbinding met Home Assistant" };
   }
   function problems() {
@@ -463,13 +464,24 @@
     startFollowing();
   }
   /* Many entities change at once (the first dump, a reconnect): one render. */
+  /* Out of sight (another section, asleep) only the events are noted; the
+   * labels and the house's tints wait until the house is shown again. */
+  let dirty = false;
   const schedule = () => {
     if (timer) return;
     timer = setTimeout(() => {
       timer = 0;
+      if (root && (!Panel.onScreen("start") || Panel.sleeping())) {
+        noteChanges(!loadedOnce);
+        loadedOnce = Panel.isLoaded();
+        dirty = true;
+        return;
+      }
+      dirty = false;
       render();
     }, 120);
   };
+  const catchUp = () => dirty && Panel.onScreen("start") && !Panel.sleeping() && schedule();
   function clock() {
     if (!root) return;
     const d = new Date();
@@ -491,12 +503,15 @@
   Panel.on("status", (s) => {
     /* no event line for the connection going or returning: the readout's
      * first row says it, and the health page keeps the log (user's wish) */
+    /* the first states after a reconnect are catching up, not news: a door
+     * that opened while the panel was away gets no line stamped with now */
+    if (s === "connected" && status !== "connected") loadedOnce = false;
     status = s;
     schedule();
   });
   Panel.on("loaded", schedule);
-  Panel.on("section", startFollowing);
-  Panel.on("sleep", (on) => !on && startFollowing());
+  Panel.on("section", () => (catchUp(), startFollowing()));
+  Panel.on("sleep", (on) => !on && (catchUp(), startFollowing()));
   Panel.on("room", () => renderLayer()); /* the chosen room's floor lights up (or goes out) */
   document.addEventListener("visibilitychange", startFollowing);
   Panel.on("minute", () => {

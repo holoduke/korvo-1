@@ -250,7 +250,11 @@
 
   const toggle = (set, value) => (set.has(value) ? set.delete(value) : set.add(value));
 
+  let saving = false; /* a second tap on Opslaan while the first is under way would make a second schedule */
   async function save() {
+    if (saving) return;
+    saving = true;
+    document.querySelectorAll('[data-edit="save"]').forEach((b) => (b.disabled = true));
     const id = draft.id || `${ID_PREFIX}${Date.now()}`;
     try {
       await Panel.client.saveAutomation(id, automation(id, draft));
@@ -258,7 +262,10 @@
       /* Home Assistant reloads its automations first; then the new entity exists. */
       setTimeout(load, 800);
     } catch (err) {
+      document.querySelectorAll('[data-edit="save"]').forEach((b) => (b.disabled = false));
       Panel.commandFailed("Planning")(err);
+    } finally {
+      saving = false;
     }
   }
   async function remove() {

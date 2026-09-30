@@ -54,6 +54,7 @@
   const today = new Map(); /* counter id -> use so far today (kWh; water in L) */
   const daily = new Map(); /* counter id -> Map(date string -> use that day) */
   let statsAt = 0;
+  let statsDay = ""; /* the day the figures are of: after midnight they are yesterday's until reloaded */
   let statsBusy = false;
   const dayStart = (back) => {
     const d = new Date();
@@ -63,6 +64,7 @@
   };
   /* A counter's use on the day `back` days ago (0 = today), or NaN. */
   function useOn(id, back) {
+    if (statsDay !== new Date().toDateString()) return NaN;
     const v = back === 0 ? today.get(id) : (daily.get(id) || new Map()).get(dayStart(back).toDateString());
     return v == null ? NaN : Math.max(0, v);
   }
@@ -80,6 +82,7 @@
       today.clear();
       for (const [id, v] of Object.entries(now)) if (v != null) today.set(id, v);
       statsAt = Date.now();
+      statsDay = new Date().toDateString();
       renderAll();
     } catch (e) {
       /* retried on the next refresh */
@@ -554,4 +557,11 @@
     if (Panel.isLoaded() && Date.now() - statsAt > 60e3) loadStats();
   });
   Panel.everyAwake(5 * 60e3, () => Panel.isLoaded() && loadStats());
+  /* a new day: "vandaag" starts over at once, not up to five minutes later */
+  Panel.on("minute", () => {
+    if (statsDay && statsDay !== new Date().toDateString() && Panel.isLoaded()) {
+      renderAll();
+      loadStats();
+    }
+  });
 })();

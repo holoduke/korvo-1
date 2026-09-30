@@ -36,8 +36,11 @@
 /* The name may take two lines: room names are the point of the card. */
 .dc-head b { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .dc-dot { position: absolute; top: 14px; right: 14px; width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, var(--text_dim) 40%, transparent); }
-.tone-active .dc-dot, .tone-warn .dc-dot { background: var(--dc-tone); animation: dc-pulse 1.6s ease-out infinite; }
-@keyframes dc-pulse { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dc-tone) 60%, transparent); } to { box-shadow: 0 0 0 10px transparent; } }
+.tone-active .dc-dot, .tone-warn .dc-dot { background: var(--dc-tone); }
+/* the pulse is a ring that grows and fades: transform and opacity only, drawn by the compositor */
+.tone-active .dc-dot::after, .tone-warn .dc-dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: color-mix(in srgb, var(--dc-tone) 60%, transparent); animation: dc-pulse 1.6s ease-out infinite; }
+@keyframes dc-pulse { from { transform: scale(1); opacity: 1; } to { transform: scale(3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dc-dot::after { animation: none !important; display: none; } }
 
 .dc-value { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .dc-value b { font-size: 34px; font-weight: 700; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; transition: color 0.4s; }
