@@ -567,7 +567,10 @@
     }
     if (kind === "start" || kind === "resume") return Panel.client.callService("vacuum", "start", null, target).catch(fail);
     if (kind === "pause") return Panel.client.callService("vacuum", "pause", null, target).catch(fail);
-    if (kind === "dock") return Panel.client.callService(vac.roomsDomain, "naar_station").catch(fail);
+    if (kind === "dock") {
+      run.sentHome = true; /* going home because it was told to: not a run that gave up */
+      return Panel.client.callService(vac.roomsDomain, "naar_station").catch(fail);
+    }
     if (kind === "locate") return Panel.client.callService("button", "press", null, { entity_id: vac.locate }).catch(fail);
   });
 
@@ -576,9 +579,43 @@
    * then on the first state dump), and again when a run ends. */
   const onScreen = () => Panel.robotOnScreen(vac.floor);
   let wasJob = false;
+
+  /* A run that gives up at once says so. The robot first finds its place on
+   * the map ("relocation"); when it cannot (moved by hand, its map gone after
+   * a reset, the lidar blocked) it drives home within half a minute — no
+   * error, just "returning" and "docked", so without this nobody would know
+   * why. Only that case is reported (a run sent home from the Xiaomi app
+   * looks the same otherwise): one that was looking for its place, heads home
+   * within GAVE_UP_MS without cleaning a square metre, and was not sent home
+   * from the panel. */
+  const GAVE_UP_MS = 3 * 60e3;
+  const run = { at: 0, area: NaN, relocating: false, sentHome: false, told: false };
+  function followRun(first) {
+    const vstate = (st(vac.vacuum) || {}).state;
+    const status = String((st(vac.status) || {}).state || "").toLowerCase();
+    const area = Panel.num(vac.area);
+    if (vstate === "cleaning" && !run.at) Object.assign(run, { at: Date.now(), area, relocating: false, sentHome: false, told: false });
+    if (!run.at) return;
+    if (status === "relocation") run.relocating = true;
+    const home = vstate === "returning" || vstate === "docked" || status === "go charging";
+    if (home && run.relocating && !run.told && !run.sentHome && !first && Date.now() - run.at < GAVE_UP_MS) {
+      const cleaned = Number.isFinite(area) && Number.isFinite(run.area) ? area - run.area : 0;
+      if (cleaned < 1) {
+        run.told = true;
+        const text = `${vac.label} vindt zijn plek op de kaart niet en gaat terug naar het dock`;
+        Panel.toast(text, "warn");
+        if (Panel.houseEvent) Panel.houseEvent(text, "warn");
+      }
+    }
+    /* the run is over once it is home (it passes through "idle" on its way
+     * back, so that alone does not end it), or long enough after the start */
+    if (vstate === "docked" || vstate === "error" || (!JOB_STATES.includes(vstate) && Date.now() - run.at > GAVE_UP_MS)) run.at = 0;
+  }
+
   Panel.track(
     ["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]),
-    () => {
+    (ids, first) => {
+      followRun(first || !Panel.isLoaded());
       render();
       /* A run that ended is new history (two weeks of it: not for every state change). */
       const job = JOB_STATES.includes((st(vac.vacuum) || {}).state);

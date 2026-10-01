@@ -475,6 +475,11 @@
       demo: true,
       states,
       on: ev.on,
+      /* For the tests (web/test): a device reports a new state, as Home Assistant would push it. */
+      simulate(id, state, attributes) {
+        set(id, state, { ...((states.get(id) || {}).attributes || {}), ...(attributes || {}) }, Date.now());
+        ev.emit("states", [id]);
+      },
       hassUrl: () => "demo",
       fireEvent() {
         return Promise.resolve(null); /* nothing to report in demo mode */

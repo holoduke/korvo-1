@@ -467,6 +467,11 @@
   /* Out of sight (another section, asleep) only the events are noted; the
    * labels and the house's tints wait until the house is shown again. */
   let dirty = false;
+  /* A line from another module (a robot that gave up, ...) in the house's log. */
+  Panel.houseEvent = (text, tone) => {
+    event(text, tone);
+    schedule();
+  };
   const schedule = () => {
     if (timer) return;
     timer = setTimeout(() => {

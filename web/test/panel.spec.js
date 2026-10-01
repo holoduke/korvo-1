@@ -119,3 +119,35 @@ test("the hash of a floor survives a reload", async ({ page }) => {
   await page.waitForTimeout(800);
   expect(await page.evaluate(() => location.hash)).toBe(hash);
 });
+
+test("a robot that cannot find its place and drives home says so", async ({ page }) => {
+  await open(page);
+  const vac = await page.evaluate(() => window.PANEL_CONFIG.vacuum);
+  test.skip(!vac, "no vacuum configured");
+  /* the sequence the Xiaomi robot went through on 2026-10-01, three times */
+  const steps = [
+    [vac.vacuum, "cleaning"], [vac.status, "sweeping"], [vac.status, "relocation"],
+    [vac.vacuum, "idle"], [vac.status, "go charging"], [vac.vacuum, "returning"], [vac.vacuum, "docked"],
+  ];
+  for (const [id, state] of steps) {
+    await page.evaluate(([i, s]) => Panel.client.simulate(i, s), [id, state]);
+    await page.waitForTimeout(150);
+  }
+  await expect(page.locator("#toast")).toContainText("vindt zijn plek op de kaart niet");
+});
+
+test("a robot sent home from the panel raises no alarm", async ({ page }) => {
+  await open(page, "schoonmaak");
+  const vac = await page.evaluate(() => window.PANEL_CONFIG.vacuum);
+  test.skip(!vac, "no vacuum configured");
+  for (const [id, state] of [[vac.vacuum, "cleaning"], [vac.status, "relocation"]]) {
+    await page.evaluate(([i, s]) => Panel.client.simulate(i, s), [id, state]);
+  }
+  await page.waitForTimeout(300);
+  await page.locator('#track > .page:not(.away) [data-vac="dock"]:not([hidden])').first().click(); /* scrolled to on a phone */
+  for (const state of ["returning", "docked"]) {
+    await page.evaluate(([i, s]) => Panel.client.simulate(i, s), [vac.vacuum, state]);
+    await page.waitForTimeout(150);
+  }
+  await expect(page.locator("#toast")).not.toContainText("plek op de kaart");
+});
