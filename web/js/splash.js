@@ -1,4 +1,5 @@
-/* The boot splash: the "T-1000 Automation" title across the width, the
+/* The boot splash: a liquid-chrome android head (assets/splash.jpg, made with
+ * Grok Imagine), the "T-1000 Automation" title across the width, the
  * connection status and a loader, gone once the first states are in. */
 (function () {
   "use strict";
