@@ -34,10 +34,15 @@
   <link rel="stylesheet" href="css/appliances.css?v=__VERSION__">
   <link rel="stylesheet" href="css/cards.css?v=__VERSION__">
   <link rel="stylesheet" href="css/energy.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/usage.css?v=__VERSION__">
   <link rel="stylesheet" href="css/network.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/audio.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/weather.css?v=__VERSION__">
   <link rel="stylesheet" href="css/climate.css?v=__VERSION__">
   <link rel="stylesheet" href="css/settings.css?v=__VERSION__">
   <link rel="stylesheet" href="css/saver.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/splash.css?v=__VERSION__">
+  <link rel="stylesheet" href="css/vision.css?v=__VERSION__">
 </head>
 <body>
   <div id="app" hidden>
@@ -62,7 +67,7 @@
       <div id="track" class="track"></div>
       <div id="bright" class="vslider" hidden>
         <div class="vs-label" id="brightLabel"></div>
-        <div class="vs-track"><div class="vs-fill"></div><div class="vs-knob"></div></div>
+        <div class="vs-track" role="slider" aria-label="Helderheid" aria-valuemin="0" aria-valuemax="100"><div class="vs-fill"></div><div class="vs-knob"></div></div>
       </div>
       <div id="sceneSave" class="scene-save" hidden><span class="ss-text"></span><span class="ss-btns"><button class="ss-btn primary" data-ss="yes">Ja</button><button class="ss-btn" data-ss="no">Nee</button></span></div>
     </main>
@@ -79,14 +84,14 @@
         <button id="popupClose" class="close-btn" aria-label="Sluiten"></button>
       </div>
       <div class="field-label">Helderheid <span id="popupBrightVal" class="field-value"></span></div>
-      <div id="popupBright" class="hslider"><div class="hs-fill"></div><div class="hs-knob"></div></div>
+      <div id="popupBright" class="hslider" role="slider" tabindex="0" aria-label="Helderheid" aria-valuemin="0" aria-valuemax="100"><div class="hs-fill"></div><div class="hs-knob"></div></div>
       <div id="popupColorWrap" hidden>
         <div class="field-label">Kleur</div>
-        <div id="popupColor" class="hslider hue"><div class="hs-knob"></div></div>
+        <div id="popupColor" class="hslider hue" role="slider" tabindex="0" aria-label="Kleur" aria-valuemin="0" aria-valuemax="359"><div class="hs-knob"></div></div>
       </div>
       <div id="popupWarmWrap" hidden>
         <div class="field-label">Warmte</div>
-        <div id="popupWarm" class="hslider warm"><div class="hs-knob"></div></div>
+        <div id="popupWarm" class="hslider warm" role="slider" tabindex="0" aria-label="Warmte"><div class="hs-knob"></div></div>
       </div>
       <div class="field-label popup-name-label" hidden>Naam</div>
       <div class="popup-name" hidden>
@@ -110,6 +115,36 @@
     </div>
   </div>
 
+  <div id="usage" class="overlay" role="dialog" aria-modal="true" aria-labelledby="usageTitle" hidden>
+    <div class="box usage-box">
+      <div class="box-head">
+        <span id="usageIcon" class="usage-icon"></span>
+        <div id="usageTitle" class="box-title"></div>
+        <button id="usageClose" class="close-btn" aria-label="Sluiten"></button>
+      </div>
+      <div class="usage-picks"><div id="usageMeasures" class="en-pick"></div><div id="usageRanges" class="en-pick"></div></div>
+      <div id="usageSum" class="usage-sum"></div>
+      <div id="usageChartTitle" class="usage-chart-title"></div>
+      <div class="usage-chart-wrap"><canvas id="usageChart"></canvas></div>
+      <div id="usageLegend" class="en-legend usage-legend"></div>
+      <p id="usageNote" class="usage-note" hidden></p>
+    </div>
+  </div>
+
+  <div id="weather" class="overlay" role="dialog" aria-modal="true" aria-labelledby="wxTitle" hidden>
+    <div class="box wx-box">
+      <div class="box-head">
+        <div class="wx-head-text"><div id="wxTitle" class="box-title">Weer</div><div id="wxPlace" class="wx-place" hidden></div></div>
+        <div id="wxNow" class="wx-now"></div>
+        <button id="wxClose" class="close-btn" aria-label="Sluiten"></button>
+      </div>
+      <div id="wxDays" class="wx-days"></div>
+      <div class="wx-chart-head"><span>De komende 48 uur</span><span class="wx-legend"><i class="lg" style="--c: var(--accent)"></i>temperatuur <i class="wx-rain-key"></i>regen</span></div>
+      <div class="wx-chart-wrap"><canvas id="wxChart"></canvas></div>
+      <div id="wxText" class="wx-text"></div>
+    </div>
+  </div>
+
   <div id="settings" class="overlay" role="dialog" aria-modal="true" hidden>
     <div class="box settings-box">
       <div class="box-head">
@@ -124,6 +159,7 @@
         <div class="set-title">Screensaver</div>
         <div class="seg" id="saverMode"></div>
         <div class="seg" id="saverTime"></div>
+        <div class="join"><button id="saverPreview" class="ap-btn"></button></div>
       </div>
       <div class="set-row">
         <div class="set-title">Slaapstand</div>
@@ -178,13 +214,23 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <div id="splash" class="splash">
-    <img src="assets/splash.jpg" alt="">
-    <div class="splash-title"><span id="splashTitle">T-1000 Automation</span></div>
-    <div class="splash-bottom">
-      <div id="splashStatus" class="splash-status">Verbinden met Home Assistant</div>
-      <div class="splash-bar"><div id="splashFill"></div></div>
+  <div id="splash" class="splash" aria-hidden="true">
+    <canvas id="splashCanvas" class="sp-canvas"></canvas>
+    <div class="sp-hud">
+      <div class="sp-top">
+        <span class="sp-brand">Cyberdyne Systems</span>
+        <span class="sp-model">Series T-1000 &middot; Home unit</span>
+        <span id="splashClock" class="sp-clock">00:00:00.00</span>
+      </div>
+      <pre id="splashLog" class="sp-log"></pre>
+      <div class="splash-title"><span id="splashTitle">T-1000 Automation</span></div>
+      <div class="splash-bottom">
+        <div id="splashStatus" class="splash-status">Verbinden met Home Assistant</div>
+        <div class="splash-bar"><div id="splashFill"></div></div>
+      </div>
     </div>
+    <div class="sp-scan"></div>
+    <div class="sp-power"><div class="sp-beam"></div></div>
   </div>
 
   <script src="js/diag.js?v=__VERSION__"></script>
@@ -231,8 +277,13 @@
   <script src="js/climate.js?v=__VERSION__"></script>
   <script src="js/energy.js?v=__VERSION__"></script>
   <script src="js/energy-kinds.js?v=__VERSION__"></script>
+  <script src="js/usage.js?v=__VERSION__"></script>
   <script src="js/network.js?v=__VERSION__"></script>
+  <script src="js/audio.js?v=__VERSION__"></script>
+  <script src="js/weather.js?v=__VERSION__"></script>
   <script src="js/heating.js?v=__VERSION__"></script>
+  <script src="js/vision.js?v=__VERSION__"></script>
+  <script src="js/saver-vision.js?v=__VERSION__"></script>
   <script src="js/saver.js?v=__VERSION__"></script>
   <script src="js/sound.js?v=__VERSION__"></script>
   <script src="js/settings.js?v=__VERSION__"></script>

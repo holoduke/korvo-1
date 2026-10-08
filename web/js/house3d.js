@@ -462,10 +462,12 @@
     let lastVP = null; /* the view-projection of the last frame, for project() */
     let seen = ""; /* the size the last frame reported: targets follow a size once it holds still */
     function resize(idle) {
-      dpr = idle ? 1 : Math.min(MAX_DPR, window.devicePixelRatio || 1);
-      const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      if (w === W && h === H) return;
+      /* the new density counts only from the frame the targets have it too:
+       * a frame drawn with the old ones but the new line width flickers */
+      const want = idle ? 1 : Math.min(MAX_DPR, window.devicePixelRatio || 1);
+      const w = Math.max(1, Math.round(canvas.clientWidth * want));
+      const h = Math.max(1, Math.round(canvas.clientHeight * want));
+      if (w === W && h === H) return void (dpr = want);
       /* While the header slides away the canvas grows every frame: wait for a
        * size that repeats, rather than allocate three render targets a frame. */
       const key = `${w}x${h}`;
@@ -474,6 +476,7 @@
         return;
       }
       seen = key;
+      dpr = want;
       W = canvas.width = w;
       H = canvas.height = h;
       [scene, bloomA, bloomB].forEach((t) => t && (gl.deleteTexture(t.tex), gl.deleteFramebuffer(t.fbo)));
@@ -507,7 +510,8 @@
     let tapHandler = null;
     let tapStart = null;
     function tapDown(x, y) {
-      tapStart = { x, y, t: performance.now() };
+      /* the touch that ended the house screensaver is not also a tap on a room (as with the mouse) */
+      tapStart = Panel.justWokeHouse && Panel.justWokeHouse() ? null : { x, y, t: performance.now() };
     }
     function tapUp(x, y) {
       const s = tapStart;
@@ -645,11 +649,23 @@
         d.y -= RAIN_SPEED * dt;
         if (d.y < 0) d.y += 11;
       }
-      const lb = lineBuffers(rain.drops.map((d) => ({ a: [d.x, d.y, d.z], b: [d.x, d.y + 0.35, d.z], level: 0.28 })));
+      /* the segments are reused, and their indices never change: uploaded once */
+      if (!rain.segs) rain.segs = rain.drops.map(() => ({ a: [0, 0, 0], b: [0, 0, 0], level: 0.28 }));
+      rain.drops.forEach((d, i) => {
+        const g = rain.segs[i];
+        g.a[0] = g.b[0] = d.x;
+        g.a[2] = g.b[2] = d.z;
+        g.a[1] = d.y;
+        g.b[1] = d.y + 0.35;
+      });
+      const lb = lineBuffers(rain.segs);
       gl.bindBuffer(gl.ARRAY_BUFFER, rain.vbo);
       gl.bufferData(gl.ARRAY_BUFFER, lb.v, gl.DYNAMIC_DRAW);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rain.ibo);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, lb.idx, gl.DYNAMIC_DRAW);
+      if (!rain.idxUploaded) {
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, lb.idx, gl.STATIC_DRAW);
+        rain.idxUploaded = true;
+      }
       rain.count = lb.count;
       drawLines(vp, rain, 1, accent.map((v) => v * 0.7 + 0.2));
     }
@@ -661,8 +677,10 @@
      * enables only its own slots. */
     const lineAttribs = () => [lineP.a.aA, lineP.a.aB, lineP.a.aP, lineP.a.aL];
     const faceAttribs = () => [faceP.a.aPos, faceP.a.aCol];
+    let allAttribs = null; /* the program locations never change: worked out once */
     function onlyAttribs(keep) {
-      for (const loc of new Set([...lineAttribs(), ...faceAttribs()])) {
+      if (!allAttribs) allAttribs = [...new Set([...lineAttribs(), ...faceAttribs()])];
+      for (const loc of allAttribs) {
         if (keep.includes(loc)) gl.enableVertexAttribArray(loc);
         else gl.disableVertexAttribArray(loc);
       }
@@ -902,6 +920,16 @@
       lost = true; /* nothing more is drawn until the page reloads on restore */
       cancelAnimationFrame(raf);
       raf = 0;
+      /* Not every browser gives it back (iPad Safari after the background, or
+       * Chrome after repeated losses): then reload anyway, once nobody is
+       * touching the panel, rather than leave the house blank all night. */
+      const later = () =>
+        setTimeout(() => {
+          if (!lost) return;
+          if (Panel.idleFor && Panel.idleFor() < 5000) return later();
+          location.reload();
+        }, 10000);
+      later();
     });
     canvas.addEventListener("webglcontextrestored", () => location.reload());
 

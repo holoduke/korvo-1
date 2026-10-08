@@ -33,12 +33,22 @@
 .vs-room.active .vs-rlast { color: var(--on_sub); }
 .vs-room.live { box-shadow: inset 0 0 0 2px var(--accent); }
 .vs-room.live .vs-rlast { color: var(--accent); }
-/* Progress of the running job: percentage in place of the room number, a bar
- * along the bottom edge. */
-.vs-pct { position: absolute; top: 8px; right: 14px; font-size: 28px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+/* Progress of the running job: the whole tile fills from the left with a
+ * lighter shade, as far as the percentage, with a bright leading edge; the
+ * percentage itself sits small under the room's name. The text stays above
+ * the fill. */
+.vs-room > span { position: relative; z-index: 1; }
+.vs-pct { margin-top: 2px; font-size: 15px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.vs-pct:empty { display: none; }
 .vs-room.active .vs-pct { color: var(--on_text); }
-.vs-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; pointer-events: none; }
-.vs-prog b { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.6s var(--ease-out); }
+.vs-prog { position: absolute; inset: 0; pointer-events: none; }
+.vs-prog b {
+  display: block; height: 100%; width: 0;
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  box-shadow: inset -2px 0 0 var(--accent);
+  transition: width 0.6s var(--ease-out);
+}
+.vs-room.active .vs-prog b { background: color-mix(in srgb, var(--on_text) 16%, transparent); box-shadow: inset -2px 0 0 var(--on_text); }
 .vs-sweep { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
 .vs-room.live .vs-sweep {
   opacity: 1; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--accent) 22%, transparent) 50%, transparent 70%);

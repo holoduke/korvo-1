@@ -1,0 +1,180 @@
+/* The boot splash as a Terminator's vision coming on (splash.js drives it).
+ *
+ *   1. power on, like an old picture tube: a white dot in the black, pulled
+ *      out into a horizontal line, which then opens to the whole screen and
+ *      flashes into the red HUD (.sp-power, pure CSS, ~1.3 s)
+ *   2. the HUD: a boot log typed out line by line (DOM, #splashLog), and on
+ *      #splashCanvas the live graphs, six rotating wireframe objects and the
+ *      turning reticle, under scanlines, a vignette and a faint flicker
+ *   3. "ready": a flash, then it fades and lets the app through
+ *
+ * The connection status and loader (#splashStatus, #splashFill) and the title
+ * (#splashTitle, sized by splash.js) keep their ids from the old splash. */
+
+.splash {
+  --sp-red: #ff2a22;
+  --sp-hot: #ff7b62;
+  --sp-pale: #ffd9cf;
+  --sp-dim: rgba(255, 42, 34, 0.42);
+  --sp-mono: "Space Mono", "VT323", ui-monospace, "SF Mono", Menlo, monospace;
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 45%, #2a0503 0%, #120100 55%, #050000 100%);
+  color: var(--sp-hot);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out, filter 0.5s ease-out;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.splash.gone { opacity: 0; transform: scale(1.04); filter: brightness(2.2); pointer-events: none; }
+
+.sp-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ---- 1. Power on -------------------------------------------------------------- */
+.sp-power { position: absolute; inset: 0; z-index: 5; background: #000; pointer-events: none; animation: sp-power-off 1.45s linear forwards; }
+.sp-beam {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100vw;
+  height: 100vh;
+  margin: -50vh 0 0 -50vw;
+  background: #fff;
+  box-shadow: 0 0 40px 12px rgba(255, 200, 190, 0.9), 0 0 120px 40px rgba(255, 60, 40, 0.6);
+  transform: scale(0, 0);
+  animation: sp-beam 1.3s cubic-bezier(0.6, 0, 0.3, 1) forwards;
+}
+/* dot -> horizontal line -> full screen -> gone (the HUD shows through) */
+@keyframes sp-beam {
+  0% { transform: scale(0.0015, 0.0025); opacity: 0; }
+  10% { transform: scale(0.004, 0.006); opacity: 1; }
+  22% { transform: scale(0.004, 0.006); opacity: 1; }
+  48% { transform: scale(1, 0.004); opacity: 1; }
+  58% { transform: scale(1, 0.004); opacity: 1; }
+  80% { transform: scale(1, 1); opacity: 1; filter: none; }
+  100% { transform: scale(1, 1); opacity: 0; }
+}
+@keyframes sp-power-off { 0%, 76% { background: #000; opacity: 1; } 100% { background: transparent; opacity: 0; } }
+
+/* ---- 2. The HUD ---------------------------------------------------------------- */
+.sp-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  padding: max(14px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  font-family: var(--sp-mono);
+  pointer-events: none;
+  animation: sp-hud-in 0.5s steps(6) 1.05s both;
+}
+@keyframes sp-hud-in {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  45% { opacity: 0.2; }
+  60% { opacity: 1; }
+  75% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.sp-top { display: flex; align-items: baseline; gap: 18px; font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; }
+.sp-brand { color: var(--sp-pale); font-weight: 700; text-shadow: 0 0 8px rgba(255, 90, 60, 0.9); }
+.sp-model { color: var(--sp-dim); }
+.sp-clock { margin-left: auto; color: var(--sp-hot); font-variant-numeric: tabular-nums; letter-spacing: 0.12em; }
+
+/* The boot log: the left column on a landscape screen, under the objects on
+ * an upright one. splash.js types it; .ok, .warn and .dim colour the endings. */
+.sp-log {
+  position: absolute;
+  left: max(18px, env(safe-area-inset-left));
+  top: 9%;
+  width: 33%;
+  bottom: calc(8% + 120px);
+  margin: 0;
+  overflow: hidden;
+  font: 400 12.5px/1.55 var(--sp-mono);
+  color: var(--sp-hot);
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-shadow: 0 0 6px rgba(255, 60, 40, 0.65);
+  /* older lines fade out at the top as new ones push in */
+  /* it fills from the top; once full, splash.js drops the oldest line */
+}
+.sp-log .ok { color: var(--sp-pale); font-weight: 700; }
+.sp-log .warn { color: #ffb347; }
+.sp-log .dim { color: var(--sp-dim); }
+.sp-log .pending { visibility: hidden; } /* room kept for an ending still to come */
+.sp-log .cur { display: inline-block; width: 0.6em; background: var(--sp-hot); animation: sp-blink 0.8s steps(1) infinite; }
+@keyframes sp-blink { 50% { opacity: 0; } }
+
+/* Brand line above the loader: across the full width (splash.js sizes it). */
+.splash-title { position: absolute; left: 0; right: 0; bottom: calc(8% + 58px); padding: 0 4vw; text-align: center; white-space: nowrap; }
+#splashTitle {
+  display: inline-block;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.32em;
+  margin-right: -0.32em; /* the last letter's spacing would push the line off centre */
+  text-transform: uppercase;
+  color: var(--sp-pale);
+  text-shadow: 0 0 4px rgba(255, 150, 130, 0.95), 0 0 16px rgba(255, 40, 30, 0.75), 0 0 40px rgba(255, 20, 10, 0.5);
+}
+.splash-bottom { position: absolute; left: 50%; bottom: 8%; width: min(520px, 82vw); transform: translateX(-50%); text-align: center; }
+.splash-status { font: 700 12px/1 var(--sp-mono); letter-spacing: 0.24em; text-transform: uppercase; color: var(--sp-hot); margin-bottom: 10px; text-shadow: 0 0 10px rgba(255, 50, 30, 0.8); }
+.splash-bar { position: relative; height: 6px; background: rgba(255, 42, 34, 0.14); border: 1px solid rgba(255, 60, 40, 0.45); overflow: hidden; }
+/* a striped fill, like a progress bar in a heads-up display */
+#splashFill {
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(90deg, var(--sp-red) 0 6px, transparent 6px 8px);
+  box-shadow: 0 0 12px var(--sp-red);
+  transition: width 0.45s var(--ease-out);
+}
+
+/* ---- Scanlines, vignette, flicker ------------------------------------------ */
+.sp-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.32) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.75) 100%);
+  animation: sp-flicker 4s steps(1) infinite;
+}
+/* a band of brighter scanlines that rolls down the screen */
+.sp-scan::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18%;
+  background: linear-gradient(to bottom, transparent, rgba(255, 60, 40, 0.07), transparent);
+  animation: sp-roll 3.2s linear infinite;
+}
+@keyframes sp-roll { from { top: -20%; } to { top: 100%; } }
+@keyframes sp-flicker { 0%, 100% { opacity: 1; } 47% { opacity: 0.86; } 48% { opacity: 1; } 83% { opacity: 0.92; } }
+
+/* ---- 3. Ready -------------------------------------------------------------------- */
+.splash.ready .splash-status { color: var(--sp-pale); animation: sp-blink 0.25s steps(1) 3; }
+.splash.ready #splashFill { background: var(--sp-pale); box-shadow: 0 0 18px #fff; }
+.splash.ready .sp-scan { animation: none; background: rgba(255, 220, 210, 0.1); }
+
+/* ---- Upright screens: the log goes under the objects ------------------------ */
+@media (orientation: portrait) {
+  .sp-top { flex-wrap: wrap; gap: 4px 14px; font-size: 11px; }
+  .sp-model { display: none; }
+  .sp-log { left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); width: auto; top: 58%; bottom: calc(8% + 104px); font-size: 11px; }
+  .splash-title { bottom: calc(8% + 50px); }
+}
+@media (orientation: landscape) and (max-height: 440px) {
+  .sp-top { font-size: 10px; }
+  .sp-log { top: 14%; font-size: 10px; bottom: calc(6% + 84px); }
+  .splash-title { bottom: calc(6% + 40px); }
+  .splash-bottom { bottom: 6%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-power, .sp-beam, .sp-hud, .sp-scan, .sp-scan::after { animation: none; }
+  .sp-power { display: none; }
+}

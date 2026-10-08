@@ -162,8 +162,9 @@
     const [sec, ...parts] = raw.toLowerCase().split("/");
     const si = cfg.sections.findIndex((s) => Util.slug(s.name) === sec);
     if (si >= 0) Panel.setSection(si, animate);
+    /* the rest of the path is that section's own; for an unknown section it means nothing */
     const route = pages[cfg.sections[Panel.section].kind].route;
-    if (route) route.go(parts, animate);
+    if (route && si >= 0) route.go(parts, animate);
     writeHash(); /* normalise an unknown or partial hash */
   }
   window.addEventListener("hashchange", () => applyHash(true));

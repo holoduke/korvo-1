@@ -12,6 +12,7 @@
   const F = { PAUSE: 1, VOLUME_SET: 4, VOLUME_MUTE: 8, PREVIOUS: 16, NEXT: 32, TURN_OFF: 256, SELECT_SOURCE: 2048, STOP: 4096, PLAY: 16384, GROUPING: 524288 };
   const STATE_NL = { playing: "Speelt", paused: "Gepauzeerd", idle: "Stil", on: "Aan", off: "Uit", standby: "Stand-by", buffering: "Laden" };
   const VOLUME_STEP = 0.05;
+  const volSent = new Map(); /* player -> the volume last sent, until it reports it */
 
   const reachable = (id) => !!s(id) && s(id).state !== "unavailable";
   const can = (id, feature) => ((attrs(id).supported_features || 0) & feature) !== 0;
@@ -48,9 +49,12 @@
     next: player("media_next_track"),
     stop: player("media_stop"),
     vol(a, [key, dir], call) {
-      const current = volumeOf(a.entities[key]);
+      const id = a.entities[key];
+      const sent = volSent.get(id);
+      const current = sent && Date.now() < sent.until ? sent.value : volumeOf(id); /* on from what was tapped */
       const next = clamp(Math.round(((Number.isFinite(current) ? current : 0.3) + Number(dir) * VOLUME_STEP) * 100) / 100, 0, 1);
-      call("media_player", "volume_set", { volume_level: next }, a.entities[key]);
+      volSent.set(id, { value: next, until: Date.now() + 3000 });
+      call("media_player", "volume_set", { volume_level: next }, id);
     },
     mute: (a, [key], call) =>
       call("media_player", "volume_mute", { is_volume_muted: !attrs(a.entities[key]).is_volume_muted }, a.entities[key]),

@@ -1,0 +1,37 @@
+/* Verbruik (usage.js): a device's use as bars per hour, day or month. Built on
+ * the overlay box of base.css and the chips and legend of energy.css. */
+.usage-box { max-width: 760px; }
+.usage-icon { width: 40px; height: 40px; display: grid; place-items: center; flex: none; font-size: 22px; border-radius: calc(12px * var(--round)); background: color-mix(in srgb, currentColor 14%, transparent); }
+.usage-picks { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin-bottom: 14px; }
+.usage-picks .en-pick[hidden] { display: none; }
+.usage-sum { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 26px; min-height: 52px; margin-bottom: 8px; }
+.usage-sum > span { display: inline-flex; flex-direction: column; gap: 2px; }
+.usage-sum b { font-family: var(--font-display), var(--font-ui), sans-serif; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.usage-sum .usage-total b { font-size: 32px; }
+.usage-sum small { font-size: 13px; font-weight: 600; color: var(--text_dim); }
+.usage-dim { font-size: 15px; font-weight: 600; color: var(--text_dim); align-self: center; }
+.usage-chart-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); margin-bottom: 4px; }
+.usage-chart-wrap { position: relative; height: 240px; }
+.usage-chart-wrap canvas { width: 100%; height: 100%; display: block; }
+.usage-legend { margin-top: 10px; }
+.usage-note { margin: 12px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--text_dim); }
+
+/* The way in: a quiet chip on the smart meter's header and under a device in Apparaten. */
+.usage-open { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--text); background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent); }
+.usage-open .ic { width: 16px; height: 16px; color: var(--accent); }
+.em-head .usage-open { margin-left: auto; }
+.ap-usage:empty { display: none; }
+.ap-usage { display: flex; margin-top: 12px; }
+.ap-usage .usage-open { min-height: 42px; padding: 0 16px; font-size: 14px; }
+/* a card or a line that opens it shows that it can be tapped */
+.dc-card[data-usage], .en-list li[data-usage] { cursor: pointer; }
+.dc-card[data-usage]:active { transform: scale(0.985); }
+.en-list li[data-usage]:active { opacity: 0.7; }
+
+@media (max-width: 760px) {
+  .usage-box { padding: 16px; }
+  .usage-chart-wrap { height: 200px; }
+  .usage-sum .usage-total b { font-size: 26px; }
+  .usage-sum b { font-size: 19px; }
+}
+@media (pointer: coarse) { .usage-open { min-height: 40px; } }

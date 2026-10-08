@@ -24,6 +24,7 @@
   const PENDING_MS = 10000;
 
   const kinds = {};
+  Panel.on("estimate", () => render()); /* a washer's power, estimated from its counter (energy.js) */
   Panel.defineAppliance = (kind, def) => (kinds[kind] = def);
 
   const twoTap = Util.confirmer(CONFIRM_MS, () => render());
@@ -48,6 +49,7 @@
     num: (id) => Panel.num(id),
     on: (id) => raw(id) === "on",
     attrs: (id) => (s(id) || {}).attributes || {},
+    /* not "unknown": a vacuum, filter or washer can report that and still be there to control */
     offline: (id) => !s(id) || raw(id) === "unavailable",
     btn(i, action, label, { primary = false, active = false, disabled = false, confirm = false, ic = null } = {}) {
       const key = `${i}|${action}`;
@@ -102,7 +104,7 @@
       `<div class="ap-body"><div class="ap-hero"><div class="ap-value"><b class="ap-big"></b><span class="ap-unit"></span></div><span class="ap-sub"></span></div>` +
       `<div class="ap-extra"></div></div>` +
       `</div><figure class="ap-figure" hidden><img alt=""></figure></div>` +
-      `<div class="ap-bar"><b></b></div><div class="ap-stats"></div><div class="ap-controls"></div>` +
+      `<div class="ap-bar"><b></b></div><div class="ap-stats"></div><div class="ap-controls"></div><div class="ap-usage"></div>` +
       `</article></div>`;
     render();
   }
@@ -165,6 +167,11 @@
     stats.innerHTML = (view.stats || []).join("");
     stats.hidden = !(view.stats || []).length;
     card.querySelector(".ap-controls").innerHTML = view.controls || "";
+    /* what it used, by hour, day and month (usage.js), for a device with a counter */
+    const usage = Panel.usageFor ? Panel.usageFor(a) : null;
+    card.querySelector(".ap-usage").innerHTML = usage
+      ? `<button class="ap-btn usage-open" data-usage="${usage}">${icon("chart")}<span>${Panel.usageLabel(usage)}</span></button>`
+      : "";
   }
 
   function select(i) {

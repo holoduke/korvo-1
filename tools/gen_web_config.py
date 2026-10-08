@@ -407,10 +407,14 @@ ENERGY_ENTITIES = {
             ("in", "power_consumption"), ("out", "power_production"), ("current", "current"),
             ("voltage", "voltage"), ("sags", "voltage_sags"), ("swells", "voltage_swells"))},
     },
-    "washer": {k: APPLIANCE_ENTITIES["washer"][k] for k in ("power", "energy", "water", "machine")},
-    "dryer": {k: APPLIANCE_ENTITIES["dryer"][k] for k in ("power", "energy", "machine")},
-    "car": {key: f"{domain}.{{n}}_{object_id}" for key, domain, object_id in TESLA_FLEET_ENTITIES
-            if key in ("battery", "charging", "chargerPower", "chargerVoltage", "chargerCurrent", "energyAdded", "location")},
+    # on and done too: Samsung's machine state can stay "stop" while it runs
+    "washer": {k: APPLIANCE_ENTITIES["washer"][k] for k in ("power", "energy", "water", "machine", "on", "done")},
+    "dryer": {k: APPLIANCE_ENTITIES["dryer"][k] for k in ("power", "energy", "machine", "on", "done")},
+    "car": {**{key: f"{domain}.{{n}}_{object_id}" for key, domain, object_id in TESLA_FLEET_ENTITIES
+               if key in ("battery", "charging", "chargerPower", "chargerVoltage", "chargerCurrent", "energyAdded", "location")},
+            # charged at home only: HA's packages/tesla_energie.yaml integrates the
+            # charger's power while the car is home (energyAdded also counts the road)
+            "homeEnergy": "sensor.tesla_thuis_geladen"},
     "bike": {"battery": "sensor.{n}_battery", "energy": "sensor.{n}_energy_used_total",
              "average": "sensor.{n}_energy_used_average", "distance": "sensor.{n}_total_distance"},
     # the heat pump's own counters: heat delivered, not electricity used
@@ -599,7 +603,7 @@ def parse_layout(src, tabs):
     # Tab icon per section kind (name from web/js/icons.js). "tab" is the
     # garage lights page; adjust here if a different tab is ever added.
     section_icons = {"start": "tab-home", "floors": "tab-lights", "appliances": "tab-appliances", "vacuum": "tab-clean",
-                     "car": "tab-car", "sensors": "tab-sensors", "energy": "tab-energy", "network": "tab-network", "tab": "garage"}
+                     "car": "tab-car", "sensors": "tab-sensors", "energy": "tab-energy", "network": "tab-network", "audio": "tab-audio", "tab": "garage"}
     sections = []
     for name, kind, tab in table_rows(src, "PANEL_SECTIONS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*("[^"]*"|NULL)\s*\}'):
         if kind not in section_icons:
@@ -673,6 +677,7 @@ def main():
         robots[r["floor"]] = {"type": "tuya", "entities": {k: r["entities"][k] for k in ("vacuum", "battery", "area", "time", "problem")}}
     config = {
         "weather": define(cfg, "PANEL_WEATHER_ENTITY", "str"),
+        "forecast": define(cfg, "PANEL_FORECAST_ENTITY", "str"),
         "health": {"zigbee": define(cfg, "PANEL_ZIGBEE_BRIDGE", "str"), "permitJoin": define(cfg, "PANEL_ZIGBEE_PERMIT", "str"), "internet": define(cfg, "PANEL_INTERNET", "str"), "rain": define(cfg, "PANEL_RAIN_NOW", "str")},
         "tabs": tabs,
         "floors": floors,

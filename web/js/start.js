@@ -19,14 +19,31 @@
     const ask = house.querySelector(".house-ask");
     const a = ask && ask.offsetParent ? ask.getBoundingClientRect() : null;
     const hud = house.querySelector("[data-hud]");
-    for (const [sel, left] of [["[data-house-heat]", true], ["[data-house-cover]", false]]) {
+    /* the music card as a bar along the top (a phone): the door's column stays below it */
+    const musicEl = house.querySelector("[data-house-audio]");
+    const musicBar = !!musicEl && !musicEl.hidden && getComputedStyle(musicEl).getPropertyValue("--aq-dock").trim() === "bar";
+    house.classList.toggle("music-bar", musicBar);
+    for (const [sel, left] of [["[data-house-heat]", true], ["[data-house-cover]:not([data-house-audio])", false]]) {
       const w = house.querySelector(sel);
       if (!w || w.hidden || !w.offsetParent) continue;
       const r = w.getBoundingClientRect();
       const beside = a && (left ? a.left >= r.right : a.right <= r.left);
       const bottom = a ? (beside ? a.bottom : a.top - 12) : box.bottom - 70;
-      const floor = left && hud ? hud.getBoundingClientRect().bottom - box.top + 12 : 8;
+      const floor = left && hud ? hud.getBoundingClientRect().bottom - box.top + 12 : musicBar ? musicEl.getBoundingClientRect().bottom - box.top + 8 : 8;
       w.style.top = `${Math.round(Math.max(floor, bottom - box.top - r.height))}px`;
+    }
+    /* the music card (audio.js) above the garage door's column, where there is room;
+     * on a phone it is a bar along the top, placed by its CSS (--aq-dock: bar) */
+    const music = house.querySelector("[data-house-audio]");
+    const cover = house.querySelector("[data-house-cover]:not([data-house-audio])");
+    if (music && !music.hidden) {
+      const docked = getComputedStyle(music).getPropertyValue("--aq-dock").trim() !== "bar";
+      if (!docked) music.style.top = "";
+      else {
+        const m = music.getBoundingClientRect();
+        const below = cover && !cover.hidden && cover.offsetParent ? cover.getBoundingClientRect().top : box.bottom - 70;
+        music.style.top = `${Math.round(Math.max(8, below - box.top - m.height - 10))}px`;
+      }
     }
   }
   Panel.on("start", () =>
@@ -38,6 +55,7 @@
       const ro = new ResizeObserver(place);
       [house, ...house.querySelectorAll(".house-ask, [data-hud], [data-house-heat], [data-house-cover]")].forEach((el) => ro.observe(el));
       Panel.on("room", () => requestAnimationFrame(place)); /* a widget back from behind a room's panel */
+      Panel.on("quickaudio", () => requestAnimationFrame(place)); /* the music card came or went */
       place();
     })
   );
@@ -84,15 +102,18 @@
       let swiping = false;
       const onScreen = () => Panel.onScreen("start");
       /* While a swipe is under way the page may be partly in view: keep drawing. */
-      const sync = () => house.setActive(!Panel.sleeping() && (onScreen() || swiping));
+      /* nor under the Vision screensaver, which covers the whole screen */
+      const covered = () => !!(Panel.visionSaver && Panel.visionSaver.shown());
+      const sync = () => house.setActive(!Panel.sleeping() && !covered() && (onScreen() || swiping));
       Panel.on("section", sync);
+      Panel.on("vision", sync);
       Panel.on("sleep", sync);
       Panel.on("swiping", (on) => {
         swiping = on;
         sync();
       });
       Panel.on("start", sync);
-      document.addEventListener("visibilitychange", () => house.setActive(document.visibilityState === "visible" && !Panel.sleeping() && (onScreen() || swiping)));
+      document.addEventListener("visibilitychange", () => (document.visibilityState === "visible" ? sync() : house.setActive(false)));
       Panel.house = house;
     },
   });

@@ -9,6 +9,7 @@
  * a timeout: a sleeping car first has to wake up). */
 (function () {
   "use strict";
+  let volSent = null; /* the volume last sent, until the car reports it */
   const Panel = window.Panel;
   const { cfg } = Panel;
   /* Tesla Fleet's charging states in words (the Energie section shows them too). */
@@ -130,7 +131,7 @@
       `<div class="cp-openings"></div>` +
       `</div>` +
       `<div class="cp-card"><div class="vs-section-title">Acties</div>` +
-      `<div class="cp-tiles">${tile("refresh", "refresh", "Vernieuwen")}${tile("wake", "power", "Wekken")}${tile("flash", "lights", "Lichten")}${tile("honk", "locate", "Claxon", "data-confirm")}${tile("homelink", "dock", "Homelink")}${tile("keyless", "key", "Sleutelloos", "data-confirm")}${tile("fart", "music", "Scheetje")}</div>` +
+      `<div class="cp-tiles">${tile("refresh", "refresh", "Vernieuwen")}${tile("wake", "power", "Wekken")}${tile("flash", "lights", "Lichten")}${tile("honk", "locate", "Claxon", "data-confirm")}${tile("homelink", "dock", "Homelink", "data-confirm")}${tile("keyless", "key", "Sleutelloos", "data-confirm")}${tile("fart", "music", "Scheetje")}</div>` +
       `</div>` +
       `<div class="cp-card cp-media" hidden><div class="vs-section-title">Media</div><div class="cp-media-now"></div>` +
       `<div class="vs-chips" style="--n:5">` +
@@ -529,8 +530,11 @@
       case "media":
         return call("media_player", el.dataset.cmd, null, "media", false);
       case "volume": {
-        const current = Number(attrs("media").volume_level);
+        /* on from what was tapped a moment ago, not the car's slow reading */
+        const reported = Number(attrs("media").volume_level);
+        const current = volSent && Date.now() < volSent.until ? volSent.value : reported;
         const next = clamp(Math.round(((Number.isFinite(current) ? current : 0.3) + Number(el.dataset.step)) * 10) / 10, 0, 1);
+        volSent = { value: next, until: Date.now() + 4000 };
         return call("media_player", "volume_set", { volume_level: next }, "media");
       }
     }

@@ -36,7 +36,7 @@
   }
   Panel.prefs = {
     theme: pref("theme", 0),
-    saverMode: pref("saverMode", 2), /* 0 = scherm uit, 1 = AI oog, 2 = het huis */
+    saverMode: pref("saverMode", 2), /* 0 = scherm uit, 1 = AI oog, 2 = het huis, 3 = Vision (saver-vision.js) */
     saverIdx: pref("saverIdx", 1),
     deepIdx: pref("deepIdx", 2), /* the sleep stage after this long in the screensaver (saver.js DEEP_TIMES) */
     houseLayer: pref("houseLayer", undefined),
@@ -132,13 +132,20 @@
   const WAKE_STAGGER_MS = 250;
   let wakeSlot = 0;
   bus.on("sleep", (on) => !on && (wakeSlot = 0));
+  document.addEventListener("visibilitychange", () => document.hidden && (wakeSlot = 0));
   Panel.everyAwake = function (ms, fn) {
     let last = 0;
     const run = () => {
       last = Date.now();
       fn();
     };
-    setInterval(() => !sleeping && run(), ms);
+    /* nor while the page is hidden (a tablet that switched its display off
+     * itself, a browser in the background); once back, at once if due */
+    setInterval(() => !sleeping && !document.hidden && run(), ms);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden || sleeping || Date.now() - last < ms) return;
+      setTimeout(() => !sleeping && !document.hidden && Date.now() - last >= ms && run(), WAKE_SETTLE_MS + wakeSlot++ * WAKE_STAGGER_MS);
+    });
     bus.on("sleep", (on) => {
       if (on || Date.now() - last < ms) return;
       setTimeout(() => !sleeping && Date.now() - last >= ms && run(), WAKE_SETTLE_MS + wakeSlot++ * WAKE_STAGGER_MS);
@@ -180,8 +187,8 @@
   };
 
   /* ---- Overlays ------------------------------------------------------------------- */
-  const OVERLAYS = ["popup", "climate", "settings", "plan", "saver"];
-  const DIALOGS = ["popup", "climate", "settings", "plan"]; /* the overlays a tap or Escape closes */
+  const OVERLAYS = ["popup", "climate", "weather", "settings", "plan", "saver"];
+  const DIALOGS = ["popup", "climate", "weather", "settings", "plan"]; /* the overlays a tap or Escape closes */
   Panel.overlayOpen = () => OVERLAYS.some((id) => !$(id).hidden);
   const closeTimers = new Map(); /* overlay -> the timer that hides it after its closing animation */
   Panel.openOverlay = function (el) {

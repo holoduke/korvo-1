@@ -2,6 +2,7 @@
  * Do not edit by hand: change the headers and re-run the script. */
 window.PANEL_CONFIG = {
   "weather": "weather.buienradar",
+  "forecast": "weather.thuis_in_rijnsburg",
   "health": {
     "zigbee": "binary_sensor.zigbee2mqtt_bridge_connection_state",
     "permitJoin": "switch.zigbee2mqtt_bridge_permit_join",
@@ -415,6 +416,16 @@ window.PANEL_CONFIG = {
         {
           "id": "scene.slaapkamer_uit",
           "label": "Uit",
+          "area": "Gillis en Ilse"
+        },
+        {
+          "id": "scene.slaapkamer_gillis_en_ilse_normaal",
+          "label": "Normaal",
+          "area": "Gillis en Ilse"
+        },
+        {
+          "id": "scene.slaapkamer_gillis_en_ilse_romantisch",
+          "label": "Romantisch",
           "area": "Gillis en Ilse"
         },
         {
@@ -977,6 +988,12 @@ window.PANEL_CONFIG = {
       "tab": null
     },
     {
+      "name": "Audio",
+      "kind": "audio",
+      "icon": "tab-audio",
+      "tab": null
+    },
+    {
       "name": "Schoonmaak",
       "kind": "vacuum",
       "icon": "tab-clean",
@@ -1101,12 +1118,8 @@ window.PANEL_CONFIG = {
     "floor": "0",
     "rooms": [
       {
-        "id": 5,
-        "label": "Keuken"
-      },
-      {
-        "id": 8,
-        "label": "Eetkamer"
+        "id": 4,
+        "label": "Keuken & eetkamer"
       },
       {
         "id": 3,
@@ -1117,11 +1130,11 @@ window.PANEL_CONFIG = {
         "label": "Gameroom"
       },
       {
-        "id": 9,
+        "id": 6,
         "label": "Gang"
       },
       {
-        "id": 4,
+        "id": 5,
         "label": "Garage"
       }
     ]
@@ -1934,7 +1947,9 @@ window.PANEL_CONFIG = {
         "power": "sensor.wasruimte_wasmachine_power",
         "energy": "sensor.wasruimte_wasmachine_energy",
         "water": "sensor.wasruimte_wasmachine_water_consumption",
-        "machine": "sensor.wasruimte_wasmachine_machine_state"
+        "machine": "sensor.wasruimte_wasmachine_machine_state",
+        "on": "binary_sensor.wasruimte_wasmachine_power",
+        "done": "sensor.wasruimte_wasmachine_completion_time"
       }
     },
     {
@@ -1944,7 +1959,9 @@ window.PANEL_CONFIG = {
       "entities": {
         "power": "sensor.wasruimte_droger_power",
         "energy": "sensor.wasruimte_droger_energy",
-        "machine": "sensor.wasruimte_droger_machine_state"
+        "machine": "sensor.wasruimte_droger_machine_state",
+        "on": "binary_sensor.wasruimte_droger_power",
+        "done": "sensor.wasruimte_droger_completion_time"
       }
     },
     {
@@ -1958,7 +1975,8 @@ window.PANEL_CONFIG = {
         "chargerVoltage": "sensor.vlm_charger_voltage",
         "chargerCurrent": "sensor.vlm_charger_current",
         "energyAdded": "sensor.vlm_charge_energy_added",
-        "location": "device_tracker.vlm_location"
+        "location": "device_tracker.vlm_location",
+        "homeEnergy": "sensor.tesla_thuis_geladen"
       }
     },
     {

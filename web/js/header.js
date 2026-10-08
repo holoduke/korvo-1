@@ -25,6 +25,7 @@
     cl.hidden = !cloud;
     cl.style.color = colour;
   }
+  Panel.wx = { html: wxIcon, apply: applyWx }; /* the same little icon in the weather popup */
   function renderForecastDay(i, condition, temperature, date) {
     const col = $("fc" + i);
     if (!col) return;
@@ -200,13 +201,13 @@
   function columnsHtml() {
     const sensors = cfg.sensors.map(
       (s, i) =>
-        `<button class="sensor-col" data-sensor="${i}"><div class="s-name"><span>${s.label}</span><span class="trend"></span></div>` +
+        `<button class="sensor-col" data-sensor="${i}"><div class="s-name"><span>${Util.esc(s.label)}</span><span class="trend"></span></div>` +
         `<div class="s-temp">--</div><div class="s-hum">${s.humidity ? icon("drop") + "<span>--</span>" : ""}</div></button>`
     );
     const air = cfg.air.map(
       (a, i) =>
         `<div class="rule"></div><button class="sensor-col air-col" data-air="${i}">` +
-        `<div class="s-name"><span>${a.short}</span><span class="aq-dot"></span><span class="aq-txt"></span></div>` +
+        `<div class="s-name"><span>${Util.esc(a.short)}</span><span class="aq-dot"></span><span class="aq-txt"></span></div>` +
         `<div class="air-grid">` +
         `<div class="s-temp a-co2">--</div><div class="s-temp a-temp">--</div>` +
         `<div class="s-hum a-pm">PM2.5 --</div><div class="s-hum a-hum">${icon("drop")}<span>--</span></div>` +
@@ -216,8 +217,8 @@
       const tag = Panel.sectionIndex(kind) >= 0 ? "button" : "div";
       return (
         (i === 0 ? '<div class="rule"></div>' : "") +
-        `<${tag} class="sensor-col dev-hdr" data-device="${kind}" aria-label="${conf.label}">` +
-        `<div class="s-name">${icon(kind)}<span>${conf.label}</span></div>` +
+        `<${tag} class="sensor-col dev-hdr" data-device="${kind}" title="${Util.esc(conf.label)}">` +
+        `<div class="s-name">${icon(kind)}<span>${Util.esc(conf.label)}</span></div>` +
         `<div class="s-temp vh-batt"><span>--</span></div>` +
         `<div class="s-hum vh-status">...</div></${tag}>`
       );
@@ -230,6 +231,12 @@
       { length: FC_DAYS },
       (_, i) => `<div class="fc-col" id="fc${i}"><div class="fc-day${i === 0 ? " today" : ""}">--</div>${wxIcon()}<div class="fc-temp">--</div></div>`
     ).join("");
+    /* the forecast opens the weather popup: more days, the hours, today and tomorrow in words */
+    $("forecast").setAttribute("role", "button");
+    $("forecast").setAttribute("tabindex", "0");
+    $("forecast").setAttribute("aria-label", "Weer: meer dagen en de verwachting");
+    $("forecast").addEventListener("click", () => Panel.openWeather && Panel.openWeather());
+    $("forecast").addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && Panel.openWeather && Panel.openWeather());
     $("sensors").innerHTML = columnsHtml();
     $("gear").innerHTML = icon("gear");
     cfg.sensors.forEach((_, i) => renderSensor(i));

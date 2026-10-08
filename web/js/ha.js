@@ -95,8 +95,11 @@
       url.searchParams.delete("code");
       url.searchParams.delete("state");
       history.replaceState(null, "", url.pathname + (url.search || "") + url.hash);
-      if (expected && got !== expected) throw new Error("OAuth state mismatch");
-      saveTokens(await tokenRequest({ grant_type: "authorization_code", code }));
+      sessionStorage.removeItem("panel.oauthState");
+      /* Only a code this panel asked for: a link with someone else's code
+       * (or one opened without our state) is ignored, not exchanged. */
+      if (expected && got === expected) saveTokens(await tokenRequest({ grant_type: "authorization_code", code }));
+      else console.warn("ha: ignoring an OAuth code this panel did not ask for");
     }
     let t = loadTokens();
     if (!t || !t.access_token) return redirectToLogin();
@@ -143,6 +146,7 @@
     const pending = new Map();
     let pingTimer = null;
     let lastPong = 0;
+    let authFailed = false; /* the login was refused: the next connection goes through the login page */
     let retry = 0;
     let authRejected = 0; /* auth_invalid answers since the last auth_ok */
     let reconnectTimer = 0;
@@ -182,11 +186,41 @@
     const WAIT_FOR_CONNECTION_MS = 15000;
     const waiting = []; /* {flush()} */
 
+    /* A request without an answer for a while may be on a socket that died
+     * without closing (a tablet roaming between access points): a ping then
+     * tells, and without its pong the socket is dropped, which fails the
+     * request at once instead of after the minute the regular ping takes.
+     * A slow answer on a live socket (history, the house agent) just waits. */
+    const QUIET_MS = 8000;
+    const PROBE_MS = 12000; /* a busy Home Assistant (startup, a day of history) may take seconds to pong */
+    let probing = null;
+    function probe(socket) {
+      if (probing || socket !== ws || !authed) return;
+      const id = nextId++;
+      probing = setTimeout(() => {
+        probing = null;
+        pending.delete(id);
+        console.warn("ha: no pong while a request waited, reconnecting");
+        drop(socket);
+      }, PROBE_MS);
+      const done = () => {
+        clearTimeout(probing);
+        probing = null;
+        lastPong = Date.now();
+      };
+      pending.set(id, { resolve: done, reject: done });
+      socket.send(JSON.stringify({ id, type: "ping" }));
+    }
     function transmit(msg) {
       return new Promise((resolve, reject) => {
         const id = nextId++;
-        pending.set(id, { resolve, reject });
-        ws.send(JSON.stringify({ id, ...msg }));
+        const socket = ws;
+        const quiet = msg.type === "ping" ? 0 : setTimeout(() => probe(socket), QUIET_MS);
+        pending.set(id, {
+          resolve: (v) => (clearTimeout(quiet), resolve(v)),
+          reject: (e) => (clearTimeout(quiet), reject(e)),
+        });
+        socket.send(JSON.stringify({ id, ...msg }));
       });
     }
 
@@ -265,11 +299,14 @@
     /* The socket is gone: its requests fail, and a new one follows after the backoff. */
     function closed() {
       clearInterval(pingTimer);
+      clearTimeout(probing);
+      probing = null;
       pending.forEach((p) => p.reject && p.reject(new Error("verbinding met Home Assistant verbroken")));
       pending.clear();
       authed = false;
       connecting = false;
-      ev.emit("status", "disconnected");
+      /* a refused login stays the news, not a mere lost connection */
+      ev.emit("status", authFailed ? "auth-error" : "disconnected");
       scheduleReconnect();
     }
     /* Gives up on a socket that looks open but no longer answers. */
@@ -335,6 +372,7 @@
             saveTokens({ ...t, expires: 0 });
           } else {
             localStorage.removeItem(LS_TOKENS);
+            authFailed = true;
             ev.emit("status", "auth-error");
           }
           socket.close();
@@ -524,6 +562,10 @@
       /* The home network from the thuispaneel integration (UniFi and the
        * internet latency, without MAC addresses); admins only. */
       network: () => send({ type: "thuispaneel/network" }),
+      /* The WiiM speakers' own data (equalizer, sleep timer, Wi-Fi, temperatures)
+       * and their fixed set of commands, from the thuispaneel integration; admins only. */
+      audio: () => send({ type: "thuispaneel/audio" }),
+      audioCmd: (entityId, cmd, value) => send({ type: "thuispaneel/audio/cmd", entity_id: entityId, cmd, ...(value === undefined ? {} : { value }) }),
       /* Names an entity in the registry (empty: back to its own name); admins only. */
       renameEntity: (entityId, name) => send({ type: "config/entity_registry/update", entity_id: entityId, name: name || null }),
       /* Also follow these entities, now and after every reconnect. */
@@ -548,13 +590,13 @@
         return send(msg);
       },
       /* {entity_id: [{s, a (attributes), t: ms}]}, attributes included. */
-      async historyFull(ids, start) {
+      async historyFull(ids, start, { attributes = true } = {}) {
         const res = await send({
           type: "history/history_during_period",
           start_time: start.toISOString(),
           entity_ids: ids,
           minimal_response: false,
-          no_attributes: false,
+          no_attributes: !attributes, /* the Vision graph needs only the values */
           significant_changes_only: false,
         });
         const out = {};
@@ -563,20 +605,29 @@
         }
         return out;
       },
-      /* Use per day since `start` from the long-term statistics, energy in kWh and
-       * water in L: {entity_id: [{t: start of the day in ms, change}]}. */
-      async dailyUse(ids, start) {
+      /* Use per period ("5minute", "hour", "day", "week" or "month") since
+       * `start`, from the statistics (5minute: the short-term ones, kept ten
+       * days), energy in kWh and water in L: {entity_id: [{t: start of the
+       * period in ms, change}]}. */
+      async usePer(ids, start, period) {
         const res = await send({
           type: "recorder/statistics_during_period",
           start_time: start.toISOString(),
           statistic_ids: ids,
-          period: "day",
+          period,
           types: ["change"],
           units: STAT_UNITS,
         });
         const out = {};
         for (const [id, rows] of Object.entries(res || {})) out[id] = rows.map((r) => ({ t: r.start, change: r.change }));
         return out;
+      },
+      /* Use per day, and per calendar month, since `start`. */
+      dailyUse(ids, start) {
+        return this.usePer(ids, start, "day");
+      },
+      monthlyUse(ids, start) {
+        return this.usePer(ids, start, "month");
       },
       /* Use so far today per entity (the running hour included, from the
        * short-term statistics): {entity_id: change | null}. */

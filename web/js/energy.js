@@ -68,6 +68,57 @@
     const v = back === 0 ? today.get(id) : (daily.get(id) || new Map()).get(dayStart(back).toDateString());
     return v == null ? NaN : Math.max(0, v);
   }
+  /* ---- Power from a kWh counter -------------------------------------------------- */
+  /* Some machines report only their kWh counter: Samsung's washer and dryer
+   * (SmartThings) keep their power at 0 W and raise the counter in 0.1 kWh
+   * steps about every quarter of an hour. While such a machine runs, its power
+   * is the counter's rise over the last half hour, from Home Assistant's
+   * 5-minute statistics, asked again every five minutes while it is wanted. */
+  const RATE_WINDOW_MS = 30 * 60e3;
+  const RATE_EVERY_MS = 5 * 60e3;
+  const rates = new Map(); /* counter id -> {w, at, busy} */
+  function counterWatts(id) {
+    if (!id || !Panel.client || !Panel.client.usePer) return NaN;
+    let r = rates.get(id);
+    if (!r) rates.set(id, (r = { w: NaN, at: 0, busy: false }));
+    if (!r.busy && Date.now() - r.at > RATE_EVERY_MS && Panel.isLoaded()) {
+      r.busy = true;
+      Panel.client
+        .usePer([id], new Date(Date.now() - RATE_WINDOW_MS), "5minute")
+        .then((res) => {
+          const rows = res[id] || [];
+          const kwh = rows.reduce((s, x) => s + Math.max(0, x.change || 0), 0);
+          r.w = rows.length ? (kwh / (RATE_WINDOW_MS / 3600e3)) * 1000 : NaN;
+        })
+        .catch(() => {
+          /* asked again after the next interval */
+        })
+        .finally(() => {
+          r.busy = false;
+          r.at = Date.now();
+          Panel.emit("estimate", id);
+        });
+    }
+    return r.w;
+  }
+  /* Whether a Samsung washer or dryer runs. Its machine state can stay "stop"
+   * while it runs, so one that is on with its completion time still ahead
+   * runs too, unless it reports a pause. */
+  function machineRuns(e) {
+    const state = String((Panel.st(e.machine) || {}).state || "").toLowerCase();
+    if (state === "run") return true;
+    if (state === "pause") return false;
+    const done = Util.dateOf(((Panel.st(e.done) || {}).state));
+    return (Panel.st(e.on) || {}).state === "on" && !!done && done.getTime() > Date.now();
+  }
+  /* A washer's or dryer's power now: its own sensor when that says something,
+   * else, while it runs, the estimate from its counter. {w, estimated}. */
+  function machineWatts(e) {
+    const w = scaled(e.power);
+    if (!machineRuns(e) || w > 0) return { w, estimated: false };
+    return { w: counterWatts(e.energy), estimated: true };
+  }
+
   const counterIds = () =>
     devices.flatMap((d) => (d === grid ? [...IMPORT, ...EXPORT] : kinds[d.kind].stats).map((k) => d.entities[k])).filter(exists);
 
@@ -89,6 +140,94 @@
     } finally {
       statsBusy = false;
     }
+  }
+
+  /* ---- Per month (statistics) ------------------------------------------------------- */
+  /* The smart meter's counters per calendar month, the last twelve: kWh per
+   * tariff and what it cost at today's prices (Home Assistant keeps no price
+   * history for an input_number price), refreshed hourly. */
+  const monthly = new Map(); /* counter id -> Map("2026-9" -> kWh) */
+  let monthsAt = 0;
+  let monthsBusy = false;
+  const MONTHS_SHORT = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+  const MONTHS = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+  const monthStart = (back) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(1);
+    d.setMonth(d.getMonth() - back);
+    return d;
+  };
+  const monthKey = (d) => `${d.getFullYear()}-${d.getMonth()}`;
+  async function loadMonths() {
+    if (!grid || monthsBusy || !Panel.client.monthlyUse) return;
+    const ids = [...IMPORT, ...EXPORT].map((k) => G[k]).filter(exists);
+    if (!ids.length) return;
+    monthsBusy = true;
+    try {
+      const res = await Panel.client.monthlyUse(ids, monthStart(11));
+      monthly.clear();
+      for (const [id, rows] of Object.entries(res)) monthly.set(id, new Map(rows.map((r) => [monthKey(new Date(r.t)), r.change])));
+      monthsAt = Date.now();
+      drawMonths();
+    } catch (e) {
+      /* tried again with the next refresh */
+    } finally {
+      monthsBusy = false;
+    }
+  }
+  /* kWh of some counters in the month `back` months ago, NaN when none is known. */
+  function monthOf(keys, back) {
+    const k = monthKey(monthStart(back));
+    const vals = keys.map((key) => (monthly.get(G[key]) || new Map()).get(k)).filter(Number.isFinite);
+    return vals.length ? vals.reduce((a, b) => a + Math.max(0, b), 0) : NaN;
+  }
+  /* What a month cost: per tariff taken minus given back, at today's prices, plus the daily adjustment. */
+  function monthCost(back) {
+    if (!prices) return NaN;
+    let sum = 0;
+    let known = false;
+    for (const t of TARIFFS) {
+      const take = monthOf([`import${t}`], back);
+      const give = monthOf([`export${t}`], back);
+      const pin = priceOf(G[`import${t}`]);
+      const pout = priceOf(G[`export${t}`]);
+      if (Number.isFinite(take) && Number.isFinite(pin)) (sum += take * pin), (known = true);
+      if (Number.isFinite(give) && Number.isFinite(pout)) sum -= give * pout;
+    }
+    if (!known) return NaN;
+    const start = monthStart(back);
+    const end = back === 0 ? new Date() : monthStart(back - 1);
+    return sum + prices.adjust * Math.round((end - start) / 864e5);
+  }
+  function drawMonths() {
+    const box = root && q(".en-months");
+    if (!box) return;
+    box.hidden = !monthly.size;
+    if (!monthly.size) return;
+    const backs = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+    const bars = backs.map((back) => ({
+      label: MONTHS_SHORT[monthStart(back).getMonth()],
+      parts: [
+        { v: monthOf(["import1"], back) || 0, colour: "#4fc3f7" },
+        { v: monthOf(["import2"], back) || 0, colour: Panel.cssVar("--accent") },
+      ],
+      strong: back === 0,
+    }));
+    Panel.drawBars(q(".en-months canvas"), { bars, fmt: (v) => fmt(v, 0) }, shown.months);
+    const now = monthOf(IMPORT, 0), prev = monthOf(IMPORT, 1);
+    const year = backs.filter((b) => monthStart(b).getFullYear() === new Date().getFullYear()).reduce((s, b) => s + (monthOf(IMPORT, b) || 0), 0);
+    const yearCost = backs.filter((b) => monthStart(b).getFullYear() === new Date().getFullYear()).reduce((s, b) => s + (monthCost(b) || 0), 0);
+    /* the same days of last month, for a fair comparison of a month under way */
+    const pace = Number.isFinite(prev) ? (prev * new Date().getDate()) / new Date(monthStart(0).getFullYear(), monthStart(0).getMonth(), 0).getDate() : NaN;
+    q(".en-months .en-legend").innerHTML =
+      legendItem("Dal", "#4fc3f7", "") +
+      legendItem("Normaal", Panel.cssVar("--accent"), "") +
+      `<span class="en-month-sum">${MONTHS[monthStart(0).getMonth()]} <b>${kwhText(now)}</b>${Number.isFinite(monthCost(0)) ? ` · <b>${eur(monthCost(0))}</b>` : ""}` +
+      (Number.isFinite(now) && Number.isFinite(pace) && pace > 0 ? ` · ${now > pace ? "▲" : "▼"} ${fmt(Math.abs((now / pace - 1) * 100))}% t.o.v. ${MONTHS[monthStart(1).getMonth()]}` : "") +
+      `</span>` +
+      `<span class="en-month-sum">${MONTHS[monthStart(1).getMonth()]} <b>${kwhText(prev)}</b>${Number.isFinite(monthCost(1)) ? ` · <b>${eur(monthCost(1))}</b>` : ""}</span>` +
+      `<span class="en-month-sum">${new Date().getFullYear()} tot nu <b>${kwhText(year)}</b>${yearCost ? ` · <b>${eur(yearCost)}</b>` : ""}</span>`;
   }
 
   /* ---- The smart meter --------------------------------------------------------------- */
@@ -124,8 +263,11 @@
    * entity (an input_number) or a fixed number, and a fixed adjustment per
    * day. Read from its settings, so a changed price follows by itself. */
   let prices = null; /* {of: Map(counter id -> {entity, number}), adjust: €/day} */
+  let pricesBusy = false;
+  let pricesTracked = false;
   async function loadPrices() {
-    if (!grid || !Panel.client.energyPrefs) return;
+    if (!grid || !Panel.client.energyPrefs || pricesBusy) return;
+    pricesBusy = true;
     try {
       const prefs = await Panel.client.energyPrefs();
       const of = new Map();
@@ -143,11 +285,17 @@
       }
       prices = { of, adjust };
       const entities = [...of.values()].map((v) => v.entity).filter(Boolean);
-      Panel.track(entities, Panel.whenShown("energy", () => (renderMeter(), renderToday())));
+      if (!pricesTracked) {
+        /* once: a second load (the meter appearing) must not add a second handler */
+        pricesTracked = true;
+        Panel.track(entities, Panel.whenShown("energy", () => (renderMeter(), renderToday())));
+      }
       renderMeter();
       renderToday();
     } catch (e) {
       prices = null; /* no energy settings, or not allowed: the panel shows kWh only */
+    } finally {
+      pricesBusy = false;
     }
   }
   /* €/kWh for a counter, NaN without a price. */
@@ -156,7 +304,8 @@
     if (!p) return NaN;
     return p.entity ? Panel.num(p.entity) : p.number ?? NaN;
   }
-  const priceNow = () => (activeTariff() ? priceOf(G[`import${activeTariff()}`]) : NaN);
+  /* €/kWh now, for the way the power goes: taking at the import price, giving back at the export price. */
+  const priceNow = (back = false) => (activeTariff() ? priceOf(G[`${back ? "export" : "import"}${activeTariff()}`]) : NaN);
   /* What the day cost: taken times its price, minus given back times its price
    * (salderen), plus the fixed adjustment. NaN without prices or use. */
   function costOn(back) {
@@ -214,7 +363,7 @@
     const back = w < 0;
     const tariff = activeTariff();
     const price = priceNow();
-    const perHour = (Math.abs(w) / 1000) * price;
+    const perHour = (Math.abs(w) / 1000) * priceNow(back);
     const phases = [1, 2, 3].filter((p) => exists(G[`in${p}`]));
     const top = Math.max(500, ...phases.map((p) => Math.max(phaseIn(p) || 0, phaseOut(p) || 0)));
     const phase = (p) => {
@@ -253,6 +402,7 @@
     box.innerHTML =
       `<header class="em-head"><h2 class="dc-title">${esc(grid.label)}</h2>` +
       (tariff ? `<span class="em-tariff t${tariff}">${TARIFF_NAME[tariff]}${Number.isFinite(price) ? ` · ${eur(price, 3)}/kWh` : ""}</span>` : "") +
+      `<button class="usage-open" data-usage="e${devices.indexOf(grid)}">${icon("chart")}<span>Verbruik</span></button>` +
       `</header>` +
       `<div class="em-grid">` +
       `<div class="em-flow ${back ? "export" : "import"}">` +
@@ -282,8 +432,26 @@
       `</div>`;
   }
 
+  /* [device, kWh] of the devices with a meter on a day. A device that also
+   * charges elsewhere (the car at a Supercharger, kind capToGrid) counts for
+   * the house only up to what the grid gave beyond the other devices: what it
+   * took on the road was never on the house's meter. */
+  function meteredOn(back) {
+    const rows = users().filter((d) => kinds[d.kind].meter).map((d) => [d, useOn(d.entities[kinds[d.kind].meter], back)]);
+    const fromGrid = gridLive() ? importOn(back) : NaN;
+    if (!Number.isFinite(fromGrid)) return rows;
+    const fixed = rows.filter(([d, v]) => !kinds[d.kind].capToGrid && Number.isFinite(v)).reduce((s, [, v]) => s + v, 0);
+    let room = Math.max(0, fromGrid - fixed);
+    return rows.map(([d, v]) => {
+      if (!kinds[d.kind].capToGrid || !Number.isFinite(v)) return [d, v];
+      const c = Math.min(v, room);
+      room -= c;
+      return [d, c];
+    });
+  }
+
   function renderToday() {
-    const rows = users().filter((d) => kinds[d.kind].meter).map((d) => [d, useOn(d.entities[kinds[d.kind].meter], 0)]);
+    const rows = meteredOn(0);
     const known = rows.filter(([, v]) => Number.isFinite(v));
     const sum = known.reduce((s, [, v]) => s + v, 0);
     const fromGrid = gridLive() ? importOn(0) : NaN;
@@ -293,7 +461,7 @@
       `<h2 class="dc-title">Vandaag</h2>` +
       `<div class="en-big"><b>${kwhNum(big)}</b><span>kWh</span></div>` +
       `<div class="en-sub">${Number.isFinite(fromGrid) ? `van het net${Number.isFinite(cost) ? `, ${eur(cost)}` : ""} · ${kwhText(sum)} gemeten per apparaat` : "Samen, van de apparaten met een meter"}</div>` +
-      `<ul class="en-list">${rows.map(([d, v]) => `<li><i style="background:${colour.get(d)}"></i><span>${esc(d.label)}</span><b>${kwhText(v)}</b></li>`).join("")}</ul>`;
+      `<ul class="en-list">${rows.map(([d, v]) => `<li data-usage="e${devices.indexOf(d)}"><i style="background:${colour.get(d)}"></i><span>${esc(d.label)}</span><b>${kwhText(v)}</b></li>`).join("")}</ul>`;
   }
 
   function renderCard(d) {
@@ -305,7 +473,7 @@
   const charted = () => devices.filter((d) => (d === grid ? gridLive() : chartId(d) && !Panel.unavailable(Panel.st(chartId(d)))));
   let picked = null; /* the device chosen for the power chart (null: the first one) */
   const chartDevice = () => (charted().includes(picked) ? picked : charted()[0] || null);
-  const shown = { power: 1, week: 1, export: 1, exportWeek: 1 }; /* reveal progress per chart */
+  const shown = { power: 1, week: 1, export: 1, exportWeek: 1, months: 1 }; /* reveal progress per chart */
   let frame = 0;
 
   function renderPick() {
@@ -350,19 +518,20 @@
   }
 
   function drawWeek() {
-    const meters = users().filter((d) => kinds[d.kind].meter).map((d) => [d, d.entities[kinds[d.kind].meter]]);
+    const meters = users().filter((d) => kinds[d.kind].meter);
     const days = [6, 5, 4, 3, 2, 1, 0];
     const rest = (back, parts) => (gridLive() ? Math.max(0, importOn(back) - parts.reduce((s, p) => s + p.v, 0)) || 0 : 0);
+    const perDay = new Map(days.map((back) => [back, new Map(meteredOn(back))]));
     const bars = days.map((back) => {
-      const parts = meters.map(([d, id]) => ({ v: useOn(id, back) || 0, colour: colour.get(d) }));
+      const parts = meters.map((d) => ({ v: perDay.get(back).get(d) || 0, colour: colour.get(d) }));
       const other = rest(back, parts);
       return { label: Util.DAYS_SHORT[dayStart(back).getDay()], parts: other > 0 ? [...parts, { v: other, colour: OTHER }] : parts, strong: back === 0 };
     });
     Panel.drawBars(q(".en-week canvas"), { bars, fmt: (v) => fmt(v, v < 10 ? 1 : 0) }, shown.week);
-    const weekOf = (id) => days.reduce((s, back) => s + (useOn(id, back) || 0), 0);
+    const weekOf = (d) => days.reduce((s, back) => s + (perDay.get(back).get(d) || 0), 0);
     const otherWeek = bars.reduce((s, b) => s + (b.parts.find((p) => p.colour === OTHER) || { v: 0 }).v, 0);
     q(".en-week .en-legend").innerHTML =
-      meters.map(([d, id]) => legendItem(d.label, colour.get(d), kwhText(weekOf(id)))).join("") +
+      meters.map((d) => legendItem(d.label, colour.get(d), kwhText(weekOf(d)))).join("") +
       (otherWeek > 0 ? legendItem("Overig", OTHER, kwhText(otherWeek)) : "");
   }
 
@@ -418,6 +587,7 @@
     drawPower();
     drawWeek();
     drawExport();
+    drawMonths();
   }
   /* Draws the charts growing in (keys: "power", "week"). */
   function reveal(keys) {
@@ -462,8 +632,9 @@
           `<section class="dc-panel en-export-week"><h2 class="dc-title">Teruggeleverd per dag, kWh</h2><div class="en-chart"><canvas></canvas></div><div class="en-legend"></div></section>` +
           `</div>`
         : "") +
+      (grid ? `<section class="dc-panel en-months" hidden><h2 class="dc-title">Van het net per maand, kWh · kosten tegen de huidige prijzen</h2><div class="en-chart"><canvas></canvas></div><div class="en-legend"></div></section>` : "") +
       `<section class="dc-group"><h2 class="dc-title">Per apparaat</h2><div class="dc-grid">` +
-      others.map((d) => Panel.cardHtml(`data-energy-card="${devices.indexOf(d)}" style="--dc-icon:${colour.get(d)}"`, kinds[d.kind].icon, d.label)).join("") +
+      others.map((d) => Panel.cardHtml(`data-energy-card="${devices.indexOf(d)}" data-usage="e${devices.indexOf(d)}" style="--dc-icon:${colour.get(d)}"`, kinds[d.kind].icon, d.label)).join("") +
       `</div></section>`;
 
     /* The meters tick every few seconds: while another section is shown the
@@ -531,6 +702,15 @@
     scaled,
     power,
     kwhText,
+    machineWatts,
+    machineRuns,
+    devices,
+    describe: (d) => ({ icon: (kinds[d.kind] || {}).icon || "bolt", colour: colourOf(d) }),
+    /* €/kWh from the grid: the mean of the tariffs' import prices (NaN until known). */
+    importPrice() {
+      const p = IMPORT.map((k) => priceOf(G[k])).filter(Number.isFinite);
+      return p.length ? p.reduce((s, v) => s + v, 0) / p.length : NaN;
+    },
     today: (id) => useOn(id, 0),
     missing: (id) => Panel.unavailable(Panel.st(id)),
     offline: (text) => ({ tone: "offline", big: text || "Offline" }),
@@ -542,8 +722,11 @@
     renderAll();
     loadStats();
     loadPrices();
+    loadMonths();
   });
+  Panel.everyAwake(3600e3, () => Panel.isLoaded() && grid && loadMonths());
   Panel.on("history", drawCharts);
+  Panel.on("estimate", () => root && renderAll()); /* a machine's power, estimated from its counter */
   Panel.on("reading", (id) => {
     if (!root || !Panel.onScreen("energy")) return;
     const d = chartDevice();
@@ -553,7 +736,7 @@
   Panel.on("section", (i) => {
     if (cfg.sections[i].kind !== "energy") return;
     drawCharts(); /* readings came in while another section was shown */
-    reveal(["power", "week", "export", "exportWeek"]);
+    reveal(["power", "week", "export", "exportWeek", "months"]);
     if (Panel.isLoaded() && Date.now() - statsAt > 60e3) loadStats();
   });
   Panel.everyAwake(5 * 60e3, () => Panel.isLoaded() && loadStats());

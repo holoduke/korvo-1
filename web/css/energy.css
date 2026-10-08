@@ -139,3 +139,9 @@
   .em-label { min-width: 0; width: 100%; }
 }
 @media (pointer: coarse) { .en-pick button { height: 40px; } } /* a finger needs 40 px */
+
+/* Per month: the chart across the width, the sums beside the colour keys. */
+.en-months { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.en-months .en-chart { height: 200px; }
+.en-legend .en-month-sum { color: var(--text_dim); white-space: normal; }
+.en-legend .en-month-sum b { color: var(--text); }

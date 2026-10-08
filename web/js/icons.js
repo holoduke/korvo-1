@@ -57,6 +57,7 @@
     stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
     expand: '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    chart: '<path d="M4 20.5h16.5"/><rect x="5" y="12" width="3.5" height="6" rx="1"/><rect x="10.25" y="6" width="3.5" height="12" rx="1"/><rect x="15.5" y="9" width="3.5" height="9" rx="1"/>',
     calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
     person: '<circle cx="12" cy="7" r="3.5"/><path d="M5 21v-1.5a7 7 0 0 1 14 0V21"/>',
     door: '<path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M3 21h18"/><circle cx="14.5" cy="12" r=".9"/>',
@@ -84,6 +85,8 @@
     "tab-sensors": '<circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M8.3 8.3a5.2 5.2 0 0 0 0 7.4M15.7 8.3a5.2 5.2 0 0 1 0 7.4"/><path d="M5.3 5.3a9.4 9.4 0 0 0 0 13.4M18.7 5.3a9.4 9.4 0 0 1 0 13.4"/>',
     "tab-energy": '<path d="M13.2 2.5 4.6 13.6h6.6l-1 7.9 8.6-11.3h-6.6z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M13.2 2.5 4.6 13.6h6.6l-1 7.9 8.6-11.3h-6.6z"/>',
     "tab-network": '<path d="M12 20.2 2.6 9.1a14.4 14.4 0 0 1 18.8 0z" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M2.5 9a14.3 14.3 0 0 1 19 0"/><path d="M5.8 12.5a9.3 9.3 0 0 1 12.4 0"/><path d="M9.1 16a4.6 4.6 0 0 1 5.8 0"/><circle cx="12" cy="19.4" r="1.1" fill="currentColor" stroke="none"/>',
+    /* a speaker with sound waves, in the tab set's style */
+    "tab-audio": '<rect x="3" y="8" width="5.5" height="8" rx="1.2" fill="currentColor" fill-opacity=".18" stroke="none"/><path d="M3 9.2c0-.7.5-1.2 1.2-1.2h4.3L13.5 4v16l-5-4H4.2C3.5 16 3 15.5 3 14.8z"/><path d="M16.4 9a4.3 4.3 0 0 1 0 6M19 6.4a8 8 0 0 1 0 11.2"/>',
     /* the house's inner walls: a floor plan and its dividing walls */
     walls: '<rect x="3.5" y="3.5" width="17" height="17" rx="1.8" fill="currentColor" fill-opacity=".18" stroke="none"/><rect x="3.5" y="3.5" width="17" height="17" rx="1.8"/><path d="M3.5 11.2h6.8M10.3 3.5v4.4M13.8 11.2h6.7M13.8 11.2v9.3"/>',
     /* the Klimaat layer, in the tab set's style */

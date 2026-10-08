@@ -11,7 +11,7 @@
 
   Panel.railHtml = (buttons, attr) =>
     `<nav class="rail" aria-label="Verdieping"><div class="rail-track"><i class="rail-ind"></i>` +
-    buttons.map((b) => `<button class="rail-btn" ${attr}="${b.key}"><b>${b.label}</b><span>${b.name}</span></button>`).join("") +
+    buttons.map((b) => `<button class="rail-btn" ${attr}="${Util.esc(b.key)}"><b>${Util.esc(b.label)}</b><span>${Util.esc(b.name)}</span></button>`).join("") +
     `</div></nav>`;
 
   Panel.railIndicator = function (nav) {

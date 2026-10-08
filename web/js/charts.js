@@ -231,6 +231,9 @@
    * per slot, bottom to top in part order, its total above it and its label
    * below (in the accent colour when strong, e.g. today). progress 0..1 grows
    * the bars. */
+  /* spec: {bars: [{label, parts: [{v, colour}], strong}], fmt(v), labelEvery
+   * (a label under every n-th bar; many narrow bars), values (the total over
+   * each bar; default on)}. */
   Panel.drawBars = function (canvas, spec, progress) {
     const { c, W, H } = surface(canvas);
     const L = 8, R = 8, T = 24, B = 26;
@@ -258,11 +261,11 @@
       c.textBaseline = "bottom";
       c.fillStyle = css("--text");
       c.globalAlpha = progress;
-      if (totals[i] > 0) c.fillText(spec.fmt(totals[i]), x + bw / 2, y - 4);
+      if (spec.values !== false && totals[i] > 0) c.fillText(spec.fmt(totals[i]), x + bw / 2, y - 4);
       c.globalAlpha = 1;
       c.textBaseline = "top";
       c.fillStyle = b.strong ? css("--accent") : css("--text_dim");
-      c.fillText(b.label, x + bw / 2, T + ph + 7);
+      if (i % (spec.labelEvery || 1) === 0 || b.strong) c.fillText(b.label, x + bw / 2, T + ph + 7);
     });
   };
 })();

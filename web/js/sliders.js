@@ -29,6 +29,7 @@
     bright.querySelector(".vs-fill").style.height = y + "px";
     bright.querySelector(".vs-knob").style.bottom = y + "px";
     bright.dataset.value = v;
+    vTrack.setAttribute("aria-valuenow", v);
     $("brightLabel").textContent = showLabel ? v + "%" : "";
   }
 
@@ -115,7 +116,19 @@
       knob.style.left = x + "px";
       if (fill) fill.style.width = x + PAD + "px";
       if (state.tint) knob.style.background = state.tint(v);
+      el.setAttribute("aria-valuemin", state.min);
+      el.setAttribute("aria-valuemax", state.max);
+      el.setAttribute("aria-valuenow", Math.round(v));
     }
+    /* keyboard: arrows step a twentieth, Home and End to the ends */
+    el.addEventListener("keydown", (e) => {
+      const step = Math.max(1, Math.round((state.max - state.min) / 20));
+      const to = { ArrowRight: state.value + step, ArrowUp: state.value + step, ArrowLeft: state.value - step, ArrowDown: state.value - step, Home: state.min, End: state.max }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      show(Util.clamp(to, state.min, state.max));
+      state.onCommit(state.value);
+    });
     function valueAtX(clientX) {
       const r = el.getBoundingClientRect();
       const f = Util.clamp((clientX - r.left - PAD) / Math.max(1, r.width - 2 * PAD), 0, 1);

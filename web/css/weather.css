@@ -1,0 +1,52 @@
+/* The weather popup (weather.js): now, seven days, 48 hours, today and tomorrow in words. */
+#weather { background: rgba(0, 0, 0, 0.6); }
+#forecast { cursor: pointer; }
+.wx-box { max-width: 860px; }
+.wx-now { display: flex; align-items: center; gap: 10px; font-size: 24px; white-space: nowrap; }
+.wx-now b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.wx-now-cond { font-size: 16px; font-weight: 600; color: var(--text_dim); }
+.wx-now-ic .wx { transform: scale(0.8); }
+
+.wx-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 4px 0 16px; }
+.wx-day { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: calc(12px * var(--round)); background: var(--tile_off); min-width: 0; }
+.wx-day.today { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent); }
+.wx-day-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wx-day-name .short { display: none; }
+.wx-day-t { display: flex; gap: 6px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.wx-day-t b { font-size: 19px; }
+.wx-day-t span { font-size: 14px; font-weight: 600; color: var(--text_dim); }
+.wx-day-rain { font-size: 12px; font-weight: 700; color: var(--text_dim); }
+.wx-day-rain.wet { color: #7fb4ff; }
+.wx-day-wind { font-size: 11.5px; font-weight: 600; color: var(--text_dim); white-space: nowrap; }
+
+.wx-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.wx-legend { display: inline-flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.wx-rain-key { display: inline-block; width: 10px; height: 12px; border-radius: 2px; background: rgba(100, 170, 255, 0.7); margin-left: 6px; }
+.wx-chart-wrap { position: relative; height: 210px; margin: 6px 0 14px; }
+#wxChart { width: 100%; height: 100%; display: block; }
+
+.wx-text { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.wx-par { padding: 12px 14px; border-radius: calc(12px * var(--round)); background: var(--tile_off); }
+.wx-par h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.wx-par p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+.wx-empty { margin: 0; color: var(--text_dim); font-weight: 600; }
+
+/* A phone: shorter day names, the two texts under each other. */
+@media (max-width: 700px) {
+  .wx-days { gap: 4px; }
+  .wx-day { padding: 8px 2px; }
+  .wx-day-name .long { display: none; }
+  .wx-day-name .short { display: inline; }
+  .wx-day-t { flex-direction: column; align-items: center; gap: 0; }
+  .wx-day-t b { font-size: 16px; }
+  .wx-day-wind { display: none; }
+  .wx-text { grid-template-columns: minmax(0, 1fr); }
+  .wx-chart-wrap { height: 170px; }
+  .wx-now-cond { display: none; }
+}
+/* "nu": the weather right now, which may differ from the day's forecast in the header */
+.wx-now-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+/* where: the forecast's place and the station that measures now, under the title */
+.wx-head-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wx-place { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wx-place .ic { width: 14px; height: 14px; color: var(--accent); flex: none; }

@@ -151,3 +151,50 @@ test("a robot sent home from the panel raises no alarm", async ({ page }) => {
   }
   await expect(page.locator("#toast")).not.toContainText("plek op de kaart");
 });
+
+test("a device's card on Energie opens its use per day, hour and month", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "energie");
+  await page.locator("#track > .page:not(.away) .dc-card[data-usage]").first().click();
+  const box = page.locator("#usage");
+  await expect(box).toBeVisible();
+  await expect(page.locator("#usageSum")).toContainText("kWh");
+  await expect(page.locator("#usageSum")).toContainText("gemiddeld per dag");
+  for (const range of ["0", "2", "3"]) {
+    await page.locator(`[data-usage-range="${range}"]`).click();
+    await expect(page.locator(`[data-usage-range="${range}"]`)).toHaveClass(/active/);
+    await expect(page.locator("#usageSum")).toContainText("kWh");
+  }
+  await expect(box).not.toContainText(/undefined|NaN/);
+  await page.locator("#usageClose").click();
+  await expect(box).toBeHidden();
+  expect(problems).toEqual([]);
+});
+
+test("the washer in Apparaten opens the same chart", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "apparaten");
+  const washer = await page.evaluate(() => window.PANEL_CONFIG.appliances.findIndex((a) => a.kind === "washer"));
+  test.skip(washer < 0, "no washer configured");
+  await page.locator(`#track > .page:not(.away) [data-pick="${washer}"]`).first().click();
+  await page.locator("#track > .page:not(.away) .ap-usage .usage-open").click();
+  await expect(page.locator("#usage")).toBeVisible();
+  await expect(page.locator("#usageTitle")).toHaveText(/Wasmachine/);
+  expect(problems).toEqual([]);
+});
+
+test("a running washer whose power sensor says 0 W shows an estimate from its counter", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "energie");
+  const w = await page.evaluate(() => (window.PANEL_CONFIG.energy || []).find((d) => d.kind === "washer"));
+  test.skip(!w, "no washer on Energie");
+  /* as over SmartThings: running, power stuck at 0 W, only the kWh counter moves */
+  await page.evaluate((e) => {
+    Panel.client.simulate(e.machine, "run");
+    Panel.client.simulate(e.power, "0");
+  }, w.entities);
+  const card = page.locator(`#track > .page:not(.away) .dc-card[data-usage]`).filter({ hasText: w.label }).first();
+  await expect(card).toContainText("geschat uit de kWh-teller");
+  await expect(card.locator(".dc-value b")).not.toHaveText(/^0$|--/);
+  expect(problems).toEqual([]);
+});

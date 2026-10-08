@@ -1,4 +1,4 @@
-/* Full-screen layers: the "AI oog" screensaver and the boot splash. */
+/* Full-screen layers: the "AI oog" screensaver (the boot splash is in splash.css). */
 
 /* ---- Screensaver ------------------------------------------------------------------ */
 .saver { position: fixed; inset: 0; z-index: 60; background: #000; animation: fade-in 0.6s ease-out; cursor: none; }
@@ -41,30 +41,6 @@ body.sleeping #app { visibility: hidden; }
 /* Nothing under it moves either: an animation on an unpainted element still
  * keeps the compositor busy. */
 body.sleeping #app *, body.sleeping #app *::before, body.sleeping #app *::after { animation: none !important; transition: none !important; }
-
-/* ---- Splash ------------------------------------------------------------------ */
-.splash { position: fixed; inset: 0; z-index: 80; background: #000; transition: opacity 0.5s ease-out; }
-.splash img { width: 100%; height: 100%; object-fit: cover; }
-.splash.gone { opacity: 0; pointer-events: none; }
-/* Brand line above the loader: across the full width (splash.js sizes it to
- * fit), not taller than about 8% of the screen, cyan with a soft glow. */
-.splash-title { position: absolute; left: 0; right: 0; bottom: calc(8% + 64px); padding: 0 4vw; text-align: center; white-space: nowrap; pointer-events: none; }
-#splashTitle {
-  display: inline-block;
-  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
-  font-weight: 600;
-  font-size: 40px;
-  line-height: 1;
-  letter-spacing: 0.32em;
-  margin-right: -0.32em; /* the last letter's spacing would push the line off centre */
-  text-transform: uppercase;
-  color: #7ff4ff;
-  text-shadow: 0 0 4px rgba(127, 244, 255, 0.9), 0 0 14px rgba(0, 220, 255, 0.55), 0 0 36px rgba(0, 190, 255, 0.35);
-}
-.splash-bottom { position: absolute; left: 50%; bottom: 8%; width: min(420px, 70vw); transform: translateX(-50%); text-align: center; }
-.splash-status { font-size: 14px; font-weight: 600; color: #9fd8ff; letter-spacing: 0.06em; margin-bottom: 10px; text-shadow: 0 0 12px rgba(80, 180, 255, 0.6); }
-.splash-bar { height: 4px; border-radius: calc(2px * var(--round)); background: rgba(120, 190, 255, 0.18); overflow: hidden; }
-#splashFill { height: 100%; width: 0; background: linear-gradient(90deg, #3ee0d8, #5ad1ff); box-shadow: 0 0 10px #5ad1ff; transition: width 0.4s var(--ease-out); }
 
 @media (max-width: 760px) {
   .eye-temps { font-size: 18px; left: 16px; top: 14px; row-gap: 6px; }

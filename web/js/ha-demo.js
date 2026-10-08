@@ -390,7 +390,9 @@
     (cfg.energy || []).forEach((d) => {
       const e = d.entities;
       const put = (key, state, attributes = {}) => e[key] && !states.has(e[key]) && set(e[key], state, attributes);
-      if (d.kind === "bike") {
+      if (d.kind === "car") {
+        put("homeEnergy", "1204.6", { unit_of_measurement: "kWh", device_class: "energy" }); /* charged at home (HA's own integration sensor) */
+      } else if (d.kind === "bike") {
         put("battery", "86", { unit_of_measurement: "%" });
         put("energy", "27510", { unit_of_measurement: "Wh" });
         put("average", "14", { unit_of_measurement: "Wh" });
@@ -413,7 +415,7 @@
     /* A plausible day's use per counter: kWh, water in L. */
     const demoUse = (id) =>
       /water/.test(id) ? 48
-      : /energy_added/.test(id) ? 14
+      : /energy_added|thuis_geladen/.test(id) ? 14
       : /energy_used/.test(id) ? 0.25
       : /charged/.test(id) ? 1.2
       : /import/.test(id) ? 9
@@ -557,13 +559,30 @@
       async callService(domain, service, data, target, returnResponse) {
         const ids = [].concat((target && target.entity_id) || []);
         if (domain === "weather" && service === "get_forecasts") {
-          const conds = ["partlycloudy", "rainy", "sunny"];
-          const forecast = [0, 1, 2].map((d) => ({
+          const entity = (target && target.entity_id) || cfg.weather;
+          if (data && data.type === "hourly") {
+            /* two days of hours: a mild day, a shower tomorrow afternoon */
+            const start = new Date(now);
+            start.setMinutes(0, 0, 0);
+            const forecast = Array.from({ length: 72 }, (_, i) => {
+              const t = new Date(start.getTime() + i * 3600e3);
+              const h = t.getHours();
+              const rain = i > 30 && i < 36 ? [0.4, 1.8, 2.6, 1.1, 0.3][i - 31] || 0 : 0;
+              return { datetime: t.toISOString(), condition: rain ? "rainy" : h >= 20 || h < 7 ? "clear-night" : "partlycloudy", temperature: Math.round((13 + 5 * Math.sin(((h - 9) / 24) * Math.PI * 2) + (i > 24 ? 1 : 0)) * 10) / 10, precipitation: rain, wind_speed: 14 + (i % 7), wind_bearing: 240, wind_gust_speed: 30 };
+            });
+            return { response: { [entity]: { forecast } } };
+          }
+          const conds = ["partlycloudy", "rainy", "sunny", "cloudy", "sunny", "partlycloudy", "rainy"];
+          const forecast = conds.map((c, d) => ({
             datetime: new Date(now + d * 86400e3).toISOString(),
-            condition: conds[d],
-            temperature: 18 + d,
+            condition: c,
+            temperature: 18 + (d % 3),
+            templow: 10 + (d % 2),
+            precipitation: c === "rainy" ? 4.2 : 0,
+            wind_speed: 12 + d * 3,
+            wind_bearing: 200 + d * 20,
           }));
-          return { response: { [cfg.weather]: { forecast } } };
+          return { response: { [entity]: { forecast } } };
         }
         /* Home Assistant's own actions (reload an integration, refresh an entity): nothing changes. */
         if (domain === "homeassistant") return returnResponse ? { response: {} } : null;
@@ -803,7 +822,22 @@
          * room 8 (19 m²) today, 5 (14 m²) yesterday, 4 (22 m²) three days ago. */
         const out = {};
         const runs = [[8, 0.2, 19], [5, 1.1, 14], [4, 3.3, 22]];
+        /* Any numeric sensor: a day that ends at its value now, every 10 min,
+         * with a slow swing and a little noise (the Vision screensaver's graph). */
+        const numeric = (id) => {
+          const v = parseFloat((states.get(id) || {}).state);
+          if (!Number.isFinite(v)) return [];
+          const rows = [];
+          const shift = [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 997, 7) / 997 * 10; /* each sensor its own rhythm */
+          for (let t = Math.max(start.getTime(), Date.now() - 86400e3); t <= Date.now(); t += 10 * 60e3) {
+            const day = Math.sin(((t / 3600e3 - 15 - shift) / 24) * Math.PI * 2); /* warmest mid-afternoon */
+            const swing = Math.abs(v) * 0.18 * day + Math.abs(v) * 0.04 * Math.sin(t / 1.7e6) + (rnd() - 0.5) * Math.abs(v) * 0.03;
+            rows.push({ s: String(+(v + swing - Math.abs(v) * 0.18 * Math.sin(((Date.now() / 3600e3 - 15 - shift) / 24) * Math.PI * 2)).toFixed(3)), a: {}, t });
+          }
+          return rows;
+        };
         ids.forEach((id) => {
+          if (!id.startsWith("vacuum.")) return (out[id] = numeric(id));
           /* A run of today stays today, however close to midnight the demo starts. */
           const midnight = new Date(now).setHours(0, 0, 0, 0);
           out[id] = runs.flatMap(([room, daysAgo, m2]) => {
@@ -825,6 +859,31 @@
         return out;
       },
       /* The energy dashboard's settings: two grid sources, one per tariff. */
+      /* The WiiM speakers' own data as the thuispaneel integration reports it. */
+      async audio() {
+        if (!this._audio) {
+          const presets = ["Flat", "Acoustic", "Bass Booster", "Bass Reducer", "Classical", "Dance", "Deep", "Electronic", "Hip-Hop", "Jazz", "Loudness", "Movie", "Pop", "Rock", "Vocal Booster"];
+          this._audio = (cfg.media || []).map((m, i) => ({
+            entity_id: m.id, name: m.label, host: `192.168.2.${170 + i}`, online: true,
+            model: i === 2 ? "WiiM Amp Ultra" : "WiiM Sound", firmware: "Linkplay.5.2.829356", release: "20260914", update: i === 1, group_name: m.label,
+            wifi: { rssi: -48 - i * 9, snr: 40 - i * 6, noise: -92, band: "5 GHz", channel: 36, rate: 433 - i * 120, wired: false },
+            temp_cpu: 58 + i * 3, temp_amp: i === 2 ? 41 : null, internet: true, mode: i === 2 ? "line-in" : "bluetooth", follower: i === 1,
+            title: null, artist: null, quality: { rate: 48000, bits: 24, kbps: 2304 },
+            eq: { on: true, name: "Bass Booster", bands: [73, 67, 65, 60, 55, 50, 50, 50, 50, 50], presets, channels: "Stereo" },
+            sleep: i === 2 ? 1800 : 0,
+          }));
+        }
+        return { at: Date.now(), speakers: this._audio };
+      },
+      async audioCmd(entityId, cmd, value) {
+        const sp = (this._audio || []).find((x) => x.entity_id === entityId);
+        if (!sp) throw new Error("onbekende speaker");
+        if (cmd === "eq") sp.eq.on = value === "on";
+        if (cmd === "eq_preset") Object.assign(sp.eq, { name: value, on: true, bands: Array.from({ length: 10 }, (_, k) => 50 + Math.round(Math.sin(k + value.length) * 18)) });
+        if (cmd === "mode") sp.mode = value;
+        if (cmd === "sleep") sp.sleep = Number(value);
+        return { ok: true, speaker: sp };
+      },
       /* The home network as the thuispaneel integration reports it: the
        * switch and the four access points, a day of latency, ~30 devices. */
       async network() {
@@ -878,6 +937,39 @@
             day.setDate(day.getDate() + 1);
             return row;
           });
+        });
+        return out;
+      },
+      /* Twelve months of use per counter: more in winter, less in summer. */
+      async monthlyUse(ids, start) {
+        const out = {};
+        ids.filter((id) => states.has(id)).forEach((id) => {
+          const m = new Date(start);
+          m.setDate(1);
+          m.setHours(0, 0, 0, 0);
+          out[id] = [];
+          while (m <= new Date()) {
+            const winter = 1 + 0.5 * Math.cos(((m.getMonth() + 0.5) / 12) * Math.PI * 2);
+            out[id].push({ t: m.getTime(), change: Math.round(demoUse(id) * 30 * winter * 10) / 10 });
+            m.setMonth(m.getMonth() + 1);
+          }
+        });
+        return out;
+      },
+      /* Use per period since `start`: a plausible day spread over its hours
+       * (most in the evening), the days and months as above. */
+      async usePer(ids, start, period) {
+        if (period === "day") return this.dailyUse(ids, start);
+        if (period === "month") return this.monthlyUse(ids, start);
+        const step = { "5minute": 300e3, hour: 3600e3, week: 7 * 86400e3 }[period] || 3600e3;
+        const evening = (h) => 0.4 + 1.6 * Math.exp(-((h - 19) ** 2) / 8) + 0.6 * Math.exp(-((h - 8) ** 2) / 4);
+        const out = {};
+        ids.filter((id) => states.has(id)).forEach((id) => {
+          out[id] = [];
+          for (let t = Math.floor(start.getTime() / step) * step; t < Date.now(); t += step) {
+            const share = step >= 7 * 86400e3 ? 7 : (step / 86400e3) * evening(new Date(t).getHours()) / 1.05;
+            out[id].push({ t, change: Math.round(demoUse(id) * share * 1000) / 1000 });
+          }
         });
         return out;
       },

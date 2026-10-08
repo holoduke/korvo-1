@@ -28,7 +28,7 @@
     `<div class="hud" data-hud><div class="hud-clock" data-hud-clock></div><div class="hud-watch" data-hud-watch></div><div class="hud-rows" data-hud-rows></div><div class="hud-events" data-hud-events></div></div>` +
     `<div class="house-robot" data-robot hidden><span class="hr-icon">${icon("vacuum")}</span><span class="hr-text"><b data-robot-label></b><span data-robot-where></span></span></div>` +
     `<div class="house-labels" data-labels></div>` +
-    `<div class="house-layers">${LAYERS.map(([k, l, ic]) => `<button class="hl-btn" data-layer="${k}" aria-label="${l}">${icon(ic)}<span class="hl-txt">${l}</span></button>`).join("")}</div>` +
+    `<div class="house-layers">${LAYERS.map(([k, l, ic]) => `<button class="hl-btn" data-layer="${k}" aria-label="${l}" aria-pressed="false">${icon(ic)}<span class="hl-txt">${l}</span></button>`).join("")}</div>` +
     `<div class="house-walls"><button class="hl-btn" data-walls aria-label="Binnenmuren">${icon("walls")}<span class="hl-txt">Binnenmuren</span></button></div>`;
 
   /* ---- What is wrong ------------------------------------------------------------ */
@@ -225,11 +225,33 @@
     }
     return null;
   }
+  /* The tints and labels are worked out first and applied only when they
+   * differ from what is shown: a sensor ticking every few seconds would
+   * otherwise rebuild every label and the house's tint buffers each time. */
+  let shownLayer = "";
+  let shownHouse = null;
   function renderLayer() {
-    const house = Panel.house;
-    if (house) house.clearTints();
-    labels.innerHTML = "";
-    document.querySelectorAll(".house-layers .hl-btn").forEach((b) => b.classList.toggle("active", b.dataset.layer === layer));
+    const real = Panel.house;
+    const calls = [];
+    const frag = document.createDocumentFragment();
+    buildLayer(real ? { tintRoom: (...a) => calls.push(a) } : null, frag);
+    const sig = layer + JSON.stringify(calls) + [...frag.children].map((el) => el.outerHTML).join("");
+    if (sig !== shownLayer || real !== shownHouse) {
+      shownLayer = sig;
+      shownHouse = real;
+      if (real) {
+        real.clearTints();
+        calls.forEach((a) => real.tintRoom(...a));
+      }
+      labels.replaceChildren(frag);
+    }
+    place();
+  }
+  function buildLayer(house, labels) {
+    document.querySelectorAll(".house-layers .hl-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.layer === layer);
+      b.setAttribute("aria-pressed", String(b.dataset.layer === layer));
+    });
     /* The room opened beside the house: its floor in the accent colour. */
     const sel = Panel.currentRoom && Panel.currentRoom();
     if (house && sel) house.tintRoom(sel.floor, sel.name, [1, 0.72, 0.3], 0.16);
@@ -281,7 +303,6 @@
         labels.appendChild(el);
       });
     }
-    place();
   }
   /* The labels follow their places while the house turns; where two would
    * overlap, the nearer one shows and the farther one waits its turn. */
@@ -304,11 +325,14 @@
   }
   function follow() {
     raf = 0;
-    if (layer === "none" || !labels.children.length || !Panel.onScreen("start") || document.visibilityState !== "visible" || Panel.sleeping()) return;
+    /* not without a house to follow, nor under the Vision screensaver that covers it */
+    if (layer === "none" || !labels.children.length || !Panel.house || !Panel.onScreen("start") || document.visibilityState !== "visible" || Panel.sleeping()) return;
+    if (Panel.visionSaver && Panel.visionSaver.shown()) return;
     place();
     raf = requestAnimationFrame(follow);
   }
   const startFollowing = () => !raf && (raf = requestAnimationFrame(follow));
+  Panel.on("vision", (on) => !on && startFollowing());
   function setLayer(k) {
     layer = k;
     Panel.setPref("houseLayer", k);

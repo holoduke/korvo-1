@@ -10,7 +10,7 @@
 
   const OP_NL = {
     inactive: "Uit", ready: "Gereed", delayedstart: "Uitgestelde start", run: "Bezig", pause: "Gepauzeerd",
-    actionrequired: "Actie nodig", finished: "Klaar", error: "Storing", aborting: "Stoppen",
+    actionrequired: "Actie nodig", finished: "Klaar", error: "Storing", aborting: "Stoppen", unknown: "Onbekend",
   };
   const JOB_NL = {
     pre_wash: "Voorwas", wash: "Wassen", ai_wash: "Wassen", rinse: "Spoelen", ai_rinse: "Spoelen", spin: "Centrifugeren",
@@ -27,6 +27,9 @@
   const HIDDEN_PROGRAMS = new Set(["001", "LearningDishwasher"]);
 
   /* Actions shared by several kinds. */
+  /* The oven's chosen temperature and time, sent again once it runs (see start). */
+  let ovenWant = { temp: NaN, time: NaN };
+  let ovenStartTimer = 0;
   const toggle = (a, [key], call) => call("switch", on(a.entities[key]) ? "turn_off" : "turn_on", null, a.entities[key]);
   const press = (key) => (a, args, call) => call("button", "press", null, a.entities[key]);
   const selectOption = (key) => (a, [option], call) => call("select", "select_option", { option }, a.entities[key]);
@@ -172,6 +175,12 @@
   });
 
   /* ---- Washer and dryer ------------------------------------------------------------ */
+  /* Its power: the sensor stays at 0 W over SmartThings, so while it runs the
+   * Energie section's estimate from the kWh counter stands in (≈). */
+  const wattsText = (running, e) => {
+    const { w, estimated } = running && Panel.energy ? Panel.energy.machineWatts(e) : { w: num(e.power), estimated: false };
+    return Number.isFinite(w) ? `${estimated ? "≈ " : ""}${fmt(Math.round(w))} W` : estimated ? "wordt berekend" : "--";
+  };
   const laundry = {
     view(a, i) {
       const e = a.entities;
@@ -193,7 +202,7 @@
         pill: running ? JOB_NL[job] || "Bezig" : paused ? "Gepauzeerd" : finished ? "Klaar" : on(e.on) ? "Aan" : "Uit",
         progress: running ? "busy" : null,
         stats: [
-          stat("Vermogen", Number.isFinite(num(e.power)) ? `${fmt(num(e.power))} W` : "--"),
+          stat("Vermogen", wattsText(running, e)),
           stat("Energie", Number.isFinite(num(e.energy)) ? `${fmt(num(e.energy), 1)} kWh` : "--"),
           s(e.water) ? stat("Water", Number.isFinite(num(e.water)) ? `${fmt(num(e.water) / 1000, 1)} m³` : "--") : stat("Kinderslot", on(e.lock) ? "Aan" : "Uit"),
           stat("Op afstand", remote ? "Aan" : "Uit"),
@@ -238,7 +247,7 @@
         pill: OP_NL[op] || raw(e.op),
         progress: idle ? null : num(e.progress),
         stats: [
-          stat("Deur", low(e.door) === "open" ? "Open" : "Dicht"),
+          stat("Deur", { open: "Open", closed: "Dicht", locked: "Vergrendeld" }[low(e.door)] || "--"),
           stat("Onderhoud", Number.isFinite(num(e.care)) ? `over ${fmt(num(e.care))}×` : "--"),
           stat("Energie", Number.isFinite(num(e.energy)) ? `${fmt(num(e.energy))}%` : "--"),
           stat("Water", Number.isFinite(num(e.water)) ? `${fmt(num(e.water))}%` : "--"),
@@ -312,8 +321,8 @@
       const program = raw(e.selected);
       const programLabel = OVEN_NL[program] || (known(program) ? program : "Geen programma");
       const microwave = isMicrowave(program);
-      const target = busy && Number.isFinite(num(e.setpoint)) ? num(e.setpoint) : num(e.setpointSet);
-      const timer = num(e.duration);
+      const target = busy && Number.isFinite(num(e.setpoint)) ? num(e.setpoint) : Panel.applianceTarget(e.setpointSet);
+      const timer = Panel.applianceTarget(e.duration);
       const tempText = Number.isFinite(target) ? `${fmt(target)}°` : "--";
       const timerText = Number.isFinite(timer) ? duration(timer).join(" ") : "--";
       const [left, leftUnit] = duration(num(e.remaining));
@@ -369,7 +378,7 @@
           : standby ? "Stand-by" : [programLabel, !microwave && tempText, Number.isFinite(timer) && timerText].filter(Boolean).join(" · "),
         progress: busy ? num(e.progress) : null,
         stats: [
-          stat("Deur", { open: "Open", locked: "Vergrendeld" }[low(e.door)] || "Dicht"),
+          stat("Deur", { open: "Open", closed: "Dicht", locked: "Vergrendeld" }[low(e.door)] || "--"),
           stat("Lamp", on(e.light) || on(e.lamp) ? "Aan" : "Uit"),
           ...(busy
             ? [stat("Doel", microwave ? "--" : tempText), stat("Verstreken", Number.isFinite(num(e.elapsed)) ? duration(num(e.elapsed)).join(" ") : "--")]
@@ -380,23 +389,46 @@
     },
     actions: {
       program: selectOption("selected"),
-      start: (a, args, call) => call("select", "select_option", { option: raw(a.entities.selected) }, a.entities.active),
+      /* The oven drops a temperature set before the start back to the
+       * program's default (180°), so what was chosen here is sent again once
+       * it runs; the time likewise, should it have been reset. */
+      start(a, args, call) {
+        const e = a.entities;
+        ovenWant = { temp: Panel.applianceTarget(e.setpointSet), time: Panel.applianceTarget(e.duration) };
+        call("select", "select_option", { option: raw(a.entities.selected) }, e.active);
+        clearInterval(ovenStartTimer); /* a second Start: one wait, not two */
+        let tries = 0;
+        const timer = (ovenStartTimer = setInterval(() => {
+          const running = low(e.op) === "run";
+          if (!running && ++tries < 30) return;
+          clearInterval(timer);
+          if (!running) return;
+          const resend = (id, value) =>
+            Number.isFinite(value) && s(id) && num(id) !== value &&
+            Panel.client.callService("number", "set_value", { value }, { entity_id: id }).catch(Panel.commandFailed(a.label));
+          /* what was chosen last, also a step tapped after Start */
+          resend(e.setpointSet, ovenWant.temp);
+          resend(e.duration, ovenWant.time);
+        }, 1000));
+      },
       temp(a, [dir], call) {
         const e = a.entities;
         const range = attrs(e.setpointSet);
-        const current = num(e.setpointSet);
+        const current = Panel.applianceTarget(e.setpointSet); /* on from what was tapped, not the old reading */
         if (!Number.isFinite(current)) return;
         const next = Util.clamp(Math.round((current + Number(dir) * TEMP_STEP) / TEMP_STEP) * TEMP_STEP, Math.max(MIN_TEMP, range.min ?? MIN_TEMP), range.max ?? 300);
+        ovenWant.temp = next;
         call("number", "set_value", { value: next }, e.setpointSet);
       },
       /* 5-minute steps up to an hour, quarters above it. */
       time(a, [dir], call) {
         const e = a.entities;
-        const current = num(e.duration);
+        const current = Panel.applianceTarget(e.duration);
         if (!Number.isFinite(current)) return;
         const up = Number(dir) > 0;
         const step = (up ? current >= 3600 : current > 3600) ? 900 : 300;
         const next = Util.clamp(Math.round((current + (up ? step : -step)) / step) * step, 300, attrs(e.duration).max ?? 86400);
+        ovenWant.time = next;
         call("number", "set_value", { value: next }, e.duration);
       },
       power: selectOption("powerstate"),

@@ -15,6 +15,10 @@
   /* The sleep stage, this long after the screensaver came on (0 = never). */
   Panel.DEEP_TIMES = [0, 300e3, 600e3, 1800e3];
   Panel.DEEP_LABELS = ["Nooit", "5 min", "10 min", "30 min"];
+  /* A phone (the same query as the phone layout in the CSS) gets no screensaver
+   * and no screen lock: it is in a hand, not on a wall, and locks by itself. */
+  const phoneQuery = matchMedia("(max-width: 700px), (orientation: landscape) and (max-height: 440px)");
+  const isPhone = () => phoneQuery.matches;
 
   /* ---- Keep the screen on --------------------------------------------------------- */
   /* In the "Scherm uit" mode the lock is released so the tablet's own auto-lock
@@ -26,8 +30,11 @@
     try {
       if (on && !wakeLock && "wakeLock" in navigator && document.visibilityState === "visible") {
         if (!requesting) requesting = navigator.wakeLock.request("screen").finally(() => (requesting = null));
-        wakeLock = await requesting;
-        wakeLock.addEventListener("release", () => (wakeLock = null));
+        const lock = await requesting;
+        lock.addEventListener("release", () => wakeLock === lock && (wakeLock = null));
+        wakeLock = lock;
+        /* asleep (or the screen-off mode) while the request was under way: let it go at once */
+        if (!wantAwake()) keepAwake(false);
       } else if (!on && wakeLock) {
         const lock = wakeLock;
         wakeLock = null;
@@ -37,7 +44,7 @@
       wakeLock = null; /* not supported, or refused (e.g. low power mode) */
     }
   }
-  const wantAwake = () => !deep && (saver.hidden || Panel.prefs.saverMode !== 0);
+  const wantAwake = () => !isPhone() && !deep && (saver.hidden || Panel.prefs.saverMode !== 0);
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && keepAwake(wantAwake()));
   window.addEventListener("pointerdown", () => keepAwake(wantAwake()), { passive: true, capture: true });
 
@@ -51,7 +58,7 @@
   /* The app is in use (again): restart the quiet spell and keep the screen on. */
   Panel.wake = function () {
     lastActivity = Date.now();
-    keepAwake(true);
+    keepAwake(!isPhone());
   };
 
   /* ---- The house as screensaver ----------------------------------------------------- */
@@ -120,12 +127,24 @@
     before = "";
     Panel.wake();
   }
+  /* The Vision screensaver (saver-vision.js): gone at the first touch, key or
+   * mouse move, except in its first moments (a mouse still settling after the
+   * preview button was clicked). */
+  const visionOn = () => !!(Panel.visionSaver && Panel.visionSaver.shown());
+  let visionAt = 0;
+  function wakeVision() {
+    if (!visionOn() || performance.now() - visionAt < 800) return;
+    Panel.visionSaver.hide();
+    wokeAt = performance.now();
+    Panel.wake();
+  }
   ["pointerdown", "pointermove", "touchstart", "keydown", "wheel"].forEach((ev) =>
     window.addEventListener(
       ev,
       () => {
         leaveSleep();
         wakeHouse();
+        wakeVision();
       },
       { capture: true, passive: true }
     )
@@ -152,7 +171,17 @@
   };
   /* The tablet's display came back (the user unlocked it): no black screen
    * waiting for a tap, the app is simply there. */
-  document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && leaveSleep());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || !deep) return;
+    leaveSleep();
+    /* and the screensaver under the black is over too, or the next check
+     * (a long spell in the screensaver) would put it to sleep again at once */
+    wakeHouse();
+    if (visionOn()) {
+      Panel.visionSaver.hide();
+      wokeAt = performance.now();
+    }
+  });
   function leaveSleep() {
     if (!deep) return;
     deep = false;
@@ -209,11 +238,17 @@
   }
 
   Panel.showSaver = function () {
-    if (!saver.hidden || houseSaver) return;
+    if (!saver.hidden || houseSaver || visionOn()) return;
     saverAt = Date.now();
     Panel.closeDialogs();
     Panel.closeDrawer();
     if (Panel.closeRoom) Panel.closeRoom(); /* the house turns on its own now; a room's panel would sit on top all night */
+    if (Panel.prefs.saverMode === 3 && Panel.visionSaver) {
+      visionAt = performance.now();
+      Panel.visionSaver.show();
+      keepAwake(true);
+      return;
+    }
     if (Panel.prefs.saverMode === 2) {
       houseSaver = true;
       before = location.hash;
@@ -238,10 +273,10 @@
   setInterval(() => {
     const limit = Panel.SAVER_TIMES[Panel.prefs.saverIdx] || 300e3;
     /* Not while the splash is still up: the app hasn't been seen yet. */
-    if (saver.hidden && !houseSaver && !$("splash") && Date.now() - lastActivity > limit) Panel.showSaver();
+    if (saver.hidden && !houseSaver && !visionOn() && !$("splash") && !isPhone() && Date.now() - lastActivity > limit) Panel.showSaver();
     /* and after a longer spell in the screensaver, sleep */
     const deepAfter = Panel.DEEP_TIMES[Panel.prefs.deepIdx] || 0;
-    if (!deep && (!saver.hidden || houseSaver) && deepAfter && Date.now() - saverAt > deepAfter) Panel.sleep();
+    if (!deep && (!saver.hidden || houseSaver || visionOn()) && deepAfter && Date.now() - saverAt > deepAfter) Panel.sleep();
   }, 1000);
 
   Panel.on("minute", () => {

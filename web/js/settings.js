@@ -16,7 +16,8 @@
       .join("");
     const seg = (el, labels, sel, key) =>
       ($(el).innerHTML = labels.map((l, i) => `<button class="${i === sel ? "selected" : ""}" data-${key}="${i}">${l}</button>`).join(""));
-    seg("saverMode", ["Scherm uit", "Het oog", "Huis"], Panel.prefs.saverMode, "mode");
+    seg("saverMode", ["Scherm uit", "Het oog", "Huis", "Vision"], Panel.prefs.saverMode, "mode");
+    $("saverPreview").innerHTML = icon("play") + "Voorbeeld";
     seg("saverTime", Panel.SAVER_LABELS, Panel.prefs.saverIdx, "time");
     seg("deepTime", Panel.DEEP_LABELS, Panel.prefs.deepIdx, "deep");
     seg("soundMode", ["Stil", "Klik bij tikken"], Panel.prefs.sound ? 1 : 0, "sound");
@@ -138,4 +139,9 @@
     if (theme || mode || time || deep) render();
   });
   $("logout").addEventListener("click", () => Panel.client.logout());
+  /* The screensaver as set, right now (settings close first, it would sit on top). */
+  $("saverPreview").addEventListener("click", () => {
+    Panel.closeDialogs();
+    setTimeout(() => Panel.showSaver(), 250);
+  });
 })();

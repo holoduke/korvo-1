@@ -8,7 +8,9 @@
   const num = Panel.num;
   const known = Number.isFinite;
 
-  /* Washer and dryer: power now and whether it runs; the washer's water too. */
+  /* Washer and dryer: power now and whether it runs; the washer's water too.
+   * Their power sensor stays at 0 W over SmartThings: while one runs, its power
+   * is estimated from its kWh counter (Panel.energy.machineWatts). */
   const MACHINE = { run: ["play", "Draait"], pause: ["pause", "Gepauzeerd"], stop: ["power", "Uit"] };
   const laundry = (iconName) => ({
     icon: iconName,
@@ -16,12 +18,12 @@
     chart: "power",
     meter: "energy",
     stats: ["energy", "water"],
-    power: (e) => E.scaled(e.power),
+    power: (e) => E.machineWatts(e).w,
     card(e) {
       if (E.missing(e.power) && E.missing(e.energy)) return E.offline();
-      const w = E.scaled(e.power);
-      const machine = MACHINE[stateOf(e.machine)];
-      const running = stateOf(e.machine) === "run" || w > 5;
+      const { w, estimated } = E.machineWatts(e);
+      const running = E.machineRuns(e) || w > 5;
+      const machine = running ? MACHINE.run : MACHINE[stateOf(e.machine)];
       const [big, unit] = E.power(w);
       const waterToday = E.today(e.water);
       const water = num(e.water);
@@ -30,7 +32,8 @@
         big,
         unit,
         chips: [
-          machine || (running ? MACHINE.run : null),
+          machine || null,
+          estimated && known(w) ? ["bolt", "geschat uit de kWh-teller"] : null,
           ["drop", known(waterToday) ? `${fmt(waterToday)} L vandaag` : null],
           ["drop", known(water) ? `${fmt(water / 1000, 1)} m³ totaal` : null],
         ],
@@ -42,13 +45,15 @@
   Panel.defineEnergyKind("dryer", laundry("dryer"));
 
   /* Tesla: charging power, or the battery while it doesn't charge. The charger
-   * counts towards the house only while the car is home. */
+   * counts towards the house only while the car is home: its meter is what was
+   * charged at home (HA integrates the charger's power while home), not the
+   * car's own "energy added", which also holds what a Supercharger gave. */
   Panel.defineEnergyKind("car", {
     icon: "car",
     use: true,
     chart: "chargerPower",
-    meter: "energyAdded",
-    stats: ["energyAdded"],
+    meter: "homeEnergy",
+    stats: ["homeEnergy", "energyAdded"],
     power: (e) => (stateOf(e.location) === "home" ? E.scaled(e.chargerPower) : 0),
     card(e) {
       if (E.missing(e.battery) && E.missing(e.charging)) return { tone: "offline", big: "--", unit: "geen gegevens" };
@@ -71,7 +76,7 @@
           active && known(volts) && known(amps) && ["plug", `${fmt(volts)} V · ${fmt(amps)} A`],
           added > 0 && ["plus", `${fmt(added, 1)} kWh deze sessie`],
         ],
-        foot: [[`Geladen vandaag <b>${E.kwhText(E.today(e.energyAdded))}</b>`]],
+        foot: [[`Thuis geladen vandaag <b>${E.kwhText(E.today(e.homeEnergy))}</b>`]],
       };
     },
   });
@@ -82,6 +87,7 @@
     use: true,
     chart: null,
     meter: "energy",
+    capToGrid: true, /* what it used on a ride: like the car's, not a fixed share of the house meter */
     stats: ["energy"],
     power: () => NaN,
     card(e) {
@@ -146,6 +152,9 @@
         foot: [
           [`Warmte vandaag <b>${E.kwhText(E.today(e.heatAdd))}</b>`],
           [`warm water <b>${E.kwhText(E.today(e.waterAdd))}</b>`],
+          /* passive cooling (the ground loop cooling the floor): what it took out of the house */
+          e.cool && !E.missing(e.cool) ? [`Koeling vandaag <b>${E.kwhText(E.today(e.cool))}</b>`] : null,
+          e.cool && !E.missing(e.cool) ? [`koeling totaal <b>${E.kwhText(E.scaled(e.cool))}</b>`] : null,
           [`Geleverd totaal <b>${E.kwhText(total)}</b>`],
         ],
       };

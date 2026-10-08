@@ -134,15 +134,23 @@
    * full state re-dispatch a websocket reconnect brings (which isn't first-time
    * but also isn't news to the user). */
   const prevSig = new Map();
+  const stale = new Set(); /* cards with news while another section was shown */
   const sigOf = (c) => Object.values(c.entities).map((id) => (Panel.st(id) || {}).state || "").join("|");
   cards.forEach((c, i) =>
     Panel.track(Object.values(c.entities), (changed, first) => {
       const now = sigOf(c);
       const animate = !first && prevSig.has(i) && prevSig.get(i) !== now;
       prevSig.set(i, now);
+      /* off screen: once, when the section comes back into view */
+      if (!Panel.onScreen("sensors")) return stale.add(i);
       render(i, animate);
     })
   );
+  Panel.on("section", () => {
+    if (!Panel.onScreen("sensors") || !stale.size) return;
+    stale.forEach((i) => render(i, false));
+    stale.clear();
+  });
   /* "3 min geleden" moves on. */
-  Panel.on("minute", () => cards.forEach((_, i) => render(i, false)));
+  Panel.on("minute", () => cards.forEach((_, i) => (Panel.onScreen("sensors") ? render(i, false) : stale.add(i))));
 })();
