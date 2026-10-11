@@ -82,6 +82,22 @@ esphome:
             x->add_setting(7, [](int v, int, int) { id(stand_2).publish_state(v); });
             x->add_setting(8, [](int v, int, int) { id(stand_3).publish_state(v); });
             x->add_setting(9, [](int v, int, int) { id(boost_time).publish_state(v); });
+            x->add(0x10, 0x0A, [](int32_t v) {
+              static const char *const modes[] = {"Automatisch", "Dicht", "Open"};
+              if (v >= 0 && v <= 2) id(bypass_mode).publish_state(modes[v]);
+            });
+            x->add(0x11, 0x0A, [](int32_t v) { id(bypass_adaptive).publish_state(v != 0); });
+            x->add(0x01, 0x03, [](int32_t v) { id(nightboost).publish_state(v != 0); });
+            x->add(0x02, 0x03, [](int32_t v) { id(nightboost_temp).publish_state(v); });
+            x->add(0x03, 0x03, [](int32_t v) { id(nightboost_month_start).publish_state(v); });
+            x->add(0x04, 0x03, [](int32_t v) { id(nightboost_month_stop).publish_state(v); });
+            x->add(0x05, 0x03, [](int32_t v) { id(nightboost_from) = v; id(show_nightboost).execute(); });
+            x->add(0x06, 0x03, [](int32_t v) { id(nightboost_to) = v; id(show_nightboost).execute(); });
+            x->add(0x07, 0x03, [](int32_t v) { id(nightboost_max).publish_state(v); });
+            x->add(0x01, 0x00, [](int32_t v) { id(temp_control).publish_state(v != 0); });
+            x->add(0x02, 0x00, [](int32_t v) { id(temp_control_low).publish_state(v / 10.0f); });
+            x->add(0x03, 0x00, [](int32_t v) { id(temp_control_high).publish_state(v / 10.0f); });
+            x->on_version = [](const std::string &v) { id(duco_version).publish_state(v); };
             x->on_errors = [](const std::string &codes) {
               id(duco_errors).publish_state(codes.empty() ? std::string("Geen") : codes);
               id(show_status).execute();
@@ -148,6 +164,12 @@ time:
     id: ha_time
 
 globals:
+  - id: nightboost_from # minutes of the day (box parameter 05/03)
+    type: int
+    initial_value: "-1"
+  - id: nightboost_to # (06/03)
+    type: int
+    initial_value: "-1"
   # touch calibration (see calibration_finish); kept across restarts
   - { id: cal_ok, type: bool, restore_value: true, initial_value: "false" }
   # the calibration method's version: a calibration made by an older one is redone
@@ -200,8 +222,24 @@ select:
     entity_category: config
     options: ["90", "180", "270", "360"]
     optimistic: false
+    lambda: "return {};" # no made-up option at boot: the box's answer sets it
+    update_interval: never
     set_action:
       - lambda: "if (duco_extra()) duco_extra()->write(0x31, 0x0A, atoi(x.c_str()));"
+  # bypass (10/0A): automatic, closed (always heat recovery) or open (never)
+  - platform: template
+    id: bypass_mode
+    name: Bypass stand
+    icon: mdi:valve
+    entity_category: config
+    options: ["Automatisch", "Dicht", "Open"]
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: |-
+          const int v = x == "Dicht" ? 1 : x == "Open" ? 2 : 0;
+          if (duco_extra()) duco_extra()->write(0x10, 0x0A, v);
 
 number:
   # the supply temperature target ("comfort"): box parameter 13/0A in °C x 10
@@ -296,6 +334,89 @@ number:
     update_interval: never
     set_action:
       - lambda: "if (duco_extra()) duco_extra()->write_setting(8, (int) x);"
+
+  # NightBoost (table 03): summer night cooling, off by default
+  - platform: template
+    id: nightboost_temp
+    name: NightBoost vanaf
+    icon: mdi:thermometer-chevron-up
+    entity_category: config
+    unit_of_measurement: "°C"
+    min_value: 0
+    max_value: 60
+    step: 1
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x02, 0x03, (int32_t) x);"
+  - platform: template
+    id: nightboost_month_start
+    name: NightBoost eerste maand
+    icon: mdi:calendar-start
+    entity_category: config
+    min_value: 1
+    max_value: 12
+    step: 1
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x03, 0x03, (int32_t) x);"
+  - platform: template
+    id: nightboost_month_stop
+    name: NightBoost laatste maand
+    icon: mdi:calendar-end
+    entity_category: config
+    min_value: 1
+    max_value: 12
+    step: 1
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x04, 0x03, (int32_t) x);"
+  - platform: template
+    id: nightboost_max
+    name: NightBoost maximum
+    icon: mdi:fan-chevron-up
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 10
+    max_value: 100
+    step: 5
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x07, 0x03, (int32_t) x);"
+
+switch:
+  # restore_mode DISABLED: a switch must never write to the box at boot
+  - platform: template
+    id: bypass_adaptive
+    name: Bypass adaptief
+    icon: mdi:thermometer-auto
+    entity_category: config
+    restore_mode: DISABLED
+    optimistic: false
+    lambda: "return {};"
+    turn_on_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x11, 0x0A, 1);"
+    turn_off_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x11, 0x0A, 0);"
+  - platform: template
+    id: nightboost
+    name: NightBoost
+    icon: mdi:weather-night
+    entity_category: config
+    restore_mode: DISABLED
+    optimistic: false
+    lambda: "return {};"
+    turn_on_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x01, 0x03, 1);"
+    turn_off_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x01, 0x03, 0);"
 
 button:
   - platform: template
@@ -395,6 +516,23 @@ sensor:
     unit_of_measurement: min
     accuracy_decimals: 0
     update_interval: never
+  # temperature-dependent control (table 00), read only
+  - platform: template
+    id: temp_control_low
+    name: Temperatuurregeling onder
+    icon: mdi:thermometer-low
+    entity_category: diagnostic
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    update_interval: never
+  - platform: template
+    id: temp_control_high
+    name: Temperatuurregeling boven
+    icon: mdi:thermometer-high
+    entity_category: diagnostic
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    update_interval: never
   # the fans themselves (duco_extra.h): what the box really does, not what was asked
   - platform: template
     id: fan_sup_rpm
@@ -462,7 +600,24 @@ sensor:
     accuracy_decimals: 0
     update_interval: never
 
+binary_sensor:
+  - platform: template
+    id: temp_control
+    name: Temperatuurregeling
+    icon: mdi:thermometer-auto
+    entity_category: diagnostic
+
 text_sensor:
+  - platform: template
+    id: duco_version
+    name: Software
+    icon: mdi:chip
+    entity_category: diagnostic
+  - platform: template
+    id: nightboost_window
+    name: NightBoost tijden
+    icon: mdi:clock-outline
+    entity_category: diagnostic
   # the box's error log: codes XX.YY.ZZ (Duco service sheet L2004550), or "Geen"
   - platform: template
     id: duco_errors
@@ -478,6 +633,12 @@ text_sensor:
       name: IP-adres
 
 script:
+  - id: show_nightboost
+    then:
+      - lambda: |-
+          const int a = id(nightboost_from), b = id(nightboost_to);
+          if (a < 0 || b < 0) return;
+          id(nightboost_window).publish_state(str_sprintf("%02d:%02d–%02d:%02d", a / 60, a % 60, b / 60, b % 60));
   # A tap on a stand: that button lights at once and the others go out, the
   # stand goes to the Duco, and until it answers the line under says so.
   - id: pick_stand

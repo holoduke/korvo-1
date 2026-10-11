@@ -18,6 +18,15 @@
 // Its error log: fn 0x30 {01, 00, 00, 04} -> 0x33 (none) or 0x32 {count, then
 // per error 5 bytes: node, then the code XX.YY.ZZ}. E43.23.01 = the air-side
 // commissioning (inregeling) was never done or failed.
+// Its software version: fn 0x10 {01, node 01, 00, 00, 04} -> 0x12 (a node
+// memory read, as the duco component reads the serial; never send 0x10 {00, x},
+// that switches the network to installer mode).
+//
+// Tables matched to the Connectivity Board's /config keys by default values and
+// order (2026-10-11): 0x00 Ventilation.Ctrl (01 temperature-dependent control,
+// 02/03 its thresholds °C x 10); 0x03 NightBoost (01 enable, 02 start
+// temperature °C, 03/04 months, 05/06 minutes of the day, 07 max level %);
+// 0x0A HeatRecovery (10 bypass mode 0 auto / 1 closed / 2 open, 11 adaptive).
 #pragma once
 #include <array>
 #include <cstdio>
@@ -41,6 +50,7 @@ class DucoExtra : public esphome::duco::DucoDevice {
   std::vector<Setting> settings;
   void add_setting(uint8_t param, std::function<void(int, int, int)> publish) { settings.push_back({param, publish}); }
   std::function<void(const std::string &)> on_errors;
+  std::function<void(const std::string &)> on_version;
   // one question per call: the parameters in turn, then a setting, and the error log now and then
   void poll() {
     esphome::duco::DucoMessage m;
@@ -54,6 +64,9 @@ class DucoExtra : public esphome::duco::DucoDevice {
       asked_setting_ = settings[setting_pos_].param;
       m.function = 0x18;
       m.data = {0x00, 0x01, asked_setting_};
+    } else if (pos_ == params.size() + 1 && on_version && !have_version_) {
+      m.function = 0x10;
+      m.data = {0x01, 0x01, 0x00, 0x00, 0x04};
     } else if (pos_ == params.size() + 1 && on_errors && ++error_turn_ % 6 == 0) {
       m.function = 0x30;
       m.data = {0x01, 0x00, 0x00, 0x04};
@@ -92,6 +105,16 @@ class DucoExtra : public esphome::duco::DucoDevice {
         if (st.param == asked_setting_) st.publish(word(1), word(5), word(7));
       return;
     }
+    if (m.function == 0x12) {
+      this->parent_->stop_waiting(m.id);
+      if (m.data.size() < 7 || !on_version) return;
+      char v[32];  // product type, then the version (field order as w1ll14m/esphome_duco)
+      snprintf(v, sizeof v, "%u v%u.%u.%u", (unsigned) (m.data[2] | (m.data[3] << 8)), m.data[4], m.data[6], m.data[5]);
+      ESP_LOGI("duco_extra", "version %s", v);
+      have_version_ = true;
+      on_version(v);
+      return;
+    }
     if (m.function == 0x33 || m.function == 0x32) {
       this->parent_->stop_waiting(m.id);
       std::string errors;
@@ -119,6 +142,7 @@ class DucoExtra : public esphome::duco::DucoDevice {
   size_t pos_ = 0, setting_pos_ = 0;
   uint32_t error_turn_ = 5;  // ask for the error log on the first round
   uint8_t asked_setting_ = 0xff;
+  bool have_version_ = false;
   int pending_writes_ = 0;
   uint8_t last_write_group_ = 0, last_write_index_ = 0;
 };
