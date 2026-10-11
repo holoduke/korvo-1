@@ -7,3 +7,5 @@ __pycache__/
 web/test/node_modules/
 web/test/test-results/
 web/test/playwright-report/
+esphome/secrets.yaml
+esphome/.esphome/

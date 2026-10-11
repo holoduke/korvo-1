@@ -1,0 +1,518 @@
+# The WTW (DucoBox Energy Comfort) in Home Assistant, with its own screen.
+#
+# Hardware: a "Cheap Yellow Display" ESP32-3248S035R (ESP32-WROOM-32, no
+# PSRAM, 3.5" 480x320 ST7796 over SPI, resistive XPT2046 touch, CH340 USB
+# serial), on the Duco's Connectivity header where the Duco Connectivity Board
+# would sit. The Duco speaks UART at 57600 baud, 3.3 V, straight to the ESP
+# (kokx/duco-analysis); the component is kokx's, not yet merged into ESPHome
+# (esphome/esphome#7993).
+#
+# Wiring (Duco header -> board connector P3): GND -> GND, Duco TX -> IO35
+# (input-only: the ESP listens), Duco RX -> IO22 (the ESP talks). The Duco's
+# 10 V pin is never connected. The board runs on its own USB-C supply.
+#
+# Built and flashed from the HA server with ESPHome's Docker image; secrets in
+# esphome/secrets.yaml (gitignored). See esphome/README.md.
+substitutions:
+  bg: "0x0B0D11"
+  card: "0x171B22"
+  card_hi: "0x222833"
+  text: "0xEEF0F5"
+  dim: "0x8A91A1"
+  accent: "0xFFB547"
+  blue: "0x4FC3F7"
+  green: "0x5BD08A"
+  red: "0xF06A6A"
+
+esphome:
+  name: wtw-duco
+  friendly_name: WTW
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: show_mode
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: WTW fallback
+    password: !secret fallback_password
+
+captive_portal:
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_key
+  on_client_connected:
+    - lvgl.widget.update:
+        id: status_dot
+        bg_color: ${green}
+  on_client_disconnected:
+    - lvgl.widget.update:
+        id: status_dot
+        bg_color: ${red}
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+time:
+  - platform: homeassistant
+    id: ha_time
+
+# ---- The Duco ----------------------------------------------------------------
+external_components:
+  - source: github://pr#7993
+    components: [duco]
+
+uart:
+  id: duco_uart
+  rx_pin: GPIO35 # from the Duco's TX
+  tx_pin: GPIO22 # to the Duco's RX
+  baud_rate: 57600
+  rx_buffer_size: 256
+
+duco:
+  id: duco_box
+  uart_id: duco_uart
+  discovery: {} # logs the nodes it finds (the box, its sensors)
+
+select:
+  - platform: duco
+    id: duco_mode
+    name: Stand
+    on_value:
+      - script.execute: show_mode
+
+sensor:
+  - platform: duco
+    flow_level:
+      id: flow
+      name: Debiet
+      on_value:
+        - lvgl.arc.update:
+            id: flow_arc
+            value: !lambda "return isnan(x) ? 0 : (int) x;"
+        - lvgl.label.update:
+            id: flow_value
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%d%%", (int) x);'
+    time_remaining:
+      id: time_left
+      name: Tijd resterend
+      on_value:
+        - script.execute: show_mode
+    filter_remaining:
+      id: filter_left
+      name: Filter resterend
+      on_value:
+        - lvgl.label.update:
+            id: filter_value
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%d d", (int) x);'
+    bypass:
+      id: bypass
+      name: Bypass
+      on_value:
+        - lvgl.label.update:
+            id: bypass_value
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%d%%", (int) x);'
+    temperature_oda:
+      id: t_oda
+      name: Buitenlucht
+      on_value:
+        - lvgl.label.update:
+            id: oda_value
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+    temperature_sup:
+      id: t_sup
+      name: Toevoer
+      on_value:
+        - lvgl.label.update:
+            id: sup_value
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+    temperature_eta:
+      id: t_eta
+      name: Afzuiging
+      on_value:
+        - lvgl.label.update:
+            id: eta_value
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+    temperature_eha:
+      id: t_eha
+      name: Afvoer
+      on_value:
+        - lvgl.label.update:
+            id: eha_value
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+  - platform: wifi_signal
+    name: Wifi-signaal
+    update_interval: 60s
+
+text_sensor:
+  - platform: duco
+    name: Serienummer
+
+# The stand in words, how long a manual one still runs, and which button is lit.
+script:
+  - id: show_mode
+    then:
+      - lvgl.label.update:
+          id: mode_label
+          text: !lambda |-
+            if (!id(duco_mode).has_state()) return std::string("Wacht op de Duco…");
+            const std::string m = id(duco_mode).current_option();
+            if (m == "AUTO") return std::string("Automatisch");
+            if (m == "EMPT") return std::string("Afwezig");
+            if (m.size() >= 4 && (m.rfind("MAN", 0) == 0 || m.rfind("CNT", 0) == 0)) {
+              std::string s = "Stand " + m.substr(3, 1);
+              if (m.rfind("CNT", 0) == 0) s += " · continu";
+              return s;
+            }
+            return m;
+      - lvgl.label.update:
+          id: mode_sub
+          text: !lambda |-
+            const float t = id(time_left).state;
+            if (isnan(t) || t <= 0) return std::string("");
+            const int s = (int) t;
+            return s >= 3600 ? str_sprintf("nog %d:%02d uur", s / 3600, (s % 3600) / 60)
+                             : str_sprintf("nog %d:%02d min", s / 60, s % 60);
+      - lvgl.widget.update:
+          id: btn_auto
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "AUTO";'
+      - lvgl.widget.update:
+          id: btn_1
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("1") != std::string::npos && id(duco_mode).current_option() != "AUTO";'
+      - lvgl.widget.update:
+          id: btn_2
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("2") == 3;'
+      - lvgl.widget.update:
+          id: btn_3
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("3") == 3;'
+
+# ---- The screen ----------------------------------------------------------------
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO13
+  miso_pin: GPIO12
+
+output:
+  - platform: ledc
+    pin: GPIO27
+    id: backlight_pwm
+
+light:
+  - platform: monochromatic
+    id: backlight
+    name: Scherm
+    output: backlight_pwm
+    restore_mode: ALWAYS_ON
+    default_transition_length: 400ms
+
+display:
+  - platform: mipi_spi
+    id: screen
+    model: ST7796
+    cs_pin:
+      number: GPIO15
+      ignore_strapping_warning: true
+    dc_pin:
+      number: GPIO2
+      ignore_strapping_warning: true
+    data_rate: 40MHz
+    dimensions:
+      width: 320
+      height: 480
+    buffer_size: 12.5%
+    auto_clear_enabled: false
+    update_interval: never
+
+touchscreen:
+  - platform: xpt2046
+    id: touch
+    cs_pin: GPIO33
+    interrupt_pin: GPIO36
+    calibration:
+      x_min: 280
+      x_max: 3860
+      y_min: 340
+      y_max: 3860
+    transform:
+      swap_xy: true
+    on_touch:
+      - logger.log:
+          format: "touch x=%d y=%d raw=%d,%d"
+          args: [touch.x, touch.y, touch.x_raw, touch.y_raw]
+      - light.turn_on:
+          id: backlight
+          brightness: 100%
+
+font:
+  - file: "gfonts://Montserrat@600"
+    id: f_big
+    size: 46
+    glyphs: "0123456789%-"
+  - file: "gfonts://Montserrat@600"
+    id: f_mid
+    size: 22
+    glyphs: "0123456789%-°:,. AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz·…"
+  - file: "gfonts://Montserrat@600"
+    id: f_small
+    size: 13
+    glyphs: "0123456789%-°:,. AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz·…"
+
+lvgl:
+  displays: [screen]
+  rotation: 90 # landscape, the USB-C on the right
+  touchscreens: [touch]
+  buffer_size: 12.5%
+  on_idle:
+    - timeout: 60s
+      then:
+        - light.turn_on:
+            id: backlight
+            brightness: 25%
+  style_definitions:
+    - id: card_style
+      bg_color: ${card}
+      bg_opa: COVER
+      radius: 14
+      border_width: 0
+      pad_all: 10
+    - id: btn_style
+      bg_color: ${card}
+      bg_opa: COVER
+      radius: 14
+      border_width: 0
+      text_color: ${text}
+      text_font: f_mid
+  theme:
+    label:
+      text_color: ${text}
+      text_font: f_small
+  pages:
+    - id: home_page
+      bg_color: ${bg}
+      bg_opa: COVER
+      widgets:
+        # Top bar: name, connection, clock
+        - label:
+            x: 16
+            y: 10
+            text: "WTW"
+            text_font: f_mid
+            text_color: ${text}
+        - label:
+            x: 78
+            y: 15
+            text: "Duco Energy Comfort"
+            text_color: ${dim}
+        - obj:
+            id: status_dot
+            x: 384
+            y: 18
+            width: 10
+            height: 10
+            radius: 5
+            bg_color: ${red}
+            border_width: 0
+        - label:
+            id: clock_label
+            x: 400
+            y: 10
+            text: "--:--"
+            text_font: f_mid
+        # Left: the flow as a ring, the stand under it
+        - obj:
+            x: 10
+            y: 46
+            width: 200
+            height: 206
+            styles: card_style
+            scrollable: false
+            widgets:
+              - arc:
+                  id: flow_arc
+                  align: TOP_MID
+                  y: -2
+                  width: 140
+                  height: 140
+                  min_value: 0
+                  max_value: 100
+                  value: 0
+                  adjustable: false
+                  arc_width: 12
+                  arc_color: ${card_hi}
+                  indicator:
+                    arc_width: 12
+                    arc_color: ${accent}
+                  knob:
+                    bg_opa: TRANSP
+              - label:
+                  id: flow_value
+                  align: TOP_MID
+                  y: 40
+                  text: "--"
+                  text_font: f_big
+              - label:
+                  align: TOP_MID
+                  y: 92
+                  text: "debiet"
+                  text_color: ${dim}
+              - label:
+                  id: mode_label
+                  align: TOP_MID
+                  y: 140
+                  text: "Wacht op de Duco…"
+                  text_font: f_mid
+                  text_color: ${accent}
+              - label:
+                  id: mode_sub
+                  align: TOP_MID
+                  y: 168
+                  text: ""
+                  text_color: ${dim}
+        # Right: the four air temperatures, bypass and filter
+        - obj:
+            x: 218
+            y: 46
+            width: 124
+            height: 64
+            styles: card_style
+            scrollable: false
+            widgets:
+              - label: { text: "Buitenlucht", text_color: "${dim}" }
+              - label: { id: oda_value, y: 18, text: "--", text_font: f_mid, text_color: "${blue}" }
+        - obj:
+            x: 348
+            y: 46
+            width: 124
+            height: 64
+            styles: card_style
+            scrollable: false
+            widgets:
+              - label: { text: "Naar huis", text_color: "${dim}" }
+              - label: { id: sup_value, y: 18, text: "--", text_font: f_mid, text_color: "${green}" }
+        - obj:
+            x: 218
+            y: 116
+            width: 124
+            height: 64
+            styles: card_style
+            scrollable: false
+            widgets:
+              - label: { text: "Uit huis", text_color: "${dim}" }
+              - label: { id: eta_value, y: 18, text: "--", text_font: f_mid, text_color: "${accent}" }
+        - obj:
+            x: 348
+            y: 116
+            width: 124
+            height: 64
+            styles: card_style
+            scrollable: false
+            widgets:
+              - label: { text: "Afvoer", text_color: "${dim}" }
+              - label: { id: eha_value, y: 18, text: "--", text_font: f_mid, text_color: "${dim}" }
+        - obj:
+            x: 218
+            y: 186
+            width: 124
+            height: 66
+            styles: card_style
+            scrollable: false
+            widgets:
+              - label: { text: "Bypass", text_color: "${dim}" }
+              - label: { id: bypass_value, y: 18, text: "--", text_font: f_mid }
+        - obj:
+            x: 348
+            y: 186
+            width: 124
+            height: 66
+            styles: card_style
+            scrollable: false
+            widgets:
+              - label: { text: "Filter nog", text_color: "${dim}" }
+              - label: { id: filter_value, y: 18, text: "--", text_font: f_mid }
+        # Bottom: the stand to choose
+        - button:
+            id: btn_auto
+            x: 10
+            y: 262
+            width: 112
+            height: 48
+            styles: btn_style
+            checkable: true
+            checked:
+              bg_color: ${accent}
+              text_color: ${bg}
+            widgets:
+              - label: { align: CENTER, text: "Auto", text_font: f_mid }
+            on_click:
+              - select.set: { id: duco_mode, option: "AUTO" }
+        - button:
+            id: btn_1
+            x: 128
+            y: 262
+            width: 112
+            height: 48
+            styles: btn_style
+            checkable: true
+            checked:
+              bg_color: ${accent}
+              text_color: ${bg}
+            widgets:
+              - label: { align: CENTER, text: "1", text_font: f_mid }
+            on_click:
+              - select.set: { id: duco_mode, option: "MAN1" }
+        - button:
+            id: btn_2
+            x: 246
+            y: 262
+            width: 112
+            height: 48
+            styles: btn_style
+            checkable: true
+            checked:
+              bg_color: ${accent}
+              text_color: ${bg}
+            widgets:
+              - label: { align: CENTER, text: "2", text_font: f_mid }
+            on_click:
+              - select.set: { id: duco_mode, option: "MAN2" }
+        - button:
+            id: btn_3
+            x: 364
+            y: 262
+            width: 106
+            height: 48
+            styles: btn_style
+            checkable: true
+            checked:
+              bg_color: ${accent}
+              text_color: ${bg}
+            widgets:
+              - label: { align: CENTER, text: "3", text_font: f_mid }
+            on_click:
+              - select.set: { id: duco_mode, option: "MAN3" }
+
+interval:
+  - interval: 10s
+    then:
+      - if:
+          condition:
+            time.has_time:
+          then:
+            - lvgl.label.update:
+                id: clock_label
+                text: !lambda 'return id(ha_time).now().strftime("%H:%M");'
