@@ -75,6 +75,17 @@ esphome:
               const std::string o = std::to_string(v);
               if (id(filter_lifetime).has_option(o)) id(filter_lifetime).publish_state(o);
             });
+            x->add_setting(0, [](int v, int, int) { id(auto_min).publish_state(v); });
+            x->add_setting(1, [](int v, int, int) { id(auto_max).publish_state(v); });
+            x->add_setting(2, [](int v, int, int) { id(flow_max).publish_state(v); });
+            x->add_setting(6, [](int v, int, int) { id(stand_1).publish_state(v); });
+            x->add_setting(7, [](int v, int, int) { id(stand_2).publish_state(v); });
+            x->add_setting(8, [](int v, int, int) { id(stand_3).publish_state(v); });
+            x->add_setting(9, [](int v, int, int) { id(boost_time).publish_state(v); });
+            x->on_errors = [](const std::string &codes) {
+              id(duco_errors).publish_state(codes.empty() ? std::string("Geen") : codes);
+              id(show_status).execute();
+            };
             duco_extra() = x;
         - script.execute: show_mode
         - script.execute: show_efficiency
@@ -204,12 +215,87 @@ number:
     max_value: 25.5
     step: 0.5
     optimistic: false
+    lambda: "return {};" # no made-up value at boot: the box's answer sets it
+    update_interval: never
     set_action:
       - lambda: "if (duco_extra()) duco_extra()->write(0x13, 0x0A, (int32_t) lroundf(x * 10));"
     on_value:
       - lvgl.label.update:
           id: comfort_value
           text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+
+  # the box's own settings (display SETTINGS > CONFIG > BOX, duco_extra.h):
+  # the airflow per stand in % of the commissioned maximum, ranges as the box gives them
+  - platform: template
+    id: auto_min
+    name: Auto minimum
+    icon: mdi:fan-chevron-down
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 10
+    max_value: 100
+    step: 5
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write_setting(0, (int) x);"
+  - platform: template
+    id: auto_max
+    name: Auto maximum
+    icon: mdi:fan-chevron-up
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 30
+    max_value: 100
+    step: 5
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write_setting(1, (int) x);"
+  - platform: template
+    id: stand_1
+    name: Stand I
+    icon: mdi:fan-speed-1
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 50
+    step: 5
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write_setting(6, (int) x);"
+  - platform: template
+    id: stand_2
+    name: Stand II
+    icon: mdi:fan-speed-2
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 15
+    max_value: 100
+    step: 5
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write_setting(7, (int) x);"
+  - platform: template
+    id: stand_3
+    name: Stand III
+    icon: mdi:fan-speed-3
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 50
+    max_value: 100
+    step: 5
+    optimistic: false
+    lambda: "return {};"
+    update_interval: never
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write_setting(8, (int) x);"
 
 button:
   - platform: template
@@ -292,6 +378,23 @@ sensor:
         - lvgl.label.update:
             id: eha_value
             text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+  # the box's commissioned maximum flow and boost time (read only)
+  - platform: template
+    id: flow_max
+    name: Maximaal debiet
+    icon: mdi:weather-windy
+    entity_category: diagnostic
+    unit_of_measurement: "m³/h"
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    id: boost_time
+    name: Boosttijd
+    icon: mdi:timer-outline
+    entity_category: diagnostic
+    unit_of_measurement: min
+    accuracy_decimals: 0
+    update_interval: never
   # the fans themselves (duco_extra.h): what the box really does, not what was asked
   - platform: template
     id: fan_sup_rpm
@@ -360,6 +463,12 @@ sensor:
     update_interval: never
 
 text_sensor:
+  # the box's error log: codes XX.YY.ZZ (Duco service sheet L2004550), or "Geen"
+  - platform: template
+    id: duco_errors
+    name: Storing
+    icon: mdi:alert-circle-outline
+    entity_category: diagnostic
   - platform: duco
     id: duco_serial
     name: Serienummer
@@ -498,14 +607,15 @@ script:
           text: !lambda |-
             const float rssi = id(wifi_rssi).state, up = id(uptime_s).state;
             const std::string ip = id(wtw_ip).has_state() ? id(wtw_ip).state : std::string("--");
-            const std::string serial = id(duco_serial).has_state() ? id(duco_serial).state : std::string("--");
             const std::string wifi = isnan(rssi) ? std::string("--") : str_sprintf("%d dBm", (int) rssi);
             const int u = isnan(up) ? 0 : (int) up;
             const float fs = id(fan_sup_rpm).state, fe = id(fan_eha_rpm).state;
-            return str_sprintf("IP %s   WIFI %s\nAAN %dd %dh %dm\nFANS %s / %s RPM\nDUCO %s", ip.c_str(), wifi.c_str(),
+            std::string err = id(duco_errors).has_state() ? id(duco_errors).state : std::string("--");
+            if (err.find("43.23.01") != std::string::npos) err += " NIET INGEREGELD";
+            return str_sprintf("IP %s   WIFI %s\nAAN %dd %dh %dm\nFANS %s / %s RPM\nSTORING %s", ip.c_str(), wifi.c_str(),
                                u / 86400, (u % 86400) / 3600, (u % 3600) / 60,
                                isnan(fs) ? "--" : str_sprintf("%d", (int) fs).c_str(),
-                               isnan(fe) ? "--" : str_sprintf("%d", (int) fe).c_str(), serial.c_str());
+                               isnan(fe) ? "--" : str_sprintf("%d", (int) fe).c_str(), err.c_str());
 
   # ---- touch calibration --------------------------------------------------------
   # Four crosses in the landscape screen's corners. ESPHome turns a raw reading
