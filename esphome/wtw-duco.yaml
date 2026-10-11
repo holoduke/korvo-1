@@ -7,9 +7,12 @@
 # (kokx/duco-analysis); the component is kokx's, not yet merged into ESPHome
 # (esphome/esphome#7993).
 #
-# Wiring (Duco header -> board connector P3): GND -> GND, Duco TX -> IO35
-# (input-only: the ESP listens), Duco RX -> IO22 (the ESP talks). The Duco's
-# 10 V pin is never connected. The board runs on its own USB-C supply.
+# Wiring (Duco header, kokx's numbering -> the board's serial connector P1,
+# beside the USB-C): pin 0 GND -> GND, pin 1 5 V -> VIN (the Duco powers the
+# board; leave USB out meanwhile), pins 8/9 -> P1's RX and TX. With the wires as
+# they ended up, the ESP listens on GPIO1 and talks on GPIO3 (found by trying
+# both ways round on 2026-10-11). P1 is UART0, so the board logs over Wi-Fi only.
+# The Duco's 10 V pin is never connected.
 #
 # Built and flashed from the HA server with ESPHome's Docker image; secrets in
 # esphome/secrets.yaml (gitignored). See esphome/README.md.
@@ -59,6 +62,7 @@ wifi:
 captive_portal:
 
 logger:
+  baud_rate: 0 # P1 (UART0) is the Duco's; logs go over Wi-Fi
 
 api:
   encryption:
@@ -95,8 +99,8 @@ external_components:
 
 uart:
   id: duco_uart
-  rx_pin: GPIO35 # from the Duco's TX
-  tx_pin: GPIO22 # to the Duco's RX
+  rx_pin: GPIO1 # P1, from the Duco's TX
+  tx_pin: GPIO3 # P1, to the Duco's RX
   baud_rate: 57600
   rx_buffer_size: 256
 
@@ -202,6 +206,26 @@ text_sensor:
     name: Serienummer
 
 script:
+  # A tap on a stand: that button lights at once and the others go out, the
+  # stand goes to the Duco, and until it answers the line under says so.
+  - id: pick_stand
+    mode: restart # a second tap within the wait takes over
+    parameters:
+      which: int
+    then:
+      - lvgl.widget.update: { id: btn_auto, state: { checked: !lambda "return which == 0;" } }
+      - lvgl.widget.update: { id: btn_1, state: { checked: !lambda "return which == 1;" } }
+      - lvgl.widget.update: { id: btn_2, state: { checked: !lambda "return which == 2;" } }
+      - lvgl.widget.update: { id: btn_3, state: { checked: !lambda "return which == 3;" } }
+      - lvgl.label.update:
+          id: mode_sub
+          text: "naar de Duco verstuurd…"
+      - select.set:
+          id: duco_mode
+          option: !lambda 'static const char *const opts[] = {"AUTO", "MAN1", "MAN2", "MAN3"}; return std::string(opts[which]);'
+      - delay: 8s
+      # no answer: show what the Duco really runs (or that it is silent)
+      - script.execute: show_mode
   # The stand in words, how long a manual one still runs, which button is lit.
   - id: show_mode
     then:
@@ -272,6 +296,7 @@ light:
     id: backlight
     name: Scherm
     output: backlight_pwm
+    gamma_correct: 1.0 # a backlight, not a lamp: 50 % should look like half, not 2 %
     restore_mode: ALWAYS_ON
     default_transition_length: 400ms
 
@@ -349,7 +374,7 @@ lvgl:
       then:
         - light.turn_on:
             id: backlight
-            brightness: 25%
+            brightness: 50%
   style_definitions:
     # a HUD frame: dark glass, a hairline in cyan
     - id: frame
@@ -620,12 +645,12 @@ lvgl:
             width: 112
             height: 38
             styles: hud_btn
-            checkable: true
+            checkable: false
             checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
               - label: { align: CENTER, text: "AUTO", text_font: f_btn }
             on_click:
-              - select.set: { id: duco_mode, option: "AUTO" }
+              - script.execute: { id: pick_stand, which: 0 }
         - button:
             id: btn_1
             x: 126
@@ -633,12 +658,12 @@ lvgl:
             width: 112
             height: 38
             styles: hud_btn
-            checkable: true
+            checkable: false
             checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
               - label: { align: CENTER, text: "I", text_font: f_btn }
             on_click:
-              - select.set: { id: duco_mode, option: "MAN1" }
+              - script.execute: { id: pick_stand, which: 1 }
         - button:
             id: btn_2
             x: 244
@@ -646,12 +671,12 @@ lvgl:
             width: 112
             height: 38
             styles: hud_btn
-            checkable: true
+            checkable: false
             checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
               - label: { align: CENTER, text: "II", text_font: f_btn }
             on_click:
-              - select.set: { id: duco_mode, option: "MAN2" }
+              - script.execute: { id: pick_stand, which: 2 }
         - button:
             id: btn_3
             x: 362
@@ -659,12 +684,12 @@ lvgl:
             width: 110
             height: 38
             styles: hud_btn
-            checkable: true
+            checkable: false
             checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
               - label: { align: CENTER, text: "III", text_font: f_btn }
             on_click:
-              - select.set: { id: duco_mode, option: "MAN3" }
+              - script.execute: { id: pick_stand, which: 3 }
 
 interval:
   - interval: 10s
