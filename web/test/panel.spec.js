@@ -214,6 +214,20 @@ test("the WTW in Apparaten shows its stand and air, and switches the stand", asy
   await expect(card.locator(".ap-big")).toHaveText("60");
   await card.locator('[data-appl$="|stand|MAN3x2"]').click();
   await expect(card).toContainText("Boost 30 min");
+  /* the box's error, the real fans and its settings */
+  await expect(card.locator(".ap-note.warn")).toContainText("43.23.01");
+  await expect(card).toContainText("1.217 / 1.229 rpm");
+  await card.locator('[data-appl$="|bypassmode|Dicht"]').click();
+  await expect(card.locator('[data-appl$="|bypassmode|Dicht"]')).toHaveClass(/active/);
+  await expect(card).not.toContainText("NightBoost koelt");
+  await card.locator('[data-appl$="|toggle|nightboost"]').click();
+  await expect(card).toContainText("NightBoost koelt");
+  await card.locator('[data-appl$="|nightboosttemp|1"]').click();
+  await expect(card).toContainText("25°");
+  await card.locator('[data-appl$="|level|level1|1"]').click();
+  await expect(card).toContainText("20%");
+  await card.locator('[data-appl$="|filterinterval|270"]').click();
+  await expect(card.locator('[data-appl$="|filterinterval|270"]')).toHaveClass(/active/);
   await expect(card).not.toContainText(/undefined|NaN/);
   expect(problems).toEqual([]);
 });

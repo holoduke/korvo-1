@@ -557,6 +557,18 @@
       `</div>`
     );
   }
+  /* What the box's error log says, in words; 43.23.01 is the one this box has had
+   * from the start: it was never commissioned, so the fans run alike in every stand. */
+  function wtwErrors(codes) {
+    const c = String(codes || "");
+    if (!known(c) || c === "Geen") return "";
+    const text = c.includes("43.23.01")
+      ? `Storing ${c}: de WTW is nooit ingeregeld, dus de ventilatoren draaien in elke stand even hard. De installateur moet de inregeling nog doen.`
+      : `Storing ${c}: zie de foutenlijst op het display van de WTW.`;
+    return `<p class="ap-note warn">${Util.esc(text)}</p>`;
+  }
+  const WTW_BYPASS = [["Automatisch", "Auto"], ["Dicht", "Dicht"], ["Open", "Open"]];
+  const WTW_LEVELS = [["level1", "I"], ["level2", "II"], ["level3", "III"]];
   Panel.defineAppliance("ventilation", {
     icon: "fan",
     view(a, i) {
@@ -571,6 +583,56 @@
       const cAttr = attrs(e.comfort);
       const filterDays = num(e.filter);
       const chipFor = (label, opt) => chip(i, `stand|${opt}`, label, code === opt);
+      const fanSup = num(e.fanSup);
+      const fanEha = num(e.fanEha);
+      const fanLevel = num(e.fanLevel);
+      const fans = Number.isFinite(fanSup) && Number.isFinite(fanEha) ? `${fmt(fanSup)} / ${fmt(fanEha)} rpm` : "--";
+      const nbTemp = num(e.nightboostTemp);
+      const nbAttr = attrs(e.nightboostTemp);
+      const bypassMode = raw(e.bypassMode);
+      const interval = raw(e.filterInterval);
+      /* the settings, each only where the board reports it */
+      const settings =
+        (s(e.bypassMode)
+          ? `<div class="ap-label">Bypass: automatisch, dicht (altijd warmte terugwinnen) of open (nooit)</div>` +
+            `<div class="ap-chips">${WTW_BYPASS.map(([opt, label]) => chip(i, `bypassmode|${opt}`, label, bypassMode === opt)).join("")}</div>`
+          : "") +
+        `<div class="ap-row ap-toggles">` +
+        [["adaptive", "Bypass adaptief"], ["nightboost", "NightBoost"]]
+          .filter(([k]) => s(e[k]))
+          .map(([k, label]) => btn(i, `toggle|${k}`, label, { active: on(e[k]) }))
+          .join("") +
+        `</div>` +
+        (on(e.nightboost) && Number.isFinite(nbTemp)
+          ? `<div class="ap-label">NightBoost koelt 's nachts vanaf deze binnentemperatuur</div>` +
+            stepper(i, "nightboosttemp", `${fmt(nbTemp)}°`, {
+              canDown: nbTemp > (nbAttr.min ?? 0),
+              canUp: nbTemp < (nbAttr.max ?? 60),
+              down: "Lager",
+              up: "Hoger",
+              wide: true,
+            })
+          : "") +
+        (WTW_LEVELS.some(([k]) => Number.isFinite(num(e[k])))
+          ? `<div class="ap-label">Debiet per stand</div>` +
+            `<div class="ap-row ap-split">` +
+            WTW_LEVELS.map(([k, label]) => {
+              const v = num(e[k]);
+              const at = attrs(e[k]);
+              return field(
+                `Stand ${label}`,
+                stepper(i, `level|${k}`, Number.isFinite(v) ? `${fmt(v)}%` : "--", {
+                  canDown: Number.isFinite(v) && v > (at.min ?? 0),
+                  canUp: Number.isFinite(v) && v < (at.max ?? 100),
+                }),
+              );
+            }).join("") +
+            `</div>`
+          : "") +
+        (s(e.filterInterval)
+          ? `<div class="ap-label">Filter vervangen na</div>` +
+            `<div class="ap-chips">${["90", "180", "270", "360"].map((d) => chip(i, `filterinterval|${d}`, `${d} d`, interval === d)).join("")}</div>`
+          : "");
       return {
         tone: Number.isFinite(flow) && flow > 0 ? "run" : "off",
         pill: st.pill,
@@ -584,8 +646,11 @@
           /* the comfort temperature only where the Duco reports it (not every model does) */
           Number.isFinite(comfort) ? stat("Comforttemperatuur", `${fmt(comfort, 1)}°`) : stat("Tijd resterend", timed ? duration(left).join(" ") : "--"),
           stat("Rendement", Number.isFinite(num(e.efficiency)) ? `${fmt(num(e.efficiency))}%` : "--"),
+          /* what the fans really do, next to the airflow the stand asks for */
+          ...(s(e.fanSup) ? [stat("Ventilatoren", Number.isFinite(fanLevel) ? `${fans} · ${fmt(fanLevel)}%` : fans)] : []),
         ],
         controls:
+          wtwErrors(raw(e.errors)) +
           wtwDiagram(e) +
           `<div class="ap-chips">${chipFor("Auto", "AUTO")}${chipFor("I", "MAN1")}${chipFor("II", "MAN2")}${chipFor("III", "MAN3")}</div>` +
           `<div class="ap-label">Continu</div>` +
@@ -602,11 +667,29 @@
                 wide: true,
               })
             : "") +
-          (Number.isFinite(filterDays) && filterDays <= 14 ? note("Het filter is bijna aan vervanging toe.") : ""),
+          (Number.isFinite(filterDays) && filterDays <= 14 ? note("Het filter is bijna aan vervanging toe.") : "") +
+          settings,
       };
     },
     actions: {
       stand: (a, [option], call) => call("select", "select_option", { option }, a.entities.stand),
+      bypassmode: selectOption("bypassMode"),
+      filterinterval: selectOption("filterInterval"),
+      toggle,
+      nightboosttemp(a, [dir], call) {
+        const id = a.entities.nightboostTemp;
+        const at = attrs(id);
+        const cur = Panel.applianceTarget(id);
+        if (!known(cur)) return;
+        call("number", "set_value", { value: Util.clamp(cur + Number(dir) * (at.step || 1), at.min ?? 0, at.max ?? 60) }, id);
+      },
+      level(a, [key, dir], call) {
+        const id = a.entities[key];
+        const at = attrs(id);
+        const cur = Panel.applianceTarget(id);
+        if (!known(cur)) return;
+        call("number", "set_value", { value: Util.clamp(cur + Number(dir) * (at.step || 5), at.min ?? 0, at.max ?? 100) }, id);
+      },
       comfort(a, [dir], call) {
         const id = a.entities.comfort;
         const at = attrs(id);

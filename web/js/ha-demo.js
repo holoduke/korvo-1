@@ -288,6 +288,19 @@
         put("exhaust", "15.2", { unit_of_measurement: "°C" });
         put("efficiency", "77", { unit_of_measurement: "%" });
         put("comfort", "21.0", { min: 10, max: 25.5, step: 0.1, unit_of_measurement: "°C" });
+        /* the house's own box: never commissioned, so its fans ignore the stand */
+        put("fanSup", "1217", { unit_of_measurement: "rpm" });
+        put("fanEha", "1229", { unit_of_measurement: "rpm" });
+        put("fanLevel", "30", { unit_of_measurement: "%" });
+        put("errors", "43.23.01");
+        put("bypassMode", "Automatisch", { options: ["Automatisch", "Dicht", "Open"] });
+        put("adaptive", "on");
+        put("nightboost", "off");
+        put("nightboostTemp", "24", { min: 0, max: 60, step: 1, unit_of_measurement: "°C" });
+        put("level1", "15", { min: 0, max: 50, step: 5, unit_of_measurement: "%" });
+        put("level2", "50", { min: 15, max: 100, step: 5, unit_of_measurement: "%" });
+        put("level3", "100", { min: 50, max: 100, step: 5, unit_of_measurement: "%" });
+        put("filterInterval", "180", { options: ["90", "180", "270", "360"] });
       } else if (ap.kind === "filter") {
         Object.keys(e).forEach((k) => put(k, "unavailable"));
       } else if (ap.kind === "pc") {

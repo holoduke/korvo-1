@@ -1351,7 +1351,19 @@ window.PANEL_CONFIG = {
         "extract": "sensor.wtw_afzuiging",
         "exhaust": "sensor.wtw_afvoer",
         "efficiency": "sensor.wtw_rendement",
-        "comfort": "number.wtw_comforttemperatuur"
+        "comfort": "number.wtw_comforttemperatuur",
+        "fanSup": "sensor.wtw_ventilator_toevoer",
+        "fanEha": "sensor.wtw_ventilator_afvoer",
+        "fanLevel": "sensor.wtw_ventilatorniveau_toevoer",
+        "errors": "sensor.wtw_storing",
+        "bypassMode": "select.wtw_bypass_stand",
+        "adaptive": "switch.wtw_bypass_adaptief",
+        "nightboost": "switch.wtw_nightboost",
+        "nightboostTemp": "number.wtw_nightboost_vanaf",
+        "level1": "number.wtw_stand_i",
+        "level2": "number.wtw_stand_ii",
+        "level3": "number.wtw_stand_iii",
+        "filterInterval": "select.wtw_filter_interval"
       }
     },
     {
