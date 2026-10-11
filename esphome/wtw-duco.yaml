@@ -13,16 +13,27 @@
 #
 # Built and flashed from the HA server with ESPHome's Docker image; secrets in
 # esphome/secrets.yaml (gitignored). See esphome/README.md.
+#
+# The screen is a HUD: near-black with a faint grid, neon cyan and amber,
+# Orbitron for figures (the wall panel's display face) and Rajdhani for
+# labels. Left the airflow as a reactor ring (a light runs round it while air
+# moves), right the heat exchanger as a live diagram — outside air in and on
+# to the house in cyan, the house's air out and away in amber, crossing in
+# the core, which shows the recovery efficiency from the four temperatures —
+# and along the bottom the stand: AUTO · I · II · III.
 substitutions:
-  bg: "0x0B0D11"
-  card: "0x171B22"
-  card_hi: "0x222833"
-  text: "0xEEF0F5"
-  dim: "0x8A91A1"
-  accent: "0xFFB547"
-  blue: "0x4FC3F7"
-  green: "0x5BD08A"
-  red: "0xF06A6A"
+  bg: "0x05070A"
+  panel: "0x0A1016"
+  grid: "0x0E2A33"
+  cyan: "0x00E5FF"
+  cyan_dim: "0x0B3A44"
+  ice: "0x7FF3FF"
+  amber: "0xFFB547"
+  amber_dim: "0x6B4A1C"
+  text: "0xE6F7FF"
+  dim: "0x5F7A86"
+  green: "0x38F2A0"
+  red: "0xFF4D6A"
 
 esphome:
   name: wtw-duco
@@ -31,6 +42,7 @@ esphome:
     priority: -100
     then:
       - script.execute: show_mode
+      - script.execute: show_efficiency
 
 esp32:
   board: esp32dev
@@ -53,12 +65,20 @@ api:
     key: !secret api_key
   on_client_connected:
     - lvgl.widget.update:
-        id: status_dot
+        id: link_dot
         bg_color: ${green}
+    - lvgl.label.update:
+        id: link_label
+        text: "LINK"
+        text_color: ${green}
   on_client_disconnected:
     - lvgl.widget.update:
-        id: status_dot
+        id: link_dot
         bg_color: ${red}
+    - lvgl.label.update:
+        id: link_label
+        text: "OFFLINE"
+        text_color: ${red}
 
 ota:
   - platform: esphome
@@ -103,7 +123,11 @@ sensor:
             value: !lambda "return isnan(x) ? 0 : (int) x;"
         - lvgl.label.update:
             id: flow_value
-            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%d%%", (int) x);'
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%d", (int) x);'
+        # the light round the ring runs while air moves
+        - lvgl.widget.update:
+            id: flow_spin
+            hidden: !lambda "return isnan(x) || x < 1;"
     time_remaining:
       id: time_left
       name: Tijd resterend
@@ -115,7 +139,10 @@ sensor:
       on_value:
         - lvgl.label.update:
             id: filter_value
-            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%d d", (int) x);'
+            text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%dD", (int) x);'
+        - lvgl.bar.update:
+            id: filter_bar
+            value: !lambda "return isnan(x) ? 0 : std::min(180, (int) x);"
     bypass:
       id: bypass
       name: Bypass
@@ -123,6 +150,9 @@ sensor:
         - lvgl.label.update:
             id: bypass_value
             text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%d%%", (int) x);'
+        - lvgl.bar.update:
+            id: bypass_bar
+            value: !lambda "return isnan(x) ? 0 : (int) x;"
     temperature_oda:
       id: t_oda
       name: Buitenlucht
@@ -130,6 +160,7 @@ sensor:
         - lvgl.label.update:
             id: oda_value
             text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+        - script.execute: show_efficiency
     temperature_sup:
       id: t_sup
       name: Toevoer
@@ -137,6 +168,7 @@ sensor:
         - lvgl.label.update:
             id: sup_value
             text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+        - script.execute: show_efficiency
     temperature_eta:
       id: t_eta
       name: Afzuiging
@@ -144,6 +176,7 @@ sensor:
         - lvgl.label.update:
             id: eta_value
             text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+        - script.execute: show_efficiency
     temperature_eha:
       id: t_eha
       name: Afvoer
@@ -154,31 +187,41 @@ sensor:
   - platform: wifi_signal
     name: Wifi-signaal
     update_interval: 60s
+  # How much of the house's warmth the exchanger gives back to the air coming
+  # in: (supply − outside) / (extract − outside). Meaningless when inside and
+  # outside are about as warm, so then it says nothing.
+  - platform: template
+    id: efficiency
+    name: Rendement
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: never
 
 text_sensor:
   - platform: duco
     name: Serienummer
 
-# The stand in words, how long a manual one still runs, and which button is lit.
 script:
+  # The stand in words, how long a manual one still runs, which button is lit.
   - id: show_mode
     then:
       - lvgl.label.update:
           id: mode_label
           text: !lambda |-
-            if (!id(duco_mode).has_state()) return std::string("Wacht op de Duco…");
+            if (!id(duco_mode).has_state()) return std::string("STANDBY");
             const std::string m = id(duco_mode).current_option();
-            if (m == "AUTO") return std::string("Automatisch");
-            if (m == "EMPT") return std::string("Afwezig");
+            if (m == "AUTO") return std::string("AUTOMATISCH");
+            if (m == "EMPT") return std::string("AFWEZIG");
             if (m.size() >= 4 && (m.rfind("MAN", 0) == 0 || m.rfind("CNT", 0) == 0)) {
-              std::string s = "Stand " + m.substr(3, 1);
-              if (m.rfind("CNT", 0) == 0) s += " · continu";
+              std::string s = "STAND " + m.substr(3, 1);
+              if (m.rfind("CNT", 0) == 0) s += " CONTINU";
               return s;
             }
             return m;
       - lvgl.label.update:
           id: mode_sub
           text: !lambda |-
+            if (!id(duco_mode).has_state()) return std::string("wacht op de Duco");
             const float t = id(time_left).state;
             if (isnan(t) || t <= 0) return std::string("");
             const int s = (int) t;
@@ -191,7 +234,7 @@ script:
       - lvgl.widget.update:
           id: btn_1
           state:
-            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("1") != std::string::npos && id(duco_mode).current_option() != "AUTO";'
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("1") == 3;'
       - lvgl.widget.update:
           id: btn_2
           state:
@@ -200,6 +243,18 @@ script:
           id: btn_3
           state:
             checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("3") == 3;'
+  - id: show_efficiency
+    then:
+      - lambda: |-
+          const float oda = id(t_oda).state, sup = id(t_sup).state, eta = id(t_eta).state;
+          float eff = NAN;
+          if (!isnan(oda) && !isnan(sup) && !isnan(eta) && fabsf(eta - oda) >= 3.0f)
+            eff = std::max(0.0f, std::min(100.0f, (sup - oda) / (eta - oda) * 100.0f));
+          if (isnan(eff) != isnan(id(efficiency).state) || (!isnan(eff) && fabsf(eff - id(efficiency).state) >= 1.0f))
+            id(efficiency).publish_state(eff);
+      - lvgl.label.update:
+          id: eff_value
+          text: !lambda 'const float e = id(efficiency).state; return isnan(e) ? std::string("--") : str_sprintf("%d%%", (int) e);'
 
 # ---- The screen ----------------------------------------------------------------
 spi:
@@ -259,23 +314,35 @@ touchscreen:
           brightness: 100%
 
 font:
-  - file: "gfonts://Montserrat@600"
-    id: f_big
-    size: 46
-    glyphs: "0123456789%-"
-  - file: "gfonts://Montserrat@600"
-    id: f_mid
-    size: 22
-    glyphs: "0123456789%-°:,. AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz·…"
-  - file: "gfonts://Montserrat@600"
-    id: f_small
-    size: 13
-    glyphs: "0123456789%-°:,. AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz·…"
+  - file: "gfonts://Orbitron@700"
+    id: f_huge
+    size: 50
+    glyphs: "0123456789-"
+  - file: "gfonts://Orbitron@600"
+    id: f_head
+    size: 18
+    glyphs: "0123456789%-:/°.,ABCDEFGHIJKLMNOPQRSTUVWXYZ "
+  - file: "gfonts://Orbitron@600"
+    id: f_num
+    size: 20
+    glyphs: "0123456789%-°.,D"
+  - file: "gfonts://Orbitron@500"
+    id: f_btn
+    size: 16
+    glyphs: "AUTOI "
+  - file: "gfonts://Rajdhani@600"
+    id: f_label
+    size: 14
+    glyphs: "0123456789%-:/°.,·… ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+  - file: "gfonts://Rajdhani@600"
+    id: f_tiny
+    size: 12
+    glyphs: "0123456789%-:/°.,· ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 lvgl:
   displays: [screen]
-  rotation: 90 # landscape, the USB-C on the right
   touchscreens: [touch]
+  rotation: 90 # landscape, the USB-C on the right
   buffer_size: 12.5%
   on_idle:
     - timeout: 60s
@@ -284,225 +351,318 @@ lvgl:
             id: backlight
             brightness: 25%
   style_definitions:
-    - id: card_style
-      bg_color: ${card}
+    # a HUD frame: dark glass, a hairline in cyan
+    - id: frame
+      bg_color: ${panel}
+      bg_opa: 85%
+      border_color: ${cyan}
+      border_opa: 35%
+      border_width: 1
+      radius: 6
+      pad_all: 6
+    - id: hud_btn
+      bg_color: ${panel}
       bg_opa: COVER
-      radius: 14
-      border_width: 0
-      pad_all: 10
-    - id: btn_style
-      bg_color: ${card}
-      bg_opa: COVER
-      radius: 14
-      border_width: 0
-      text_color: ${text}
-      text_font: f_mid
+      border_color: ${cyan}
+      border_opa: 60%
+      border_width: 1
+      radius: 6
+      shadow_width: 0
+      text_color: ${cyan}
+      text_font: f_btn
   theme:
     label:
       text_color: ${text}
-      text_font: f_small
+      text_font: f_label
   pages:
     - id: home_page
       bg_color: ${bg}
       bg_opa: COVER
+      scrollable: false
       widgets:
-        # Top bar: name, connection, clock
+        # ---- a faint grid behind everything ----
+        - line: { points: ["0, 80", "480, 80"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["0, 160", "480, 160"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["0, 240", "480, 240"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["120, 36", "120, 260"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["240, 36", "240, 260"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["360, 36", "360, 260"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+
+        # ---- header ----
         - label:
-            x: 16
-            y: 10
+            x: 12
+            y: 9
             text: "WTW"
-            text_font: f_mid
-            text_color: ${text}
+            text_font: f_head
+            text_color: ${cyan}
         - label:
-            x: 78
-            y: 15
-            text: "Duco Energy Comfort"
+            x: 66
+            y: 12
+            text: "// DUCO ENERGY COMFORT"
+            text_font: f_tiny
             text_color: ${dim}
         - obj:
-            id: status_dot
-            x: 384
-            y: 18
-            width: 10
-            height: 10
-            radius: 5
+            id: link_dot
+            x: 300
+            y: 15
+            width: 8
+            height: 8
+            radius: 4
             bg_color: ${red}
             border_width: 0
         - label:
+            id: link_label
+            x: 313
+            y: 11
+            text: "OFFLINE"
+            text_font: f_tiny
+            text_color: ${red}
+        - label:
             id: clock_label
-            x: 400
-            y: 10
+            x: 404
+            y: 9
             text: "--:--"
-            text_font: f_mid
-        # Left: the flow as a ring, the stand under it
+            text_font: f_head
+            text_color: ${text}
+        - line: { points: ["0, 34", "480, 34"], line_width: 1, line_color: "${cyan}", line_opa: 40% }
+
+        # ---- left: the airflow reactor ----
+        - arc:
+            x: 12
+            y: 42
+            width: 186
+            height: 186
+            start_angle: 0
+            end_angle: 360
+            value: 0
+            adjustable: false
+            arc_width: 1
+            arc_color: ${cyan}
+            arc_opa: 35%
+            indicator: { arc_opa: TRANSP }
+            knob: { bg_opa: TRANSP }
+        - spinner:
+            id: flow_spin
+            x: 12
+            y: 42
+            width: 186
+            height: 186
+            spin_time: 2400ms
+            arc_length: 70deg
+            arc_width: 3
+            arc_opa: TRANSP
+            indicator:
+              arc_color: ${cyan}
+              arc_width: 3
+              arc_rounded: true
+            hidden: true
+        - arc:
+            id: flow_arc
+            x: 27
+            y: 57
+            width: 156
+            height: 156
+            min_value: 0
+            max_value: 100
+            value: 0
+            adjustable: false
+            arc_width: 12
+            arc_color: ${cyan_dim}
+            arc_rounded: false
+            indicator:
+              arc_color: ${cyan}
+              arc_width: 12
+              arc_rounded: false
+            knob: { bg_opa: TRANSP }
+        - label:
+            id: flow_value
+            x: 30
+            y: 100
+            width: 150
+            text_align: CENTER
+            text: "--"
+            text_font: f_huge
+            text_color: ${text}
+        - label:
+            x: 30
+            y: 156
+            width: 150
+            text_align: CENTER
+            text: "% LUCHTDEBIET"
+            text_font: f_tiny
+            text_color: ${dim}
+        - label:
+            id: mode_label
+            x: 6
+            y: 230
+            width: 198
+            text_align: CENTER
+            text: "STANDBY"
+            text_font: f_head
+            text_color: ${amber}
+        - label:
+            id: mode_sub
+            x: 6
+            y: 252
+            width: 198
+            text_align: CENTER
+            text: "wacht op de Duco"
+            text_font: f_label
+            text_color: ${dim}
+
+        # ---- right: the heat exchanger ----
+        # the two streams cross in the core: outside -> house (cold), house -> outside (warm)
+        - line: { points: ["292, 86", "390, 210"], line_width: 3, line_color: "${cyan}", line_opa: 90% }
+        - line: { points: ["390, 86", "292, 210"], line_width: 3, line_color: "${amber}", line_opa: 90% }
         - obj:
-            x: 10
-            y: 46
-            width: 200
-            height: 206
-            styles: card_style
+            x: 300
+            y: 108
+            width: 82
+            height: 82
+            radius: 41
+            bg_color: ${bg}
+            bg_opa: COVER
+            border_color: ${cyan}
+            border_width: 2
             scrollable: false
             widgets:
-              - arc:
-                  id: flow_arc
-                  align: TOP_MID
-                  y: -2
-                  width: 140
-                  height: 140
-                  min_value: 0
-                  max_value: 100
-                  value: 0
-                  adjustable: false
-                  arc_width: 12
-                  arc_color: ${card_hi}
-                  indicator:
-                    arc_width: 12
-                    arc_color: ${accent}
-                  knob:
-                    bg_opa: TRANSP
               - label:
-                  id: flow_value
-                  align: TOP_MID
-                  y: 40
+                  id: eff_value
+                  align: CENTER
+                  y: -6
                   text: "--"
-                  text_font: f_big
+                  text_font: f_num
+                  text_color: ${green}
               - label:
-                  align: TOP_MID
-                  y: 92
-                  text: "debiet"
+                  align: CENTER
+                  y: 16
+                  text: "RENDEMENT"
+                  text_font: f_tiny
                   text_color: ${dim}
-              - label:
-                  id: mode_label
-                  align: TOP_MID
-                  y: 140
-                  text: "Wacht op de Duco…"
-                  text_font: f_mid
-                  text_color: ${accent}
-              - label:
-                  id: mode_sub
-                  align: TOP_MID
-                  y: 168
-                  text: ""
-                  text_color: ${dim}
-        # Right: the four air temperatures, bypass and filter
+        # outside air in (top left) and exhaust out (bottom left)
         - obj:
-            x: 218
-            y: 46
-            width: 124
-            height: 64
-            styles: card_style
+            x: 206
+            y: 42
+            width: 90
+            height: 48
+            styles: frame
             scrollable: false
             widgets:
-              - label: { text: "Buitenlucht", text_color: "${dim}" }
-              - label: { id: oda_value, y: 18, text: "--", text_font: f_mid, text_color: "${blue}" }
+              - label: { text: "BUITEN IN", text_font: f_tiny, text_color: "${dim}" }
+              - label: { id: oda_value, y: 14, text: "--", text_font: f_num, text_color: "${ice}" }
         - obj:
-            x: 348
-            y: 46
-            width: 124
-            height: 64
-            styles: card_style
+            x: 206
+            y: 206
+            width: 90
+            height: 48
+            styles: frame
             scrollable: false
             widgets:
-              - label: { text: "Naar huis", text_color: "${dim}" }
-              - label: { id: sup_value, y: 18, text: "--", text_font: f_mid, text_color: "${green}" }
+              - label: { text: "AFVOER", text_font: f_tiny, text_color: "${dim}" }
+              - label: { id: eha_value, y: 14, text: "--", text_font: f_num, text_color: "${amber_dim}" }
+        # the house: its air out (top right) and fresh air in (bottom right)
         - obj:
-            x: 218
-            y: 116
-            width: 124
-            height: 64
-            styles: card_style
+            x: 384
+            y: 42
+            width: 90
+            height: 48
+            styles: frame
             scrollable: false
             widgets:
-              - label: { text: "Uit huis", text_color: "${dim}" }
-              - label: { id: eta_value, y: 18, text: "--", text_font: f_mid, text_color: "${accent}" }
+              - label: { text: "UIT HUIS", text_font: f_tiny, text_color: "${dim}" }
+              - label: { id: eta_value, y: 14, text: "--", text_font: f_num, text_color: "${amber}" }
         - obj:
-            x: 348
-            y: 116
-            width: 124
-            height: 64
-            styles: card_style
+            x: 384
+            y: 206
+            width: 90
+            height: 48
+            styles: frame
             scrollable: false
             widgets:
-              - label: { text: "Afvoer", text_color: "${dim}" }
-              - label: { id: eha_value, y: 18, text: "--", text_font: f_mid, text_color: "${dim}" }
-        - obj:
-            x: 218
-            y: 186
-            width: 124
-            height: 66
-            styles: card_style
-            scrollable: false
-            widgets:
-              - label: { text: "Bypass", text_color: "${dim}" }
-              - label: { id: bypass_value, y: 18, text: "--", text_font: f_mid }
-        - obj:
-            x: 348
-            y: 186
-            width: 124
-            height: 66
-            styles: card_style
-            scrollable: false
-            widgets:
-              - label: { text: "Filter nog", text_color: "${dim}" }
-              - label: { id: filter_value, y: 18, text: "--", text_font: f_mid }
-        # Bottom: the stand to choose
+              - label: { text: "NAAR HUIS", text_font: f_tiny, text_color: "${dim}" }
+              - label: { id: sup_value, y: 14, text: "--", text_font: f_num, text_color: "${cyan}" }
+        # bypass and filter between the bottom corners
+        - label: { x: 300, y: 214, text: "BYPASS", text_font: f_tiny, text_color: "${dim}" }
+        - label: { id: bypass_value, x: 300, y: 214, width: 80, text_align: RIGHT, text: "--", text_font: f_tiny, text_color: "${text}" }
+        - bar:
+            id: bypass_bar
+            x: 300
+            y: 229
+            width: 80
+            height: 4
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: ${cyan_dim}
+            radius: 2
+            indicator: { bg_color: "${amber}", radius: 2 }
+        - label: { x: 300, y: 236, text: "FILTER", text_font: f_tiny, text_color: "${dim}" }
+        - label: { id: filter_value, x: 300, y: 236, width: 80, text_align: RIGHT, text: "--", text_font: f_tiny, text_color: "${text}" }
+        - bar:
+            id: filter_bar
+            x: 300
+            y: 251
+            width: 80
+            height: 4
+            min_value: 0
+            max_value: 180
+            value: 0
+            bg_color: ${cyan_dim}
+            radius: 2
+            indicator: { bg_color: "${green}", radius: 2 }
+
+        # ---- bottom: the stand ----
+        - line: { points: ["0, 270", "480, 270"], line_width: 1, line_color: "${cyan}", line_opa: 40% }
         - button:
             id: btn_auto
-            x: 10
-            y: 262
+            x: 8
+            y: 276
             width: 112
-            height: 48
-            styles: btn_style
+            height: 38
+            styles: hud_btn
             checkable: true
-            checked:
-              bg_color: ${accent}
-              text_color: ${bg}
+            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
-              - label: { align: CENTER, text: "Auto", text_font: f_mid }
+              - label: { align: CENTER, text: "AUTO", text_font: f_btn }
             on_click:
               - select.set: { id: duco_mode, option: "AUTO" }
         - button:
             id: btn_1
-            x: 128
-            y: 262
+            x: 126
+            y: 276
             width: 112
-            height: 48
-            styles: btn_style
+            height: 38
+            styles: hud_btn
             checkable: true
-            checked:
-              bg_color: ${accent}
-              text_color: ${bg}
+            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
-              - label: { align: CENTER, text: "1", text_font: f_mid }
+              - label: { align: CENTER, text: "I", text_font: f_btn }
             on_click:
               - select.set: { id: duco_mode, option: "MAN1" }
         - button:
             id: btn_2
-            x: 246
-            y: 262
+            x: 244
+            y: 276
             width: 112
-            height: 48
-            styles: btn_style
+            height: 38
+            styles: hud_btn
             checkable: true
-            checked:
-              bg_color: ${accent}
-              text_color: ${bg}
+            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
-              - label: { align: CENTER, text: "2", text_font: f_mid }
+              - label: { align: CENTER, text: "II", text_font: f_btn }
             on_click:
               - select.set: { id: duco_mode, option: "MAN2" }
         - button:
             id: btn_3
-            x: 364
-            y: 262
-            width: 106
-            height: 48
-            styles: btn_style
+            x: 362
+            y: 276
+            width: 110
+            height: 38
+            styles: hud_btn
             checkable: true
-            checked:
-              bg_color: ${accent}
-              text_color: ${bg}
+            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
             widgets:
-              - label: { align: CENTER, text: "3", text_font: f_mid }
+              - label: { align: CENTER, text: "III", text_font: f_btn }
             on_click:
               - select.set: { id: duco_mode, option: "MAN3" }
 
