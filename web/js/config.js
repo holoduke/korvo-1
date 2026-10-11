@@ -1337,6 +1337,24 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "ventilation",
+      "label": "WTW",
+      "name": "wtw",
+      "entities": {
+        "stand": "select.wtw_stand",
+        "flow": "sensor.wtw_debiet",
+        "left": "sensor.wtw_tijd_resterend",
+        "filter": "sensor.wtw_filter_resterend",
+        "bypass": "sensor.wtw_bypass",
+        "outside": "sensor.wtw_buitenlucht",
+        "supply": "sensor.wtw_toevoer",
+        "extract": "sensor.wtw_afzuiging",
+        "exhaust": "sensor.wtw_afvoer",
+        "efficiency": "sensor.wtw_rendement",
+        "comfort": "number.wtw_comforttemperatuur"
+      }
+    },
+    {
       "kind": "washer",
       "label": "Wasmachine",
       "name": "wasruimte_wasmachine",

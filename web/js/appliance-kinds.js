@@ -520,6 +520,104 @@
     },
   });
 
+  /* ---- WTW (DucoBox Energy Comfort, through its ESPHome board) ----------------------- */
+  /* The balanced ventilation with heat recovery: its stand (automatic, a level
+   * for a while, a level continuously, away), the airflow, and the four air
+   * temperatures around the heat exchanger as a small diagram — outside air
+   * in and on to the house, the house's air out and away — with how much warmth
+   * it recovers. The board's own stand names: AUTO, MAN1-3 (a level for 15
+   * minutes, x2/x3 for 30/45), CNT1-3 (continuously), EMPT (away). */
+  const WTW_LEVEL = { 1: "I", 2: "II", 3: "III" };
+  function wtwStand(code) {
+    const c = String(code || "");
+    if (c === "AUTO") return { pill: "Automatisch", sub: "op de sensoren en het schema" };
+    if (c === "EMPT") return { pill: "Afwezig", sub: "minimale ventilatie" };
+    const level = WTW_LEVEL[c[3]];
+    if (c.startsWith("CNT") && level) return { pill: `Continu ${level}`, sub: "blijft aan tot je iets anders kiest" };
+    if (c.startsWith("MAN") && level) {
+      const mins = c.endsWith("x2") ? 30 : c.endsWith("x3") ? 45 : 15;
+      return { pill: c[3] === "3" && mins > 15 ? `Boost ${mins} min` : `Stand ${level}`, sub: "" };
+    }
+    return { pill: known(c) ? c : "--", sub: "" };
+  }
+  const deg1 = (id) => (Number.isFinite(num(id)) ? `${fmt(num(id), 1)}°` : "--");
+  /* The exchanger: two streams crossing in its core, the efficiency in the middle. */
+  function wtwDiagram(e) {
+    const eff = num(e.efficiency);
+    return (
+      `<div class="wtw-x" role="img" aria-label="Warmtewisselaar">` +
+      `<svg viewBox="0 0 240 132" aria-hidden="true">` +
+      `<path class="cold" d="M52 26 L188 106"/><path class="warm" d="M188 26 L52 106"/>` +
+      `<circle cx="120" cy="66" r="29"/></svg>` +
+      `<span class="wtw-t tl"><small>Buiten in</small><b class="cold">${deg1(e.outside)}</b></span>` +
+      `<span class="wtw-t tr"><small>Uit huis</small><b class="warm">${deg1(e.extract)}</b></span>` +
+      `<span class="wtw-t bl"><small>Afvoer</small><b class="dim">${deg1(e.exhaust)}</b></span>` +
+      `<span class="wtw-t br"><small>Naar huis</small><b class="cold">${deg1(e.supply)}</b></span>` +
+      `<span class="wtw-eff"><b>${Number.isFinite(eff) ? `${fmt(eff)}%` : "--"}</b><small>rendement</small></span>` +
+      `</div>`
+    );
+  }
+  Panel.defineAppliance("ventilation", {
+    icon: "fan",
+    view(a, i) {
+      const e = a.entities;
+      if (offline(e.stand) && offline(e.flow)) return offlineView("Het bordje van de WTW is niet bereikbaar");
+      const code = raw(e.stand);
+      const st = wtwStand(code);
+      const flow = num(e.flow);
+      const left = num(e.left);
+      const timed = code.startsWith("MAN") && Number.isFinite(left) && left > 0;
+      const comfort = num(e.comfort);
+      const cAttr = attrs(e.comfort);
+      const filterDays = num(e.filter);
+      const chipFor = (label, opt) => chip(i, `stand|${opt}`, label, code === opt);
+      return {
+        tone: Number.isFinite(flow) && flow > 0 ? "run" : "off",
+        pill: st.pill,
+        big: Number.isFinite(flow) ? fmt(flow) : "--",
+        unit: "% debiet",
+        sub: timed ? `nog ${duration(left).join(" ")}, dan weer automatisch` : st.sub,
+        progress: Number.isFinite(flow) ? flow : null,
+        stats: [
+          stat("Bypass", Number.isFinite(num(e.bypass)) ? `${fmt(num(e.bypass))}%` : "--"),
+          stat("Filter nog", Number.isFinite(filterDays) ? `${fmt(filterDays)} dagen` : "--"),
+          /* the comfort temperature only where the Duco reports it (not every model does) */
+          Number.isFinite(comfort) ? stat("Comforttemperatuur", `${fmt(comfort, 1)}°`) : stat("Tijd resterend", timed ? duration(left).join(" ") : "--"),
+          stat("Rendement", Number.isFinite(num(e.efficiency)) ? `${fmt(num(e.efficiency))}%` : "--"),
+        ],
+        controls:
+          wtwDiagram(e) +
+          `<div class="ap-chips">${chipFor("Auto", "AUTO")}${chipFor("I", "MAN1")}${chipFor("II", "MAN2")}${chipFor("III", "MAN3")}</div>` +
+          `<div class="ap-label">Continu</div>` +
+          `<div class="ap-chips">${chipFor("I", "CNT1")}${chipFor("II", "CNT2")}${chipFor("III", "CNT3")}${chipFor("Afwezig", "EMPT")}</div>` +
+          `<div class="ap-label">Boost, stand III en dan weer automatisch</div>` +
+          `<div class="ap-chips">${chipFor("15 min", "MAN3")}${chipFor("30 min", "MAN3x2")}${chipFor("45 min", "MAN3x3")}</div>` +
+          (Number.isFinite(comfort)
+            ? `<div class="ap-label">Comforttemperatuur: daarboven gaat de bypass open</div>` +
+              stepper(i, "comfort", Number.isFinite(comfort) ? `${fmt(comfort, 1)}°` : "--", {
+                canDown: Number.isFinite(comfort) && comfort > (cAttr.min ?? 10),
+                canUp: Number.isFinite(comfort) && comfort < (cAttr.max ?? 25.5),
+                down: "Kouder",
+                up: "Warmer",
+                wide: true,
+              })
+            : "") +
+          (Number.isFinite(filterDays) && filterDays <= 14 ? note("Het filter is bijna aan vervanging toe.") : ""),
+      };
+    },
+    actions: {
+      stand: (a, [option], call) => call("select", "select_option", { option }, a.entities.stand),
+      comfort(a, [dir], call) {
+        const id = a.entities.comfort;
+        const at = attrs(id);
+        const cur = Panel.applianceTarget(id);
+        if (!known(cur)) return;
+        const v = Util.clamp(Math.round((cur + Number(dir) * 0.5) * 10) / 10, at.min ?? 10, at.max ?? 25.5);
+        call("number", "set_value", { value: v }, id);
+      },
+    },
+  });
+
   /* ---- PC ------------------------------------------------------------------------ */
   Panel.defineAppliance("pc", {
     icon: "pc",

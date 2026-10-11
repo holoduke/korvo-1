@@ -198,3 +198,22 @@ test("a running washer whose power sensor says 0 W shows an estimate from its co
   await expect(card.locator(".dc-value b")).not.toHaveText(/^0$|--/);
   expect(problems).toEqual([]);
 });
+
+test("the WTW in Apparaten shows its stand and air, and switches the stand", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "apparaten");
+  const i = await page.evaluate(() => window.PANEL_CONFIG.appliances.findIndex((a) => a.kind === "ventilation"));
+  test.skip(i < 0, "no WTW configured");
+  await page.locator(`#track > .page:not(.away) [data-pick="${i}"]`).first().click();
+  const card = page.locator("#track > .page:not(.away) .ap-card");
+  await expect(card).toContainText("Automatisch");
+  await expect(card.locator(".wtw-x")).toContainText("rendement");
+  await expect(card.locator(".wtw-x")).toContainText("13,5°");
+  await card.locator('[data-appl$="|stand|CNT2"]').click();
+  await expect(card).toContainText("Continu II");
+  await expect(card.locator(".ap-big")).toHaveText("60");
+  await card.locator('[data-appl$="|stand|MAN3x2"]').click();
+  await expect(card).toContainText("Boost 30 min");
+  await expect(card).not.toContainText(/undefined|NaN/);
+  expect(problems).toEqual([]);
+});

@@ -197,3 +197,28 @@
   .ap-media > .ap-btn > span { display: none; }
   .ap-sound > .ap-btn { flex: 0 0 50px; padding: 0; }
 }
+
+/* A small heading between rows of controls (the WTW's stands). */
+.ap-label { margin: 12px 0 6px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--text_dim); }
+
+/* The WTW's heat exchanger: outside air in and on to the house (cold) crossing
+ * the house's air out and away (warm), the efficiency in the core. */
+.wtw-x { position: relative; width: min(100%, 420px); aspect-ratio: 240 / 132; margin: 4px auto 14px; }
+.wtw-x svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.wtw-x path { fill: none; stroke-width: 3.5; stroke-linecap: round; }
+.wtw-x path.cold { stroke: var(--cold, #4fc3f7); }
+.wtw-x path.warm { stroke: var(--warn, #ffb547); }
+.wtw-x circle { fill: var(--tile); stroke: var(--accent); stroke-width: 2; }
+.wtw-t { position: absolute; display: flex; flex-direction: column; gap: 1px; }
+.wtw-t small, .wtw-eff small { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text_dim); }
+.wtw-t b { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wtw-t b.cold { color: var(--cold, #4fc3f7); }
+.wtw-t b.warm { color: var(--warn, #ffb547); }
+.wtw-t b.dim { color: var(--text_dim); }
+.wtw-t.tl { left: 0; top: 0; }
+.wtw-t.tr { right: 0; top: 0; text-align: right; align-items: flex-end; }
+.wtw-t.bl { left: 0; bottom: 0; }
+.wtw-t.br { right: 0; bottom: 0; text-align: right; align-items: flex-end; }
+.wtw-eff { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; }
+.wtw-eff b { font-size: 16px; font-weight: 700; color: var(--ok); font-variant-numeric: tabular-nums; }
+.wtw-eff small { font-size: 8px; letter-spacing: 0.02em; }

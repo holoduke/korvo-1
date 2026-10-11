@@ -5,7 +5,7 @@
 # serial), on the Duco's Connectivity header where the Duco Connectivity Board
 # would sit. The Duco speaks UART at 57600 baud, 3.3 V, straight to the ESP
 # (kokx/duco-analysis); the component is kokx's, not yet merged into ESPHome
-# (esphome/esphome#7993).
+# (esphome/esphome#7993). The Duco only answers when asked.
 #
 # Wiring (Duco header, kokx's numbering -> the board's serial connector P1,
 # beside the USB-C): pin 0 GND -> GND, pin 1 5 V -> VIN (the Duco powers the
@@ -19,11 +19,15 @@
 #
 # The screen is a HUD: near-black with a faint grid, neon cyan and amber,
 # Orbitron for figures (the wall panel's display face) and Rajdhani for
-# labels. Left the airflow as a reactor ring (a light runs round it while air
-# moves), right the heat exchanger as a live diagram — outside air in and on
-# to the house in cyan, the house's air out and away in amber, crossing in
-# the core, which shows the recovery efficiency from the four temperatures —
-# and along the bottom the stand: AUTO · I · II · III.
+# labels. The main page: the airflow as a reactor ring (a light runs round it
+# while air moves) with the stand under it, the heat exchanger as a live
+# diagram — outside air in and on to the house in cyan, the house's air out and
+# away in amber, crossing in the core, which shows the recovery efficiency —
+# bypass and filter, and the stand to choose: AUTO · I · II · III. The gear
+# opens the settings: continuous stands, a boost, away, the comfort
+# temperature, the screen's brightness, touch calibration and the board's
+# status. The touch is calibrated on the board itself (four crosses), kept
+# across restarts; it starts by itself until it has been done once.
 substitutions:
   bg: "0x05070A"
   panel: "0x0A1016"
@@ -32,7 +36,7 @@ substitutions:
   cyan_dim: "0x0B3A44"
   ice: "0x7FF3FF"
   amber: "0xFFB547"
-  amber_dim: "0x6B4A1C"
+  amber_dim: "0x8A6428"
   text: "0xE6F7FF"
   dim: "0x5F7A86"
   green: "0x38F2A0"
@@ -42,10 +46,33 @@ esphome:
   name: wtw-duco
   friendly_name: WTW
   on_boot:
-    priority: -100
-    then:
-      - script.execute: show_mode
-      - script.execute: show_efficiency
+    - priority: 600
+      then:
+        # the stored calibration, before the first touch is read
+        - lambda: |-
+            if (id(cal_version) != 2) id(cal_ok) = false;  // 2: median of firm presses
+            if (id(cal_ok)) {
+              id(touch).set_calibration(id(cal_x_min), id(cal_x_max), id(cal_y_min), id(cal_y_max));
+              id(touch).set_swap_xy(id(cal_swap));
+              id(touch).set_mirror_x(id(cal_mirror_x));
+              id(touch).set_mirror_y(id(cal_mirror_y));
+            }
+    - priority: -100
+      then:
+        - script.execute: show_mode
+        - script.execute: show_efficiency
+        - light.turn_on:
+            id: backlight
+            brightness: !lambda "return id(brightness_pct) / 100.0f;"
+        - lvgl.slider.update:
+            id: bright_slider
+            value: !lambda "return id(brightness_pct);"
+        - if:
+            condition:
+              lambda: "return !id(cal_ok);"
+            then:
+              - delay: 3s
+              - script.execute: calibration_start
 
 esp32:
   board: esp32dev
@@ -92,6 +119,28 @@ time:
   - platform: homeassistant
     id: ha_time
 
+globals:
+  # touch calibration (see calibration_finish); kept across restarts
+  - { id: cal_ok, type: bool, restore_value: true, initial_value: "false" }
+  # the calibration method's version: a calibration made by an older one is redone
+  - { id: cal_version, type: int, restore_value: true, initial_value: "0" }
+  - { id: cal_x_min, type: int, restore_value: true, initial_value: "300" }
+  - { id: cal_x_max, type: int, restore_value: true, initial_value: "3800" }
+  - { id: cal_y_min, type: int, restore_value: true, initial_value: "300" }
+  - { id: cal_y_max, type: int, restore_value: true, initial_value: "3800" }
+  - { id: cal_swap, type: bool, restore_value: true, initial_value: "false" }
+  - { id: cal_mirror_x, type: bool, restore_value: true, initial_value: "false" }
+  - { id: cal_mirror_y, type: bool, restore_value: true, initial_value: "false" }
+  # the calibration under way: step 0..3, the raw readings at each cross
+  - { id: cal_active, type: bool, restore_value: false, initial_value: "false" }
+  - { id: cal_step, type: int, restore_value: false, initial_value: "0" }
+  - { id: cal_raw, type: "std::array<int, 8>", restore_value: false }
+  - { id: cal_samples_x, type: "std::vector<int>", restore_value: false }
+  - { id: cal_last_ms, type: uint32_t, restore_value: false, initial_value: "0" }
+  - { id: cal_samples_y, type: "std::vector<int>", restore_value: false }
+  # the screen's brightness in use (the settings slider); dimmed it is half
+  - { id: brightness_pct, type: int, restore_value: true, initial_value: "100" }
+
 # ---- The Duco ----------------------------------------------------------------
 external_components:
   - source: github://pr#7993
@@ -115,6 +164,24 @@ select:
     name: Stand
     on_value:
       - script.execute: show_mode
+
+number:
+  - platform: duco
+    id: comfort_temp
+    name: Comforttemperatuur
+    on_value:
+      - lvgl.label.update:
+          id: comfort_value
+          text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+
+button:
+  - platform: template
+    name: Touch kalibreren
+    icon: mdi:gesture-tap
+    on_press:
+      - script.execute: calibration_start
+  - platform: restart
+    name: Herstarten
 
 sensor:
   - platform: duco
@@ -189,7 +256,12 @@ sensor:
             id: eha_value
             text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
   - platform: wifi_signal
+    id: wifi_rssi
     name: Wifi-signaal
+    update_interval: 60s
+  - platform: uptime
+    id: uptime_s
+    name: Uptime
     update_interval: 60s
   # How much of the house's warmth the exchanger gives back to the air coming
   # in: (supply − outside) / (extract − outside). Meaningless when inside and
@@ -203,7 +275,12 @@ sensor:
 
 text_sensor:
   - platform: duco
+    id: duco_serial
     name: Serienummer
+  - platform: wifi_info
+    ip_address:
+      id: wtw_ip
+      name: IP-adres
 
 script:
   # A tap on a stand: that button lights at once and the others go out, the
@@ -211,22 +288,23 @@ script:
   - id: pick_stand
     mode: restart # a second tap within the wait takes over
     parameters:
-      which: int
+      option: string
     then:
-      - lvgl.widget.update: { id: btn_auto, state: { checked: !lambda "return which == 0;" } }
-      - lvgl.widget.update: { id: btn_1, state: { checked: !lambda "return which == 1;" } }
-      - lvgl.widget.update: { id: btn_2, state: { checked: !lambda "return which == 2;" } }
-      - lvgl.widget.update: { id: btn_3, state: { checked: !lambda "return which == 3;" } }
+      - lvgl.widget.update: { id: btn_auto, state: { checked: !lambda 'return option == "AUTO";' } }
+      - lvgl.widget.update: { id: btn_1, state: { checked: !lambda 'return option == "MAN1";' } }
+      - lvgl.widget.update: { id: btn_2, state: { checked: !lambda 'return option == "MAN2";' } }
+      - lvgl.widget.update: { id: btn_3, state: { checked: !lambda 'return option == "MAN3";' } }
       - lvgl.label.update:
           id: mode_sub
           text: "naar de Duco verstuurd…"
       - select.set:
           id: duco_mode
-          option: !lambda 'static const char *const opts[] = {"AUTO", "MAN1", "MAN2", "MAN3"}; return std::string(opts[which]);'
+          option: !lambda "return option;"
       - delay: 8s
-      # no answer: show what the Duco really runs (or that it is silent)
+      # no answer: show what the Duco really runs
       - script.execute: show_mode
-  # The stand in words, how long a manual one still runs, which button is lit.
+
+  # The stand in words, how long a temporary one still runs, which buttons are lit.
   - id: show_mode
     then:
       - lvgl.label.update:
@@ -236,9 +314,10 @@ script:
             const std::string m = id(duco_mode).current_option();
             if (m == "AUTO") return std::string("AUTOMATISCH");
             if (m == "EMPT") return std::string("AFWEZIG");
-            if (m.size() >= 4 && (m.rfind("MAN", 0) == 0 || m.rfind("CNT", 0) == 0)) {
-              std::string s = "STAND " + m.substr(3, 1);
-              if (m.rfind("CNT", 0) == 0) s += " CONTINU";
+            if (m.size() >= 4 && m.rfind("CNT", 0) == 0) return "CONTINU " + std::string(m[3] == '1' ? "I" : m[3] == '2' ? "II" : "III");
+            if (m.size() >= 4 && m.rfind("MAN", 0) == 0) {
+              std::string s = "STAND " + std::string(m[3] == '1' ? "I" : m[3] == '2' ? "II" : "III");
+              if (m.size() >= 6) s += m[5] == '2' ? " / 30 MIN" : " / 45 MIN";
               return s;
             }
             return m;
@@ -246,11 +325,16 @@ script:
           id: mode_sub
           text: !lambda |-
             if (!id(duco_mode).has_state()) return std::string("wacht op de Duco");
+            const std::string m = id(duco_mode).current_option();
+            if (m == "AUTO") return std::string("op de sensoren en het schema");
+            if (m == "EMPT") return std::string("minimale ventilatie");
+            if (m.rfind("CNT", 0) == 0) return std::string("blijft aan tot je iets anders kiest");
             const float t = id(time_left).state;
             if (isnan(t) || t <= 0) return std::string("");
             const int s = (int) t;
-            return s >= 3600 ? str_sprintf("nog %d:%02d uur", s / 3600, (s % 3600) / 60)
-                             : str_sprintf("nog %d:%02d min", s / 60, s % 60);
+            return s >= 3600 ? str_sprintf("nog %d:%02d uur, dan weer auto", s / 3600, (s % 3600) / 60)
+                             : str_sprintf("nog %d:%02d min, dan weer auto", s / 60, s % 60);
+      # main page: the four stands (a timed variant lights its level)
       - lvgl.widget.update:
           id: btn_auto
           state:
@@ -258,15 +342,45 @@ script:
       - lvgl.widget.update:
           id: btn_1
           state:
-            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("1") == 3;'
+            checked: !lambda 'return id(duco_mode).has_state() && std::string(id(duco_mode).current_option()).rfind("MAN1", 0) == 0;'
       - lvgl.widget.update:
           id: btn_2
           state:
-            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("2") == 3;'
+            checked: !lambda 'return id(duco_mode).has_state() && std::string(id(duco_mode).current_option()).rfind("MAN2", 0) == 0;'
       - lvgl.widget.update:
           id: btn_3
           state:
-            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option().find("3") == 3;'
+            checked: !lambda 'return id(duco_mode).has_state() && std::string(id(duco_mode).current_option()).rfind("MAN3", 0) == 0;'
+      # settings page: continuous, boost, away
+      - lvgl.widget.update:
+          id: set_cnt1
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "CNT1";'
+      - lvgl.widget.update:
+          id: set_cnt2
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "CNT2";'
+      - lvgl.widget.update:
+          id: set_cnt3
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "CNT3";'
+      - lvgl.widget.update:
+          id: set_boost15
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "MAN3";'
+      - lvgl.widget.update:
+          id: set_boost30
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "MAN3x2";'
+      - lvgl.widget.update:
+          id: set_boost45
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "MAN3x3";'
+      - lvgl.widget.update:
+          id: set_away
+          state:
+            checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "EMPT";'
+
   - id: show_efficiency
     then:
       - lambda: |-
@@ -279,6 +393,151 @@ script:
       - lvgl.label.update:
           id: eff_value
           text: !lambda 'const float e = id(efficiency).state; return isnan(e) ? std::string("--") : str_sprintf("%d%%", (int) e);'
+
+  - id: show_status
+    then:
+      - lvgl.label.update:
+          id: status_text
+          text: !lambda |-
+            const float rssi = id(wifi_rssi).state, up = id(uptime_s).state;
+            const std::string ip = id(wtw_ip).has_state() ? id(wtw_ip).state : std::string("--");
+            const std::string serial = id(duco_serial).has_state() ? id(duco_serial).state : std::string("--");
+            const std::string wifi = isnan(rssi) ? std::string("--") : str_sprintf("%d dBm", (int) rssi);
+            const int u = isnan(up) ? 0 : (int) up;
+            return str_sprintf("IP %s\nWIFI %s\nAAN %dd %dh %dm\nDUCO %s", ip.c_str(), wifi.c_str(),
+                               u / 86400, (u % 86400) / 3600, (u % 3600) / 60, serial.c_str());
+
+  # ---- touch calibration --------------------------------------------------------
+  # Four crosses in the landscape screen's corners. ESPHome turns a raw reading
+  # into a point on the panel's native portrait 320x480 (calibration, then
+  # swap and mirror), and LVGL rotates that by 90°: landscape x = native y,
+  # landscape y = 319 − native x. So each cross is where the native point
+  # should be, and the raw readings at the crosses give, per native axis,
+  # which raw axis it follows (swap), its range and its direction (mirror).
+  - id: calibration_start
+    mode: restart
+    then:
+      - lambda: |-
+          id(touch).set_swap_xy(false);
+          id(touch).set_mirror_x(false);
+          id(touch).set_mirror_y(false);
+          id(cal_step) = 0;
+          id(cal_samples_x).clear();
+          id(cal_samples_y).clear();
+          id(cal_last_ms) = millis();
+          id(cal_active) = true;
+      - light.turn_on: { id: backlight, brightness: 100% }
+      - lvgl.widget.update: { id: cal_cross, x: 26, y: 26 }
+      - lvgl.label.update: { id: cal_hint, text: "TIK OP HET KRUIS  1/4" }
+      - lvgl.page.show: cal_page
+      # not finished in two minutes: back, with the old calibration
+      - delay: 120s
+      - if:
+          condition:
+            lambda: "return id(cal_active);"
+          then:
+            - lambda: |-
+                id(cal_active) = false;
+                if (id(cal_ok)) {
+                  id(touch).set_swap_xy(id(cal_swap));
+                  id(touch).set_mirror_x(id(cal_mirror_x));
+                  id(touch).set_mirror_y(id(cal_mirror_y));
+                }
+            - lvgl.page.show: home_page
+
+  # A press on a cross is over: its reading is the median of all the raw
+  # readings during it (a stray one at the start or end does not count).
+  - id: calibration_press
+    then:
+      - lambda: |-
+          auto &xs = id(cal_samples_x);
+          auto &ys = id(cal_samples_y);
+          const size_t n = std::min(xs.size(), ys.size());
+          if (!id(cal_active) || n < 3) {  // too short to trust: press again
+            xs.clear(); ys.clear();
+            return;
+          }
+          std::sort(xs.begin(), xs.begin() + n);
+          std::sort(ys.begin(), ys.begin() + n);
+          const int s = id(cal_step);
+          const int mx = xs[n / 2], my = ys[n / 2];
+          xs.clear(); ys.clear();
+          // a second press right after the last (a double tap, a bounce) is not the next cross
+          if (millis() - id(cal_last_ms) < 800) return;
+          // nor is a press where the previous cross was: the crosses are far apart
+          if (s > 0 && abs(mx - id(cal_raw)[(s - 1) * 2]) + abs(my - id(cal_raw)[(s - 1) * 2 + 1]) < 500) {
+            ESP_LOGW("cal", "cross %d: raw %d,%d is where cross %d was, press the new cross", s + 1, mx, my, s);
+            return;
+          }
+          id(cal_last_ms) = millis();
+          id(cal_raw)[s * 2] = mx;
+          id(cal_raw)[s * 2 + 1] = my;
+          ESP_LOGI("cal", "cross %d: raw %d,%d from %d readings", s + 1, mx, my, (int) n);
+          id(cal_step) = s + 1;
+      - if:
+          condition:
+            lambda: "return id(cal_active) && id(cal_step) < 4;"
+          then:
+            - lvgl.widget.update:
+                id: cal_cross
+                x: !lambda "static const int xs[] = {26, 426, 426, 26}; return xs[id(cal_step)];"
+                y: !lambda "static const int ys[] = {26, 26, 266, 266}; return ys[id(cal_step)];"
+            - lvgl.label.update:
+                id: cal_hint
+                text: !lambda 'return str_sprintf("TIK OP HET KRUIS  %d/4", id(cal_step) + 1);'
+      - if:
+          condition:
+            lambda: "return id(cal_active) && id(cal_step) >= 4;"
+          then:
+            - script.execute: calibration_finish
+
+  - id: calibration_finish
+    then:
+      - lambda: |-
+          id(cal_active) = false;
+          const auto &r = id(cal_raw);
+          // native x is 279 at crosses 0,1 and 39 at 2,3; native y is 40 at 0,3 and 440 at 1,2
+          auto mean2 = [&](int a, int b, int axis) { return (r[a * 2 + axis] + r[b * 2 + axis]) / 2.0f; };
+          // without swap native x follows raw x; with swap it follows raw y
+          const float plain = fabsf(mean2(0, 1, 0) - mean2(2, 3, 0)) + fabsf(mean2(1, 2, 1) - mean2(0, 3, 1));
+          const float swapped = fabsf(mean2(0, 1, 1) - mean2(2, 3, 1)) + fabsf(mean2(1, 2, 0) - mean2(0, 3, 0));
+          const bool swap = swapped > plain;
+          const int ax = swap ? 1 : 0, ay = swap ? 0 : 1;
+          // the raw value along a native axis at its two levels, extended to the panel's edges
+          auto fit = [](float raw_lo, float raw_hi, float lo, float hi, float span, int &mn, int &mx, bool &mirror) {
+            const float per = (raw_hi - raw_lo) / (hi - lo);
+            const float at0 = raw_lo - lo * per, at_end = at0 + span * per;
+            mirror = per < 0;
+            mn = (int) std::min(at0, at_end);
+            mx = (int) std::max(at0, at_end);
+          };
+          int xmn, xmx, ymn, ymx;
+          bool mirror_x, mirror_y;
+          fit(mean2(2, 3, ax), mean2(0, 1, ax), 39, 279, 320, xmn, xmx, mirror_x);
+          fit(mean2(0, 3, ay), mean2(1, 2, ay), 40, 440, 480, ymn, ymx, mirror_y);
+          if (xmx - xmn < 400 || ymx - ymn < 400) {
+            ESP_LOGW("cal", "calibration rejected: x %d..%d y %d..%d", xmn, xmx, ymn, ymx);
+            if (id(cal_ok)) {
+              id(touch).set_swap_xy(id(cal_swap));
+              id(touch).set_mirror_x(id(cal_mirror_x));
+              id(touch).set_mirror_y(id(cal_mirror_y));
+            }
+            return;
+          }
+          id(cal_x_min) = xmn; id(cal_x_max) = xmx; id(cal_y_min) = ymn; id(cal_y_max) = ymx;
+          id(cal_swap) = swap; id(cal_mirror_x) = mirror_x; id(cal_mirror_y) = mirror_y;
+          id(cal_ok) = true;
+          id(cal_version) = 2;
+          id(touch).set_calibration(xmn, xmx, ymn, ymx);
+          id(touch).set_swap_xy(swap);
+          id(touch).set_mirror_x(mirror_x);
+          id(touch).set_mirror_y(mirror_y);
+          ESP_LOGI("cal", "touch calibrated: x %d..%d y %d..%d swap %d mirror %d %d", xmn, xmx, ymn, ymx, swap, mirror_x, mirror_y);
+      - lvgl.label.update:
+          id: cal_hint
+          text: !lambda 'return id(cal_ok) ? std::string("GEKALIBREERD") : std::string("MISLUKT, PROBEER OPNIEUW");'
+      - delay: 1500ms
+      - lvgl.page.show: home_page
 
 # ---- The screen ----------------------------------------------------------------
 spi:
@@ -323,20 +582,36 @@ touchscreen:
     id: touch
     cs_pin: GPIO33
     interrupt_pin: GPIO36
+    # firm presses only: a light touch on a resistive panel reads towards the
+    # middle (seen 2026-10-11: one spot read both ~900,1200 and ~2300,2400)
+    threshold: 900
     calibration:
-      x_min: 280
-      x_max: 3860
-      y_min: 340
-      y_max: 3860
-    transform:
-      swap_xy: true
+      x_min: 300
+      x_max: 3800
+      y_min: 300
+      y_max: 3800
+    on_update:
+      # during a calibration every reading of a press counts (the median is used)
+      - lambda: |-
+          if (!id(cal_active)) return;
+          for (auto &t : touches) {
+            id(cal_samples_x).push_back(t.x_raw);
+            id(cal_samples_y).push_back(t.y_raw);
+          }
+    on_release:
+      - logger.log: "touch released"
+      - if:
+          condition:
+            lambda: "return id(cal_active);"
+          then:
+            - script.execute: calibration_press
     on_touch:
       - logger.log:
           format: "touch x=%d y=%d raw=%d,%d"
           args: [touch.x, touch.y, touch.x_raw, touch.y_raw]
       - light.turn_on:
           id: backlight
-          brightness: 100%
+          brightness: !lambda "return id(brightness_pct) / 100.0f;"
 
 font:
   - file: "gfonts://Orbitron@700"
@@ -346,35 +621,46 @@ font:
   - file: "gfonts://Orbitron@600"
     id: f_head
     size: 18
-    glyphs: "0123456789%-:/°.,ABCDEFGHIJKLMNOPQRSTUVWXYZ "
+    glyphs: " !%+,-./0123456789:°ABCDEFGHIJKLMNOPQRSTUVWXYZ"
   - file: "gfonts://Orbitron@600"
     id: f_num
     size: 20
-    glyphs: "0123456789%-°.,D"
+    glyphs: " %+,-.0123456789°D"
   - file: "gfonts://Orbitron@500"
     id: f_btn
-    size: 16
-    glyphs: "AUTOI "
+    size: 15
+    glyphs: " +-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
   - file: "gfonts://Rajdhani@600"
     id: f_label
     size: 14
-    glyphs: "0123456789%-:/°.,·… ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    glyphs: " !%(),-./0123456789:°ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz·…"
   - file: "gfonts://Rajdhani@600"
     id: f_tiny
     size: 12
-    glyphs: "0123456789%-:/°.,· ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    glyphs: " !%(),-./0123456789:°ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz·…"
 
 lvgl:
   displays: [screen]
   touchscreens: [touch]
-  rotation: 90 # landscape, the USB-C on the right
+  rotation: 90 # landscape
   buffer_size: 12.5%
   on_idle:
     - timeout: 60s
       then:
-        - light.turn_on:
-            id: backlight
-            brightness: 50%
+        - if:
+            condition:
+              lambda: "return !id(cal_active);"
+            then:
+              - light.turn_on:
+                  id: backlight
+                  brightness: !lambda "return id(brightness_pct) / 200.0f;"
+    - timeout: 120s
+      then:
+        - if:
+            condition:
+              lambda: "return !id(cal_active);"
+            then:
+              - lvgl.page.show: home_page # a forgotten settings page goes back
   style_definitions:
     # a HUD frame: dark glass, a hairline in cyan
     - id: frame
@@ -395,11 +681,17 @@ lvgl:
       shadow_width: 0
       text_color: ${cyan}
       text_font: f_btn
+    - id: hud_on
+      bg_color: ${cyan}
+      bg_opa: COVER
+      text_color: ${bg}
+      border_opa: COVER
   theme:
     label:
       text_color: ${text}
       text_font: f_label
   pages:
+    # ============================== main page ==============================
     - id: home_page
       bg_color: ${bg}
       bg_opa: COVER
@@ -409,9 +701,9 @@ lvgl:
         - line: { points: ["0, 80", "480, 80"], line_width: 1, line_color: "${grid}", line_opa: 50% }
         - line: { points: ["0, 160", "480, 160"], line_width: 1, line_color: "${grid}", line_opa: 50% }
         - line: { points: ["0, 240", "480, 240"], line_width: 1, line_color: "${grid}", line_opa: 50% }
-        - line: { points: ["120, 36", "120, 260"], line_width: 1, line_color: "${grid}", line_opa: 50% }
-        - line: { points: ["240, 36", "240, 260"], line_width: 1, line_color: "${grid}", line_opa: 50% }
-        - line: { points: ["360, 36", "360, 260"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["120, 36", "120, 268"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["240, 36", "240, 268"], line_width: 1, line_color: "${grid}", line_opa: 50% }
+        - line: { points: ["360, 36", "360, 268"], line_width: 1, line_color: "${grid}", line_opa: 50% }
 
         # ---- header ----
         - label:
@@ -428,7 +720,7 @@ lvgl:
             text_color: ${dim}
         - obj:
             id: link_dot
-            x: 300
+            x: 262
             y: 15
             width: 8
             height: 8
@@ -437,24 +729,35 @@ lvgl:
             border_width: 0
         - label:
             id: link_label
-            x: 313
+            x: 275
             y: 11
             text: "OFFLINE"
             text_font: f_tiny
             text_color: ${red}
         - label:
             id: clock_label
-            x: 404
+            x: 350
             y: 9
             text: "--:--"
             text_font: f_head
             text_color: ${text}
+        - button:
+            x: 428
+            y: 2
+            width: 46
+            height: 30
+            styles: hud_btn
+            widgets:
+              - label: { align: CENTER, text: "", text_font: montserrat_18 }
+            on_click:
+              - script.execute: show_status
+              - lvgl.page.show: settings_page
         - line: { points: ["0, 34", "480, 34"], line_width: 1, line_color: "${cyan}", line_opa: 40% }
 
         # ---- left: the airflow reactor ----
         - arc:
             x: 12
-            y: 42
+            y: 40
             width: 186
             height: 186
             start_angle: 0
@@ -469,7 +772,7 @@ lvgl:
         - spinner:
             id: flow_spin
             x: 12
-            y: 42
+            y: 40
             width: 186
             height: 186
             spin_time: 2400ms
@@ -484,7 +787,7 @@ lvgl:
         - arc:
             id: flow_arc
             x: 27
-            y: 57
+            y: 55
             width: 156
             height: 156
             min_value: 0
@@ -502,7 +805,7 @@ lvgl:
         - label:
             id: flow_value
             x: 30
-            y: 100
+            y: 98
             width: 150
             text_align: CENTER
             text: "--"
@@ -510,7 +813,7 @@ lvgl:
             text_color: ${text}
         - label:
             x: 30
-            y: 156
+            y: 154
             width: 150
             text_align: CENTER
             text: "% LUCHTDEBIET"
@@ -518,25 +821,26 @@ lvgl:
             text_color: ${dim}
         - label:
             id: mode_label
-            x: 6
-            y: 230
-            width: 198
+            x: 0
+            y: 228
+            width: 210
             text_align: CENTER
+            long_mode: DOT
             text: "STANDBY"
             text_font: f_head
             text_color: ${amber}
         - label:
             id: mode_sub
-            x: 6
-            y: 252
-            width: 198
+            x: 0
+            y: 250
+            width: 210
             text_align: CENTER
+            long_mode: DOT
             text: "wacht op de Duco"
-            text_font: f_label
+            text_font: f_tiny
             text_color: ${dim}
 
         # ---- right: the heat exchanger ----
-        # the two streams cross in the core: outside -> house (cold), house -> outside (warm)
         - line: { points: ["292, 86", "390, 210"], line_width: 3, line_color: "${cyan}", line_opa: 90% }
         - line: { points: ["390, 86", "292, 210"], line_width: 3, line_color: "${amber}", line_opa: 90% }
         - obj:
@@ -564,7 +868,6 @@ lvgl:
                   text: "RENDEMENT"
                   text_font: f_tiny
                   text_color: ${dim}
-        # outside air in (top left) and exhaust out (bottom left)
         - obj:
             x: 206
             y: 42
@@ -585,7 +888,6 @@ lvgl:
             widgets:
               - label: { text: "AFVOER", text_font: f_tiny, text_color: "${dim}" }
               - label: { id: eha_value, y: 14, text: "--", text_font: f_num, text_color: "${amber_dim}" }
-        # the house: its air out (top right) and fresh air in (bottom right)
         - obj:
             x: 384
             y: 42
@@ -606,7 +908,6 @@ lvgl:
             widgets:
               - label: { text: "NAAR HUIS", text_font: f_tiny, text_color: "${dim}" }
               - label: { id: sup_value, y: 14, text: "--", text_font: f_num, text_color: "${cyan}" }
-        # bypass and filter between the bottom corners
         - label: { x: 300, y: 214, text: "BYPASS", text_font: f_tiny, text_color: "${dim}" }
         - label: { id: bypass_value, x: 300, y: 214, width: 80, text_align: RIGHT, text: "--", text_font: f_tiny, text_color: "${text}" }
         - bar:
@@ -645,12 +946,11 @@ lvgl:
             width: 112
             height: 38
             styles: hud_btn
-            checkable: false
-            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
+            checked: { styles: hud_on }
             widgets:
               - label: { align: CENTER, text: "AUTO", text_font: f_btn }
             on_click:
-              - script.execute: { id: pick_stand, which: 0 }
+              - script.execute: { id: pick_stand, option: "AUTO" }
         - button:
             id: btn_1
             x: 126
@@ -658,12 +958,11 @@ lvgl:
             width: 112
             height: 38
             styles: hud_btn
-            checkable: false
-            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
+            checked: { styles: hud_on }
             widgets:
               - label: { align: CENTER, text: "I", text_font: f_btn }
             on_click:
-              - script.execute: { id: pick_stand, which: 1 }
+              - script.execute: { id: pick_stand, option: "MAN1" }
         - button:
             id: btn_2
             x: 244
@@ -671,12 +970,11 @@ lvgl:
             width: 112
             height: 38
             styles: hud_btn
-            checkable: false
-            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
+            checked: { styles: hud_on }
             widgets:
               - label: { align: CENTER, text: "II", text_font: f_btn }
             on_click:
-              - script.execute: { id: pick_stand, which: 2 }
+              - script.execute: { id: pick_stand, option: "MAN2" }
         - button:
             id: btn_3
             x: 362
@@ -684,12 +982,227 @@ lvgl:
             width: 110
             height: 38
             styles: hud_btn
-            checkable: false
-            checked: { bg_color: "${cyan}", bg_opa: COVER, text_color: "${bg}", border_opa: COVER }
+            checked: { styles: hud_on }
             widgets:
               - label: { align: CENTER, text: "III", text_font: f_btn }
             on_click:
-              - script.execute: { id: pick_stand, which: 3 }
+              - script.execute: { id: pick_stand, option: "MAN3" }
+
+    # ============================== settings ==============================
+    - id: settings_page
+      bg_color: ${bg}
+      bg_opa: COVER
+      scrollable: false
+      widgets:
+        - button:
+            x: 6
+            y: 2
+            width: 46
+            height: 30
+            styles: hud_btn
+            widgets:
+              - label: { align: CENTER, text: "", text_font: montserrat_18 }
+            on_click:
+              - lvgl.page.show: home_page
+        - label:
+            x: 64
+            y: 9
+            text: "INSTELLINGEN"
+            text_font: f_head
+            text_color: ${cyan}
+        - line: { points: ["0, 34", "480, 34"], line_width: 1, line_color: "${cyan}", line_opa: 40% }
+
+        # ---- left: stands beyond the four on the main page ----
+        - label: { x: 12, y: 40, text: "CONTINU · BLIJFT AAN", text_font: f_tiny, text_color: "${dim}" }
+        - button:
+            id: set_cnt1
+            x: 10
+            y: 56
+            width: 70
+            height: 36
+            styles: hud_btn
+            checked: { styles: hud_on }
+            widgets: [ { label: { align: CENTER, text: "I", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "CNT1" } } ]
+        - button:
+            id: set_cnt2
+            x: 86
+            y: 56
+            width: 70
+            height: 36
+            styles: hud_btn
+            checked: { styles: hud_on }
+            widgets: [ { label: { align: CENTER, text: "II", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "CNT2" } } ]
+        - button:
+            id: set_cnt3
+            x: 162
+            y: 56
+            width: 70
+            height: 36
+            styles: hud_btn
+            checked: { styles: hud_on }
+            widgets: [ { label: { align: CENTER, text: "III", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "CNT3" } } ]
+        - label: { x: 12, y: 100, text: "BOOST · MINUTEN STAND III, DAN AUTO", text_font: f_tiny, text_color: "${dim}" }
+        - button:
+            id: set_boost15
+            x: 10
+            y: 116
+            width: 70
+            height: 36
+            styles: hud_btn
+            checked: { styles: hud_on }
+            widgets: [ { label: { align: CENTER, text: "15", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "MAN3" } } ]
+        - button:
+            id: set_boost30
+            x: 86
+            y: 116
+            width: 70
+            height: 36
+            styles: hud_btn
+            checked: { styles: hud_on }
+            widgets: [ { label: { align: CENTER, text: "30", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "MAN3x2" } } ]
+        - button:
+            id: set_boost45
+            x: 162
+            y: 116
+            width: 70
+            height: 36
+            styles: hud_btn
+            checked: { styles: hud_on }
+            widgets: [ { label: { align: CENTER, text: "45", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "MAN3x3" } } ]
+        - button:
+            id: set_away
+            x: 10
+            y: 166
+            width: 222
+            height: 36
+            styles: hud_btn
+            checked: { styles: hud_on }
+            widgets: [ { label: { align: CENTER, text: "AFWEZIG", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "EMPT" } } ]
+        - button:
+            x: 10
+            y: 210
+            width: 222
+            height: 36
+            styles: hud_btn
+            widgets: [ { label: { align: CENTER, text: "AUTOMATISCH", text_font: f_btn } } ]
+            on_click: [ { script.execute: { id: pick_stand, option: "AUTO" } } ]
+
+        # ---- right: comfort temperature, screen, touch, status ----
+        - label: { x: 252, y: 40, text: "COMFORTTEMPERATUUR · BYPASS VANAF", text_font: f_tiny, text_color: "${dim}" }
+        - button:
+            x: 250
+            y: 56
+            width: 52
+            height: 36
+            styles: hud_btn
+            widgets: [ { label: { align: CENTER, text: "-", text_font: f_btn } } ]
+            on_click:
+              - number.decrement: { id: comfort_temp }
+        - label:
+            id: comfort_value
+            x: 304
+            y: 62
+            width: 114
+            text_align: CENTER
+            text: "--"
+            text_font: f_num
+            text_color: ${amber}
+        - button:
+            x: 420
+            y: 56
+            width: 52
+            height: 36
+            styles: hud_btn
+            widgets: [ { label: { align: CENTER, text: "+", text_font: f_btn } } ]
+            on_click:
+              - number.increment: { id: comfort_temp }
+        - label: { x: 252, y: 100, text: "HELDERHEID SCHERM", text_font: f_tiny, text_color: "${dim}" }
+        - slider:
+            id: bright_slider
+            x: 262
+            y: 124
+            width: 196
+            height: 12
+            min_value: 10
+            max_value: 100
+            value: 100
+            bg_color: ${cyan_dim}
+            indicator: { bg_color: "${cyan}" }
+            knob: { bg_color: "${text}", pad_all: 6 }
+            on_release:
+              - lambda: "id(brightness_pct) = (int) x;"
+              - light.turn_on:
+                  id: backlight
+                  brightness: !lambda "return x / 100.0f;"
+        - button:
+            x: 250
+            y: 150
+            width: 222
+            height: 36
+            styles: hud_btn
+            widgets: [ { label: { align: CENTER, text: "TOUCH KALIBREREN", text_font: f_btn } } ]
+            on_click:
+              - script.execute: calibration_start
+        - obj:
+            x: 250
+            y: 194
+            width: 222
+            height: 76
+            styles: frame
+            scrollable: false
+            widgets:
+              - label:
+                  id: status_text
+                  text: "--"
+                  text_font: f_tiny
+                  text_color: ${dim}
+
+    # ============================== touch calibration ==============================
+    - id: cal_page
+      bg_color: ${bg}
+      bg_opa: COVER
+      scrollable: false
+      widgets:
+        - label:
+            id: cal_hint
+            align: CENTER
+            y: -10
+            text: "TIK OP HET KRUIS  1/4"
+            text_font: f_head
+            text_color: ${cyan}
+        - label:
+            align: CENTER
+            y: 18
+            text: "druk stevig met een vingertop op het midden"
+            text_font: f_label
+            text_color: ${dim}
+        # the cross: a ring with a dot, 28 px, its centre 14 px in
+        - obj:
+            id: cal_cross
+            x: 26
+            y: 26
+            width: 28
+            height: 28
+            radius: 14
+            bg_opa: TRANSP
+            border_color: ${amber}
+            border_width: 2
+            scrollable: false
+            widgets:
+              - obj:
+                  align: CENTER
+                  width: 6
+                  height: 6
+                  radius: 3
+                  bg_color: ${amber}
+                  border_width: 0
 
 interval:
   - interval: 10s
@@ -701,3 +1214,4 @@ interval:
             - lvgl.label.update:
                 id: clock_label
                 text: !lambda 'return id(ha_time).now().strftime("%H:%M");'
+      - script.execute: show_status

@@ -275,6 +275,19 @@
         put("roomCool", "24.0", { min: 5, max: 35, step: 0.5, unit_of_measurement: "°C" });
         put("coolOffset", "0", { min: -10, max: 10, step: 1 });
         put("coolStart", "22", { min: -20, max: 40, step: 1, unit_of_measurement: "°C" });
+      } else if (ap.kind === "ventilation") {
+        /* the WTW on its everyday stand, an autumn day: 13.5° outside, 21.2° inside */
+        put("stand", "AUTO", { options: ["AUTO", "MAN1", "MAN2", "MAN3", "EMPT", "CNT1", "CNT2", "CNT3", "MAN1x2", "MAN2x2", "MAN3x2", "MAN1x3", "MAN2x3", "MAN3x3"] });
+        put("flow", "35", { unit_of_measurement: "%" });
+        put("left", "0", { unit_of_measurement: "s" });
+        put("filter", "132", { unit_of_measurement: "d" });
+        put("bypass", "0", { unit_of_measurement: "%" });
+        put("outside", "13.5", { unit_of_measurement: "°C" });
+        put("supply", "19.4", { unit_of_measurement: "°C" });
+        put("extract", "21.2", { unit_of_measurement: "°C" });
+        put("exhaust", "15.2", { unit_of_measurement: "°C" });
+        put("efficiency", "77", { unit_of_measurement: "%" });
+        put("comfort", "21.0", { min: 10, max: 25.5, step: 0.1, unit_of_measurement: "°C" });
       } else if (ap.kind === "filter") {
         Object.keys(e).forEach((k) => put(k, "unavailable"));
       } else if (ap.kind === "pc") {
@@ -611,6 +624,12 @@
               const also = (key, state) => set(e[key], state, (states.get(e[key]) || {}).attributes || {}, t);
               if ((ap.kind === "washer" || ap.kind === "dryer") && id === e.state) also("machine", next);
               if (ap.kind === "pc" && id === e.on) also("online", next);
+              if (ap.kind === "ventilation" && id === e.stand) {
+                /* the airflow follows the stand; a level for a while counts down from 15, 30 or 45 minutes */
+                const level = next === "AUTO" ? 35 : next === "EMPT" ? 10 : { 1: 30, 2: 60, 3: 100 }[next[3]] || 35;
+                also("flow", String(level));
+                also("left", next.startsWith("MAN") ? String(next.endsWith("x2") ? 1800 : next.endsWith("x3") ? 2700 : 900) : "0");
+              }
               if (ap.kind === "dishwasher" && id === e.active) also("op", "Run");
               if (ap.kind === "dishwasher" && id === e.abort) also("op", "Ready");
               if (ap.kind === "oven" && id === e.pause) also("op", "Pause");

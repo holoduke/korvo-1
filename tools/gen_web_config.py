@@ -317,6 +317,14 @@ APPLIANCE_ENTITIES = {
     # with the Wake-on-LAN and sleep buttons behind it, and a ping sensor.
     "pc": {"on": "switch.{n}", "online": "binary_sensor.{n}_online", "wake": "button.{n}_aanzetten", "sleep": "button.{n}_sleep"},
     "heatpump": _HEATPUMP,
+    # The WTW (DucoBox Energy Comfort) through its ESPHome board (esphome/wtw-duco.yaml)
+    "ventilation": {
+        "stand": "select.{n}_stand", "flow": "sensor.{n}_debiet", "left": "sensor.{n}_tijd_resterend",
+        "filter": "sensor.{n}_filter_resterend", "bypass": "sensor.{n}_bypass",
+        "outside": "sensor.{n}_buitenlucht", "supply": "sensor.{n}_toevoer",
+        "extract": "sensor.{n}_afzuiging", "exhaust": "sensor.{n}_afvoer",
+        "efficiency": "sensor.{n}_rendement", "comfort": "number.{n}_comforttemperatuur",
+    },
     "washer": {**_LAUNDRY, "water": "sensor.{n}_water_consumption"},
     "dryer": _LAUNDRY,
     "dishwasher": {
