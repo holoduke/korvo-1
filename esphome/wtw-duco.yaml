@@ -45,6 +45,8 @@ substitutions:
 esphome:
   name: wtw-duco
   friendly_name: WTW
+  includes:
+    - duco_extra.h # the box parameters the duco component does not read (fans, settings)
   on_boot:
     - priority: 600
       then:
@@ -59,6 +61,21 @@ esphome:
             }
     - priority: -100
       then:
+        - lambda: |-
+            auto *x = new DucoExtra();
+            x->set_parent(id(duco_box));
+            x->add(0x40, 0x09, [](int32_t v) { id(fan_sup_rpm).publish_state(v); });
+            x->add(0x44, 0x09, [](int32_t v) { id(fan_eha_rpm).publish_state(v); });
+            x->add(0x4D, 0x09, [](int32_t v) { id(fan_sup_level).publish_state(v); });
+            x->add(0x4E, 0x09, [](int32_t v) { id(fan_eha_level).publish_state(v); });
+            x->add(0x43, 0x09, [](int32_t v) { id(fan_sup_raw).publish_state(v); });
+            x->add(0x47, 0x09, [](int32_t v) { id(fan_eha_raw).publish_state(v); });
+            x->add(0x13, 0x0A, [](int32_t v) { id(comfort_temp).publish_state(v / 10.0f); });
+            x->add(0x31, 0x0A, [](int32_t v) {
+              const std::string o = std::to_string(v);
+              if (id(filter_lifetime).has_option(o)) id(filter_lifetime).publish_state(o);
+            });
+            duco_extra() = x;
         - script.execute: show_mode
         - script.execute: show_efficiency
         - light.turn_on:
@@ -164,11 +181,31 @@ select:
     name: Stand
     on_value:
       - script.execute: show_mode
+  # how often the filter is due (box parameter 31/0A, days)
+  - platform: template
+    id: filter_lifetime
+    name: Filter interval
+    icon: mdi:air-filter
+    entity_category: config
+    options: ["90", "180", "270", "360"]
+    optimistic: false
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x31, 0x0A, atoi(x.c_str()));"
 
 number:
-  - platform: duco
+  # the supply temperature target ("comfort"): box parameter 13/0A in °C x 10
+  # (the duco component's 12/0A does not exist on this box)
+  - platform: template
     id: comfort_temp
     name: Comforttemperatuur
+    icon: mdi:thermometer-auto
+    unit_of_measurement: "°C"
+    min_value: 10
+    max_value: 25.5
+    step: 0.5
+    optimistic: false
+    set_action:
+      - lambda: "if (duco_extra()) duco_extra()->write(0x13, 0x0A, (int32_t) lroundf(x * 10));"
     on_value:
       - lvgl.label.update:
           id: comfort_value
@@ -255,6 +292,55 @@ sensor:
         - lvgl.label.update:
             id: eha_value
             text: !lambda 'return isnan(x) ? std::string("--") : str_sprintf("%.1f°", x);'
+  # the fans themselves (duco_extra.h): what the box really does, not what was asked
+  - platform: template
+    id: fan_sup_rpm
+    name: Ventilator toevoer
+    icon: mdi:fan
+    unit_of_measurement: rpm
+    accuracy_decimals: 0
+    update_interval: never
+    on_value:
+      - script.execute: show_fans
+  - platform: template
+    id: fan_eha_rpm
+    name: Ventilator afvoer
+    icon: mdi:fan
+    unit_of_measurement: rpm
+    accuracy_decimals: 0
+    update_interval: never
+    on_value:
+      - script.execute: show_fans
+  - platform: template
+    id: fan_sup_level
+    name: Ventilatorniveau toevoer
+    icon: mdi:speedometer
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: never
+    on_value:
+      - script.execute: show_fans
+  - platform: template
+    id: fan_eha_level
+    name: Ventilatorniveau afvoer
+    icon: mdi:speedometer
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    id: fan_sup_raw
+    name: Toevoer meetwaarde
+    icon: mdi:gauge
+    entity_category: diagnostic
+    accuracy_decimals: 0
+    update_interval: never
+  - platform: template
+    id: fan_eha_raw
+    name: Afvoer meetwaarde
+    icon: mdi:gauge
+    entity_category: diagnostic
+    accuracy_decimals: 0
+    update_interval: never
   - platform: wifi_signal
     id: wifi_rssi
     name: Wifi-signaal
@@ -381,6 +467,17 @@ script:
           state:
             checked: !lambda 'return id(duco_mode).has_state() && id(duco_mode).current_option() == "EMPT";'
 
+  # what the fans really do, beside what the stand asks
+  - id: show_fans
+    then:
+      - lvgl.label.update:
+          id: fan_label
+          text: !lambda |-
+            const float lvl = id(fan_sup_level).state, rpm = id(fan_sup_rpm).state;
+            if (isnan(lvl) && isnan(rpm)) return std::string("VENTILATOREN --");
+            return str_sprintf("VENTILATOREN %s · %s RPM", isnan(lvl) ? "--" : str_sprintf("%d%%", (int) lvl).c_str(),
+                               isnan(rpm) ? "--" : str_sprintf("%d", (int) rpm).c_str());
+
   - id: show_efficiency
     then:
       - lambda: |-
@@ -404,8 +501,11 @@ script:
             const std::string serial = id(duco_serial).has_state() ? id(duco_serial).state : std::string("--");
             const std::string wifi = isnan(rssi) ? std::string("--") : str_sprintf("%d dBm", (int) rssi);
             const int u = isnan(up) ? 0 : (int) up;
-            return str_sprintf("IP %s\nWIFI %s\nAAN %dd %dh %dm\nDUCO %s", ip.c_str(), wifi.c_str(),
-                               u / 86400, (u % 86400) / 3600, (u % 3600) / 60, serial.c_str());
+            const float fs = id(fan_sup_rpm).state, fe = id(fan_eha_rpm).state;
+            return str_sprintf("IP %s   WIFI %s\nAAN %dd %dh %dm\nFANS %s / %s RPM\nDUCO %s", ip.c_str(), wifi.c_str(),
+                               u / 86400, (u % 86400) / 3600, (u % 3600) / 60,
+                               isnan(fs) ? "--" : str_sprintf("%d", (int) fs).c_str(),
+                               isnan(fe) ? "--" : str_sprintf("%d", (int) fe).c_str(), serial.c_str());
 
   # ---- touch calibration --------------------------------------------------------
   # Four crosses in the landscape screen's corners. ESPHome turns a raw reading
@@ -820,6 +920,15 @@ lvgl:
             text_font: f_tiny
             text_color: ${dim}
         - label:
+            id: fan_label
+            x: 6
+            y: 168
+            width: 198
+            text_align: CENTER
+            text: "VENTILATOREN --"
+            text_font: f_tiny
+            text_color: ${amber}
+        - label:
             id: mode_label
             x: 0
             y: 228
@@ -1205,6 +1314,9 @@ lvgl:
                   border_width: 0
 
 interval:
+  - interval: 1s
+    then:
+      - lambda: "if (duco_extra()) duco_extra()->poll();"
   - interval: 10s
     then:
       - if:
