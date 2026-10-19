@@ -1,0 +1,11 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Huiskennis",
+        "description": "Een alleen-lezen LLM-API: de toestand, geschiedenis en statistiek van de entiteiten die aan Assist zijn blootgesteld. Bedient niets. Kies hem in de Model Context Protocol Server om hem aan ChatGPT of Claude te geven."
+      }
+    },
+    "abort": { "single_instance_allowed": "Huiskennis is al toegevoegd." }
+  }
+}

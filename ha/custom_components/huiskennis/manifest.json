@@ -1,0 +1,15 @@
+{
+  "domain": "huiskennis",
+  "name": "Huiskennis",
+  "version": "1.0.0",
+  "documentation": "https://github.com/holoduke/korvo-1",
+  "issue_tracker": "https://github.com/holoduke/korvo-1/issues",
+  "dependencies": ["recorder"],
+  "after_dependencies": ["homeassistant"],
+  "config_flow": true,
+  "single_config_entry": true,
+  "integration_type": "service",
+  "codeowners": [],
+  "requirements": [],
+  "iot_class": "local_polling"
+}
