@@ -15,9 +15,11 @@
   const { $ } = Panel;
   const bootAt = performance.now();
   const demo = new URLSearchParams(location.search).has("demo");
+  /* reloaded by update.js under the screensaver: back to it, no show */
+  const resumeSaver = new URLSearchParams(location.search).has("saver");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const MIN_SHOW = demo ? 1100 : 3600; /* ms from boot before the app may show */
-  const READY_FLASH = demo ? 0 : 600; /* ms of "system online" before the fade */
+  const MIN_SHOW = demo ? 1100 : resumeSaver ? 0 : 3600; /* ms from boot before the app may show */
+  const READY_FLASH = demo || resumeSaver ? 0 : 600; /* ms of "system online" before the fade */
   const HUD_AT = reduced ? 0 : 1100; /* the power-on in splash.css takes this long */
 
   const TEXT = {
@@ -349,7 +351,8 @@
     $("splashFill").style.width = "100%";
     setTimeout(() => {
       splash.classList.add("gone");
-      Panel.wake();
+      if (resumeSaver && Panel.showSaver) Panel.showSaver();
+      else Panel.wake();
       setTimeout(() => {
         stopLoop();
         splash.remove();

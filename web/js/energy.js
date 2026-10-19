@@ -132,6 +132,7 @@
     const ids = counterIds();
     if (statsBusy || !ids.length) return;
     statsBusy = true;
+    const day = new Date().toDateString(); /* the day asked for: a reply after midnight is still that day's */
     try {
       const [days, now] = await Promise.all([Panel.client.dailyUse(ids, dayStart(6)), Panel.client.useToday(ids)]);
       daily.clear();
@@ -139,7 +140,7 @@
       today.clear();
       for (const [id, v] of Object.entries(now)) if (v != null) today.set(id, v);
       statsAt = Date.now();
-      statsDay = new Date().toDateString();
+      statsDay = day;
       renderAll();
     } catch (e) {
       /* retried on the next refresh */
@@ -285,11 +286,17 @@
   function houseOn(back) {
     const imp = importOn(back);
     if (!solar || !Number.isFinite(imp)) return imp;
-    const sun = sunOn(back);
-    return Number.isFinite(sun) ? imp + Math.max(0, sun - (exportOn(back) || 0)) : imp;
+    const kept = selfOn(back);
+    return Number.isFinite(kept) ? imp + kept : imp;
   }
-  /* Of what the panels made, what the house used itself (the rest went back). */
-  const selfOn = (back) => (Number.isFinite(sunOn(back)) ? Math.max(0, sunOn(back) - (exportOn(back) || 0)) : NaN);
+  /* Of what the panels made, what the house used itself (the rest went back).
+   * Unknown without the day's export figure: counting it all as kept would
+   * overstate both the house's use and the share it kept. */
+  function selfOn(back) {
+    const sun = sunOn(back);
+    const exp = grid ? exportOn(back) : 0;
+    return Number.isFinite(sun) && Number.isFinite(exp) ? Math.max(0, sun - exp) : NaN;
+  }
   const SOLAR_MODE = {
     Waiting: "Wacht op zon", Checking: "Controleert", "Normal Mode": "Levert", Fault: "Storing",
     "Permanent Fault Mode": "Storing", "Update Mode": "Update", "EPS Checking": "Noodstroom", "EPS Mode": "Noodstroom",
@@ -869,6 +876,7 @@
       const p = IMPORT.map((k) => priceOf(G[k])).filter(Number.isFinite);
       return p.length ? p.reduce((s, v) => s + v, 0) / p.length : NaN;
     },
+    priceOf, /* €/kWh of a counter in Home Assistant's energy settings, NaN without one */
     today: (id) => useOn(id, 0),
     /* the inverter's state in words ("Levert", "Slaapt, geen zon") */
     solarMode: () => solarMode(),

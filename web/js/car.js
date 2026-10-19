@@ -152,6 +152,7 @@
   const twoTap = Util.confirmer(CONFIRM_MS, () => render());
   const pending = Util.pendingSet(PENDING_MS, () => render());
   const retries = new Map(); /* entity key -> the timer of its next attempt */
+  const generation = new Map(); /* entity key -> count of commands sent: only the newest may retry */
   /* What a command changes: the state, or the climate and media attributes it sets. */
   const snap = (x) =>
     x ? JSON.stringify([x.state, x.attributes && x.attributes.temperature, x.attributes && x.attributes.preset_mode, x.attributes && x.attributes.volume_level]) : "";
@@ -450,13 +451,17 @@
        * waiting for the car to wake must not land after it (unlock after lock). */
       clearTimeout(retries.get(key));
       retries.delete(key);
+      /* and one still in flight, failing later, must not schedule a retry of its own */
+      const gen = (generation.get(key) || 0) + 1;
+      generation.set(key, gen);
       pending.mark(control, () => snap(s(key)), repeatable ? RETRY_WINDOW_MS : PENDING_MS);
       const attempt = (tries) =>
         Panel.client.callService(domain, service, data || null, { entity_id: E[key] }).catch(async (err) => {
+          if (generation.get(key) !== gen) return; /* a newer command for this entity took over */
           const t = trouble(err);
           if (t.again && repeatable && tries < RETRY_DELAYS_MS.length) {
             if (t.refresh) await Panel.client.callService("homeassistant", "update_entity", null, { entity_id: E.online || E[key] }).catch(() => {});
-            if (!pending.has(control)) return; /* dropped or expired meanwhile */
+            if (!pending.has(control) || generation.get(key) !== gen) return; /* dropped, expired or superseded meanwhile */
             return retries.set(key, setTimeout(() => attempt(tries + 1), RETRY_DELAYS_MS[tries]));
           }
           pending.drop(control);

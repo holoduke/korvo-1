@@ -154,7 +154,7 @@
         ic.innerHTML = icon(want);
       }
       const sub = el.querySelector(".t-sub");
-      const text = !s && !loaded ? "..." : un ? "niet beschikbaar" : on ? "aan" : "uit";
+      const text = !s && !loaded ? "..." : un ? "onbereikbaar" : on ? "aan" : "uit";
       if (sub && sub.textContent !== text) sub.textContent = text; /* unchanged text: no relayout */
       /* The power button fills with the lamp's colour; its icon goes dark on a light colour. */
       if (ic.classList.contains("t-power")) {
@@ -222,7 +222,8 @@
   function syncTabBrightness(id) {
     cfg.tabs.forEach((t, ti) => {
       if (!t.lights[0] || t.lights[0].id !== id) return;
-      const v = Panel.brightnessPct(id);
+      /* off has no brightness attribute: the slider goes to 0, not stays where it was */
+      const v = (st(id) || {}).state === "off" ? 0 : Panel.brightnessPct(id);
       if (v < 0) return;
       Panel.tabBrightness[ti] = v;
       if (ti === Panel.activeTab() && !Panel.activeArea()) Panel.showBrightness(v);

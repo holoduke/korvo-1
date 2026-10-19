@@ -146,6 +146,7 @@
     const pending = new Map();
     let pingTimer = null;
     let lastPong = 0;
+    let lastRx = 0; /* anything from Home Assistant: state events prove the socket alive too */
     let authFailed = false; /* the login was refused: the next connection goes through the login page */
     let retry = 0;
     let authRejected = 0; /* auth_invalid answers since the last auth_ok */
@@ -179,8 +180,12 @@
         /* full or private: no cache this time */
       }
     }
-    const scheduleCacheSave = () => !cacheTimer && (cacheTimer = setTimeout(saveCache, 15000));
+    /* The meters tick every few seconds: serialising every state into storage
+     * every 15 s, day and night, is needless work and flash wear on a wall
+     * tablet. Every 5 minutes, and whenever the page goes away. */
+    const scheduleCacheSave = () => !cacheTimer && (cacheTimer = setTimeout(saveCache, 5 * 60e3));
     document.addEventListener("visibilitychange", () => document.hidden && authed && saveCache());
+    window.addEventListener("pagehide", () => authed && saveCache());
     /* A request made while the connection is down (a tap right after the tablet
      * wakes up) brings the connection back at once and waits for it, this long. */
     const WAIT_FOR_CONNECTION_MS = 15000;
@@ -360,6 +365,7 @@
         }
       }, HANDSHAKE_MS);
       socket.onmessage = (e) => {
+        lastRx = Date.now();
         const msg = JSON.parse(e.data);
         if (msg.type === "auth_required") {
           socket.send(JSON.stringify({ type: "auth", access_token: token }));
@@ -489,8 +495,12 @@
        * an open socket, which may have died while the page slept. */
       if (!ws) return reconnectNow();
       if (!authed) return;
+      /* states arrived a moment ago: the socket lives, no need to ask */
+      if (Date.now() - lastRx < 5000) return;
       const socket = ws;
-      const probe = setTimeout(() => drop(socket), 4000);
+      /* PROBE_MS, not less: a busy Home Assistant may take seconds to pong, and
+       * dropping a live socket costs a full state dump and a day of history */
+      const probe = setTimeout(() => drop(socket), PROBE_MS);
       transmit({ type: "ping" }).then(
         () => {
           clearTimeout(probe);

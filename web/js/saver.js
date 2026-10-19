@@ -131,6 +131,8 @@
    * mouse move, except in its first moments (a mouse still settling after the
    * preview button was clicked). */
   const visionOn = () => !!(Panel.visionSaver && Panel.visionSaver.shown());
+  /* Any of the three screensavers is up (update.js reloads under it and brings it back). */
+  Panel.saverShown = () => !saver.hidden || houseSaver || visionOn();
   let visionAt = 0;
   function wakeVision() {
     if (!visionOn() || performance.now() - visionAt < 800) return;

@@ -85,7 +85,13 @@
     return v;
   };
 
+  /* One load at a time: at boot "loaded" (from the cache) and "connected"
+   * both ask, and a flapping connection must not fetch a day for every return. */
+  let historyBusy = false;
+  let historyAt = 0;
   async function loadHistory() {
+    if (historyBusy) return;
+    historyBusy = true;
     try {
       const res = await Panel.client.history(historyIds, new Date(Date.now() - 24 * 3600e3));
       for (const id of historyIds) {
@@ -102,9 +108,12 @@
         const live = (Panel.hist[id] || []).filter((p) => !rows.length || p.t > rows[rows.length - 1].t);
         Panel.hist[id] = rows.concat(live);
       }
+      historyAt = Date.now();
       Panel.emit("history");
     } catch (e) {
       /* retried on the next half-hour refresh */
+    } finally {
+      historyBusy = false;
     }
   }
 
@@ -149,5 +158,5 @@
   Panel.on("loaded", loadHistory);
   /* Again every half hour, and as soon as the connection is back after an outage. */
   Panel.everyAwake(30 * 60e3, () => Panel.isLoaded() && Panel.connected() && loadHistory());
-  Panel.on("status", (s) => s === "connected" && Panel.isLoaded() && loadHistory());
+  Panel.on("status", (s) => s === "connected" && Panel.isLoaded() && !Panel.sleeping() && Date.now() - historyAt > 5 * 60e3 && loadHistory());
 })();

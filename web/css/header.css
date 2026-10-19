@@ -23,7 +23,7 @@
 }
 .hdr-strip::-webkit-scrollbar { display: none; }
 /* More columns hide to the right: fade that edge (header.js toggles it). */
-.hdr-strip.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.hdr-strip.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 78%, transparent); mask-image: linear-gradient(90deg, #000 78%, transparent); }
 .fc { display: flex; gap: var(--hdr-gap); align-items: center; }
 .fc-col, .sensor-col { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .fc-day { font-size: 13px; color: var(--text_dim); font-weight: 600; }

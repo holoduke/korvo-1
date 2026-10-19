@@ -35,7 +35,11 @@
   /* rest_command.wiim_keuken_bluetooth (a service, no entity): the kitchen speaker ready for Bluetooth */
   const BT_SPEAKER = "media_player.kitchen";
   const SLEEP = [0, 15, 30, 60, 90, 120];
-  const SOURCE_NL = { wifi: "Wi-Fi", bluetooth: "Bluetooth", "line-in": "Line-in", optical: "Optisch", coaxial: "Coax", HDMI: "HDMI", udisk: "USB" };
+  /* source names in Dutch: the speaker's own modes and Home Assistant's source_list names */
+  const SOURCE_NL = {
+    wifi: "Wi-Fi", bluetooth: "Bluetooth", "line-in": "Line-in", optical: "Optisch", coaxial: "Coax", HDMI: "HDMI", udisk: "USB",
+    Network: "Wi-Fi", "Line In": "Line-in", "Optical In": "Optisch", TV: "TV (HDMI)",
+  };
   const STATE_NL = { playing: "Speelt", paused: "Pauze", idle: "Stil", on: "Aan", off: "Uit", standby: "Stand-by", buffering: "Laden", unavailable: "Offline" };
 
   const s = (id) => Panel.st(id);
@@ -154,7 +158,7 @@
   /* Sources: the integration's list when it has one, else the speaker's own modes. */
   function sources(id) {
     const list = at(id).source_list;
-    if (list && list.length) return list.map((name) => ({ name, label: { Network: "Wi-Fi", "Line In": "Line-in", "Optical In": "Optisch", TV: "TV (HDMI)" }[name] || name, active: at(id).source === name, via: "ha" }));
+    if (list && list.length) return list.map((name) => ({ name, label: SOURCE_NL[name] || name, active: at(id).source === name, via: "ha" }));
     const mode = (extra(id) || {}).mode;
     return ["wifi", "bluetooth"].map((m) => ({ name: m, label: SOURCE_NL[m], active: mode === m || (m === "bluetooth" && at(id).source === "Bluetooth"), via: "wiim" }));
   }
@@ -276,7 +280,7 @@
           SLEEP.map((m) => `<button class="au-chip${(m === 0 && !left) ? " active" : ""}" data-act="sleep|${id}|${m * 60}">${m ? `${m} min` : "Uit"}</button>`).join("") +
           `</div></div>` +
           `<div class="au-health">` +
-          `<span>${bars(w.rssi)}<b>${Number.isFinite(w.rssi) ? `${w.rssi} dBm` : w.wired ? "Kabel" : "–"}</b>${w.band ? ` ${esc(w.band)}` : ""}${w.rate ? ` · ${w.rate} Mbit/s` : ""}</span>` +
+          `<span>${bars(w.rssi)}<b>${Number.isFinite(w.rssi) ? `${w.rssi} dBm` : w.wired ? "Kabel" : "–"}</b>${w.band ? ` ${esc(w.band)}` : ""}${Number.isFinite(Number(w.rate)) && w.rate ? ` · ${fmt(Number(w.rate))} Mbit/s` : ""}</span>` +
           (Number.isFinite(x.temp_cpu) ? `<span>${icon("thermometer")}CPU <b>${x.temp_cpu}°</b>${Number.isFinite(x.temp_amp) ? ` · versterker <b>${x.temp_amp}°</b>` : ""}</span>` : "") +
           `<span>${icon("wrench")}${esc(x.firmware || "")}${x.update ? ` <b class="warn">update</b>` : ""}</span>` +
           `<span>${icon("globe")}${esc(x.host)}${x.internet ? "" : ` <b class="warn">geen internet</b>`}</span>` +
@@ -440,7 +444,7 @@
     const st = s(lead);
     if (!st) return null;
     if (st.state === "playing") return g;
-    const pausedFor = Date.now() - new Date(st.last_changed).getTime();
+    const pausedFor = Date.now() - (st.lastChanged || 0); /* ha.js keeps it as ms */
     return st.state === "paused" && pausedFor < PAUSED_KEEP_MS ? g : null;
   }
   function groupVolume(g) {

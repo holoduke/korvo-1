@@ -151,7 +151,8 @@
     badge.hidden = !!photo;
     renderBadge(badge, a);
     card.querySelector(".ap-title b").textContent = a.label;
-    card.querySelector(".ap-pill").textContent = view.pill || "";
+    /* a pill that repeats the big word ("Aan" twice) says nothing new */
+    card.querySelector(".ap-pill").textContent = view.word && view.pill === view.big ? "" : view.pill || "";
     const bigEl = card.querySelector(".ap-big");
     bigEl.textContent = view.big ?? "";
     Util.flashOnChange(bigEl);
@@ -210,8 +211,10 @@
   }
   function callFor(a, key) {
     const wait = kindOf(a).pendingMs; /* the kind's own patience (a cloud-polled pump), else PENDING_MS */
-    return (domain, service, data, entity) => {
-      if (!entity || alreadySo(domain, service, data, entity)) return;
+    /* force: send even when it seems so already (a Start writes the program to
+     * ActiveProgram, which can still name the last run's program) */
+    return (domain, service, data, entity, force = false) => {
+      if (!entity || (!force && alreadySo(domain, service, data, entity))) return;
       if (domain === "number" && service === "set_value") targets.set(entity, { value: data.value, until: Date.now() + (wait || PENDING_MS) });
       const snapshot = () => {
         const s = Panel.st(entity);

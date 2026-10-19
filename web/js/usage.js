@@ -241,8 +241,13 @@
     const rows = bars();
     const total = rows.reduce((s, b) => s + b.parts.reduce((t, p) => t + p.v, 0), 0);
     const anyKnown = rows.some((b) => b.parts.some((p) => p.known));
-    const price = m.paid || m.earned ? E.importPrice() : NaN;
-    const money = m.unit === "kWh" && Number.isFinite(price) && anyKnown ? total * price : NaN;
+    /* per series at its own price where Home Assistant has one (the meter's
+     * tariffs, its export price), else at the mean import price */
+    const priceOf = (id) => (Number.isFinite(E.priceOf(id)) ? E.priceOf(id) : E.importPrice());
+    const money =
+      m.unit === "kWh" && (m.paid || m.earned) && anyKnown
+        ? m.series.reduce((sum, x, n) => sum + rows.reduce((t, b) => t + b.parts[n].v, 0) * priceOf(x.id), 0)
+        : NaN;
     const perDay = r.days > 1 && anyKnown ? total / r.days : NaN;
     const sum = $("usageSum");
     if (open.busy) sum.innerHTML = `<span class="usage-dim">Gegevens ophalen…</span>`;

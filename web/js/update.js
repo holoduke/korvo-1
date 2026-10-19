@@ -23,6 +23,7 @@
   const IDLE_BEFORE_RELOAD = 60e3;
   const AWAY_IS_START = 30e3; /* back in view after this long counts as a start */
   const TRIED_KEY = "panel.updateTried";
+  const RETRY_TRIED_MS = 3600e3;
   const isPhone = () => matchMedia("(max-width: 700px), (orientation: landscape) and (max-height: 440px)").matches;
 
   /* /local/panel is the same app, but Home Assistant gives everything there a
@@ -43,8 +44,9 @@
 
   /* Loaded through an update navigation: take ?u= off the address again. */
   const here = new URL(location.href);
-  if (here.searchParams.has("u")) {
+  if (here.searchParams.has("u") || here.searchParams.has("saver")) {
     here.searchParams.delete("u");
+    here.searchParams.delete("saver"); /* splash.js has read it */
     history.replaceState(history.state, "", here.pathname + here.search + here.hash);
   }
 
@@ -52,15 +54,21 @@
   let busy = false;
   let hiddenAt = 0;
 
+  /* AbortSignal.timeout is missing on older tablet browsers (Safari < 16):
+   * there it threw, and the panel silently never updated. */
+  function timeout(ms) {
+    const c = new AbortController();
+    setTimeout(() => c.abort(), ms);
+    return c.signal;
+  }
   async function remoteVersion() {
-    const res = await fetch("version.txt?t=" + Date.now(), { cache: "no-store", signal: AbortSignal.timeout(10000) });
+    const res = await fetch("version.txt?t=" + Date.now(), { cache: "no-store", signal: timeout(10000) });
     if (!res.ok) throw new Error("version.txt " + res.status);
     return (await res.text()).trim();
   }
 
   function idle() {
-    const saver = document.getElementById("saver");
-    return document.visibilityState !== "visible" || (saver && !saver.hidden) || (Panel.idleFor ? Panel.idleFor() : Infinity) >= IDLE_BEFORE_RELOAD;
+    return document.visibilityState !== "visible" || (Panel.saverShown && Panel.saverShown()) || (Panel.idleFor ? Panel.idleFor() : Infinity) >= IDLE_BEFORE_RELOAD;
   }
 
   Panel.checkForUpdate = async function (atStart) {
@@ -76,21 +84,26 @@
       } catch (e) {
         /* storage unavailable: the page check below still prevents a loop */
       }
-      if (tried === remote) {
-        console.warn(`update: ${remote} is published but this page is still ${current}; not reloading again`);
+      /* "version|time": a failed try blocks that version for an hour, not for the tab's life */
+      const [triedV, triedAt] = String(tried || "").split("|");
+      if (triedV === remote && Date.now() - Number(triedAt || 0) < RETRY_TRIED_MS) {
+        console.warn(`update: ${remote} is published but this page is still ${current}; not reloading again yet`);
         return false;
       }
       /* Replace the HTTP cache entry the reload will use, and only reload when
        * that fresh copy is the published version. */
-      const fresh = await (await fetch(pageUrl(), { cache: "reload", signal: AbortSignal.timeout(20000) })).text();
+      const fresh = await (await fetch(pageUrl(), { cache: "reload", signal: timeout(20000) })).text();
       if (!fresh.includes(`name="panel-version" content="${remote}"`)) return false;
       try {
-        sessionStorage.setItem(TRIED_KEY, remote);
+        sessionStorage.setItem(TRIED_KEY, `${remote}|${Date.now()}`);
       } catch (e) {
         /* see above */
       }
       const next = new URL(location.href);
       next.searchParams.set("u", remote); /* not "v": that would make /thuis cache the page for a year */
+      /* under a screensaver: the new page goes straight back to it, without the
+       * boot show and without counting as someone at the panel */
+      if (Panel.saverShown && Panel.saverShown()) next.searchParams.set("saver", "1");
       location.replace(next.pathname + next.search + next.hash);
       return true;
     } catch (e) {

@@ -204,13 +204,25 @@
     return list;
   })();
 
+  /* The day once, then only what came since: the P1 meter's sensors report
+   * every few seconds, so a full day for every series every 10 minutes was
+   * tens of thousands of rows for the recorder and the tablet each time. */
+  let histFrom = 0; /* ms up to which hist is complete */
   async function loadHistory() {
     histAt = Date.now();
+    const dayAgo = Date.now() - 24 * 3600e3;
+    const since = histFrom > dayAgo ? histFrom - 60e3 : dayAgo;
     try {
-      const res = await Panel.client.historyFull(HIST_IDS, new Date(Date.now() - 24 * 3600e3), { attributes: false });
+      const res = await Panel.client.history(HIST_IDS, new Date(since));
       const out = {};
-      for (const id of HIST_IDS) out[id] = thin((res[id] || []).map((r) => [r.t, parseFloat(r.s)]).filter(([, v]) => ok(v)));
+      for (const id of HIST_IDS) {
+        const fresh = (res[id] || []).map((r) => [r.t, parseFloat(r.s)]).filter(([, v]) => ok(v));
+        const kept = since === dayAgo ? [] : (hist[id] || []).filter(([t]) => t >= dayAgo);
+        const last = kept.length ? kept[kept.length - 1][0] : -Infinity;
+        out[id] = thin(kept.concat(fresh.filter(([t]) => t > last)));
+      }
       hist = out;
+      histFrom = histAt;
       derived.clear();
     } catch (e) {
       /* unreachable for now: tried again in 10 minutes */
@@ -1469,7 +1481,7 @@
   }
 
   /* ---- The loop ---------------------------------------------------------------------------------- */
-  let shown = false, raf = 0, last = 0, lastDraw = 0, lastStatus = 0, house = null;
+  let shown = false, raf = 0, last = 0, lastDraw = 0, lastStatus = 0, lastClock = 0, house = null;
   const FRAME_MS = 33; /* 30 frames a second is plenty for this, and kinder to a tablet on all night */
   function frame(now) {
     raf = 0;
@@ -1492,7 +1504,11 @@
       q(".vn-status").classList.toggle("warn", n > 0);
     }
     const d = new Date();
-    q(".vn-clock").textContent = `${d.toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })} · ${d.toTimeString().slice(0, 8)}.${String(Math.floor(d.getMilliseconds() / 10)).padStart(2, "0")}`;
+    /* a few times a second: written every frame it forced a re-layout each frame */
+    if (now - lastClock > 90) {
+      lastClock = now;
+      q(".vn-clock").textContent = `${d.toLocaleDateString("nl-NL", { weekday: "short", day: "numeric", month: "short" })} · ${d.toTimeString().slice(0, 8)}.${String(Math.floor(d.getMilliseconds() / 10)).padStart(2, "0")}`;
+    }
     if (Date.now() - histAt > 10 * 60e3) loadHistory();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);

@@ -445,7 +445,9 @@
   }
 
   async function load(force) {
-    if (loading || (!force && Date.now() - loadedAt < 60e3)) return;
+    /* Two weeks of history and the robot's cloud log: not on every visit. A run
+     * that ends asks again at once (force), so a longer wait loses nothing. */
+    if (loading || (!force && Date.now() - loadedAt < 15 * 60e3)) return;
     loading = true;
     loadedAt = Date.now();
     /* The history first: it answers at once, the robot's own log can take seconds. */
@@ -612,6 +614,7 @@
     if (vstate === "docked" || vstate === "error" || (!JOB_STATES.includes(vstate) && Date.now() - run.at > GAVE_UP_MS)) run.at = 0;
   }
 
+  let runEnded = false; /* a run ended while the page was not shown */
   Panel.track(
     ["vacuum", "status", "battery", "area", "mode", "fan", "water", "locate"].map((k) => vac[k]),
     (ids, first) => {
@@ -619,11 +622,18 @@
       render();
       /* A run that ended is new history (two weeks of it: not for every state change). */
       const job = JOB_STATES.includes((st(vac.vacuum) || {}).state);
-      if (wasJob && !job && Panel.isLoaded() && onScreen()) load(true);
+      if (wasJob && !job && Panel.isLoaded()) {
+        if (onScreen()) load(true);
+        else runEnded = true; /* fetched when the page is next shown */
+      }
       wasJob = job;
     }
   );
-  const shownNow = () => Panel.isLoaded() && onScreen() && load(false);
+  const shownNow = () => {
+    if (!Panel.isLoaded() || !onScreen()) return;
+    load(runEnded);
+    runEnded = false;
+  };
   Panel.on("section", shownNow);
   Panel.on("robot", shownNow);
   Panel.on("loaded", shownNow);

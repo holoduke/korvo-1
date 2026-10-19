@@ -111,7 +111,8 @@
     if (!s(e[key])) return "";
     const at = attrs(e[key]);
     /* the room setpoint goes through the heating (heating.js): one write for a run of taps */
-    const v = key === "roomHeat" && Panel.heating ? Panel.heating.target() : num(e[key]);
+    /* what was tapped until the device confirms it (the NIBE is polled), so a second tap steps on from there */
+    const v = key === "roomHeat" && Panel.heating ? Panel.heating.target() : Panel.applianceTarget(e[key]);
     return field(label, stepper(i, `num|${key}`, known(v) ? `${fmt(v, digits)}${unit}` : "--", {
       canDown: known(v) && v > (at.min ?? -100),
       canUp: known(v) && v < (at.max ?? 100),
@@ -320,7 +321,7 @@
     },
     actions: {
       program: selectOption("selected"),
-      start: (a, args, call) => call("select", "select_option", { option: raw(a.entities.selected) }, a.entities.active),
+      start: (a, args, call) => call("select", "select_option", { option: raw(a.entities.selected) }, a.entities.active, true),
       stop: press("abort"),
       toggle,
     },
@@ -439,7 +440,7 @@
       start(a, args, call) {
         const e = a.entities;
         ovenWant = { temp: Panel.applianceTarget(e.setpointSet), time: Panel.applianceTarget(e.duration) };
-        call("select", "select_option", { option: raw(a.entities.selected) }, e.active);
+        call("select", "select_option", { option: raw(a.entities.selected) }, e.active, true);
         clearInterval(ovenStartTimer); /* a second Start: one wait, not two */
         let tries = 0;
         const timer = (ovenStartTimer = setInterval(() => {
@@ -623,7 +624,7 @@
       const flow = num(e.flow);
       const left = num(e.left);
       const timed = code.startsWith("MAN") && Number.isFinite(left) && left > 0;
-      const comfort = num(e.comfort);
+      const comfort = Panel.applianceTarget(e.comfort);
       const cAttr = attrs(e.comfort);
       const filterDays = num(e.filter);
       const chipFor = (label, opt) => chip(i, `stand|${opt}`, label, code === opt);
@@ -631,7 +632,7 @@
       const fanEha = num(e.fanEha);
       const fanLevel = num(e.fanLevel);
       const fans = Number.isFinite(fanSup) && Number.isFinite(fanEha) ? `${fmt(fanSup)} / ${fmt(fanEha)} rpm` : "--";
-      const nbTemp = num(e.nightboostTemp);
+      const nbTemp = Panel.applianceTarget(e.nightboostTemp);
       const nbAttr = attrs(e.nightboostTemp);
       const bypassMode = raw(e.bypassMode);
       const interval = raw(e.filterInterval);
@@ -661,7 +662,7 @@
           ? `<div class="ap-label">Debiet per stand</div>` +
             `<div class="ap-row ap-split">` +
             WTW_LEVELS.map(([k, label]) => {
-              const v = num(e[k]);
+              const v = Panel.applianceTarget(e[k]);
               const at = attrs(e[k]);
               return field(
                 `Stand ${label}`,
@@ -781,7 +782,7 @@
       const e = a.entities;
       if (offline(e.temp)) return offlineView("De koelkast is niet bereikbaar");
       const temp = num(e.temp);
-      const set = num(e.setpoint);
+      const set = Panel.applianceTarget(e.setpoint);
       const sp = attrs(e.setpoint);
       return {
         tone: on(e.supercool) ? "cold" : "ready",

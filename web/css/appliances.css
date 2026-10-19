@@ -111,6 +111,12 @@
 .ap-btn.primary { background: var(--accent); color: var(--on_text); }
 .ap-btn.on { background: var(--tile_on); color: var(--on_text); }
 .ap-btn.armed { background: var(--bad); color: #fff; }
+/* "Alle apparaten uit" asks for a second tap: say so, also on a phone where the button is only an icon */
+.allbtn.armed { background: var(--bad); color: #fff; }
+@media (max-width: 760px) {
+  .ap-bottom .allbtn.armed { flex: 1 1 auto; padding: 0 14px; }
+  .ap-bottom .allbtn.armed .txt { display: inline; }
+}
 .ap-btn.pending, .ap-chip.pending { opacity: 0.55; }
 .ap-btn:disabled, .ap-chip:disabled { opacity: 0.38; cursor: default; }
 .ap-btn.pressed, .ap-chip.pressed { transform: scale(0.96); }

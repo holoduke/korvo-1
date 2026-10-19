@@ -271,3 +271,26 @@ test("the solar panels show on Energie and in Apparaten, and sleep after dark", 
   await expect(card).not.toContainText(/undefined|NaN/);
   expect(problems).toEqual([]);
 });
+
+test("paused music keeps its card beside the house for a while", async ({ page }) => {
+  const problems = watch(page);
+  await open(page);
+  const play = page.locator('[data-aq="play"]').first();
+  test.skip(!(await play.count()), "no music card on this screen");
+  await expect(play).toHaveAttribute("aria-label", "Pauze");
+  await page.evaluate(() => window.PANEL_CONFIG.media.forEach((m) => Panel.client.simulate(m.id, "paused")));
+  /* paused a moment ago: still there to resume, now offering play */
+  await expect(page.locator('[data-aq="play"]').first()).toHaveAttribute("aria-label", "Speel");
+  expect(problems).toEqual([]);
+});
+
+test("switching every appliance off asks for a second tap, visibly", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "apparaten");
+  const btn = page.locator("#track > .page:not(.away) [data-alloff]").first();
+  await btn.click();
+  await expect(btn).toHaveClass(/\barmed\b/);
+  await expect(btn.locator(".txt")).toBeVisible();
+  await expect(btn.locator(".txt")).toHaveText("Nogmaals tikken");
+  expect(problems).toEqual([]);
+});

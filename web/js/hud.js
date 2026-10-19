@@ -244,6 +244,7 @@
         calls.forEach((a) => real.tintRoom(...a));
       }
       labels.replaceChildren(frag);
+      placedView = null; /* new labels: place them even if the camera held still */
     }
     place();
   }
@@ -307,11 +308,22 @@
   /* The labels follow their places while the house turns; where two would
    * overlap, the nearer one shows and the farther one waits its turn. */
   const LABEL_W = 96, LABEL_H = 30;
+  /* follow() asks every animation frame, but the house draws at half that
+   * rate and holds still at times: only a new view moves the labels. */
+  let placedView = null;
+  const spots = new WeakMap(); /* label -> its place in the plan, parsed once */
+  const spotOf = (el) => {
+    if (!spots.has(el)) spots.set(el, JSON.parse(el.dataset.at));
+    return spots.get(el);
+  };
   function place() {
     const house = Panel.house;
     if (!house) return;
+    const view = house.view ? house.view() : null;
+    if (view && view === placedView) return;
+    placedView = view;
     const placed = [...labels.children]
-      .map((el) => ({ el, p: house.project(JSON.parse(el.dataset.at)) }))
+      .map((el) => ({ el, p: house.project(spotOf(el)) }))
       .sort((a, b) => (a.p ? a.p.depth : Infinity) - (b.p ? b.p.depth : Infinity));
     const kept = [];
     for (const { el, p } of placed) {

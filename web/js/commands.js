@@ -30,6 +30,9 @@
       commands.set(key, c);
       pending.mark(key, c.landed, c.wait);
       c.send().catch((err) => {
+        /* a slow failure of an attempt that was resent or replaced meanwhile
+         * must not cancel the newer one or report it as failed */
+        if (commands.get(key) !== c) return;
         pending.drop(key);
         commands.delete(key);
         changed();

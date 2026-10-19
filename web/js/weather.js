@@ -140,8 +140,15 @@
     parts.push(sunText());
     return parts.filter(Boolean).join(" ");
   }
+  /* The calendar day after today: not now + 24 h, which lands on the same day
+   * (or skips one) around the DST change. */
+  function tomorrow() {
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    return t;
+  }
   function tomorrowText() {
-    const t = new Date(Date.now() + 864e5);
+    const t = tomorrow();
     const d = daily.find((x) => sameDay(new Date(x.datetime), t));
     if (!d) return "";
     const hours = hourly.filter((h) => sameDay(new Date(h.datetime), t) && new Date(h.datetime).getHours() >= 7);
@@ -195,7 +202,7 @@
       .slice(0, 7)
       .map((d) => {
         const t = new Date(d.datetime);
-        const name = sameDay(t, today) ? "Vandaag" : sameDay(t, new Date(Date.now() + 864e5)) ? "Morgen" : DAYS_LONG[t.getDay()];
+        const name = sameDay(t, today) ? "Vandaag" : sameDay(t, tomorrow()) ? "Morgen" : DAYS_LONG[t.getDay()];
         const rain = d.precipitation || 0;
         const chance = Number.isFinite(d.precipitation_probability) ? d.precipitation_probability : NaN;
         return (
