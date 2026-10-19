@@ -161,6 +161,37 @@
     },
   });
 
+  /* Solar panels (a SolaX inverter): what they give the house now, today and in
+   * total. It makes, not uses: it stays out of the devices' use (energy.js counts
+   * it into the house's own use). After dark the inverter is off, not offline. */
+  Panel.defineEnergyKind("solar", {
+    icon: "sun",
+    use: false,
+    chart: "power",
+    meter: null,
+    stats: ["total"],
+    power: (e) => (E.missing(e.power) ? 0 : E.scaled(e.power)),
+    card(e) {
+      const awake = !E.missing(e.power);
+      const w = awake ? E.scaled(e.power) : 0;
+      const [big, unit] = E.power(w);
+      const today = awake && known(E.scaled(e.today)) ? E.scaled(e.today) : E.today(e.total);
+      const volts = num(e.pv1Volts);
+      const amps = num(e.pv1Amps);
+      return {
+        tone: w > 5 ? "active" : "idle",
+        big,
+        unit: `${unit} opwek`,
+        chips: [
+          ["sun", E.solarMode()],
+          awake && known(volts) && volts > 0 ? ["plug", `${fmt(volts, 1)} V · ${fmt(known(amps) ? amps : 0, 1)} A`] : null,
+          awake && known(num(e.temp)) ? ["thermometer", `${fmt(num(e.temp))}°`] : null,
+        ],
+        foot: [[`Vandaag <b>${E.kwhText(today)}</b>`], [`Totaal <b>${E.kwhText(E.missing(e.total) ? NaN : E.scaled(e.total))}</b>`]],
+      };
+    },
+  });
+
   /* JK BMS battery: charge, power (positive = charging, the BMS's own sign),
    * voltage and the cells' spread, cycles, health and temperature. */
   const CELL_SPREAD_WARN = 50; /* mV between the highest and lowest cell */

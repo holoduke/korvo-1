@@ -1367,6 +1367,30 @@ window.PANEL_CONFIG = {
       }
     },
     {
+      "kind": "solar",
+      "label": "Zonnepanelen",
+      "name": "solax",
+      "entities": {
+        "power": "sensor.solax_measured_power",
+        "pv": "sensor.solax_pv_power_total",
+        "pv1Volts": "sensor.solax_pv_voltage_1",
+        "pv1Amps": "sensor.solax_pv_current_1",
+        "pv1Power": "sensor.solax_pv_power_1",
+        "pv2Volts": "sensor.solax_pv_voltage_2",
+        "pv2Amps": "sensor.solax_pv_current_2",
+        "pv2Power": "sensor.solax_pv_power_2",
+        "today": "sensor.solax_today_s_yield",
+        "total": "sensor.solax_total_yield",
+        "acVolts": "sensor.solax_inverter_voltage",
+        "acAmps": "sensor.solax_inverter_current",
+        "acFreq": "sensor.solax_inverter_frequency",
+        "temp": "sensor.solax_inverter_temperature",
+        "mode": "sensor.solax_run_mode",
+        "limit": "number.solax_active_power_limit",
+        "firmware": "sensor.solax_software_version"
+      }
+    },
+    {
       "kind": "washer",
       "label": "Wasmachine",
       "name": "wasruimte_wasmachine",
@@ -1967,6 +1991,30 @@ window.PANEL_CONFIG = {
         "voltage3": "sensor.electricity_meter_voltage_phase_l3",
         "sags3": "sensor.electricity_meter_voltage_sags_phase_l3",
         "swells3": "sensor.electricity_meter_voltage_swells_phase_l3"
+      }
+    },
+    {
+      "kind": "solar",
+      "label": "Zonnepanelen",
+      "name": "solax",
+      "entities": {
+        "power": "sensor.solax_measured_power",
+        "pv": "sensor.solax_pv_power_total",
+        "pv1Volts": "sensor.solax_pv_voltage_1",
+        "pv1Amps": "sensor.solax_pv_current_1",
+        "pv1Power": "sensor.solax_pv_power_1",
+        "pv2Volts": "sensor.solax_pv_voltage_2",
+        "pv2Amps": "sensor.solax_pv_current_2",
+        "pv2Power": "sensor.solax_pv_power_2",
+        "today": "sensor.solax_today_s_yield",
+        "total": "sensor.solax_total_yield",
+        "acVolts": "sensor.solax_inverter_voltage",
+        "acAmps": "sensor.solax_inverter_current",
+        "acFreq": "sensor.solax_inverter_frequency",
+        "temp": "sensor.solax_inverter_temperature",
+        "mode": "sensor.solax_run_mode",
+        "limit": "number.solax_active_power_limit",
+        "firmware": "sensor.solax_software_version"
       }
     },
     {

@@ -78,6 +78,14 @@
  * own readings and the grid's quality. From the grid is amber, back to it green. */
 .en-meter { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; }
 .en-meter[hidden] { display: none; }
+/* the solar panels: the meter's layout, in the colour of the sun */
+.en-solar { display: flex; flex-direction: column; gap: 14px; padding: 16px 18px; }
+.en-solar[hidden], .en-solar-row[hidden] { display: none; }
+.em-tariff.sun { color: #e0a400; background: color-mix(in srgb, #ffc83d 18%, transparent); }
+.em-flow.solar .em-arrow { color: #ffc83d; background: color-mix(in srgb, #ffc83d 16%, transparent); box-shadow: 0 0 22px color-mix(in srgb, #ffc83d 30%, transparent); }
+.em-flow.solar.idle .em-arrow { color: var(--text_dim); background: color-mix(in srgb, var(--text_dim) 12%, transparent); box-shadow: none; }
+.en-solar .em-bar i.out { left: 0; right: auto; background: #ffc83d; }
+.em-rest { margin: 0; font-size: 13px; font-weight: 600; color: var(--text_dim); }
 .em-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .em-head .dc-title { margin: 0; }
 .em-tariff { padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
@@ -130,7 +138,7 @@
   .em-day { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
-  .en-meter { padding: 14px; gap: 12px; }
+  .en-meter, .en-solar { padding: 14px; gap: 12px; }
   .em-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .em-day { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .em-now b { font-size: 34px; }

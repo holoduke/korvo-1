@@ -48,6 +48,13 @@
         ];
       case "bike":
         return [m("Verbruikt", "kWh", [s(e.energy, "Verbruikt", own)], { note: "Wat de motor gebruikte tijdens het rijden; thuis opladen kost iets meer (laadverlies)." })];
+      case "solar":
+        return [
+          m("Opgewekt", "kWh", [s(e.total, "Opgewekt", own)], {
+            earned: true,
+            note: "Wat de panelen maakten. Met salderen is elke kWh de stroomprijs waard, ook wat terug het net op gaat.",
+          }),
+        ];
       case "battery":
         return [m("Geladen", "kWh", [s(e.charged, "Geladen", "#66bb6a")]), m("Ontladen", "kWh", [s(e.discharged, "Ontladen", own)])];
       case "heatpump":
@@ -71,13 +78,14 @@
   Panel.usageFor = (a) => {
     for (const [key, { d }] of sources) {
       if (a.kind === "heatpump" && d.kind === "heatpump") return key;
+      if (a.kind === "solar" && d.kind === "solar") return key;
       if (a.entities.energy && a.entities.energy === d.entities.energy) return key;
     }
     return null;
   };
   Panel.usageLabel = (key) => {
     const src = sources.get(key);
-    return src && src.d.kind === "heatpump" ? "Geleverde warmte" : "Verbruik";
+    return src && src.d.kind === "heatpump" ? "Geleverde warmte" : src && src.d.kind === "solar" ? "Opbrengst" : "Verbruik";
   };
 
   /* ---- Ranges --------------------------------------------------------------------- */

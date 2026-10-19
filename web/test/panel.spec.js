@@ -231,3 +231,43 @@ test("the WTW in Apparaten shows its stand and air, and switches the stand", asy
   await expect(card).not.toContainText(/undefined|NaN/);
   expect(problems).toEqual([]);
 });
+
+test("the solar panels show on Energie and in Apparaten, and sleep after dark", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "energie");
+  const sun = await page.evaluate(() => (window.PANEL_CONFIG.energy || []).find((d) => d.kind === "solar"));
+  test.skip(!sun, "no solar panels configured");
+  const panel = page.locator("#track > .page:not(.away) .en-solar");
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("Levert");
+  await expect(panel).toContainText("640 W");
+  await expect(panel).toContainText("Opgewekt vandaag");
+  await expect(panel).toContainText("3,40 kWh");
+  await expect(panel).toContainText("305,2 V");
+  /* the house's own use: what the grid gives plus what the panels make */
+  await expect(page.locator("#track > .page:not(.away) .en-now")).toContainText("Verbruik huis nu");
+  await expect(page.locator("#track > .page:not(.away) .en-now .en-big b")).toHaveText("2,41");
+  await expect(page.locator("#track > .page:not(.away) .en-solar-row")).toBeVisible();
+  await panel.locator(".usage-open").click();
+  await expect(page.locator("#usage")).toBeVisible();
+  await expect(page.locator("#usageTitle")).toHaveText("Zonnepanelen");
+  await page.locator("#usageClose").click();
+  /* after dark the inverter and its stick are off: asleep, not broken */
+  await page.evaluate((e) => Panel.client.simulate(e.power, "unavailable"), sun.entities);
+  await expect(panel).toContainText("Slaapt, geen zon");
+  await expect(panel).toContainText("0 W");
+  await expect(panel).not.toContainText(/undefined|NaN/);
+
+  await page.evaluate(() => Panel.goHash("#apparaten", false));
+  const i = await page.evaluate(() => window.PANEL_CONFIG.appliances.findIndex((a) => a.kind === "solar"));
+  await page.locator(`#track > .page:not(.away) [data-pick="${i}"]`).first().click();
+  const card = page.locator("#track > .page:not(.away) .ap-card");
+  await expect(card).toContainText("Slaapt, geen zon");
+  await page.evaluate((e) => Panel.client.simulate(e.power, "640"), sun.entities);
+  await expect(card).toContainText("Levert");
+  await expect(card.locator(".ap-big")).toHaveText("640");
+  await expect(card).toContainText("String 1");
+  await expect(card).toContainText("259 kWh");
+  await expect(card).not.toContainText(/undefined|NaN/);
+  expect(problems).toEqual([]);
+});

@@ -312,6 +312,17 @@ _HEATPUMP = {
     "roomCool": "number.{n}_room_sensor_set_point_value_cooling_climate_system_1",
     "coolOffset": "number.{n}_cooling_offset_climate_system_1", "coolStart": "number.{n}_start_cooling",
 }
+# A SolaX inverter through the solax_modbus integration (HACS, Modbus TCP):
+# AC power out, the panels' DC side per string, the yield counters, its state.
+_SOLAR = {
+    "power": "sensor.{n}_measured_power", "pv": "sensor.{n}_pv_power_total",
+    "pv1Volts": "sensor.{n}_pv_voltage_1", "pv1Amps": "sensor.{n}_pv_current_1", "pv1Power": "sensor.{n}_pv_power_1",
+    "pv2Volts": "sensor.{n}_pv_voltage_2", "pv2Amps": "sensor.{n}_pv_current_2", "pv2Power": "sensor.{n}_pv_power_2",
+    "today": "sensor.{n}_today_s_yield", "total": "sensor.{n}_total_yield",
+    "acVolts": "sensor.{n}_inverter_voltage", "acAmps": "sensor.{n}_inverter_current", "acFreq": "sensor.{n}_inverter_frequency",
+    "temp": "sensor.{n}_inverter_temperature", "mode": "sensor.{n}_run_mode",
+    "limit": "number.{n}_active_power_limit", "firmware": "sensor.{n}_software_version",
+}
 APPLIANCE_ENTITIES = {
     # A Windows pc: a template switch (on = awake; on -> Wake-on-LAN, off -> sleep)
     # with the Wake-on-LAN and sleep buttons behind it, and a ping sensor.
@@ -379,6 +390,7 @@ APPLIANCE_ENTITIES = {
         "temp": "sensor.{n}", "setpoint": "number.{n}_setpoint", "supercool": "switch.{n}_supercool",
         "party": "switch.{n}_partymode", "night": "switch.{n}_nightmode",
     },
+    "solar": _SOLAR,
     # A DLNA media player, with a Wake on LAN button renamed after it in Home Assistant.
     "tv": {"player": "media_player.{n}", "wake": "button.{n}_aanzetten"},
 }
@@ -434,6 +446,7 @@ ENERGY_ENTITIES = {
     # the heat pump's own counters: heat delivered, not electricity used
     "heatpump": {k: _HEATPUMP[k] for k in ("status", "compressor", "alarm", "freq", "outdoor", "room",
                                            "hotWaterTop", "heat", "heatAdd", "water", "waterAdd", "cool")},
+    "solar": _SOLAR,
     "battery": {"soc": "sensor.{n}_soc", "power": "sensor.{n}_power", "voltage": "sensor.{n}_voltage",
                 **{f"cell{c}": f"sensor.{{n}}_cell_{c}" for c in (1, 2, 3, 4)}, "delta": "sensor.{n}_cell_delta",
                 "cycles": "sensor.{n}_cycles", "health": "sensor.{n}_health", "temp": "sensor.{n}_mosfet_temp",
@@ -462,6 +475,8 @@ def parse_energy(src):
     devices = parse_device_table(src, "PANEL_ENERGY", ENERGY_ENTITIES)
     if sum(d["kind"] == "grid" for d in devices) > 1:
         fail("PANEL_ENERGY: more than one grid meter")
+    if sum(d["kind"] == "solar" for d in devices) > 1:
+        fail("PANEL_ENERGY: more than one solar inverter")
     return devices
 
 

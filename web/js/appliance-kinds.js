@@ -34,6 +34,50 @@
   const press = (key) => (a, args, call) => call("button", "press", null, a.entities[key]);
   const selectOption = (key) => (a, [option], call) => call("select", "select_option", { option }, a.entities[key]);
 
+  /* ---- Solar panels (SolaX inverter over Modbus TCP) ----------------------------- */
+  /* What the panels make, per string, today and in total, and how the inverter
+   * itself is (grid side, temperature, firmware). Read only: its power limit
+   * and on/off are installer matters. After dark the inverter and its network
+   * stick are off, which is not a fault. */
+  const solarNum = (id, unit, digits = 0) => (known(num(id)) ? `${fmt(num(id), digits)}${unit}` : "--");
+  const solarKwh = (v) => (known(v) ? `${fmt(v, v < 10 ? 2 : v < 100 ? 1 : 0)} kWh` : "--");
+  Panel.defineAppliance("solar", {
+    icon: "sun",
+    view(a) {
+      const e = a.entities;
+      const E = Panel.energy;
+      const awake = !offline(e.power);
+      const w = awake ? num(e.power) : 0;
+      const today = awake && known(num(e.today)) ? num(e.today) : E ? E.today(e.total) : NaN;
+      const total = offline(e.total) ? NaN : num(e.total);
+      const mode = E ? E.solarMode() : awake ? "Levert" : "Slaapt";
+      const strings = [1, 2].filter((n) => awake && num(e[`pv${n}Volts`]) > 0);
+      return {
+        tone: w > 5 ? "run" : "off",
+        pill: mode,
+        big: known(w) ? fmt(w) : "--",
+        unit: "W opwek",
+        sub: `vandaag ${solarKwh(today)}${known(total) ? ` · totaal ${solarKwh(total)}` : ""}`,
+        progress: null,
+        stats: awake
+          ? [
+              stat("Panelen", solarNum(e.pv, " W")),
+              ...strings.map((n) => stat(`String ${n}`, `${solarNum(e[`pv${n}Volts`], " V", 1)} · ${solarNum(e[`pv${n}Amps`], " A", 1)}`)),
+              stat("Net", known(num(e.acVolts)) ? `${solarNum(e.acVolts, " V", 1)} · ${solarNum(e.acFreq, " Hz", 2)}` : solarNum(e.acAmps, " A", 1)),
+              stat("Temperatuur", solarNum(e.temp, "°")),
+              stat("Firmware", s(e.firmware) ? raw(e.firmware) : "--"),
+            ]
+          : [stat("Vandaag", solarKwh(today)), stat("Totaal", solarKwh(total))],
+        controls: awake
+          ? low(e.mode).includes("fault")
+            ? `<p class="ap-note warn">${Util.esc("De omvormer meldt een storing: kijk op zijn display of in de SolaXCloud-app.")}</p>`
+            : ""
+          : note("De omvormer staat uit zolang er geen zon is; zijn netwerkstick krijgt stroom van de omvormer, dus ’s nachts zijn er geen metingen."),
+      };
+    },
+    actions: {},
+  });
+
   /* ---- Heat pump (NIBE F1253: ground source, passive cooling) ----------------------- */
   /* Everything the pump reports and everything it lets us set. It has no
    * electricity meter of its own: its kWh counters are the heat it delivered

@@ -436,6 +436,27 @@
         put("discharged", "776.9", { unit_of_measurement: "kWh" });
       } else if (d.kind === "battery") {
         Object.keys(e).forEach((k) => put(k, "unavailable"));
+      } else if (d.kind === "solar") {
+        /* the panels late on an autumn afternoon: one string, 640 W into the house */
+        const w = { unit_of_measurement: "W", device_class: "power", state_class: "measurement" };
+        const kwh = { unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" };
+        put("power", "640", w);
+        put("pv", "672", w);
+        put("pv1Volts", "305.2", { unit_of_measurement: "V" });
+        put("pv1Amps", "2.2", { unit_of_measurement: "A" });
+        put("pv1Power", "672", w);
+        put("pv2Volts", "0.0", { unit_of_measurement: "V" });
+        put("pv2Amps", "0.0", { unit_of_measurement: "A" });
+        put("pv2Power", "0", w);
+        put("today", "3.4", kwh);
+        put("total", "259.1", kwh);
+        put("acVolts", "242.3", { unit_of_measurement: "V" });
+        put("acAmps", "2.7", { unit_of_measurement: "A" });
+        put("acFreq", "50.02", { unit_of_measurement: "Hz" });
+        put("temp", "41", { unit_of_measurement: "°C" });
+        put("mode", "Normal Mode", { options: ["Waiting", "Checking", "Normal Mode", "Fault", "Permanent Fault Mode", "Update Mode", "EPS Checking", "EPS Mode"] });
+        put("limit", "0", { unit_of_measurement: "W" });
+        put("firmware", "DSP 0.30 ARM 0.37");
       }
     });
     /* A plausible day's use per counter: kWh, water in L. */
@@ -444,6 +465,7 @@
       : /energy_added|thuis_geladen/.test(id) ? 14
       : /energy_used/.test(id) ? 0.25
       : /charged/.test(id) ? 1.2
+      : /total_yield/.test(id) ? 4.1
       : /import/.test(id) ? 9
       : /export/.test(id) ? 3
       /* the smart meter: most taken on the normaal tariff, a little given back */
@@ -1054,6 +1076,21 @@
               const sun = hour > 7 && hour < 19 ? Math.sin(((hour - 7) / 12) * Math.PI) : 0;
               const w = Math.max(0, Math.round(sun * 2400 - 450 - 150 * Math.sin(t / 2.3e6)));
               rows.push({ s: String(kw ? w / 1000 : w), t });
+            }
+            rows.push({ s: states.get(id).state, t: Date.now() });
+            out[id] = rows;
+            return;
+          }
+          const panels = (cfg.energy || []).find((d) => d.kind === "solar");
+          if (panels && id === panels.entities.power) {
+            /* The panels' day: 08-18 h, about 1,4 kW at noon, clouds passing. */
+            if (!states.has(id)) return;
+            const rows = [];
+            for (let t = start.getTime(); t < Date.now(); t += 10 * 60e3) {
+              const d = new Date(t);
+              const hour = d.getHours() + d.getMinutes() / 60;
+              const sun = hour > 8 && hour < 18 ? Math.sin(((hour - 8) / 10) * Math.PI) : 0;
+              rows.push({ s: String(Math.max(0, Math.round(sun * (1400 - 380 * Math.abs(Math.sin(t / 1.7e6)))))), t });
             }
             rows.push({ s: states.get(id).state, t: Date.now() });
             out[id] = rows;

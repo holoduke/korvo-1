@@ -7,7 +7,10 @@
  * statistics, the chart from its history. The smart meter (DSMR) has a wide
  * panel of its own: which way the power flows and at what price, the three
  * phases, today per tariff and in euros, the meter's own readings and the
- * grid's quality. Prices come from Home Assistant's energy settings.
+ * grid's quality. Prices come from Home Assistant's energy settings. With
+ * solar panels (an inverter, kind "solar") the house's own use is what the grid
+ * gave plus what the panels made minus what went back, and the panels have a
+ * wide panel of their own: what they make now, per string, today, the week.
  *
  * Each kind of device (energy-kinds.js) registers with
  *   Panel.defineEnergyKind(kind, {icon, use, chart, meter, stats, power(e), card(e)})
@@ -28,11 +31,14 @@
   const grid = devices.find((d) => d.kind === "grid") || null;
   const IMPORT = ["import1", "import2"]; /* the smart meter's counters, tariff 1 (dal) and 2 (normaal) */
   const EXPORT = ["export1", "export2"];
+  const solar = devices.find((d) => d.kind === "solar") || null;
   const others = devices.filter((d) => d !== grid);
   const users = () => others.filter((d) => kinds[d.kind].use);
   const PALETTE = ["#4fc3f7", "#ffb74d", "#ef7a78", "#8bd17c", "#b48ef0", "#f48fb1", "#4db6ac"];
   const OTHER = "#8a93a6"; /* "Overig": what the smart meter sees beyond the devices */
-  const colour = new Map(others.map((d, i) => [d, PALETTE[i % PALETTE.length]]));
+  const SUN = "#ffc83d"; /* the panels: the colour of the sun, outside the devices' palette */
+  const colour = new Map(others.filter((d) => d !== solar).map((d, i) => [d, PALETTE[i % PALETTE.length]]));
+  if (solar) colour.set(solar, SUN);
   const colourOf = (d) => (d === grid ? Panel.cssVar("--accent") : colour.get(d));
 
   /* ---- Units ------------------------------------------------------------------------ */
@@ -259,6 +265,37 @@
   const exportOn = (back) => sumOn(EXPORT, back);
   const activeTariff = () => TARIFF_OF[(Panel.st(G.tariff) || {}).state] || null;
 
+  /* ---- The solar panels ------------------------------------------------------------- */
+  /* The inverter's stick has no power of its own: after dark the inverter and
+   * with it the stick switch off, and Home Assistant shows it unavailable. That
+   * is the panels making nothing, not a fault. */
+  const P = solar ? solar.entities : {};
+  const solarThere = () => !!solar && exists(P.power);
+  const solarAwake = () => solarThere() && !Panel.unavailable(Panel.st(P.power));
+  /* W the panels give the house now: 0 while the inverter sleeps. */
+  const sunW = () => (solarAwake() ? Math.max(0, scaled(P.power)) : solarThere() ? 0 : NaN);
+  /* kWh the panels made on a day: today from the inverter's own counter while it
+   * is awake, else (and for other days) from the total counter's statistics. */
+  function sunOn(back) {
+    if (back === 0 && solarAwake() && Number.isFinite(scaled(P.today))) return scaled(P.today);
+    return useOn(P.total, back);
+  }
+  /* kWh the house used on a day: from the grid, plus what the panels made and
+   * the house kept. NaN without the meter; without panels just the grid's. */
+  function houseOn(back) {
+    const imp = importOn(back);
+    if (!solar || !Number.isFinite(imp)) return imp;
+    const sun = sunOn(back);
+    return Number.isFinite(sun) ? imp + Math.max(0, sun - (exportOn(back) || 0)) : imp;
+  }
+  /* Of what the panels made, what the house used itself (the rest went back). */
+  const selfOn = (back) => (Number.isFinite(sunOn(back)) ? Math.max(0, sunOn(back) - (exportOn(back) || 0)) : NaN);
+  const SOLAR_MODE = {
+    Waiting: "Wacht op zon", Checking: "Controleert", "Normal Mode": "Levert", Fault: "Storing",
+    "Permanent Fault Mode": "Storing", "Update Mode": "Update", "EPS Checking": "Noodstroom", "EPS Mode": "Noodstroom",
+  };
+  const solarMode = () => (!solarAwake() ? "Slaapt, geen zon" : SOLAR_MODE[(Panel.st(P.mode) || {}).state] || "Levert");
+
   /* Prices, as Home Assistant's energy dashboard has them: per counter an
    * entity (an input_number) or a fixed number, and a fixed adjustment per
    * day. Read from its settings, so a changed price follows by itself. */
@@ -336,13 +373,19 @@
     const measured = rows.reduce((s, r) => s + (r.w > 0 ? r.w : 0), 0);
     const gw = gridLive() ? gridW() : NaN;
     const metered = Number.isFinite(gw);
-    const other = metered ? Math.max(0, gw - measured) : 0;
-    const [value, unit] = power(metered ? Math.abs(gw) : measured);
+    /* with panels: what the house uses is the grid's plus the panels' */
+    const sun = metered ? sunW() : NaN;
+    const house = Number.isFinite(sun) ? Math.max(0, gw + sun) : NaN;
+    const other = metered ? Math.max(0, (Number.isFinite(house) ? house : gw) - measured) : 0;
+    const [value, unit] = power(Number.isFinite(house) ? house : metered ? Math.abs(gw) : measured);
     const segs = [...rows.filter((r) => r.w > 0).map((r) => [r.w, colour.get(r.d)]), ...(other > 0 ? [[other, OTHER]] : [])];
+    const flow = Number.isFinite(house)
+      ? `zon ${power(sun).join(" ")} · ${gw < 0 ? `terug ${power(-gw).join(" ")}` : `net ${power(gw).join(" ")}`}`
+      : metered ? `${power(measured).join(" ")} gemeten per apparaat` : "Samen, van de apparaten met een meter";
     q(".en-now").innerHTML =
-      `<h2 class="dc-title">${metered ? (gw < 0 ? "Teruglevering nu" : "Van het net nu") : "Verbruik nu"}</h2>` +
+      `<h2 class="dc-title">${Number.isFinite(house) ? "Verbruik huis nu" : metered ? (gw < 0 ? "Teruglevering nu" : "Van het net nu") : "Verbruik nu"}</h2>` +
       `<div class="en-big"><b>${value}</b><span>${unit}</span></div>` +
-      `<div class="en-sub">${metered ? `${power(measured).join(" ")} gemeten per apparaat` : "Samen, van de apparaten met een meter"}</div>` +
+      `<div class="en-sub">${flow}</div>` +
       `<div class="en-share">${segs.map(([w, c]) => `<i style="flex-grow:${w};background:${c}"></i>`).join("")}</div>` +
       `<div class="en-legend">` +
       rows.map((r) => legendItem(r.d.label, colour.get(r.d), power(r.w).join(" "), !(r.w > 0))).join("") +
@@ -432,13 +475,71 @@
       `</div>`;
   }
 
+  /* The panels' panel: what they make now and how (per string), today and what
+   * the house kept of it, what that saved, and the counter since installation. */
+  function renderSolar() {
+    if (!solar) return;
+    const box = q(".en-solar");
+    box.hidden = !solarThere();
+    if (box.hidden) return;
+    const awake = solarAwake();
+    const w = sunW();
+    const dc = awake ? scaled(P.pv) : NaN;
+    const strings = [1, 2].filter((n) => awake && exists(P[`pv${n}Power`]) && (n === 1 || Panel.num(P[`pv${n}Volts`]) > 0));
+    const top = Math.max(100, ...strings.map((n) => Panel.num(P[`pv${n}Power`]) || 0));
+    const string = (n) => {
+      const pw = Panel.num(P[`pv${n}Power`]);
+      const volts = Panel.num(P[`pv${n}Volts`]);
+      const amps = Panel.num(P[`pv${n}Amps`]);
+      return (
+        `<div class="em-phase"><b class="em-l">S${n}</b>` +
+        `<span class="em-bar"><i class="out" style="width:${((pw || 0) / top) * 100}%"></i></span>` +
+        `<b class="em-w">${power(pw).join(" ")}</b>` +
+        `<span class="em-a">${Number.isFinite(amps) ? `${fmt(amps, 1)} A` : "--"}</span>` +
+        `<span class="em-v"><small>${Number.isFinite(volts) ? `${fmt(volts, 1)} V` : "--"}</small></span></div>`
+      );
+    };
+    const made = sunOn(0);
+    const kept = selfOn(0);
+    const share = made > 0 && Number.isFinite(kept) ? Math.round((kept / made) * 100) : NaN;
+    const price = Panel.energy.importPrice();
+    const saved = Number.isFinite(made) && Number.isFinite(price) ? made * price : NaN;
+    const temp = Panel.num(P.temp);
+    const week = [0, 1, 2, 3, 4, 5, 6].map(sunOn);
+    const weekSum = week.filter(Number.isFinite).reduce((a, b) => a + b, 0);
+    const days = week.filter(Number.isFinite).length;
+    box.innerHTML =
+      `<header class="em-head"><h2 class="dc-title">${esc(solar.label)}</h2>` +
+      `<span class="em-tariff sun">${esc(solarMode())}</span>` +
+      `<button class="usage-open" data-usage="e${devices.indexOf(solar)}">${icon("chart")}<span>Opbrengst</span></button>` +
+      `</header>` +
+      `<div class="em-grid">` +
+      `<div class="em-flow solar${w > 0 ? "" : " idle"}">` +
+      `<span class="em-arrow">${icon("sun")}</span>` +
+      `<div class="em-now"><b>${power(w).join(" ")}</b><span>${awake ? "opwek naar huis en net" : "de omvormer is uit tot het licht wordt"}</span></div>` +
+      (awake
+        ? `<div class="em-split"><span>panelen <b>${power(dc).join(" ")}</b></span>${Number.isFinite(temp) ? `<span>omvormer <b>${fmt(temp)}°</b></span>` : ""}</div>`
+        : "") +
+      (Number.isFinite(price) && w > 0 ? `<div class="em-cost">bespaart nu <b>${eur((w / 1000) * price)}</b> per uur</div>` : "") +
+      `</div>` +
+      (strings.length
+        ? `<div class="em-phases"><div class="em-phase em-phase-head"><span></span><span></span><span>vermogen</span><span>stroom</span><span>spanning</span></div>${strings.map(string).join("")}</div>`
+        : `<div class="em-phases"><p class="em-rest">${awake ? "Geen stroom van de panelen" : "’s Nachts geen gegevens: de omvormer en zijn netwerkstick slapen."}</p></div>`) +
+      `<div class="em-day">` +
+      `<div class="em-kv"><span>Opgewekt vandaag</span><b>${kwhText(made)}</b><small>${Number.isFinite(saved) ? `${eur(saved)} bespaard` : "&nbsp;"}</small></div>` +
+      `<div class="em-kv"><span>Zelf gebruikt</span><b>${kwhText(kept)}</b><small>${Number.isFinite(share) ? `${share}% van de opwek` : "&nbsp;"}</small></div>` +
+      `<div class="em-kv"><span>${days >= 7 ? "Laatste 7 dagen" : "Deze week"}</span><b>${kwhText(days ? weekSum : NaN)}</b><small>${days && days < 7 ? `over ${days} ${days === 1 ? "dag" : "dagen"}` : "&nbsp;"}</small></div>` +
+      `<div class="em-kv"><span>Sinds plaatsing</span><b>${kwhText(exists(P.total) && !Panel.unavailable(Panel.st(P.total)) ? scaled(P.total) : NaN)}</b><small>totale opbrengst</small></div>` +
+      `</div></div>`;
+  }
+
   /* [device, kWh] of the devices with a meter on a day. A device that also
    * charges elsewhere (the car at a Supercharger, kind capToGrid) counts for
    * the house only up to what the grid gave beyond the other devices: what it
    * took on the road was never on the house's meter. */
   function meteredOn(back) {
     const rows = users().filter((d) => kinds[d.kind].meter).map((d) => [d, useOn(d.entities[kinds[d.kind].meter], back)]);
-    const fromGrid = gridLive() ? importOn(back) : NaN;
+    const fromGrid = gridLive() ? houseOn(back) : NaN;
     if (!Number.isFinite(fromGrid)) return rows;
     const fixed = rows.filter(([d, v]) => !kinds[d.kind].capToGrid && Number.isFinite(v)).reduce((s, [, v]) => s + v, 0);
     let room = Math.max(0, fromGrid - fixed);
@@ -456,11 +557,19 @@
     const sum = known.reduce((s, [, v]) => s + v, 0);
     const fromGrid = gridLive() ? importOn(0) : NaN;
     const cost = gridLive() ? costOn(0) : NaN;
-    const big = Number.isFinite(fromGrid) ? fromGrid : known.length ? sum : NaN;
+    const sun = Number.isFinite(fromGrid) ? sunOn(0) : NaN;
+    const big = Number.isFinite(fromGrid) ? houseOn(0) : known.length ? sum : NaN;
+    const net = `${kwhText(fromGrid)} van het net${Number.isFinite(cost) ? `, ${eur(cost)}` : ""}`;
     q(".en-today").innerHTML =
-      `<h2 class="dc-title">Vandaag</h2>` +
+      `<h2 class="dc-title">${Number.isFinite(sun) ? "Verbruik huis vandaag" : "Vandaag"}</h2>` +
       `<div class="en-big"><b>${kwhNum(big)}</b><span>kWh</span></div>` +
-      `<div class="en-sub">${Number.isFinite(fromGrid) ? `van het net${Number.isFinite(cost) ? `, ${eur(cost)}` : ""} · ${kwhText(sum)} gemeten per apparaat` : "Samen, van de apparaten met een meter"}</div>` +
+      `<div class="en-sub">${
+        Number.isFinite(sun)
+          ? `${net} · ${kwhText(selfOn(0))} eigen zon`
+          : Number.isFinite(fromGrid)
+            ? `van het net${Number.isFinite(cost) ? `, ${eur(cost)}` : ""} · ${kwhText(sum)} gemeten per apparaat`
+            : "Samen, van de apparaten met een meter"
+      }</div>` +
       `<ul class="en-list">${rows.map(([d, v]) => `<li data-usage="e${devices.indexOf(d)}"><i style="background:${colour.get(d)}"></i><span>${esc(d.label)}</span><b>${kwhText(v)}</b></li>`).join("")}</ul>`;
   }
 
@@ -473,7 +582,7 @@
   const charted = () => devices.filter((d) => (d === grid ? gridLive() : chartId(d) && !Panel.unavailable(Panel.st(chartId(d)))));
   let picked = null; /* the device chosen for the power chart (null: the first one) */
   const chartDevice = () => (charted().includes(picked) ? picked : charted()[0] || null);
-  const shown = { power: 1, week: 1, export: 1, exportWeek: 1, months: 1 }; /* reveal progress per chart */
+  const shown = { power: 1, week: 1, solar: 1, solarWeek: 1, export: 1, exportWeek: 1, months: 1 }; /* reveal progress per chart */
   let frame = 0;
 
   function renderPick() {
@@ -520,7 +629,7 @@
   function drawWeek() {
     const meters = users().filter((d) => kinds[d.kind].meter);
     const days = [6, 5, 4, 3, 2, 1, 0];
-    const rest = (back, parts) => (gridLive() ? Math.max(0, importOn(back) - parts.reduce((s, p) => s + p.v, 0)) || 0 : 0);
+    const rest = (back, parts) => (gridLive() ? Math.max(0, houseOn(back) - parts.reduce((s, p) => s + p.v, 0)) || 0 : 0);
     const perDay = new Map(days.map((back) => [back, new Map(meteredOn(back))]));
     const bars = days.map((back) => {
       const parts = meters.map((d) => ({ v: perDay.get(back).get(d) || 0, colour: colour.get(d) }));
@@ -582,10 +691,46 @@
       legendItem("Deze week", good, kwhText(week)) + (priced ? legendItem("Opbrengst", good, eur(earned)) : "");
   }
 
+  /* The panels' power over the last day and what they made per day. */
+  function drawSolar() {
+    const row = q(".en-solar-row");
+    if (!row) return;
+    row.hidden = !solarThere();
+    if (row.hidden) return;
+    const sunC = colour.get(solar);
+    const id = P.power;
+    const unit = unitOf(id) || "W";
+    const { series, spanH } = Panel.drawChart(
+      q(".en-solar-power canvas"),
+      { left: { id, colour: sunC, range: powerRange(unit), fmt: axisLabel(unit), hold: 25 * 3600e3 } },
+      shown.solar
+    );
+    q(".en-solar-power .dc-title").textContent = `Opwek in kW, laatste ${spanH} uur`;
+    const vals = series[0].vals;
+    q(".en-solar-foot").innerHTML = vals.length
+      ? `<span>Nu <b>${power(sunW()).join(" ")}</b></span><span>Piek <b>${power(Util.minMax(vals)[1] * (SCALE[unit] ?? 1)).join(" ")}</b></span><span>Vandaag <b>${kwhText(sunOn(0))}</b></span>`
+      : "Nog geen geschiedenis (wordt opgehaald)";
+    const days = [6, 5, 4, 3, 2, 1, 0];
+    const bars = days.map((back) => {
+      const kept = selfOn(back) || 0;
+      const made = sunOn(back) || 0;
+      return {
+        label: Util.DAYS_SHORT[dayStart(back).getDay()],
+        parts: [{ v: kept, colour: sunC }, { v: Math.max(0, made - kept), colour: Panel.cssVar("--ok") }],
+        strong: back === 0,
+      };
+    });
+    Panel.drawBars(q(".en-solar-week canvas"), { bars, fmt: (v) => fmt(v, v < 10 ? 1 : 0) }, shown.solarWeek);
+    const sum = (f) => days.reduce((s, back) => s + (f(back) || 0), 0);
+    q(".en-solar-week .en-legend").innerHTML =
+      legendItem("Zelf gebruikt", sunC, kwhText(sum(selfOn))) + legendItem("Teruggeleverd", Panel.cssVar("--ok"), kwhText(Math.max(0, sum(sunOn) - sum(selfOn))));
+  }
+
   function drawCharts() {
     if (!root) return;
     drawPower();
     drawWeek();
+    drawSolar();
     drawExport();
     drawMonths();
   }
@@ -606,6 +751,7 @@
     if (!root) return;
     renderNow();
     renderMeter();
+    renderSolar();
     renderToday();
     renderPick();
     others.forEach(renderCard);
@@ -621,6 +767,13 @@
     root.innerHTML =
       `<div class="en-row"><section class="dc-panel en-now"></section><section class="dc-panel en-today"></section></div>` +
       (grid ? `<section class="dc-panel en-meter" hidden></section>` : "") +
+      (solar
+        ? `<section class="dc-panel en-solar" hidden></section>` +
+          `<div class="en-row charts en-solar-row" hidden>` +
+          `<section class="dc-panel en-solar-power"><h2 class="dc-title">Opwek</h2><div class="en-chart"><canvas></canvas></div><footer class="en-power-foot en-solar-foot"></footer></section>` +
+          `<section class="dc-panel en-solar-week"><h2 class="dc-title">Opgewekt per dag, kWh</h2><div class="en-chart"><canvas></canvas></div><div class="en-legend"></div></section>` +
+          `</div>`
+        : "") +
       `<div class="en-row charts">` +
       `<section class="dc-panel en-power"><header class="en-head"><h2 class="dc-title">Vermogen</h2><div class="en-pick"></div></header>` +
       `<div class="en-chart"><canvas></canvas></div><footer class="en-power-foot"></footer></section>` +
@@ -642,7 +795,11 @@
     others.forEach((d) =>
       Panel.track(Object.values(d.entities), Panel.whenShown("energy", () => {
         renderCard(d);
-        if (kinds[d.kind].use) renderNow();
+        if (d === solar) {
+          renderSolar();
+          renderToday();
+        }
+        if (kinds[d.kind].use || d === solar) renderNow();
         if (Panel.isLoaded()) renderPick(); /* a power reading may have come or gone */
       }))
     );
@@ -651,6 +808,7 @@
       Panel.track(Object.values(grid.entities), Panel.whenShown("energy", () => {
         const live = gridLive();
         renderMeter();
+        renderSolar(); /* what went back: the house's share of the panels */
         renderNow();
         if (live === wasLive) return;
         wasLive = live;
@@ -666,7 +824,7 @@
     /* The meter's chart line is its net power when Home Assistant derives one,
      * else what it takes; which of the two exists is only known once the states
      * are in, so the history of both is kept. */
-    Panel.keepHistory([...devices.map(chartId), ...(grid ? [G.net, G.powerIn, G.powerOut] : [])].filter(Boolean));
+    Panel.keepHistory([...devices.map(chartId), ...(grid ? [G.net, G.powerIn, G.powerOut] : []), ...(solar ? [P.power] : [])].filter(Boolean));
 
     root.addEventListener("click", (e) => {
       const b = e.target.closest("[data-energy-chart]");
@@ -712,6 +870,8 @@
       return p.length ? p.reduce((s, v) => s + v, 0) / p.length : NaN;
     },
     today: (id) => useOn(id, 0),
+    /* the inverter's state in words ("Levert", "Slaapt, geen zon") */
+    solarMode: () => solarMode(),
     missing: (id) => Panel.unavailable(Panel.st(id)),
     offline: (text) => ({ tone: "offline", big: text || "Offline" }),
     /* The card footer of a kWh counter: today and its reading. */
@@ -732,11 +892,12 @@
     const d = chartDevice();
     if (d && chartId(d) === id) drawPower();
     if (grid && id === G.powerOut) drawExport();
+    if (solar && id === P.power) drawSolar();
   });
   Panel.on("section", (i) => {
     if (cfg.sections[i].kind !== "energy") return;
     drawCharts(); /* readings came in while another section was shown */
-    reveal(["power", "week", "export", "exportWeek", "months"]);
+    reveal(["power", "week", "solar", "solarWeek", "export", "exportWeek", "months"]);
     if (Panel.isLoaded() && Date.now() - statsAt > 60e3) loadStats();
   });
   Panel.everyAwake(5 * 60e3, () => Panel.isLoaded() && loadStats());

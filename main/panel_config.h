@@ -566,7 +566,9 @@ static const panel_area_scene_t PANEL_AREA_SCENES[] = {
  * robot vacuum from the Schoonmaak section, PANEL_VACUUM or
  * PANEL_TUYA_VACUUMS: name is the PANEL_FLOORS label of the floor it cleans)
  * and pc (a Windows pc behind a template switch switch.<name>: on wakes it
- * over the network, off puts it to sleep; binary_sensor.<name>_online pings it). */
+ * over the network, off puts it to sleep; binary_sensor.<name>_online pings it),
+ * solar (a SolaX inverter over Modbus TCP, the solax_modbus integration from
+ * HACS: name is its entity prefix). */
 typedef struct {
     const char *kind;
     const char *label;
@@ -578,6 +580,7 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "pc",         "PC-430",      "garage430" },
     { "heatpump",   "Warmtepomp",  "f1253_6_r_pc_em" }, /* NIBE F1253-6, nibe_heatpump over Modbus */
     { "ventilation", "WTW",        "wtw" },            /* DucoBox Energy Comfort, ESPHome board esphome/wtw-duco.yaml */
+    { "solar",      "Zonnepanelen", "solax" },          /* SolaX X1-Mini G4, Pocket WiFi+LAN on the LAN, Modbus TCP */
     { "washer",     "Wasmachine", "wasruimte_wasmachine" },
     { "dryer",      "Droger",     "wasruimte_droger" },
     { "dishwasher", "Vaatwasser", "dishwasher" },
@@ -683,6 +686,8 @@ static const panel_cover_t PANEL_COVERS[] = {
  *   car      Tesla Fleet charging (name = the car name, as in PANEL_CAR)
  *   bike     Stromer (name = the bike name)
  *   battery  a JK BMS on the JKBMS-ESP32 firmware
+ *   solar    a SolaX inverter (solax_modbus): what the panels make; at most
+ *            one. With the smart meter it gives the house's own use.
  * Order = display order. */
 typedef struct {
     const char *kind;
@@ -691,6 +696,7 @@ typedef struct {
 } panel_energy_t;
 static const panel_energy_t PANEL_ENERGY[] = {
     { "grid",    "Slimme meter", "electricity_meter" }, /* DSMR over the P1 port */
+    { "solar",   "Zonnepanelen", "solax" },             /* SolaX X1-Mini G4 over Modbus TCP */
     { "washer",  "Wasmachine",   "wasruimte_wasmachine" },
     { "dryer",   "Droger",       "wasruimte_droger" },
     { "car",     "Tesla",        "vlm" },
