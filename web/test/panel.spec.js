@@ -294,3 +294,29 @@ test("switching every appliance off asks for a second tap, visibly", async ({ pa
   await expect(btn.locator(".txt")).toHaveText("Nogmaals tikken");
   expect(problems).toEqual([]);
 });
+
+test("beside the house the energy opens Energie, and a floor's lights switch off", async ({ page }) => {
+  const problems = watch(page);
+  await open(page);
+  const energy = page.locator("[data-house-energy]");
+  const lights = page.locator("[data-house-lights]");
+  test.skip(!(await energy.isVisible()) && !(await lights.isVisible()), "no quick looks beside the house on this screen");
+  /* nothing in one column runs over another */
+  const boxes = await page.$$eval(".house-quick, [data-house-heat], [data-house-cover]", (els) =>
+    els.filter((e) => e.offsetParent && !e.hidden).map((e) => e.getBoundingClientRect().toJSON())
+  );
+  for (const a of boxes) for (const b of boxes) if (a !== b && a.left < b.right && b.left < a.right) expect(a.bottom <= b.top + 1 || b.bottom <= a.top + 1).toBe(true);
+  if (await lights.isVisible()) {
+    const floor = lights.locator("[data-ql-floor].on").first();
+    await expect(floor).toBeVisible({ timeout: 5000 });
+    const fi = await floor.getAttribute("data-ql-floor");
+    await floor.click();
+    await expect(lights.locator(`[data-ql-floor="${fi}"] [data-ql-n]`)).toHaveText("uit", { timeout: 5000 });
+  }
+  if (await energy.isVisible()) {
+    await expect(energy.locator("[data-qe-now] b")).not.toHaveText("--");
+    await energy.click();
+    await expect(page.locator("#track > .page:not(.away) .en-now")).toBeVisible();
+  }
+  expect(problems).toEqual([]);
+});

@@ -502,6 +502,7 @@
     Panel.track([...lampsOfTab.values()].flat(), lampsChanged);
     tabs.forEach((ti) => renderTabLamps(ti));
     renderSceneSwatches();
+    Panel.emit("lamps");
   }
 
   /* Once a scene's stored states are known, its tile shows the colours it sets. */
@@ -575,6 +576,8 @@
     markScroll(list);
   }
   /* A floor's lamps for "Alle" (area null) or one room. */
+  /* A tab's lamps (no groups), once known: [] until then (the "lamps" event). */
+  Panel.lampsOfTab = (ti) => lampsOfTab.get(ti) || [];
   Panel.renderLamps = (fi, area) => renderTabLamps(cfg.floors[fi].tab, area);
 
   /* ---- Markup -------------------------------------------------------------------- */

@@ -8,12 +8,21 @@
 
   const HINT_MS = 9000; /* the gesture hint goes on its own after this */
 
-  /* The quick controls beside the house — the heating's thermostat on the
-   * left (heating.js), the garage door on the right (covers.js) — stand with
-   * their bottoms on one line with the ask bar (ask.js): level with its
+  /* The quick controls beside the house stand in two columns: on the left the
+   * heating's thermostat (heating.js) with the energy (house-quick.js) above
+   * it, on the right the garage door (covers.js) with the lights
+   * (house-quick.js) and the music (audio.js) above it. Each column stands
+   * with its bottom on one line with the ask bar (ask.js): level with its
    * bottom where it runs between them (a panel, an iPad), just above its top
-   * where it runs under them (a phone). The thermostat stays below the
-   * readout at the top left (hud.js), however many lines that has. */
+   * where it runs under them (a phone). The left one stays below the readout
+   * at the top left (hud.js), however many lines that has. A column with too
+   * little room gives up, in turn, what it can do without (TIGHT). */
+  const GAP = 10;
+  const TIGHT = {
+    left: ["no-quick-energy"],
+    right: ["tight-door", "tight-now", "tight-off", "tight-mute", "no-quick-lights"], /* start.css */
+  };
+  const shown = (el) => !!el && !el.hidden && !!el.offsetParent;
   function layoutSides(house) {
     const box = house.getBoundingClientRect();
     const ask = house.querySelector(".house-ask");
@@ -23,26 +32,36 @@
     const musicEl = house.querySelector("[data-house-audio]");
     const musicBar = !!musicEl && !musicEl.hidden && getComputedStyle(musicEl).getPropertyValue("--aq-dock").trim() === "bar";
     house.classList.toggle("music-bar", musicBar);
-    for (const [sel, left] of [["[data-house-heat]", true], ["[data-house-cover]:not([data-house-audio])", false]]) {
-      const w = house.querySelector(sel);
-      if (!w || w.hidden || !w.offsetParent) continue;
-      const r = w.getBoundingClientRect();
-      const beside = a && (left ? a.left >= r.right : a.right <= r.left);
-      const bottom = a ? (beside ? a.bottom : a.top - 12) : box.bottom - 70;
-      const floor = left && hud ? hud.getBoundingClientRect().bottom - box.top + 12 : musicBar ? musicEl.getBoundingClientRect().bottom - box.top + 8 : 8;
-      w.style.top = `${Math.round(Math.max(floor, bottom - box.top - r.height))}px`;
-    }
-    /* the music card (audio.js) above the garage door's column, where there is room;
-     * on a phone it is a bar along the top, placed by its CSS (--aq-dock: bar) */
-    const music = house.querySelector("[data-house-audio]");
-    const cover = house.querySelector("[data-house-cover]:not([data-house-audio])");
-    if (music && !music.hidden) {
-      const docked = getComputedStyle(music).getPropertyValue("--aq-dock").trim() !== "bar";
-      if (!docked) music.style.top = "";
-      else {
-        const m = music.getBoundingClientRect();
-        const below = cover && !cover.hidden && cover.offsetParent ? cover.getBoundingClientRect().top : box.bottom - 70;
-        music.style.top = `${Math.round(Math.max(8, below - box.top - m.height - 10))}px`;
+    if (musicBar) musicEl.style.top = "";
+    const columns = {
+      left: { floor: hud ? hud.getBoundingClientRect().bottom - box.top + 12 : 8, items: ["[data-house-heat]", "[data-house-energy]"] },
+      right: {
+        floor: musicBar ? musicEl.getBoundingClientRect().bottom - box.top + 8 : 8,
+        items: ["[data-house-cover]:not([data-house-audio])", "[data-house-lights]", ...(musicBar ? [] : ["[data-house-audio]"])],
+      },
+    };
+    for (const [side, col] of Object.entries(columns)) {
+      const left = side === "left";
+      TIGHT[side].forEach((c) => house.classList.remove(c));
+      for (let level = 0; ; level++) {
+        const items = col.items.map((sel) => house.querySelector(sel)).filter(shown);
+        if (!items.length) break;
+        const r = items[0].getBoundingClientRect();
+        const beside = a && (left ? a.left >= r.right : a.right <= r.left);
+        const bottom = (a ? (beside ? a.bottom : a.top - 12) : box.bottom - 70) - box.top;
+        const need = items.reduce((sum, el) => sum + el.getBoundingClientRect().height, 0) + GAP * (items.length - 1);
+        if (need > bottom - col.floor && level < TIGHT[side].length) {
+          house.classList.add(TIGHT[side][level]);
+          continue;
+        }
+        /* bottom up; what still does not fit runs off the top's floor rather than over the ask bar */
+        let top = bottom;
+        items.forEach((el, i) => {
+          const h = el.getBoundingClientRect().height;
+          top = i === 0 ? Math.max(col.floor, top - h) : top - GAP - h;
+          el.style.top = `${Math.round(i === 0 ? top : Math.max(col.floor, top))}px`;
+        });
+        break;
       }
     }
   }
@@ -53,7 +72,7 @@
       if (!house) return;
       const place = () => layoutSides(house);
       const ro = new ResizeObserver(place);
-      [house, ...house.querySelectorAll(".house-ask, [data-hud], [data-house-heat], [data-house-cover]")].forEach((el) => ro.observe(el));
+      [house, ...house.querySelectorAll(".house-ask, [data-hud], [data-house-heat], [data-house-cover], .house-quick")].forEach((el) => ro.observe(el));
       Panel.on("room", () => requestAnimationFrame(place)); /* a widget back from behind a room's panel */
       Panel.on("quickaudio", () => requestAnimationFrame(place)); /* the music card came or went */
       place();

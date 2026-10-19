@@ -457,3 +457,76 @@ body.saver-house .house-cover { opacity: 0; pointer-events: none; }
   /* under the bar the door's column has less height: its state says enough */
   .house.music-bar .house-cover .cw-door { display: none; }
 }
+
+/* The quick looks beside the house (house-quick.js): the energy above the
+ * thermostat, the lights above the garage door (start.js places both). Glass
+ * like theirs; a phone has no room for them. */
+.house-quick {
+  position: absolute; top: 20%; z-index: 3;
+  display: flex; flex-direction: column; gap: 8px; padding: 12px; text-align: left; color: var(--text);
+  background: color-mix(in srgb, var(--tile) 82%, transparent); backdrop-filter: blur(12px);
+  border-radius: calc(14px * var(--round));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent), 0 12px 40px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.6s;
+}
+.house-quick::before { content: ""; position: absolute; top: 18px; width: 2px; height: 16px; background: var(--accent); }
+.house-quick[hidden], .house.no-quick-energy .house-energy, .house.no-quick-lights .house-lights { display: none; }
+body.saver-house .house-quick { opacity: 0; pointer-events: none; }
+.hq-title {
+  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
+  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text);
+}
+.hq-title .ic { width: 16px; height: 16px; color: var(--accent); flex: none; }
+.hq-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hq-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 12px; font-weight: 600; color: var(--text_dim); }
+.hq-foot b { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hq-foot:empty { display: none; }
+
+/* energy: the house now, the sun and the grid, today */
+.house-energy { left: 18px; width: 168px; }
+.house-energy::before { right: -1px; }
+.house-energy:active { transform: scale(0.98); }
+.house-energy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qe-now { display: flex; align-items: baseline; gap: 6px; }
+.qe-now b { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qe-now span { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.qe-flow { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.qe-flow:empty { display: none; }
+.qe-flow > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.qe-flow small { font-size: 11px; font-weight: 600; color: var(--text_dim); }
+.qe-flow .ic { width: 14px; height: 14px; flex: none; }
+.qe-sun { color: var(--text_dim); }
+.house-energy.sunny .qe-sun { color: #ffc83d; } /* the panels' colour on Energie */
+.house-energy.export .qe-grid { color: var(--ok); } /* going back to the grid */
+.house-energy.sunny { box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffc83d 60%, transparent), 0 0 24px color-mix(in srgb, #ffc83d 18%, transparent), 0 12px 40px rgba(0, 0, 0, 0.35); }
+
+/* lights: how many burn, a switch per floor, all off */
+.house-lights { right: 18px; width: 178px; }
+.house-lights::before { left: -1px; }
+.ql-foot { display: flex; align-items: center; gap: 8px; }
+.ql-count { flex: none; font-size: 13px; font-weight: 700; color: var(--text_dim); font-variant-numeric: tabular-nums; }
+.house-lights.lit .ql-count { color: var(--accent); }
+.ql-floors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.ql-floor {
+  display: flex; flex-direction: column; justify-content: center; min-width: 0;
+  min-height: 44px; padding: 4px 8px; border-radius: calc(10px * var(--round)); background: var(--tile_off); color: var(--text); text-align: left;
+  transition: background 0.2s, color 0.2s, transform 0.12s;
+}
+.ql-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ql-n { font-size: 11px; font-weight: 700; color: var(--text_dim); font-variant-numeric: tabular-nums; }
+.ql-floor.on { background: var(--accent); color: var(--on_text); }
+.ql-floor.on .ql-n { color: var(--on_text); }
+.ql-floor.pending { animation: hud-blink 0.9s ease-in-out infinite alternate; }
+.ql-floor:active { transform: scale(0.95); }
+.ql-floor:disabled { opacity: 0.4; }
+.ql-off { flex: 1; min-width: 0; min-height: 38px; padding: 0 8px; font-size: 12px; gap: 6px; border-radius: calc(10px * var(--round)); }
+.ql-off .ic { font-size: 14px; }
+.ql-off:disabled { opacity: 0.4; }
+@media (prefers-reduced-motion: reduce) { .ql-floor.pending { animation: none; } }
+/* tight beside the house (start.js), in turn: the drawn garage door, what the
+ * music plays, the lights' count and all-off, the music's mute */
+.house.tight-door .house-cover .cw-door, .house.tight-now .house-audio .aq-now, .house.tight-off .house-lights .ql-foot, .house.tight-mute .house-audio .aq-mute { display: none; }
+@media (max-width: 700px), (orientation: landscape) and (max-height: 440px) {
+  .house-quick { display: none; }
+}

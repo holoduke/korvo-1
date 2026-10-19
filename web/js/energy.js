@@ -142,6 +142,7 @@
       statsAt = Date.now();
       statsDay = day;
       renderAll();
+      Panel.emit("energy"); /* the day's figures, for the summary beside the house */
     } catch (e) {
       /* retried on the next refresh */
     } finally {
@@ -336,6 +337,7 @@
       }
       renderMeter();
       renderToday();
+      Panel.emit("energy");
     } catch (e) {
       prices = null; /* no energy settings, or not allowed: the panel shows kWh only */
     } finally {
@@ -882,6 +884,24 @@
     solarMode: () => solarMode(),
     missing: (id) => Panel.unavailable(Panel.st(id)),
     offline: (text) => ({ tone: "offline", big: text || "Offline" }),
+    /* The house in a few figures, for the summary beside it (house-quick.js):
+     * W it uses now, W from (+) or back to (−) the grid, W from the panels;
+     * kWh it used and the panels made today, and what today cost. NaN where unknown. */
+    summary() {
+      const gw = gridLive() ? gridW() : NaN;
+      const sun = sunW();
+      return {
+        house: Number.isFinite(gw) && Number.isFinite(sun) ? Math.max(0, gw + sun) : gw,
+        grid: gw,
+        sun,
+        houseToday: houseOn(0),
+        sunToday: solar ? sunOn(0) : NaN,
+        cost: costOn(0),
+      };
+    },
+    /* the entities whose change changes the summary's "now" */
+    liveIds: () => [G.powerIn, G.powerOut, P.power, P.today].filter(Boolean),
+    eur,
     /* The card footer of a kWh counter: today and its reading. */
     meterFoot: (id) => [[`Vandaag <b>${kwhText(useOn(id, 0))}</b>`], [`Totaal <b>${kwhText(scaled(id))}</b>`]],
   };
