@@ -3,10 +3,11 @@
 - schakel: lampen (aan, uit, helderheid), scènes en muziek (afspelen, pauze,
   stop, volume), alleen entiteiten die aan Assist zijn blootgesteld;
 - instelling: een vaste lijst instellingen van dit huis (SETTINGS) met hun
-  toegestane waarden; zonder waarde leest hij de huidige stand.
+  toegestane waarden, de garagedeur inbegrepen; zonder waarde leest hij de
+  huidige stand.
 
-Bewust niet: de garagedeur, sloten, de auto, de oven of kookplaat aanzetten,
-de stofzuiger en alles wat de installateur instelt. Elke handeling draagt de
+Bewust niet: sloten, de auto, de oven of kookplaat aanzetten, de stofzuiger en
+alles wat de installateur instelt. Elke handeling draagt de
 context van wie hem vroeg, dus het logboek toont haar of zijn naam."""
 from __future__ import annotations
 
@@ -30,7 +31,8 @@ UNAVAILABLE = ("unavailable", "unknown")
 @dataclass(frozen=True, slots=True)
 class Setting:
     """Een instelling: een number binnen grenzen, een select met vertaalde
-    keuzes, of een script dat alleen iets uitzet."""
+    keuzes, een script dat alleen iets uitzet, of een cover met een dienst
+    per keuze (acties)."""
 
     entity_id: str
     uitleg: str
@@ -38,6 +40,7 @@ class Setting:
     maximum: float | None = None
     stap: float = 0.5
     keuzes: dict[str, str] = field(default_factory=dict)  # Nederlands -> optie van de entiteit
+    acties: dict[str, tuple[str, str, str]] = field(default_factory=dict)  # keuze -> (domein, dienst, entiteit)
 
 
 SETTINGS: dict[str, Setting] = {
@@ -72,6 +75,19 @@ SETTINGS: dict[str, Setting] = {
             "boost 30 minuten": "MAN3x2",
             "boost 45 minuten": "MAN3x3",
             "afwezig": "EMPT",
+        },
+    ),
+    "garagedeur": Setting(
+        "cover.garagedeur",
+        "De garagedeur (Hörmann roldeur). Open, dicht, stop, of op kier (een stukje open om te ventileren). "
+        "Er is geen echte positiemeting: Home Assistant telt de impulsen; bediening met de afstandsbediening "
+        "ziet het pas als de deur dicht is. Vraag altijd eerst om bevestiging.",
+        keuzes={"open": "open", "dicht": "closed", "stop": "", "kier": ""},
+        acties={
+            "open": ("cover", "open_cover", "cover.garagedeur"),
+            "dicht": ("cover", "close_cover", "cover.garagedeur"),
+            "stop": ("cover", "stop_cover", "cover.garagedeur"),
+            "kier": ("button", "press", "button.garagedeur_ventilatie"),
         },
     ),
     "kookplaat": Setting("script.kookplaat_uit", "De kookplaat uitzetten (aanzetten kan niet op afstand).", keuzes={"uit": ""}),
@@ -193,6 +209,10 @@ class Instelling(_ControlTool):
         choice = str(raw).strip().lower()
         if choice not in setting.keuzes:
             return {"fout": f"{raw} kan niet", "mag": allowed}
+        if choice in setting.acties:
+            act_domain, service, target = setting.acties[choice]
+            await hass.services.async_call(act_domain, service, {"entity_id": target}, blocking=True, context=llm_context.context)
+            return {"gedaan": f"{name}: {choice} (was {now})"}
         if domain == "script":
             await hass.services.async_call("script", "turn_on", {"entity_id": setting.entity_id}, blocking=True, context=llm_context.context)
             return {"gedaan": f"{name}: {choice}"}
@@ -204,6 +224,8 @@ class Instelling(_ControlTool):
 
     @staticmethod
     def _now(setting: Setting, domain: str, value: str) -> str:
+        if domain == "cover":
+            return {"open": "open", "closed": "dicht", "opening": "gaat open", "closing": "gaat dicht"}.get(value, value)
         if domain == "script" or value in UNAVAILABLE:
             return value if domain != "script" else "-"
         if setting.keuzes:
