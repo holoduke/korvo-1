@@ -1,13 +1,14 @@
-"""Huiskennis: het huis voor een taalmodel van buiten, om uit te lezen en
-beperkt te bedienen.
+"""Huiskennis: het huis voor een taalmodel van buiten, om uit te lezen en te
+bedienen.
 
-Registreert een LLM-API ("Huiskennis") met leesgereedschap: wat er nu
-is, de ruimtes, de geschiedenis en de statistiek van de entiteiten die aan
-Assist zijn blootgesteld, en het huisboek (tekstbestanden in
-/config/huisboek); en bediening binnen een vaste lijst (control.py). De Model
-Context Protocol Server van Home Assistant (mcp_server) geeft hem door aan
-ChatGPT of Claude; wie hem gebruikt, logt in met een eigen Home
-Assistant-account (OAuth). Zie api.py."""
+Registreert een LLM-API ("Huiskennis"): lezen wat aan Assist is blootgesteld
+(nu, geschiedenis, statistiek, logboek, aanwezigheid, weer, problemen,
+automatiseringen) en het huisboek (tekstbestanden in /config/huisboek);
+bedienen wat blootgesteld is, plus een vaste lijst instellingen, berichten
+naar telefoons en omroepen op een speaker (control.py). De Model Context
+Protocol Server van Home Assistant (mcp_server) geeft hem door aan ChatGPT of
+Claude; wie hem gebruikt, logt in met een eigen Home Assistant-account
+(OAuth). Zie api.py."""
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
