@@ -69,14 +69,14 @@
     const t = Panel.num(s.temp);
     col.classList.toggle("stale", !Number.isFinite(t)); /* no reading: sensor offline */
     const te = col.querySelector(".s-temp");
-    te.textContent = Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "--";
+    te.textContent = Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "–";
     /* Only a reading out of its comfort band takes a colour: the strip reads as an alarm line. */
     te.style.color = Number.isFinite(t) && s.indoor && Panel.bandTone(Panel.bands.temp, t) !== "ok" ? Panel.comfortTemp(t, true) : "var(--text)";
     Util.flashOnChange(te);
     if (s.humidity) {
       const h = Panel.num(s.humidity);
       const he = col.querySelector(".s-hum");
-      he.querySelector("span").textContent = Number.isFinite(h) ? Math.round(h) + "%" : "--";
+      he.querySelector("span").textContent = Number.isFinite(h) ? Math.round(h) + "%" : "–";
       he.style.color = Number.isFinite(h) && s.indoor && Panel.bandTone(Panel.bands.hum, h) !== "ok" ? Panel.comfortHum(h, true) : "var(--hum)";
       Util.flashOnChange(he);
     }
@@ -91,16 +91,16 @@
     const h = Panel.num(a.humidity);
     const q = Panel.quality(a.quality);
     const co2El = col.querySelector(".a-co2");
-    co2El.innerHTML = Number.isFinite(co2) ? `${Math.round(co2)}<small>ppm</small>` : "--";
+    co2El.innerHTML = Number.isFinite(co2) ? `${Math.round(co2)}<small>ppm</small>` : "–";
     co2El.style.color = Number.isFinite(co2) ? Panel.co2Colour(co2) : "var(--text)";
     const pmEl = col.querySelector(".a-pm");
-    pmEl.textContent = "PM2.5 " + (Number.isFinite(pm) ? Math.round(pm) : "--");
+    pmEl.textContent = "PM2.5 " + (Number.isFinite(pm) ? Math.round(pm) : "–");
     pmEl.style.color = Number.isFinite(pm) ? Panel.pmColour(pm) : "var(--text_dim)";
     const tEl = col.querySelector(".a-temp");
-    tEl.textContent = Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "--";
+    tEl.textContent = Number.isFinite(t) ? Util.fmt(t, 1) + "°" : "–";
     tEl.style.color = Number.isFinite(t) ? Panel.comfortTemp(t, true) : "var(--text)";
     const hEl = col.querySelector(".a-hum");
-    hEl.querySelector("span").textContent = Number.isFinite(h) ? Math.round(h) + "%" : "--";
+    hEl.querySelector("span").textContent = Number.isFinite(h) ? Math.round(h) + "%" : "–";
     hEl.style.color = Number.isFinite(h) ? Panel.comfortHum(h, true) : "var(--hum)";
     col.querySelector(".aq-dot").style.background = q ? q[1] : "var(--tile)";
     const txt = col.querySelector(".aq-txt");
@@ -140,7 +140,7 @@
     const col = document.querySelector(`[data-device="${kind}"]`);
     if (!col) return;
     const batt = col.querySelector(".vh-batt");
-    batt.querySelector("span").textContent = Number.isFinite(battery) ? Math.round(battery) + "%" : "--";
+    batt.querySelector("span").textContent = Number.isFinite(battery) ? Math.round(battery) + "%" : "–";
     batt.style.color = Util.batteryColour(battery);
     const statusEl = col.querySelector(".vh-status");
     statusEl.textContent = status; /* zone names come from HA: text, not markup */
@@ -202,15 +202,15 @@
     const sensors = cfg.sensors.map(
       (s, i) =>
         `<button class="sensor-col" data-sensor="${i}"><div class="s-name"><span>${Util.esc(s.label)}</span><span class="trend"></span></div>` +
-        `<div class="s-temp">--</div><div class="s-hum">${s.humidity ? icon("drop") + "<span>--</span>" : ""}</div></button>`
+        `<div class="s-temp">–</div><div class="s-hum">${s.humidity ? icon("drop") + "<span>–</span>" : ""}</div></button>`
     );
     const air = cfg.air.map(
       (a, i) =>
         `<div class="rule"></div><button class="sensor-col air-col" data-air="${i}">` +
         `<div class="s-name"><span>${Util.esc(a.short)}</span><span class="aq-dot"></span><span class="aq-txt"></span></div>` +
         `<div class="air-grid">` +
-        `<div class="s-temp a-co2">--</div><div class="s-temp a-temp">--</div>` +
-        `<div class="s-hum a-pm">PM2.5 --</div><div class="s-hum a-hum">${icon("drop")}<span>--</span></div>` +
+        `<div class="s-temp a-co2">–</div><div class="s-temp a-temp">–</div>` +
+        `<div class="s-hum a-pm">PM2.5 –</div><div class="s-hum a-hum">${icon("drop")}<span>–</span></div>` +
         `</div></button>`
     );
     const devices = DEVICES.map(([kind, conf], i) => {
@@ -219,7 +219,7 @@
         (i === 0 ? '<div class="rule"></div>' : "") +
         `<${tag} class="sensor-col dev-hdr" data-device="${kind}" title="${Util.esc(conf.label)}">` +
         `<div class="s-name">${icon(kind)}<span>${Util.esc(conf.label)}</span></div>` +
-        `<div class="s-temp vh-batt"><span>--</span></div>` +
+        `<div class="s-temp vh-batt"><span>–</span></div>` +
         `<div class="s-hum vh-status">...</div></${tag}>`
       );
     });
@@ -229,7 +229,7 @@
   Panel.on("build", () => {
     $("forecast").innerHTML = Array.from(
       { length: FC_DAYS },
-      (_, i) => `<div class="fc-col" id="fc${i}"><div class="fc-day${i === 0 ? " today" : ""}">--</div>${wxIcon()}<div class="fc-temp">--</div></div>`
+      (_, i) => `<div class="fc-col" id="fc${i}"><div class="fc-day${i === 0 ? " today" : ""}">–</div>${wxIcon()}<div class="fc-temp">–</div></div>`
     ).join("");
     /* the forecast opens the weather popup: more days, the hours, today and tomorrow in words */
     $("forecast").setAttribute("role", "button");

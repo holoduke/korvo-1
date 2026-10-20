@@ -96,7 +96,7 @@
     const s = SOURCES[i];
     const t = Panel.num(s.temp);
     const h = s.humidity ? Panel.num(s.humidity) : NaN;
-    $("climNow").innerHTML = Number.isFinite(t) ? `${Util.fmt(t, 1)}°` + (Number.isFinite(h) ? `&ensp;${icon("drop")}${Math.round(h)}%` : "") : "--";
+    $("climNow").innerHTML = Number.isFinite(t) ? `${Util.fmt(t, 1)}°` + (Number.isFinite(h) ? `&ensp;${icon("drop")}${Math.round(h)}%` : "") : "–";
 
     if (!s.indoor) {
       setAdvice("dim", Number.isFinite(t) && Number.isFinite(h) ? `Buitenlucht bevat ${Util.fmt(absHumidity(t, h), 1)} g/m³ vocht` : "");
@@ -137,11 +137,11 @@
       return `<div class="stat"><div class="stat-v" style="color:${colour}">${value}</div><div class="stat-l">${l}</div></div>`;
     };
     $("climStats").innerHTML =
-      stat("CO2", fin(co2) ? `${Math.round(co2)}<small>ppm</small>` : "--", fin(co2) ? Panel.co2Colour(co2) : "var(--text_dim)") +
-      stat("PM2.5", fin(pm) ? `${Math.round(pm)}<small>µg/m³</small>` : "--", fin(pm) ? Panel.pmColour(pm) : "var(--text_dim)") +
-      stat("Kwaliteit", q ? q[0] : "--", q ? q[1] : "var(--text_dim)") +
-      stat(["Temperatuur", "Temp"], fin(t) ? `${Util.fmt(t, 1)}°` : "--", fin(t) ? Panel.comfortTemp(t, true) : "var(--text_dim)") +
-      stat(["Vochtigheid", "Vocht"], fin(h) ? `${Math.round(h)}%` : "--", fin(h) ? Panel.comfortHum(h, true) : "var(--text_dim)");
+      stat("CO2", fin(co2) ? `${Math.round(co2)}<small>ppm</small>` : "–", fin(co2) ? Panel.co2Colour(co2) : "var(--text_dim)") +
+      stat("PM2.5", fin(pm) ? `${Math.round(pm)}<small>µg/m³</small>` : "–", fin(pm) ? Panel.pmColour(pm) : "var(--text_dim)") +
+      stat("Kwaliteit", q ? q[0] : "–", q ? q[1] : "var(--text_dim)") +
+      stat(["Temperatuur", "Temp"], fin(t) ? `${Util.fmt(t, 1)}°` : "–", fin(t) ? Panel.comfortTemp(t, true) : "var(--text_dim)") +
+      stat(["Vochtigheid", "Vocht"], fin(h) ? `${Math.round(h)}%` : "–", fin(h) ? Panel.comfortHum(h, true) : "var(--text_dim)");
 
     const ab = cfg.airBands;
     const raw = parseFloat((Panel.st(a.co2) || {}).state);

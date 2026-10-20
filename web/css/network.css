@@ -14,12 +14,12 @@
 .nw-facts span { display: inline-flex; align-items: center; gap: 4px; }
 .nw-facts b { color: var(--text); font-variant-numeric: tabular-nums; }
 .nw-facts .ic { width: 14px; height: 14px; }
-.nw-chart-title { margin: 4px 0 0; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.nw-chart-title { margin: 4px 0 0; font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); }
 
 .nw-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.nw-stat { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: calc(10px * var(--round)); background: color-mix(in srgb, var(--bg) 35%, transparent); }
-.nw-stat b { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.nw-stat span { font-size: 12.5px; font-weight: 600; color: var(--text_dim); }
+/* the figures are the point of this page: larger values, the label still on top */
+.nw-stat { display: flex; flex-direction: column; --stat-size: 24px; }
+.nw-stat span { order: -1; }
 .nw-stat.ok b { color: var(--ok); }
 .nw-stat.warn b { color: var(--warn); }
 .nw-stat.bad b { color: var(--bad); }
@@ -106,7 +106,7 @@
 }
 @media (max-width: 480px) {
   .nw-stats { gap: 8px; }
-  .nw-stat b { font-size: 22px; }
+  .nw-stat { --stat-size: 20px; }
 }
 @media (pointer: coarse) { .nw-chip { min-height: 44px; } }
 

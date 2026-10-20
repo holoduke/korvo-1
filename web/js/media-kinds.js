@@ -17,7 +17,7 @@
   const reachable = (id) => !!s(id) && s(id).state !== "unavailable";
   const can = (id, feature) => ((attrs(id).supported_features || 0) & feature) !== 0;
   const volumeOf = (id) => (attrs(id).volume_level == null ? NaN : Number(attrs(id).volume_level));
-  const percent = (v) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "--");
+  const percent = (v) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "–");
   const art = (at) => (at.entity_picture ? `<img class="ap-art" src="${esc(at.entity_picture)}" alt="">` : "");
 
   /* Previous, play/pause, next (or stop), then volume and mute, for one player. */
@@ -34,7 +34,7 @@
     const sound = [
       can(id, F.VOLUME_SET) &&
         stepper(i, `vol|${key}`, percent(volume), { canDown: !(volume <= 0), canUp: !(volume >= 1), down: "Zachter", up: "Harder" }),
-      can(id, F.VOLUME_MUTE) && btn(i, `mute|${key}`, muted ? "Gedempt" : "Dempen", { active: muted, ic: "mute" }),
+      can(id, F.VOLUME_MUTE) && btn(i, `mute|${key}`, muted ? "Geluid aan" : "Dempen", { active: muted, ic: "mute" }),
     ].filter(Boolean);
     return (
       (buttons.length ? `<div class="ap-row ap-media">${buttons.join("")}</div>` : "") +

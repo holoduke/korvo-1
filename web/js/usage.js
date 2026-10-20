@@ -166,7 +166,7 @@
   let anim = 0;
   let seq = 0; /* the latest request: an older answer arriving late is dropped */
 
-  const unitText = (v, unit) => (Number.isFinite(v) ? `${fmt(v, unit === "L" ? 0 : v < 10 ? 2 : v < 100 ? 1 : 0)} ${unit}` : "--");
+  const unitText = (v, unit) => (Number.isFinite(v) ? `${fmt(v, unit === "L" ? 0 : v < 10 ? 2 : v < 100 ? 1 : 0)} ${unit}` : "–");
   const eur = (v) => (Number.isFinite(v) ? `€ ${fmt(v, 2)}` : "");
 
   async function load() {

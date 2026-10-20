@@ -315,7 +315,7 @@ test("beside the house the energy opens Energie, the WTW boosts, and a floor's l
     await expect(lights.locator(`[data-ql-floor="${fi}"] [data-ql-n]`)).toHaveText("uit", { timeout: 5000 });
   }
   if (await wtw.isVisible()) {
-    await expect(wtw.locator("[data-qw-now] b")).not.toHaveText("--");
+    await expect(wtw.locator("[data-qw-now] b")).not.toHaveText("–");
     const boost = wtw.locator('[data-qw-mode="MAN3x2"]');
     if (await boost.isVisible()) {
       await boost.click();
@@ -327,7 +327,7 @@ test("beside the house the energy opens Energie, the WTW boosts, and a floor's l
     }
   }
   if (await energy.isVisible()) {
-    await expect(energy.locator("[data-qe-now] b")).not.toHaveText("--");
+    await expect(energy.locator("[data-qe-now] b")).not.toHaveText("–");
     await energy.click();
     await expect(page.locator("#track > .page:not(.away) .en-now")).toBeVisible();
   }

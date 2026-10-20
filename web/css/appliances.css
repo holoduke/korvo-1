@@ -93,9 +93,6 @@
 .ap-bar.busy b { width: 35%; animation: ap-slide 1.8s ease-in-out infinite; }
 @keyframes ap-slide { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
 .ap-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
-.ap-stat { padding: 10px 12px; border-radius: calc(12px * var(--round)); background: color-mix(in srgb, var(--bg) 35%, transparent); min-width: 0; }
-.ap-stat span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ap-stat b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin-top: 2px; font-size: 18px; font-weight: 700; line-height: 1.25; overflow: hidden; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 
 /* ---- Controls ------------------------------------------------------------------------ */
 .ap-controls { display: flex; flex-direction: column; gap: 10px; }
@@ -136,7 +133,7 @@
 .ap-row.ap-split > * { flex: 1 1 200px; }
 /* A labelled control, e.g. the oven's temperature and time steppers side by side. */
 .ap-field { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.ap-field > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.ap-field > span { font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); }
 .ap-field .ap-stepper { flex: none; }
 .ap-note { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text_dim); }
 .ap-note.warn {
@@ -207,7 +204,6 @@
   .ap-body { flex-wrap: wrap; }
   .ap-hero { flex: 1 1 170px; }
   .ap-chips { margin: 0 -16px; padding: 0 16px; }
-  .ap-stat b { white-space: normal; }
   /* Media buttons show only their icons; the volume stepper gets the width. */
   .ap-media > .ap-btn { gap: 0; }
   .ap-media > .ap-btn > span { display: none; }
@@ -215,7 +211,7 @@
 }
 
 /* A small heading between rows of controls (the WTW's stands). */
-.ap-label { margin: 12px 0 6px; font-size: 12.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--text_dim); }
+.ap-label { margin: 12px 0 6px; font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); color: var(--text_dim); text-transform: uppercase; }
 
 /* The WTW's heat exchanger: outside air in and on to the house (cold) crossing
  * the house's air out and away (warm), the efficiency in the core. */

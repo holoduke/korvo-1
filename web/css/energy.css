@@ -39,6 +39,7 @@
 .en-meter b { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* Today per device */
+.en-of { margin-top: 10px; font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); }
 .en-list { display: flex; flex-direction: column; gap: 7px; margin: 2px 0 0; padding: 0; list-style: none; }
 .en-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
 .en-list i { width: 10px; height: 10px; border-radius: calc(3px * var(--round)); }
@@ -101,9 +102,9 @@
 .em-split { grid-area: split; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
 .em-split b, .em-cost b { color: var(--text); font-variant-numeric: tabular-nums; }
 .em-cost { grid-area: cost; font-size: 14px; font-weight: 600; color: var(--text_dim); }
-.em-phases { display: grid; gap: 9px; min-width: 0; }
+.em-phases { display: grid; gap: 12px; min-width: 0; }
 .em-phase { display: grid; grid-template-columns: 26px minmax(40px, 1fr) 80px 56px 96px; align-items: center; gap: 10px; font-size: 14px; font-variant-numeric: tabular-nums; }
-.em-phase-head { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.em-phase-head { font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); }
 .em-phase-head span:nth-child(n + 3) { text-align: right; }
 .em-l { font-weight: 700; color: var(--text_dim); }
 .em-bar { position: relative; height: 10px; border-radius: calc(5px * var(--round)); overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
@@ -125,13 +126,14 @@
 .em-gauge i.bad { background: var(--bad); }
 .em-day { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 16px; min-width: 0; }
 .em-kv { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.em-kv span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.em-kv span { font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); }
 .em-kv b { font-size: 22px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .em-kv small { font-size: 12px; font-weight: 600; color: var(--text_dim); }
 .em-foot { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--text_dim) 18%, transparent); }
-.em-readings, .em-quality { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
+/* the label in its own column, so a reading that wraps stays under the readings, not under the label */
+.em-readings, .em-quality { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: baseline; gap: 4px 12px; font-size: 13px; font-weight: 600; color: var(--text_dim); }
 .em-readings b, .em-quality b { color: var(--text); font-variant-numeric: tabular-nums; }
-.em-label { min-width: 104px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.em-label { grid-row: 1 / span 9; min-width: 0; font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; }
 .em-quality small { font-size: 12px; opacity: 0.8; }
 @media (max-width: 1100px) {
   .em-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
@@ -144,7 +146,8 @@
   .em-now b { font-size: 34px; }
   .em-phase { grid-template-columns: 20px minmax(24px, 1fr) 74px 52px 78px; gap: 6px; font-size: 13px; }
   .em-phase-head { font-size: 10px; letter-spacing: 0.04em; }
-  .em-label { min-width: 0; width: 100%; }
+  .em-readings, .em-quality { grid-template-columns: minmax(0, 1fr); }
+  .em-label { grid-row: auto; }
 }
 @media (pointer: coarse) { .en-pick button { height: 44px; } } /* a finger needs 44 px */
 

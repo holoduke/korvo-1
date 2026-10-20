@@ -49,11 +49,11 @@
   const scaled = (id) => Panel.num(id) * (SCALE[unitOf(id)] ?? 1);
   /* W -> ["380", "W"] or ["1,25", "kW"]. */
   function power(w) {
-    if (!Number.isFinite(w)) return ["--", "W"];
+    if (!Number.isFinite(w)) return ["–", "W"];
     const a = Math.abs(w);
     return a >= 1000 ? [fmt(w / 1000, a >= 10000 ? 1 : 2), "kW"] : [fmt(w), "W"];
   }
-  const kwhNum = (v) => (Number.isFinite(v) ? fmt(v, v < 10 ? 2 : v < 100 ? 1 : 0) : "--");
+  const kwhNum = (v) => (Number.isFinite(v) ? fmt(v, v < 10 ? 2 : v < 100 ? 1 : 0) : "–");
   const kwhText = (v) => `${kwhNum(v)} kWh`;
 
   /* ---- Daily use (statistics) --------------------------------------------------------- */
@@ -370,7 +370,7 @@
     EXPORT.forEach((k) => add(k, -1));
     return known ? sum + prices.adjust : NaN;
   }
-  const eur = (v, digits = 2) => (Number.isFinite(v) ? `${v < 0 ? "−" : ""}€ ${fmt(Math.abs(v), digits)}` : "--");
+  const eur = (v, digits = 2) => (Number.isFinite(v) ? `${v < 0 ? "−" : ""}€ ${fmt(Math.abs(v), digits)}` : "–");
 
   /* ---- Rendering ---------------------------------------------------------------------- */
   let root = null;
@@ -430,9 +430,9 @@
         `<div class="em-phase"><b class="em-l">L${p}</b>` +
         `<span class="em-bar"><i class="in" style="width:${((pin || 0) / top) * 100}%"></i>${pout > 0 ? `<i class="out" style="width:${(pout / top) * 100}%"></i>` : ""}</span>` +
         `<b class="em-w">${power(pin - pout).join(" ")}</b>` +
-        `<span class="em-a">${Number.isFinite(amps) ? `${fmt(amps)} A` : "--"}</span>` +
+        `<span class="em-a">${Number.isFinite(amps) ? `${fmt(amps)} A` : "–"}</span>` +
         `<span class="em-v"><span class="em-gauge" title="${V_MIN}–${V_MAX} V">${at != null ? `<i class="${vTone}" style="left:${at}%"></i>` : ""}</span>` +
-        `<small class="${vTone}">${Number.isFinite(volts) ? `${fmt(volts, 1)} V` : "--"}</small></span></div>`
+        `<small class="${vTone}">${Number.isFinite(volts) ? `${fmt(volts, 1)} V` : "–"}</small></span></div>`
       );
     };
     const perTariff = (keys) => TARIFFS.map((t, n) => `${TARIFF_NL[t]} ${kwhNum(useOn(G[keys[n]], 0))}`).join(" · ");
@@ -446,7 +446,7 @@
     const week = [0, 1, 2, 3, 4, 5, 6].map(costOn);
     const weekCost = week.some(Number.isFinite) ? week.filter(Number.isFinite).reduce((a, b) => a + b, 0) : NaN;
     const weekNet = [0, 1, 2, 3, 4, 5, 6].reduce((s, b) => s + ((importOn(b) || 0) - (exportOn(b) || 0)), 0);
-    const reading = (key) => (exists(G[key]) ? fmt(scaled(G[key]), 3) : "--");
+    const reading = (key) => (exists(G[key]) ? fmt(scaled(G[key]), 3) : "–");
     const count = (key) => {
       const v = Panel.num(G[key]);
       return Number.isFinite(v) ? fmt(v) : "–";
@@ -505,8 +505,8 @@
         `<div class="em-phase"><b class="em-l">S${n}</b>` +
         `<span class="em-bar"><i class="out" style="width:${((pw || 0) / top) * 100}%"></i></span>` +
         `<b class="em-w">${power(pw).join(" ")}</b>` +
-        `<span class="em-a">${Number.isFinite(amps) ? `${fmt(amps, 1)} A` : "--"}</span>` +
-        `<span class="em-v"><small>${Number.isFinite(volts) ? `${fmt(volts, 1)} V` : "--"}</small></span></div>`
+        `<span class="em-a">${Number.isFinite(amps) ? `${fmt(amps, 1)} A` : "–"}</span>` +
+        `<span class="em-v"><small>${Number.isFinite(volts) ? `${fmt(volts, 1)} V` : "–"}</small></span></div>`
       );
     };
     const made = sunOn(0);
@@ -580,6 +580,8 @@
             ? `van het net${Number.isFinite(cost) ? `, ${eur(cost)}` : ""} · ${kwhText(sum)} gemeten per apparaat`
             : "Samen, van de apparaten met een meter"
       }</div>` +
+      /* the devices are part of the house's total, not more on top of it */
+      (rows.length && Number.isFinite(fromGrid) ? `<div class="en-of">Waarvan</div>` : "") +
       `<ul class="en-list">${rows.map(([d, v]) => `<li data-usage="e${devices.indexOf(d)}"><i style="background:${colour.get(d)}"></i><span>${esc(d.label)}</span><b>${kwhText(v)}</b></li>`).join("")}</ul>`;
   }
 

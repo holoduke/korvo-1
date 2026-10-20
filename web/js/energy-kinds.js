@@ -53,10 +53,11 @@
     use: true,
     chart: "chargerPower",
     meter: "homeEnergy",
+    capToGrid: true, /* charged at home, so through the house meter: never more than the house used */
     stats: ["homeEnergy", "energyAdded"],
     power: (e) => (stateOf(e.location) === "home" ? E.scaled(e.chargerPower) : 0),
     card(e) {
-      if (E.missing(e.battery) && E.missing(e.charging)) return { tone: "offline", big: "--", unit: "geen gegevens" };
+      if (E.missing(e.battery) && E.missing(e.charging)) return { tone: "offline", big: "–", unit: "geen gegevens" };
       const charging = stateOf(e.charging);
       const active = charging === "charging" || charging === "starting";
       const soc = num(e.battery);
@@ -141,7 +142,7 @@
       const total = E.scaled(e.heatAdd) + E.scaled(e.waterAdd);
       return {
         tone: alarm ? "warn" : running ? "active" : "idle",
-        big: known(today) ? fmt(today, today < 10 ? 2 : today < 100 ? 1 : 0) : "--",
+        big: known(today) ? fmt(today, today < 10 ? 2 : today < 100 ? 1 : 0) : "–",
         unit: "kWh", /* the foot says what it is: heat delivered, not electricity used */
         chips: [
           ["heatpump", alarm ? "Storing" : HP_DOING[status] || stateOf(e.status)],

@@ -59,7 +59,7 @@
       return {
         main: e.co2,
         tone: "idle",
-        big: Number.isFinite(co2) ? fmt(co2) : "--",
+        big: Number.isFinite(co2) ? fmt(co2) : "–",
         unit: "ppm CO2",
         colour: Number.isFinite(co2) ? Panel.co2Colour(co2) : null,
         chips: [
@@ -71,7 +71,7 @@
       };
     },
     climate(e) {
-      return { main: e.temperature, tone: "idle", big: reading(e.temperature, 1, "°") || "--", chips: [["drop", reading(e.humidity, 0, "%")]] };
+      return { main: e.temperature, tone: "idle", big: reading(e.temperature, 1, "°") || "–", chips: [["drop", reading(e.humidity, 0, "%")]] };
     },
     /* The soil's moisture leads; the card turns amber when the plant is dry.
      * It counts as online while the sensor reports anything (the soil's first
@@ -81,7 +81,7 @@
       return {
         main: e.temperature,
         tone: p.dry ? "warn" : "idle",
-        big: Number.isFinite(p.moisture) ? fmt(p.moisture) : "--",
+        big: Number.isFinite(p.moisture) ? fmt(p.moisture) : "–",
         unit: "% bodem", /* "% bodemvocht" leaves the number too little room on a small card */
         colour: p.dry ? "var(--warn)" : null,
         chips: [

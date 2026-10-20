@@ -18,7 +18,7 @@
   const E = Panel.energy;
   const hasEnergy = !!E && (cfg.energy || []).some((d) => d.kind === "grid" || d.kind === "solar");
   let energyEl = null;
-  const watts = (w) => (Number.isFinite(w) ? E.power(w).join(" ") : "--");
+  const watts = (w) => (Number.isFinite(w) ? E.power(w).join(" ") : "–");
 
   function renderEnergy() {
     if (!energyEl) return;
@@ -53,7 +53,7 @@
     if (wtwBusy && code === wtwBusy.option) settleWtw();
     const timed = code.startsWith("MAN") && Number.isFinite(left) && left > 0;
     wtwEl.classList.toggle("hard", Number.isFinite(flow) && flow >= 60);
-    wtwEl.querySelector("[data-qw-now]").innerHTML = `<b>${Number.isFinite(flow) ? Math.round(flow) : "--"}</b><span>% debiet</span>`;
+    wtwEl.querySelector("[data-qw-now]").innerHTML = `<b>${Number.isFinite(flow) ? Math.round(flow) : "–"}</b><span>% debiet</span>`;
     wtwEl.querySelector("[data-qw-stand]").textContent = timed ? `${st.pill} · nog ${Math.max(1, Math.round(left / 60))} min` : st.pill;
     WTW_MODES.forEach(([option]) => {
       const b = wtwEl.querySelector(`[data-qw-mode="${option}"]`);
@@ -169,7 +169,7 @@
         "beforeend",
         `<div class="house-quick house-wtw" data-house-wtw>` +
           `<button class="qw-open" data-qw-open aria-label="${esc(wtw.label)} openen in Apparaten">` +
-          `<span class="hq-title">${icon("fan")}<span>Ventilatie</span></span>` +
+          `<span class="hq-title">${icon("fan")}<span>${esc(wtw.label)}</span></span>` +
           `<span class="qw-now" data-qw-now></span>` +
           `<span class="qw-stand" data-qw-stand></span>` +
           `</button>` +

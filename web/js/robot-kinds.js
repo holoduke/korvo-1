@@ -41,13 +41,13 @@
       return {
         tone: fault ? "error" : state === "paused" ? "paused" : job ? "run" : "ready",
         pill: fault && !job ? "Storing" : STATE_NL[state] || state,
-        big: Number.isFinite(battery) ? fmt(battery) : "--",
+        big: Number.isFinite(battery) ? fmt(battery) : "–",
         unit: "% accu",
         sub: job && Number.isFinite(area) ? `${fmt(area)} m² deze ronde` : STATE_NL[state] || "",
         progress: state === "cleaning" ? "busy" : null,
         stats: [
-          stat("Accu", Number.isFinite(battery) ? `${fmt(battery)}%` : "--"),
-          stat(job ? "Deze ronde" : "Laatste ronde", Number.isFinite(area) ? `${fmt(area)} m²` : "--"),
+          stat("Accu", Number.isFinite(battery) ? `${fmt(battery)}%` : "–"),
+          stat(job ? "Deze ronde" : "Laatste ronde", Number.isFinite(area) ? `${fmt(area)} m²` : "–"),
           stat("Verdieping", floorName(a.floor)),
         ],
         controls:

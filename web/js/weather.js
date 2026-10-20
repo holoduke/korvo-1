@@ -188,7 +188,7 @@
     const a = s.attributes || {};
     $("wxNow").innerHTML =
       `<span class="wx-now-label">nu</span><span class="wx-now-ic">${Panel.wx.html()}</span>` +
-      `<b>${Number.isFinite(Number(a.temperature)) ? fmt(Number(a.temperature), 1) + "°" : "--"}</b>` +
+      `<b>${Number.isFinite(Number(a.temperature)) ? fmt(Number(a.temperature), 1) + "°" : "–"}</b>` +
       `<span class="wx-now-cond">${esc(condNL(s.state))}</span>`;
     Panel.wx.apply($("wxNow"), s.state);
   }

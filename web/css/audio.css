@@ -123,7 +123,7 @@ body.sleeping .au-eq-anim i { animation: none; }
 .au-small .au-btn.round { width: 42px; min-width: 42px; height: 42px; }
 .au-small .au-btn:not(.round) { min-height: 42px; font-size: 13px; padding: 0 12px; }
 .au-block { display: flex; flex-direction: column; gap: 8px; }
-.au-block h3 { margin: 0; display: flex; align-items: center; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.au-block h3 { margin: 0; display: flex; align-items: center; font-size: var(--h1-size); font-weight: 700; letter-spacing: var(--h1-track); text-transform: uppercase; color: var(--text_dim); }
 .au-left { margin-left: 8px; letter-spacing: 0; text-transform: none; color: var(--accent); }
 .au-eqbands { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; height: 70px; padding-top: 2px; }
 .au-eqbands div { position: relative; display: flex; flex-direction: column; }
@@ -149,7 +149,7 @@ body.sleeping .au-eq-anim i { animation: none; }
 .au-quick { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
 
 /* A phone: the cover above the rest, smaller. */
-@media (max-width: 700px) {
+@media (max-width: 760px) {
   .au-hero { flex-direction: column; align-items: center; text-align: center; }
   .au-art { width: 150px; height: 150px; }
   .au-tags, .au-transport { justify-content: center; }

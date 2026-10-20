@@ -88,7 +88,7 @@
     return { text: "in rust", tone: "" };
   }
 
-  const deg = (v, d = 1) => (Number.isFinite(v) ? `${fmt(v, d)}°` : "--");
+  const deg = (v, d = 1) => (Number.isFinite(v) ? `${fmt(v, d)}°` : "–");
   const range = () => attrs(E.roomHeat);
   const canDown = () => Number.isFinite(target()) && target() > (range().min ?? 5);
   const canUp = () => Number.isFinite(target()) && target() < (range().max ?? 35);
@@ -98,9 +98,9 @@
     return (
       `<div class="house-heat" data-house-heat>` +
       `<div class="hh-title">${icon("flame")}<span>Verwarming</span></div>` +
-      `<div class="hh-now"><b data-hh-room>--</b><span>binnen</span></div>` +
+      `<div class="hh-now"><b data-hh-room>–</b><span>binnen</span></div>` +
       `<div class="hh-set"><button class="hh-btn" data-heat-step="-1" aria-label="Kouder">${icon("minus")}</button>` +
-      `<span class="hh-target"><b data-hh-target>--</b><span data-hh-label>doel</span></span>` +
+      `<span class="hh-target"><b data-hh-target>–</b><span data-hh-label>doel</span></span>` +
       `<button class="hh-btn" data-heat-step="1" aria-label="Warmer">${icon("plus")}</button></div>` +
       `<div class="hh-state" data-hh-state></div>` +
       `</div>`
@@ -124,7 +124,7 @@
   const roomRowHtml = () =>
     `<div class="hi-heat-row">${icon("flame")}<span class="hi-heat-text"><b>Verwarming</b><span data-hh-state></span></span>` +
     `<button class="hh-btn" data-heat-step="-1" aria-label="Kouder">${icon("minus")}</button>` +
-    `<span class="hh-target"><b data-hh-target>--</b><span data-hh-label>doel</span></span>` +
+    `<span class="hh-target"><b data-hh-target>–</b><span data-hh-label>doel</span></span>` +
     `<button class="hh-btn" data-heat-step="1" aria-label="Warmer">${icon("plus")}</button></div>`;
   function renderRow(el) {
     if (!el) return;

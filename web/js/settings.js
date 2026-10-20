@@ -16,7 +16,7 @@
       .join("");
     const seg = (el, labels, sel, key) =>
       ($(el).innerHTML = labels.map((l, i) => `<button class="${i === sel ? "selected" : ""}" data-${key}="${i}">${l}</button>`).join(""));
-    seg("saverMode", ["Scherm uit", "Het oog", "Huis", "Vision"], Panel.prefs.saverMode, "mode");
+    seg("saverMode", ["Scherm uit", "Klimaat", "3D-huis", "Live data"], Panel.prefs.saverMode, "mode");
     $("saverPreview").innerHTML = icon("play") + "Voorbeeld";
     seg("saverTime", Panel.SAVER_LABELS, Panel.prefs.saverIdx, "time");
     seg("deepTime", Panel.DEEP_LABELS, Panel.prefs.deepIdx, "deep");

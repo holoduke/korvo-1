@@ -169,7 +169,7 @@
     q(".vs-status").textContent = status;
     q(".vs-substatus").textContent = !offline && STATE_NL[state] && STATE_NL[state] !== status ? STATE_NL[state] : "";
     const battery = Panel.num(e.battery);
-    q(".vs-batt span").textContent = Number.isFinite(battery) ? `${fmt(battery)}%` : "--";
+    q(".vs-batt span").textContent = Number.isFinite(battery) ? `${fmt(battery)}%` : "–";
     const bar = q(".vs-batt i b");
     bar.style.width = (Number.isFinite(battery) ? Util.clamp(battery, 0, 100) : 0) + "%";
     bar.style.background = Util.batteryColour(battery);
@@ -192,14 +192,14 @@
     const area = Panel.num(e.area);
     const minutes = Panel.num(e.time);
     q('[data-label="run"]').textContent = job ? "Deze ronde" : "Laatste ronde";
-    q('[data-stat="run"]').textContent = Number.isFinite(area) ? `${fmt(area)} m² · ${fmt(minutes)} min` : "--";
+    q('[data-stat="run"]').textContent = Number.isFinite(area) ? `${fmt(area)} m² · ${fmt(minutes)} min` : "–";
     const totalArea = Panel.num(e.totalArea);
     const totalRuns = Panel.num(e.totalRuns);
     const totalMinutes = Panel.num(e.totalTime);
-    q('[data-stat="area"]').textContent = Number.isFinite(totalArea) ? `${fmt(totalArea)} m²` : "--";
+    q('[data-stat="area"]').textContent = Number.isFinite(totalArea) ? `${fmt(totalArea)} m²` : "–";
     q('[data-stat="runs"]').textContent = Number.isFinite(totalRuns)
       ? `${fmt(totalRuns)}${Number.isFinite(totalMinutes) ? ` · ${Util.duration(totalMinutes * 60).join(" ")}` : ""}`
-      : "--";
+      : "–";
 
     /* Two or three tiles: a start, or pause and resume, plus dock and locate. */
     const tile = (act, visible) => {
@@ -241,7 +241,7 @@
       row.classList.toggle("dirty", dirty);
       row.querySelector(".bar").className = `bar ${tone}`;
       row.querySelector(".bar b").style.width = (Number.isFinite(pct) ? pct : 0) + "%";
-      row.querySelector("em").textContent = [dirty && "schoonmaken", Number.isFinite(pct) && `${pct}% over`].filter(Boolean).join(" · ") || "--";
+      row.querySelector("em").textContent = [dirty && "schoonmaken", Number.isFinite(pct) && `${pct}% over`].filter(Boolean).join(" · ") || "–";
       const reset = row.querySelector(".tv-reset");
       reset.classList.toggle("armed", view.twoTap.armed(part));
       reset.textContent = view.twoTap.armed(part) ? "Nogmaals" : "Reset";

@@ -515,9 +515,14 @@
       const colourful = /party|cuba|paars|regenboog|rood|blauw|groen|oranje|pink|erotisch/.test(sceneEntityId);
       /* a room's scene sets that room's lamps, a floor's all of the floor's */
       const lamps = area ? area.lights : [...tab.devices.map((d) => d.id), ...(tab.areas || []).flatMap((a) => a.lights)];
+      /* evening scenes light a few lamps low and warm, bright ones every lamp cool, as real scenes do */
+      const soft = /avond|sfeer|dim|nacht|film|relax|rustig|romantisch|beetje/.test(sceneEntityId);
+      const bright = /fel|helder|werk|koken|schoonmaak|heel/.test(sceneEntityId);
       const stored = (i) =>
         off ? { state: "off" }
         : colourful ? { state: "on", brightness: 200, hs_color: [[280, 240, 0, 120][i % 4], 100] }
+        : soft ? (i % 3 === 2 ? { state: "on", brightness: 70, color_temp_kelvin: 2200 } : { state: "off" })
+        : bright ? { state: "on", brightness: 255, color_temp_kelvin: 4000 }
         : { state: "on", brightness: 120 + (i % 3) * 40, color_temp_kelvin: 2700 };
       return { id: sceneEntityId, entities: Object.fromEntries(lamps.map((id, i) => [id, stored(i)])) };
     }

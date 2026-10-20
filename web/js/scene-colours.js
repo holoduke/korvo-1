@@ -1,7 +1,9 @@
 /* A scene's colours as a round swatch: the colours its lights take in the
  * scene's stored states (colour, colour temperature and brightness), the most
- * common first, as a pie of up to four. A scene that only switches lights off
- * gets a dark swatch with a power sign. */
+ * common first, as a pie of up to four, and a dark slice for the lights it
+ * switches off: "Alles aan" is a full disc, "Avond sfeer" a dim part of one,
+ * even when every lamp is the same warm white. A scene that only switches
+ * lights off gets a dark swatch with a power sign. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -51,11 +53,15 @@
   Panel.sceneSwatch = function (entities) {
     const groups = new Map(); /* quantised colour -> {rgb, lights, level} */
     let lights = 0;
+    let off = 0;
     for (const [id, stored] of Object.entries(entities)) {
       if (!id.startsWith("light.")) continue;
       lights++;
       const v = typeof stored === "string" ? { state: stored } : stored || {};
-      if (v.state !== "on") continue;
+      if (v.state !== "on") {
+        off++;
+        continue;
+      }
       const rgb = baseColour(v);
       const key = rgb.map((c) => Math.round(c / 32)).join(",");
       const group = groups.get(key) || { rgb, lights: 0, level: 0 };
@@ -67,16 +73,17 @@
     if (!groups.size) return `<span class="swatch scene-lead off">${icon("power")}</span>`;
 
     const top = [...groups.values()].sort((a, b) => b.lights - a.lights).slice(0, MAX_COLOURS);
-    const total = top.reduce((sum, g) => sum + g.lights, 0);
+    const total = top.reduce((sum, g) => sum + g.lights, 0) + off;
     /* Dimmer scenes read darker, but never so dark that the colour is lost. */
-    const css = (g) => `rgb(${g.rgb.map((c) => byte(c * (0.45 + 0.55 * (g.level / g.lights)))).join(" ")})`;
+    const css = (g) => `rgb(${g.rgb.map((c) => byte(c * (0.3 + 0.7 * (g.level / g.lights)))).join(" ")})`;
     let at = 0;
     const stops = top.map((g) => {
       const from = at;
       at += (g.lights / total) * 100;
       return `${css(g)} ${from.toFixed(1)}% ${at.toFixed(1)}%`;
     });
-    const background = top.length === 1 ? css(top[0]) : `conic-gradient(${stops.join(", ")})`;
+    if (off) stops.push(`color-mix(in srgb, var(--text_dim) 22%, var(--tile_off)) ${at.toFixed(1)}% 100%`);
+    const background = stops.length === 1 ? css(top[0]) : `conic-gradient(${stops.join(", ")})`;
     return `<span class="swatch scene-lead" style="background:${background}"></span>`;
   };
 })();

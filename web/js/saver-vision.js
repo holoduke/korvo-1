@@ -57,7 +57,7 @@
   const attr = (id, a) => ((st(id) || {}).attributes || {})[a];
   const isOn = (id) => (st(id) || {}).state === "on";
   const ok = Number.isFinite;
-  const fmt = (v, d = 1) => (ok(v) ? Util.fmt(v, d) : "--");
+  const fmt = (v, d = 1) => (ok(v) ? Util.fmt(v, d) : "–");
   const unit = (id) => attr(id, "unit_of_measurement") || "";
   const hm = (d) => (d instanceof Date && !isNaN(d) ? d.toTimeString().slice(0, 5) : null);
   const STATE_NL = {
@@ -73,7 +73,7 @@
   const nl = (state) => STATE_NL[String(state).toLowerCase()] || String(state).replace(/_/g, " ").toUpperCase();
   const says = (id) => {
     const s = st(id);
-    return s ? nl(s.state) : "--";
+    return s ? nl(s.state) : "–";
   };
   const energy = (kind) => cfg.energy.filter((e) => e.kind === kind);
   /* kW whatever the sensor reports in */
@@ -234,15 +234,15 @@
     const out = [["#", "Environment"]];
     for (const s of cfg.sensors) {
       const t = num(s.temp), h = num(s.humidity);
-      out.push([s.label, `${fmt(t)}°  ${ok(h) ? Math.round(h) + "%" : "--"}`, roomOff(s) ? "warn" : "ok"]);
+      out.push([s.label, `${fmt(t)}°  ${ok(h) ? Math.round(h) + "%" : "–"}`, roomOff(s) ? "warn" : "ok"]);
     }
-    if (air) out.push([`CO2 ${air.short || ""}`.trim(), ok(num(air.co2)) ? `${Math.round(num(air.co2))} PPM` : "--", num(air.co2) > 1000 ? "warn" : "ok"]);
+    if (air) out.push([`CO2 ${air.short || ""}`.trim(), ok(num(air.co2)) ? `${Math.round(num(air.co2))} PPM` : "–", num(air.co2) > 1000 ? "warn" : "ok"]);
     if (st(cfg.weather)) out.push(["Weer", `${fmt(attr(cfg.weather, "temperature"))}°  ${says(cfg.weather)}`, "ok"]);
     out.push(["#", "Power"]);
-    if (grid) out.push(["Stroomnet", ok(netKw()) ? `${netKw() >= 0 ? "IMPORT" : "EXPORT"} ${fmt(Math.abs(netKw()), 2)} KW` : "--", "ok"]);
+    if (grid) out.push(["Stroomnet", ok(netKw()) ? `${netKw() >= 0 ? "IMPORT" : "EXPORT"} ${fmt(Math.abs(netKw()), 2)} KW` : "–", "ok"]);
     if (heat) out.push([heat.label, says(heat.entities.status), isOn(heat.entities.alarm) ? "warn" : "ok"]);
-    if (car) out.push([cfg.car.label, `${ok(num(car.battery)) ? Math.round(num(car.battery)) + "%" : "--"}${ok(num(car.range)) ? " · " + Math.round(num(car.range)) + " KM" : ""}`, num(car.battery) < 20 ? "warn" : "ok"]);
-    for (const b of energy("battery")) out.push([b.label, ok(num(b.entities.soc)) ? Math.round(num(b.entities.soc)) + "%" : "--", num(b.entities.soc) < 15 ? "warn" : "ok"]);
+    if (car) out.push([cfg.car.label, `${ok(num(car.battery)) ? Math.round(num(car.battery)) + "%" : "–"}${ok(num(car.range)) ? " · " + Math.round(num(car.range)) + " KM" : ""}`, num(car.battery) < 20 ? "warn" : "ok"]);
+    for (const b of energy("battery")) out.push([b.label, ok(num(b.entities.soc)) ? Math.round(num(b.entities.soc)) + "%" : "–", num(b.entities.soc) < 15 ? "warn" : "ok"]);
     out.push(["#", "House"]);
     out.push(["Lampen aan", `${lightsOn().length} / ${LIGHTS.length}`, "ok"]);
     for (const cv of cfg.covers || []) out.push([cv.label, says(cv.entities.cover), (st(cv.entities.cover) || {}).state === "open" ? "warn" : "ok"]);
@@ -1098,7 +1098,7 @@
     draw: (a, k) => vBattery(a, num(bike.entities.battery), k, ok(num(bike.entities.distance)) ? `${fmt(num(bike.entities.distance), 0)} KM GEREDEN` : "") });
   for (const b of batteries) {
     const cells = [1, 2, 3, 4].map((k) => b.entities["cell" + k]).filter(Boolean);
-    widget({ name: `${b.label.toUpperCase()} CELLEN`, has: () => anyOk(...cells), big: () => (ok(num(b.entities.delta)) ? `Δ ${fmt(num(b.entities.delta), 0)} ${unit(b.entities.delta).toUpperCase()}` : "--"), sub: () => (ok(num(b.entities.soc)) ? `SOC ${Math.round(num(b.entities.soc))}%` : ""),
+    widget({ name: `${b.label.toUpperCase()} CELLEN`, has: () => anyOk(...cells), big: () => (ok(num(b.entities.delta)) ? `Δ ${fmt(num(b.entities.delta), 0)} ${unit(b.entities.delta).toUpperCase()}` : "–"), sub: () => (ok(num(b.entities.soc)) ? `SOC ${Math.round(num(b.entities.soc))}%` : ""),
       draw: (a, k) => { const v = cells.map(num).filter(ok); vBars(a, cells.map((id, i) => ({ l: "C" + (i + 1), v: num(id) })), Math.min(...v) - 0.02, Math.max(...v) + 0.01, k, 3); } });
   }
   if (batteries.length) widget({ name: "THUISACCU'S", has: () => anyOk(...batteries.map((b) => b.entities.soc)), big: () => `Ø ${Math.round(avg(batteries.map((b) => num(b.entities.soc)).filter(ok)))}%`, sub: () => "LAADSTAND",
@@ -1124,7 +1124,7 @@
     draw: (a, k) => vThermo(a, num(fridge.temp), 0, 12, k, 1, fridge.temp) });
   if (cfg.vacuum) {
     const r = spin(), tor = M.torus();
-    widget({ name: "STOFZUIGER", has: () => !!st(cfg.vacuum.vacuum), big: () => (ok(num(cfg.vacuum.battery)) ? `${Math.round(num(cfg.vacuum.battery))}%` : "--"), sub: () => says(cfg.vacuum.vacuum),
+    widget({ name: "STOFZUIGER", has: () => !!st(cfg.vacuum.vacuum), big: () => (ok(num(cfg.vacuum.battery)) ? `${Math.round(num(cfg.vacuum.battery))}%` : "–"), sub: () => says(cfg.vacuum.vacuum),
       draw: (a, k, now, dt) => vMesh(a, tor, r, (st(cfg.vacuum.vacuum) || {}).state === "cleaning" ? 2 : 0.4, dt) });
   }
   if ((cfg.media || []).length) {
@@ -1202,7 +1202,7 @@
     }
     glow(false);
     ctx.setLineDash([]);
-    let big = "--", sub = "";
+    let big = "–", sub = "";
     try {
       big = w.big();
       sub = w.sub();

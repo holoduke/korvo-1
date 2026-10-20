@@ -24,7 +24,7 @@
   const AWAY_IS_START = 30e3; /* back in view after this long counts as a start */
   const TRIED_KEY = "panel.updateTried";
   const RETRY_TRIED_MS = 3600e3;
-  const isPhone = () => matchMedia("(max-width: 700px), (orientation: landscape) and (max-height: 440px)").matches;
+  const isPhone = () => matchMedia("(max-width: 760px), (orientation: landscape) and (max-height: 440px)").matches;
 
   /* /local/panel is the same app, but Home Assistant gives everything there a
    * 31-day max-age; /thuis (the thuispaneel integration) serves the page with

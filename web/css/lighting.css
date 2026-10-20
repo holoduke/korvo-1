@@ -95,7 +95,7 @@
 .split.no-scenes .split-scenes { display: none; }
 .tab-page .split { padding-left: var(--pad); }
 /* A room's name over its scenes or lamps, across the grid. */
-.list-room { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 6px 2px 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.list-room { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 6px 2px 0; font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); }
 .list-room::after { content: ""; flex: 1; height: 1px; background: color-mix(in srgb, var(--text_dim) 30%, transparent); }
 .split .grid > [hidden] { display: none; }
 /* these grids size their rows themselves, so a room's name takes only its line */
@@ -103,7 +103,7 @@
 .split .grid[data-scenes] > .tile, .split .grid[data-lamps] > .tile { height: 76px; }
 .split-empty { grid-column: 1 / -1; font-size: 15px; font-weight: 600; color: var(--text_dim); padding: 6px 2px; }
 .split-half { display: flex; flex-direction: column; gap: 8px; min-height: 0; min-width: 0; }
-.split-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.split-title { font-size: var(--h1-size); font-weight: 700; letter-spacing: var(--h1-track); text-transform: uppercase; color: var(--text_dim); }
 .split-list { flex: 1; min-height: 0; overflow-y: auto; touch-action: none; scrollbar-width: none; }
 .split-list.scrolls { touch-action: pan-y; } /* lighting.js marks lists taller than their half */
 .split-list::-webkit-scrollbar { display: none; }
@@ -137,6 +137,7 @@
 .cover-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .cover-actions .ap-btn { min-height: 44px; padding: 0 6px; }
 .cover-actions .ap-btn .ic { font-size: 16px; }
+.cover-actions .ap-btn.suggest { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent); color: var(--accent); }
 /* A narrow block (the small panel, the room panel beside the house): two rows of two. */
 @container (max-width: 380px) {
   .cover-actions { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -202,6 +203,7 @@
   touch-action: none;
 }
 .vslider.dim { opacity: 0; pointer-events: none; }
+.vs-what { max-width: 100%; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 .vs-label { height: 24px; font-size: 18px; font-weight: 600; color: var(--text_dim); font-variant-numeric: tabular-nums; }
 .vs-track { position: relative; flex: 1; width: 56px; border-radius: calc(14px * var(--round)); background: var(--tile); overflow: hidden; cursor: ns-resize; }
 .vs-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--tile_on); border-radius: calc(14px * var(--round)); }
@@ -291,6 +293,33 @@
   .drawer .tile .t-name { font-size: 15px; line-height: 1.15; white-space: normal; hyphens: auto; overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
   .drawer-grid { grid-auto-rows: minmax(96px, auto); }
   .drawer .tile .t-sub { font-size: 14px; }
+}
+
+/* An upright phone: the floors' rail lies flat above the lamps (as on
+ * Schoonmaak) and the brightness slider lies flat above the bottom row, so
+ * the tiles get the whole width instead of two-thirds of it. sliders.js reads
+ * the track's shape to know which way it slides. */
+@media (max-width: 760px) and (orientation: portrait) {
+  :root { --lane: 10px; --hbar: 52px; }
+  .page.floors-page { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) var(--row-h); }
+  .floors-page .rail { grid-row: 1; padding: 10px 10px 0; }
+  .floors-page .floor-view { grid-row: 2; grid-column: 1; }
+  .floors-page .floor-rows { grid-row: 3; }
+  .floors-page .rail-track { flex-direction: row; padding: 4px; }
+  .floors-page .rail-btn { flex: 1 1 0; flex-direction: row; gap: 6px; height: 44px; min-width: 0; }
+  .floors-page .rail-btn b { display: none; }
+  .floors-page .rail-btn span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font-size: 12.5px; line-height: 1.1; } /* "Begane / grond" on two lines rather than "Begane g…" */
+  .floors-page .rail-ind { display: none; }
+  .floors-page .rail-btn.active { background: var(--accent); }
+  /* room under the lamps for the flat slider */
+  .split { padding-bottom: calc(var(--hbar) + 6px); }
+  .vslider { flex-direction: row; gap: 10px; left: 10px; right: 10px; top: auto; bottom: calc(var(--row-h) + 2px); width: auto; height: 44px; }
+  .vs-label { order: 1; height: auto; min-width: 46px; font-size: 15px; text-align: right; }
+  .vs-what { order: -1; max-width: 84px; font-size: 12px; text-align: left; }
+  .vs-track { width: auto; height: 44px; cursor: ew-resize; }
+  .vs-fill { top: 0; bottom: 0; right: auto; }
+  .vs-knob { top: 4px; bottom: 4px; left: 0; right: auto; width: 36px; height: auto; transform: translateX(-50%); }
+  .scene-save { bottom: calc(var(--row-h) + var(--hbar) + 6px); }
 }
 
 /* Phones: two narrow columns of tiles; a smaller name loses less of itself. */

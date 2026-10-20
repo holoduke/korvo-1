@@ -233,7 +233,7 @@
       .filter(Boolean)
       .join(" · ");
     const battery = Panel.num(vac.battery);
-    q(".vs-batt span").textContent = Number.isFinite(battery) ? `${fmt(battery)}%` : "--";
+    q(".vs-batt span").textContent = Number.isFinite(battery) ? `${fmt(battery)}%` : "–";
     const bar = q(".vs-batt i b");
     bar.style.width = (Number.isFinite(battery) ? Util.clamp(battery, 0, 100) : 0) + "%";
     bar.style.background = Util.batteryColour(battery);

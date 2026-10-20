@@ -15,19 +15,30 @@
   const vTrack = bright.querySelector(".vs-track");
   let dragId = null;
   let releasedAt = 0;
-  let startY = 0;
+  let startAt = 0;
   let engaged = false; /* the touch has moved enough to be a real drag, not a tap */
-  const ENGAGE = 6; /* px of vertical travel before the slider takes the touch */
+  const ENGAGE = 6; /* px of travel along the track before the slider takes the touch */
+  /* An upright phone lays the slider flat above the bottom row (lighting.css):
+   * the track's own shape says which way it runs. */
+  const flat = () => vTrack.clientWidth > vTrack.clientHeight;
   /* The rendered knob is smaller on phones (CSS) than the desktop default, so
    * read it rather than trust the constant, or the ends miss 0/100%. */
-  const knobH = () => vTrack.parentElement.querySelector(".vs-knob").offsetHeight || KNOB;
+  const knobLen = () => {
+    const knob = vTrack.querySelector(".vs-knob");
+    return (flat() ? knob.offsetWidth : knob.offsetHeight) || KNOB;
+  };
 
   function setSlider(v, showLabel) {
-    const h = vTrack.clientHeight || 1;
-    const k = knobH();
-    const y = (v / 100) * (h - k) + k / 2; /* knob centre from the bottom */
-    bright.querySelector(".vs-fill").style.height = (v ? y : 0) + "px"; /* at 0 no sliver of fill under the knob */
-    bright.querySelector(".vs-knob").style.bottom = y + "px";
+    const across = flat();
+    const len = (across ? vTrack.clientWidth : vTrack.clientHeight) || 1;
+    const k = knobLen();
+    const at = (v / 100) * (len - k) + k / 2; /* knob centre from the start (bottom, or left) */
+    const fill = bright.querySelector(".vs-fill").style;
+    const knob = bright.querySelector(".vs-knob").style;
+    fill[across ? "width" : "height"] = (v ? at : 0) + "px"; /* at 0 no sliver of fill under the knob */
+    fill[across ? "height" : "width"] = "";
+    knob[across ? "left" : "bottom"] = at + "px";
+    knob[across ? "bottom" : "left"] = "";
     bright.dataset.value = v;
     vTrack.setAttribute("aria-valuenow", v);
     $("brightLabel").textContent = showLabel ? v + "%" : "";
@@ -45,7 +56,10 @@
   function sync() {
     const s = scope();
     bright.hidden = !s;
-    if (s) setSlider(s.value >= 0 ? s.value : 50, s.value >= 0);
+    if (!s) return;
+    /* what the slider sets: the chosen room, else every lamp on the tab */
+    $("brightWhat").textContent = s.area ? Panel.activeArea().label : "Alle";
+    setSlider(s.value >= 0 ? s.value : 50, s.value >= 0);
   }
 
   /* A new brightness from Home Assistant, unless a finger is (just) on the slider. */
@@ -54,28 +68,30 @@
     setSlider(v, true);
   };
 
-  function valueAt(clientY) {
+  const along = (e) => (flat() ? e.clientX : e.clientY);
+  function valueAt(e) {
     const r = vTrack.getBoundingClientRect();
-    const k = knobH();
-    return Math.round(Util.clamp(1 - (clientY - r.top - k / 2) / Math.max(1, r.height - k), 0, 1) * 100);
+    const k = knobLen();
+    const f = flat() ? (e.clientX - r.left - k / 2) / Math.max(1, r.width - k) : 1 - (e.clientY - r.top - k / 2) / Math.max(1, r.height - k);
+    return Math.round(Util.clamp(f, 0, 1) * 100);
   }
   /* The slider fills the whole right lane, so a tap or a stray brush there must
    * not change the lamps: it only engages once the finger has actually slid a
-   * few pixels vertically, and a press that never engages leaves the lamps be. */
+   * few pixels along it, and a press that never engages leaves the lamps be. */
   vTrack.addEventListener("pointerdown", (e) => {
     dragId = e.pointerId;
-    startY = e.clientY;
+    startAt = along(e);
     engaged = false;
     vTrack.setPointerCapture(e.pointerId);
   });
   vTrack.addEventListener("pointermove", (e) => {
     if (dragId !== e.pointerId) return;
     if (!engaged) {
-      if (Math.abs(e.clientY - startY) < ENGAGE) return;
+      if (Math.abs(along(e) - startAt) < ENGAGE) return;
       engaged = true;
       bright.classList.add("dragging");
     }
-    setSlider(valueAt(e.clientY), true);
+    setSlider(valueAt(e), true);
   });
   const release = (e) => {
     if (dragId !== e.pointerId) return;

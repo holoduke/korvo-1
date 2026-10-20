@@ -106,7 +106,10 @@
         const b = el.querySelector(`[data-coveract="${i}|${a.key}"]`);
         if (!b) return;
         b.disabled = !v.can[a.key];
-        b.classList.toggle("primary", a.key === (v.state === "closed" ? "open" : v.moving ? "stop" : "close") && v.can[a.key]);
+        /* filled only for what is under way (Stop while the door moves); the likely next step is
+         * outlined, so a filled "Open" beside "dicht" does not read as the door's state */
+        b.classList.toggle("primary", a.key === "stop" && v.moving);
+        b.classList.toggle("suggest", !v.moving && a.key === (v.state === "closed" ? "open" : "close") && v.can[a.key]);
       });
     });
   }

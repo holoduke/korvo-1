@@ -65,11 +65,11 @@
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
   };
   /* kbit/s -> "866 Mbit/s" or "1,2 Gbit/s". */
-  const rate = (kbps) => (!Number.isFinite(kbps) || kbps <= 0 ? "--" : kbps >= 1e6 ? `${fmt(kbps / 1e6, 1)} Gbit/s` : `${fmt(Math.round(kbps / 1000))} Mbit/s`);
+  const rate = (kbps) => (!Number.isFinite(kbps) || kbps <= 0 ? "–" : kbps >= 1e6 ? `${fmt(kbps / 1e6, 1)} Gbit/s` : `${fmt(Math.round(kbps / 1000))} Mbit/s`);
   const linkSpeed = (mbps) => (!Number.isFinite(mbps) || mbps <= 0 ? "" : mbps >= 1000 ? `${fmt(mbps / 1000, mbps % 1000 ? 1 : 0)} Gbit` : `${mbps} Mbit`);
   /* seconds -> "3 d 4 u", "5 u 12 m", "7 m". */
   function uptime(s) {
-    if (!Number.isFinite(s)) return "--";
+    if (!Number.isFinite(s)) return "–";
     const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
     return d ? `${d} d ${h} u` : h ? `${h} u ${m} m` : `${m} m`;
   }
@@ -84,7 +84,7 @@
     if (/bit\/s$/i.test(unit || "")) return v * ({ "bit/s": 1e-6, "kbit/s": 1e-3, "Mbit/s": 1, "Gbit/s": 1e3 }[unit] ?? 1);
     return (v * (RATE_BYTES[unit] ?? 1) * 8) / 1e6;
   }
-  const mbitText = (v) => (Number.isFinite(v) ? (v >= 100 ? fmt(Math.round(v)) : fmt(v, v < 10 ? 2 : 1)) : "--");
+  const mbitText = (v) => (Number.isFinite(v) ? (v >= 100 ? fmt(Math.round(v)) : fmt(v, v < 10 ? 2 : 1)) : "–");
 
   /* ---- Rendering --------------------------------------------------------------------- */
   let root = null;
@@ -102,10 +102,10 @@
     q(".nw-internet .nw-status").className = `nw-status ${tone}`;
     q(".nw-internet .nw-status").innerHTML =
       `${icon("globe")}<b>${up === false ? "Geen internet" : lat == null && net && net.at ? "Internet niet bereikbaar" : "Online"}</b>` +
-      `<span>${Number.isFinite(lat) ? `${fmt(Math.round(lat))} ms` : "--"}</span>`;
+      `<span>${Number.isFinite(lat) ? `${fmt(Math.round(lat))} ms` : "–"}</span>`;
     q(".nw-internet .nw-facts").innerHTML =
-      `<span>Gemiddeld <b>${Number.isFinite(inet.avg) ? `${fmt(Math.round(inet.avg))} ms` : "--"}</b></span>` +
-      `<span>Uitval <b>${Number.isFinite(loss) ? `${fmt(loss * 100, loss && loss < 0.1 ? 1 : 0)}%` : "--"}</b></span>` +
+      `<span>Gemiddeld <b>${Number.isFinite(inet.avg) ? `${fmt(Math.round(inet.avg))} ms` : "–"}</b></span>` +
+      `<span>Uitval <b>${Number.isFinite(loss) ? `${fmt(loss * 100, loss && loss < 0.1 ? 1 : 0)}%` : "–"}</b></span>` +
       `<span>${icon("arrow-down")} <b>${mbitText(mbitOf(E.down))}</b> Mbit/s</span>` +
       `<span>${icon("arrow-up")} <b>${mbitText(mbitOf(E.up))}</b> Mbit/s</span>`;
     drawLatency();
@@ -134,15 +134,15 @@
     const dnsMs = Panel.num(E.dnsSpeed);
     const stat = (value, label, tone) => `<div class="nw-stat ${tone || ""}"><b>${value}</b><span>${label}</span></div>`;
     q(".nw-summary .nw-stats").innerHTML =
-      stat(net && net.devices ? fmt(wifi.length) : "--", "via wifi") +
-      stat(net && net.devices ? fmt(wired.length) : "--", "via kabel") +
-      stat(aps.length ? `${aps.filter((d) => d.online).length}/${aps.length}` : "--", "access points", aps.some((d) => !d.online) ? "bad" : "") +
-      stat(Number.isFinite(quality) ? `${Math.round(quality)}%` : "--", "wifi-kwaliteit", toneOf(quality));
+      stat(net && net.devices ? fmt(wifi.length) : "–", "via wifi") +
+      stat(net && net.devices ? fmt(wired.length) : "–", "via kabel") +
+      stat(aps.length ? `${aps.filter((d) => d.online).length}/${aps.length}` : "–", "accesspoints", aps.some((d) => !d.online) ? "bad" : "") +
+      stat(Number.isFinite(quality) ? `${Math.round(quality)}%` : "–", "wifi-kwaliteit", toneOf(quality));
     q(".nw-summary .nw-dns").innerHTML =
       `${icon("shield")}<span>DNS-filter</span>` +
-      `<b>${Number.isFinite(dns) ? fmt(dns) : "--"}</b><span>vragen</span>` +
-      `<b>${Number.isFinite(blocked) ? `${fmt(blocked, 1)}%` : "--"}</b><span>geblokkeerd</span>` +
-      `<b>${Number.isFinite(dnsMs) ? `${fmt(dnsMs, 1)} ms` : "--"}</b><span>per vraag</span>`;
+      `<b>${Number.isFinite(dns) ? fmt(dns) : "–"}</b><span>vragen</span>` +
+      `<b>${Number.isFinite(blocked) ? `${fmt(blocked, 1)}%` : "–"}</b><span>geblokkeerd</span>` +
+      `<b>${Number.isFinite(dnsMs) ? `${fmt(dnsMs, 1)} ms` : "–"}</b><span>per vraag</span>`;
   }
 
   /* The topology: the internet, the router, then each device under what it
@@ -183,7 +183,7 @@
     };
     box.innerHTML =
       `<svg class="nw-lines" aria-hidden="true"></svg>` +
-      `<div class="nw-col">${node("internet", "globe", "Internet", Number.isFinite(inet.latency) ? `${fmt(Math.round(inet.latency))} ms` : "--", inet.latency == null && net && net.at ? "bad" : "")}</div>` +
+      `<div class="nw-col">${node("internet", "globe", "Internet", Number.isFinite(inet.latency) ? `${fmt(Math.round(inet.latency))} ms` : "–", inet.latency == null && net && net.at ? "bad" : "")}</div>` +
       `<div class="nw-col">${node("gateway", "router", "KPN Box", wan ? (wan.state === "on" ? "verbonden" : "geen verbinding") : "router", gatewayTone, `<span class="nw-parent" hidden>internet</span>`)}</div>` +
       cols.map((col) => `<div class="nw-col">${col.map(devNode).join("")}</div>`).join("");
     cancelAnimationFrame(frame);
@@ -228,7 +228,7 @@
             const load = Number.isFinite(r.load) ? r.load : null;
             const busy = load == null ? "" : load > 60 ? "bad" : load > 40 ? "warn" : "ok";
             return (
-              `<li><div class="nw-radio-head"><b>${esc(r.band || "")}</b><span>kanaal <b>${esc(r.channel ?? "--")}</b></span><span><b>${esc(r.clients ?? 0)}</b> app.</span></div>` +
+              `<li><div class="nw-radio-head"><b>${esc(r.band || "")}</b><span>kanaal <b>${esc(r.channel ?? "–")}</b></span><span><b>${esc(r.clients ?? 0)}</b> app.</span></div>` +
               `<div class="nw-load ${busy}"><i style="width:${load ?? 0}%"></i><span>${load == null ? "belasting onbekend" : `${load}% belast`}</span></div></li>`
             );
           })
@@ -270,14 +270,14 @@
             const bars = barsOf(c.signal);
             const signal = c.wired
               ? `<span class="nw-signal">${icon("cable")}</span>`
-              : `<span class="nw-signal ${signalTone(c.signal)}" title="${Number.isFinite(c.signal) ? `${c.signal} dBm` : ""}"><i class="${bars >= 1 ? "on" : ""}"></i><i class="${bars >= 2 ? "on" : ""}"></i><i class="${bars >= 3 ? "on" : ""}"></i><i class="${bars >= 4 ? "on" : ""}"></i><em>${Number.isFinite(c.signal) ? `${c.signal}` : "--"}</em></span>`;
+              : `<span class="nw-signal ${signalTone(c.signal)}" title="${Number.isFinite(c.signal) ? `${c.signal} dBm` : ""}"><i class="${bars >= 1 ? "on" : ""}"></i><i class="${bars >= 2 ? "on" : ""}"></i><i class="${bars >= 3 ? "on" : ""}"></i><i class="${bars >= 4 ? "on" : ""}"></i><em>${Number.isFinite(c.signal) ? `${c.signal}` : "–"}</em></span>`;
             return (
               `<li class="nw-client">` +
               `<span class="nw-c-icon">${icon(c.wired ? "cable" : "wifi")}</span>` +
               `<span class="nw-c-name"><b>${esc(c.name)}</b><span>${esc([c.ip, c.vendor && c.vendor !== c.name ? c.vendor : null].filter(Boolean).join(" · "))}</span></span>` +
               `<span class="nw-c-via">${where}</span>` +
               signal +
-              `<span class="nw-q ${toneOf(c.satisfaction)}">${Number.isFinite(c.satisfaction) ? `${c.satisfaction}%` : "--"}</span>` +
+              `<span class="nw-q ${toneOf(c.satisfaction)}">${Number.isFinite(c.satisfaction) ? `${c.satisfaction}%` : "–"}</span>` +
               `<span class="nw-c-rate">${c.wired ? "" : `${rate(c.rx)}`}</span>` +
               `</li>`
             );

@@ -19,7 +19,7 @@
 .wx-day-rain.wet { color: #7fb4ff; }
 .wx-day-wind { font-size: 11.5px; font-weight: 600; color: var(--text_dim); white-space: nowrap; }
 
-.wx-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.wx-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: var(--h1-size); font-weight: 700; letter-spacing: var(--h1-track); text-transform: uppercase; color: var(--text_dim); }
 .wx-legend { display: inline-flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-weight: 600; }
 .wx-rain-key { display: inline-block; width: 10px; height: 12px; border-radius: 2px; background: rgba(100, 170, 255, 0.7); margin-left: 6px; }
 .wx-chart-wrap { position: relative; height: 210px; margin: 6px 0 14px; }
@@ -27,12 +27,12 @@
 
 .wx-text { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .wx-par { padding: 12px 14px; border-radius: calc(12px * var(--round)); background: var(--tile_off); }
-.wx-par h3 { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.wx-par h3 { margin: 0 0 6px; font-size: var(--h1-size); font-weight: 700; letter-spacing: var(--h1-track); text-transform: uppercase; color: var(--accent); }
 .wx-par p { margin: 0; font-size: 15.5px; line-height: 1.5; }
 .wx-empty { margin: 0; color: var(--text_dim); font-weight: 600; }
 
 /* A phone: shorter day names, the two texts under each other. */
-@media (max-width: 700px) {
+@media (max-width: 760px) {
   .wx-days { gap: 4px; }
   .wx-day { padding: 8px 2px; }
   .wx-day-name .long { display: none; }
@@ -45,7 +45,7 @@
   .wx-now-cond { display: none; }
 }
 /* "nu": the weather right now, which may differ from the day's forecast in the header */
-.wx-now-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); }
+.wx-now-label { font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); }
 /* where: the forecast's place and the station that measures now, under the title */
 .wx-head-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .wx-place { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

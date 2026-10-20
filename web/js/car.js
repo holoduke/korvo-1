@@ -89,10 +89,10 @@
   /* ---- Markup ----------------------------------------------------------------------- */
   const tile = (action, ic, label, extra = "") =>
     `<button class="vbtn" data-car="${action}" ${extra}>${icon(ic)}<span class="cp-label"><b>${label}</b><small></small></span></button>`;
-  const stat = (id, label) => `<div class="cp-stat" data-stat="${id}"><span>${label}</span><b>--</b></div>`;
+  const stat = (id, label) => `<div class="cp-stat" data-stat="${id}"><span>${label}</span><b>–</b></div>`;
   const stepper = (name, step) =>
     `<div class="cp-stepper" data-stepper="${name}">` +
-    `<button class="vchip" data-car="${name}" data-step="-${step}" aria-label="Lager">${icon("minus")}</button><b>--</b>` +
+    `<button class="vchip" data-car="${name}" data-step="-${step}" aria-label="Lager">${icon("minus")}</button><b>–</b>` +
     `<button class="vchip" data-car="${name}" data-step="${step}" aria-label="Hoger">${icon("plus")}</button></div>`;
 
   function build(page) {
@@ -102,7 +102,7 @@
       `<div class="cp-body">` +
       `<section class="cp-col">` +
       `<div class="cp-card cp-hero">` +
-      `<div class="cp-hero-top"><div class="cp-soc"><b>--</b><span>%</span></div><div class="cp-range"><b>--</b><small></small></div></div>` +
+      `<div class="cp-hero-top"><div class="cp-soc"><b>–</b><span>%</span></div><div class="cp-range"><b>–</b><small></small></div></div>` +
       `<div class="cp-bar"><b></b><i></i></div>` +
       `<div class="cp-state"></div><div class="cp-meta"></div>` +
       `</div>` +
@@ -115,7 +115,7 @@
       `</div>` +
       `<div class="cp-card cp-trip" hidden><div class="vs-section-title">Navigatie</div><div class="cp-trip-text"></div></div>` +
       `<div class="cp-card"><div class="vs-section-title">Banden</div>` +
-      `<div class="cp-tires">${TIRES.map(([k, , label]) => `<div class="cp-stat" data-tire="${k}"><span>${label}</span><b>--</b></div>`).join("")}</div>` +
+      `<div class="cp-tires">${TIRES.map(([k, , label]) => `<div class="cp-stat" data-tire="${k}"><span>${label}</span><b>–</b></div>`).join("")}</div>` +
       `</div>` +
       `</section>` +
       `<section class="cp-col">` +
@@ -216,10 +216,10 @@
     /* Battery, range, state */
     const batt = val("battery");
     const limit = val("chargeLimit");
-    q(".cp-soc b").textContent = Number.isFinite(batt) ? Math.round(batt) : "--";
+    q(".cp-soc b").textContent = Number.isFinite(batt) ? Math.round(batt) : "–";
     q(".cp-soc").style.color = Util.batteryColour(batt);
     const range = val("range");
-    q(".cp-range b").textContent = Number.isFinite(range) ? `${fmt(range)} km` : "--";
+    q(".cp-range b").textContent = Number.isFinite(range) ? `${fmt(range)} km` : "–";
     const est = val("estRange");
     const usable = val("usable");
     q(".cp-range small").textContent = [
@@ -261,15 +261,15 @@
     q(".cp-meta").textContent = meta.join(" · ");
 
     /* Charging */
-    setStat("charging", CHARGING_NL[charging] || "--");
-    setStat("power", Number.isFinite(val("chargerPower")) ? `${fmt(val("chargerPower"), 1)} kW` : "--");
-    setStat("rate", Number.isFinite(val("chargeRate")) ? `${fmt(val("chargeRate"))} km/u` : "--");
-    setStat("added", Number.isFinite(val("energyAdded")) ? `${fmt(val("energyAdded"), 1)} kWh` : "--");
+    setStat("charging", CHARGING_NL[charging] || "–");
+    setStat("power", Number.isFinite(val("chargerPower")) ? `${fmt(val("chargerPower"), 1)} kW` : "–");
+    setStat("rate", Number.isFinite(val("chargeRate")) ? `${fmt(val("chargeRate"))} km/u` : "–");
+    setStat("added", Number.isFinite(val("energyAdded")) ? `${fmt(val("energyAdded"), 1)} kWh` : "–");
     /* How long until the battery reaches its limit, short enough for a tile. */
     const full = timeOf("timeToFull");
     const secondsToFull = full && isCharging ? Math.max(0, (full.getTime() - Date.now()) / 1000) : NaN;
-    setStat("full", Number.isFinite(secondsToFull) ? chargeLeft(secondsToFull) : "--");
-    setStat("cable", known((s("cable") || {}).state) ? (on("cable") ? "Aangesloten" : "Los") : "--");
+    setStat("full", Number.isFinite(secondsToFull) ? chargeLeft(secondsToFull) : "–");
+    setStat("cable", known((s("cable") || {}).state) ? (on("cable") ? "Aangesloten" : "Los") : "–");
 
     const chargeOn = on("charge");
     const toFull = Number.isFinite(secondsToFull) ? ` · nog ${chargeLeft(secondsToFull)}` : "";
@@ -282,11 +282,11 @@
     if (cable) cable.disabled = !cableLocked;
 
     const limAttrs = attrs("chargeLimit");
-    setStepper("limit", Number.isFinite(limit) ? `${fmt(limit)}%` : "--", limit, limAttrs.min ?? 50, limAttrs.max ?? 100);
+    setStepper("limit", Number.isFinite(limit) ? `${fmt(limit)}%` : "–", limit, limAttrs.min ?? 50, limAttrs.max ?? 100);
     qa('[data-car="limit-set"]').forEach((c) => c.classList.toggle("active", Number.isFinite(limit) && +c.dataset.value === Math.round(limit)));
     const amps = val("chargeAmps");
     const ampAttrs = attrs("chargeAmps");
-    setStepper("amps", Number.isFinite(amps) ? `${fmt(amps)} A` : "--", amps, ampAttrs.min ?? 0, ampAttrs.max ?? 32);
+    setStepper("amps", Number.isFinite(amps) ? `${fmt(amps)} A` : "–", amps, ampAttrs.min ?? 0, ampAttrs.max ?? 32);
 
     /* Navigation */
     const dest = (s("destination") || {}).state;
@@ -312,7 +312,7 @@
       const raw = val(k);
       const u = unit(k).toLowerCase();
       const bar = u === "psi" ? raw * 0.0689476 : u === "kpa" ? raw / 100 : raw;
-      el.querySelector("b").textContent = Number.isFinite(bar) ? `${fmt(bar, 1)} bar` : "--";
+      el.querySelector("b").textContent = Number.isFinite(bar) ? `${fmt(bar, 1)} bar` : "–";
       el.classList.toggle("warn", on(warn));
     });
 
@@ -330,7 +330,7 @@
     ].filter(Boolean).join(" · ");
     /* null while the car sleeps; Number(null) would read as 0 °C */
     const target = ca.temperature == null ? NaN : Number(ca.temperature);
-    setStepper("temp", Number.isFinite(target) ? `${fmt(target, 1)}°` : "--", target, ca.min_temp ?? 15, ca.max_temp ?? 28);
+    setStepper("temp", Number.isFinite(target) ? `${fmt(target, 1)}°` : "–", target, ca.min_temp ?? 15, ca.max_temp ?? 28);
     qa('[data-car="preset"]').forEach((c) => {
       c.classList.toggle("active", c.dataset.opt === preset);
       c.hidden = Array.isArray(ca.preset_modes) && !ca.preset_modes.includes(c.dataset.opt);
@@ -343,7 +343,7 @@
       const options = attrs(k).options || ["off", "low", "medium", "high"];
       el.classList.toggle("on", !!level && level !== "off");
       const seat = el.dataset.seat || (el.dataset.seat = el.querySelector(".cp-label b").textContent);
-      el.querySelector(".cp-label b").textContent = LEVEL_NL[level] || (known(level) ? level : "--");
+      el.querySelector(".cp-label b").textContent = LEVEL_NL[level] || (known(level) ? level : "–");
       el.querySelector(".cp-label small").textContent = seat;
       const idx = Math.max(0, options.indexOf(level));
       el.querySelector(".cp-dots").innerHTML = options.slice(1).map((_, i) => `<s class="${i < idx ? "lit" : ""}"></s>`).join("");

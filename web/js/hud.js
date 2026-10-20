@@ -184,6 +184,7 @@
     innerWalls = !innerWalls;
     Panel.setPref("houseWalls", innerWalls);
     renderWalls();
+    sayLayer(document.querySelector("[data-walls]"), innerWalls ? "Binnenmuren aan" : "Binnenmuren uit");
   });
   let raf = 0;
 
@@ -298,7 +299,7 @@
         const el = document.createElement("div");
         el.className = `house-label plant ${p.tone}`;
         el.innerHTML =
-          `<span class="hl-vals">${icon("leaf")}<b class="${p.tone}">${Number.isFinite(p.moisture) ? `${Math.round(p.moisture)}%` : "--"}</b></span>` +
+          `<span class="hl-vals">${icon("leaf")}<b class="${p.tone}">${Number.isFinite(p.moisture) ? `${Math.round(p.moisture)}%` : "–"}</b></span>` +
           `<span class="hl-name">${p.dry ? "water geven" : "plant"}</span>`;
         el.dataset.at = JSON.stringify(pl.at);
         labels.appendChild(el);
@@ -381,7 +382,15 @@
   }
   Panel.on("loaded", () => layer === "net" && showNetwork());
   Panel.on("start", () => Panel.network && Panel.network.listen(() => layer === "net" && (renderLayer(), startFollowing())));
-  Panel.defineAction("layer", (el) => setLayer(el.dataset.layer));
+  /* Where the buttons are icons only (a phone), the layer's name comes up once it is chosen. */
+  const sayLayer = (el, text) => {
+    const txt = el.querySelector(".hl-txt");
+    if (txt && !txt.offsetParent) Panel.toast(text, "ok");
+  };
+  Panel.defineAction("layer", (el) => {
+    setLayer(el.dataset.layer);
+    sayLayer(el, el.getAttribute("aria-label"));
+  });
   /* A tap on the house opens the room under it: the room whose floor
    * rectangle (projected) holds the tap, the nearest floor when several do.
    * A tap on a reading of the Klimaat layer opens that climate popup instead. */

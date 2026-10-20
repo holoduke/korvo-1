@@ -579,7 +579,7 @@ static const panel_appliance_t PANEL_APPLIANCES[] = {
     { "pc",         "PC-Defender", "no_defender" },
     { "pc",         "PC-430",      "garage430" },
     { "heatpump",   "Warmtepomp",  "f1253_6_r_pc_em" }, /* NIBE F1253-6, nibe_heatpump over Modbus */
-    { "ventilation", "WTW",        "wtw" },            /* DucoBox Energy Comfort, ESPHome board esphome/wtw-duco.yaml */
+    { "ventilation", "Ventilatie", "wtw" },            /* DucoBox Energy Comfort, ESPHome board esphome/wtw-duco.yaml */
     { "solar",      "Zonnepanelen", "solax" },          /* SolaX X1-Mini G4, Pocket WiFi+LAN on the LAN, Modbus TCP */
     { "washer",     "Wasmachine", "wasruimte_wasmachine" },
     { "dryer",      "Droger",     "wasruimte_droger" },

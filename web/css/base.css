@@ -24,6 +24,13 @@
   --gap: 14px;
   --pad: 16px;
   --radius: 18px;
+  /* Two heading levels for every section: a section's heading (h1: "SCÈNES",
+   * "LADEN", "THEMA") and a label inside a tile or a group under it (h2:
+   * a room's name over its lamps, "STATUS", "FASE"). Uppercase, dim, bold. */
+  --h1-size: 13px;
+  --h1-track: 0.08em;
+  --h2-size: 12px;
+  --h2-track: 0.06em;
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-in: cubic-bezier(0.55, 0.06, 0.68, 0.19);
   font-family: var(--font-ui), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

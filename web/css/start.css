@@ -84,7 +84,7 @@ body.saver-house .house-ask, body.saver-house .ask-answer { opacity: 0; pointer-
 .house-layers .hl-btn .ic { display: none; }
 /* A phone, upright or on its side: every button of the house is its icon (its
  * name the aria-label), square and a thumb's size, the active one lit. */
-@media (max-width: 700px), (orientation: landscape) and (max-height: 440px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 440px) {
   .house-layers, .house-walls { display: flex; gap: 6px; }
   .house-layers .hl-btn, .house-walls .hl-btn { width: 46px; height: 44px; padding: 0; display: grid; place-items: center; }
   .house-layers .hl-btn .ic, .house-walls .hl-btn .ic { display: block; width: 22px; height: 22px; }
@@ -120,10 +120,10 @@ body.saver-house .house-ask, body.saver-house .ask-answer { opacity: 0; pointer-
 @media (prefers-reduced-motion: reduce) {
   .hud-dot.bad, .hr-icon::before, .hr-icon::after { animation: none; }
 }
-@media (max-width: 700px) {
+@media (max-width: 760px) {
   /* A phone: no lines of text, no event log — only the connection's dot,
    * green while connected (user's wish). The screensaver keeps its clock and watch. */
-  .hud { max-width: calc(100% - 36px); font-size: 10px; padding-left: 10px; }
+  .hud { max-width: calc(100% - 36px); font-size: 10px; padding-left: 0; border-left: 0; } /* only the dot is left: a rail beside it read as a glitch */
   .hud-rows { grid-template-columns: auto; }
   .hud-row:not(:first-child), .hud-v, .hud .hud-events { display: none; } /* .hud .hud-events: the log's own rule comes later in this file */
   .hud-dot { width: 8px; height: 8px; margin-top: 3px; }
@@ -194,7 +194,7 @@ body.saver-house .hud-watch { display: flex; }
 .ask-answer[data-tone="bad"] { color: var(--bad); }
 .ask-answer[data-tone="dim"] { color: var(--text_dim); }
 .start-page .house-hint { bottom: calc(var(--ask-bottom) + 60px); }
-@media (max-width: 700px) {
+@media (max-width: 760px) {
   /* a phone: the side columns stand above it, so it takes the width */
   .house-ask, .ask-answer { width: calc(100% - 36px); }
   .house-ask { bottom: 72px; } /* above the one row of layer icons */
@@ -278,14 +278,14 @@ body.saver-house .hud-watch { display: flex; }
 .hh-target { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
 .hh-target b { font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; transition: color 0.2s; }
 .pending .hh-target b { color: var(--warn); }
-.hh-state {
-  font-family: var(--font-display), "Orbitron", "Eurostile", "Bank Gothic", ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text_dim); text-align: center;
-}
+/* The heat pump's state as a status, not a button: a dot and plain words, the dot lit while it heats. */
+.hh-state { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text_dim); text-align: center; }
+.hh-state:not(:empty)::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.5; }
 .house-heat.warm .hh-state { color: var(--warn); }
+.house-heat.warm .hh-state::before { opacity: 1; box-shadow: 0 0 6px var(--warn); }
 body.saver-house .house-heat { opacity: 0; pointer-events: none; }
 /* A phone: a slim column on the left, the door's mirror — now, the target between its buttons, the state. */
-@media (max-width: 700px), (orientation: landscape) and (max-height: 440px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 440px) {
   .house-heat { left: 10px; width: 64px; padding: 10px 6px; gap: 6px; align-items: stretch; }
   .house-heat::before { top: 14px; }
   .hh-title { justify-content: center; }
@@ -298,7 +298,8 @@ body.saver-house .house-heat { opacity: 0; pointer-events: none; }
   .hh-btn { width: 52px; height: 44px; }
   .hh-target b { font-size: 17px; }
   .hh-target span { font-size: 10px; }
-  .hh-state { font-size: 10px; letter-spacing: 0; line-height: 1.2; font-family: inherit; font-weight: 700; text-transform: none; white-space: nowrap; } /* "Verwarmt" fits 52 px in the body face, upright; capitals broke it as VERWAR/MT */
+  .hh-state { gap: 3px; font-size: 10px; line-height: 1.2; font-weight: 700; white-space: nowrap; } /* "Verwarmt" fits 52 px beside its dot */
+  .hh-state:not(:empty)::before { width: 5px; height: 5px; }
 }
 
 /* The heating row in a ground-floor room's panel. */
@@ -336,6 +337,7 @@ body.saver-house .house-heat { opacity: 0; pointer-events: none; }
 }
 .cw-title .ic { width: 16px; height: 16px; color: var(--accent); flex: none; }
 .cw-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw-title .cw-more { flex: none; font-style: normal; color: var(--text_dim); } /* "+1": the other speakers playing along, never cut off */
 .cw-door { position: relative; height: 84px; margin: 2px 6px 0; }
 .cw-frame {
   position: absolute; left: 12px; right: 12px; top: 0; bottom: 8px; overflow: hidden;
@@ -371,7 +373,7 @@ body.saver-house .house-cover { opacity: 0; pointer-events: none; }
 /* A phone: a slim column on the right — the drawn door with its state, then
  * Open, Stop and Dicht as icon buttons of a thumb's size. Kier stays on the
  * Garage floor and in the room panel. */
-@media (max-width: 700px), (orientation: landscape) and (max-height: 440px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 440px) {
   .house-cover { right: 10px; width: 64px; }
   .house-cover .cw { padding: 10px 6px; gap: 6px; }
   .house-cover .cw::before { top: 14px; }
@@ -397,7 +399,7 @@ body.saver-house .house-cover { opacity: 0; pointer-events: none; }
 .house-leader.on .hl-ring { animation: hl-ring 1.6s ease-out infinite; } /* only while a room is open: hidden it would still repaint */
 @keyframes hl-ring { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(1.8); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .house-leader .hl-ring { animation: none; } .house-info { animation: none; } }
-@media (max-width: 700px) {
+@media (max-width: 760px) {
   /* a phone: across the width, above the ask bar, tall enough for a room's lamps */
   .house-info { left: 12px; right: 12px; top: auto; bottom: 172px; width: auto; max-height: 60%; }
   .hi-close { width: 44px; height: 44px; }
@@ -443,12 +445,12 @@ body.saver-house .house-cover { opacity: 0; pointer-events: none; }
 .aq-pct.muted { color: var(--warn); font-size: 12px; text-transform: uppercase; }
 .aq-mute { min-height: 40px; font-size: 12px; gap: 6px; border-radius: calc(10px * var(--round)); }
 .aq-mute.on { color: var(--warn); }
-@media (max-width: 700px), (orientation: landscape) and (max-height: 440px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 440px) {
   /* a bar along the top of the house: note, play, softer, the volume, louder, mute */
   .house-audio { --aq-dock: bar; top: 8px; left: 56px; right: 10px; width: auto; }
   .house-audio .cw.aq { flex-direction: row; align-items: center; padding: 6px 8px; gap: 6px; }
   .house-audio .cw.aq::before { display: none; }
-  .house-audio .cw-title span, .house-audio .aq-now, .aq-transport [data-aq="prev"], .aq-transport [data-aq="next"], .aq-mute span { display: none; }
+  .house-audio .cw-title span, .house-audio .cw-more, .house-audio .aq-now, .aq-transport [data-aq="prev"], .aq-transport [data-aq="next"], .aq-mute span { display: none; }
   .house-audio .cw-title { flex: none; }
   .house-audio .aq-row { display: flex; gap: 6px; }
   .house-audio .aq-vol { flex: 1; justify-content: center; }
@@ -550,6 +552,7 @@ body.saver-house .house-quick { opacity: 0; pointer-events: none; }
  * buttons; on the right the drawn garage door, what the music plays, the
  * music's mute, the lights' count and all-off */
 .house.tight-wtw .house-wtw .qw-modes, .house.tight-door .house-cover .cw-door, .house.tight-now .house-audio .aq-now, .house.tight-off .house-lights .ql-foot, .house.tight-mute .house-audio .aq-mute { display: none; }
-@media (max-width: 700px), (orientation: landscape) and (max-height: 440px) {
+@media (max-width: 760px), (orientation: landscape) and (max-height: 440px) {
   .house-quick { display: none; }
 }
+.house-audio .cw-title { letter-spacing: 0.04em; } /* "Woonkamer +1" whole in the narrow card */

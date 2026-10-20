@@ -39,8 +39,8 @@
    * itself is (grid side, temperature, firmware). Read only: its power limit
    * and on/off are installer matters. After dark the inverter and its network
    * stick are off, which is not a fault. */
-  const solarNum = (id, unit, digits = 0) => (known(num(id)) ? `${fmt(num(id), digits)}${unit}` : "--");
-  const solarKwh = (v) => (known(v) ? `${fmt(v, v < 10 ? 2 : v < 100 ? 1 : 0)} kWh` : "--");
+  const solarNum = (id, unit, digits = 0) => (known(num(id)) ? `${fmt(num(id), digits)}${unit}` : "–");
+  const solarKwh = (v) => (known(v) ? `${fmt(v, v < 10 ? 2 : v < 100 ? 1 : 0)} kWh` : "–");
   Panel.defineAppliance("solar", {
     icon: "sun",
     view(a) {
@@ -55,7 +55,7 @@
       return {
         tone: w > 5 ? "run" : "off",
         pill: mode,
-        big: known(w) ? fmt(w) : "--",
+        big: known(w) ? fmt(w) : "–",
         unit: "W opwek",
         sub: `vandaag ${solarKwh(today)}${known(total) ? ` · totaal ${solarKwh(total)}` : ""}`,
         progress: null,
@@ -65,7 +65,7 @@
               ...strings.map((n) => stat(`String ${n}`, `${solarNum(e[`pv${n}Volts`], " V", 1)} · ${solarNum(e[`pv${n}Amps`], " A", 1)}`)),
               stat("Net", known(num(e.acVolts)) ? `${solarNum(e.acVolts, " V", 1)} · ${solarNum(e.acFreq, " Hz", 2)}` : solarNum(e.acAmps, " A", 1)),
               stat("Temperatuur", solarNum(e.temp, "°")),
-              stat("Firmware", s(e.firmware) ? raw(e.firmware) : "--"),
+              stat("Firmware", s(e.firmware) ? raw(e.firmware) : "–"),
             ]
           : [stat("Vandaag", solarKwh(today)), stat("Totaal", solarKwh(total))],
         controls: awake
@@ -93,11 +93,11 @@
   const HP_MODE_NL = { Auto: "Auto", Manual: "Handmatig", "Add. heat only": "Alleen bijverwarming" };
   const HP_DEMAND_NL = { Economy: "Zuinig", Normal: "Normaal", Lux: "Luxe" };
   const HP_BOOST_NL = { Off: "Uit", "One-time incr.": "Eenmalig", "3 hr": "3 uur", "6 hr": "6 uur", "12 hr": "12 uur" };
-  const hpNum = (id, unit, digits = 0) => (known(num(id)) ? `${fmt(num(id), digits)}${unit}` : "--");
+  const hpNum = (id, unit, digits = 0) => (known(num(id)) ? `${fmt(num(id), digits)}${unit}` : "–");
   const hpDeg = (id) => hpNum(id, "\u00b0", 1);
   const hpPair = (a, b, unit = "\u00b0", digits = 1) =>
     known(num(a)) && known(num(b)) ? `${fmt(num(a), digits)} / ${fmt(num(b), digits)}${unit}` : hpNum(a, unit, digits);
-  const hpHours = (id) => (known(num(id)) ? `${fmt(num(id))} u` : "--");
+  const hpHours = (id) => (known(num(id)) ? `${fmt(num(id))} u` : "–");
   const hpOptions = (id) => attrs(id).options || [];
   /* A row of chips for a select, with the option names in Dutch. */
   const hpChips = (i, key, e, names) =>
@@ -113,7 +113,7 @@
     /* the room setpoint goes through the heating (heating.js): one write for a run of taps */
     /* what was tapped until the device confirms it (the NIBE is polled), so a second tap steps on from there */
     const v = key === "roomHeat" && Panel.heating ? Panel.heating.target() : Panel.applianceTarget(e[key]);
-    return field(label, stepper(i, `num|${key}`, known(v) ? `${fmt(v, digits)}${unit}` : "--", {
+    return field(label, stepper(i, `num|${key}`, known(v) ? `${fmt(v, digits)}${unit}` : "–", {
       canDown: known(v) && v > (at.min ?? -100),
       canUp: known(v) && v < (at.max ?? 100),
       down: "Lager",
@@ -143,19 +143,19 @@
       const details = [
         ["Berekende aanvoer", hpDeg(e.calcSupply)],
         ["Warm water laden", hpDeg(e.hotWaterCharge)],
-        ["Warm water over", known(num(e.hotWaterAmount)) ? `${fmt(num(e.hotWaterAmount))} min` : "--"],
+        ["Warm water over", known(num(e.hotWaterAmount)) ? `${fmt(num(e.hotWaterAmount))} min` : "–"],
         ["Condensor", hpDeg(e.condenser)],
         ["Persgas", hpDeg(e.discharge)],
         ["Zuiggas", hpDeg(e.suction)],
         ["Vloeistoflijn", hpDeg(e.liquid)],
         ["Omvormer", hpDeg(e.inverter)],
-        ["Compressor", known(freq) ? `${fmt(freq)} Hz` : "--"],
+        ["Compressor", known(freq) ? `${fmt(freq)} Hz` : "–"],
         ["Compressor grens", hpPair(e.freqMin, e.freqMax, " Hz", 0)],
         ["Graadminuten", hpNum(e.degreeMinutes, "")],
         ["Debiet", hpNum(e.flow, " l/min", 1)],
         ["Pomp verwarming", hpNum(e.pumpHeat, "%")],
         ["Pomp bron", hpNum(e.pumpBrine, "%")],
-        ["Bijverwarming", HP_ADD_NL[low(e.add)] || raw(e.add) || "--"],
+        ["Bijverwarming", HP_ADD_NL[low(e.add)] || raw(e.add) || "–"],
         ["Bedrijfsuren", hpHours(e.operTime)],
         ["Waarvan warm water", hpHours(e.operHotWater)],
         ["Compressorstarts", hpNum(e.starts, "")],
@@ -191,7 +191,7 @@
       return {
         tone: alarm ? "error" : running ? "run" : status === "off" ? "off" : "ready",
         pill: doing,
-        big: known(num(e.hotWaterTop)) ? fmt(num(e.hotWaterTop), 1) : "--",
+        big: known(num(e.hotWaterTop)) ? fmt(num(e.hotWaterTop), 1) : "–",
         unit: "\u00b0 warm water",
         sub: parts.join(" \u00b7 "),
         stats: [
@@ -224,7 +224,7 @@
    * Energie section's estimate from the kWh counter stands in (≈). */
   const wattsText = (running, e) => {
     const { w, estimated } = running && Panel.energy ? Panel.energy.machineWatts(e) : { w: num(e.power), estimated: false };
-    return Number.isFinite(w) ? `${estimated ? "≈ " : ""}${fmt(Math.round(w))} W` : estimated ? "wordt berekend" : "--";
+    return Number.isFinite(w) ? `${estimated ? "≈ " : ""}${fmt(Math.round(w))} W` : estimated ? "wordt berekend" : "–";
   };
   const laundry = {
     view(a, i) {
@@ -248,8 +248,8 @@
         progress: running ? "busy" : null,
         stats: [
           stat("Vermogen", wattsText(running, e)),
-          stat("Energie", Number.isFinite(num(e.energy)) ? `${fmt(num(e.energy), 1)} kWh` : "--"),
-          s(e.water) ? stat("Water", Number.isFinite(num(e.water)) ? `${fmt(num(e.water) / 1000, 1)} m³` : "--") : stat("Kinderslot", on(e.lock) ? "Aan" : "Uit"),
+          stat("Energie", Number.isFinite(num(e.energy)) ? `${fmt(num(e.energy), 1)} kWh` : "–"),
+          s(e.water) ? stat("Water", Number.isFinite(num(e.water)) ? `${fmt(num(e.water) / 1000, 1)} m³` : "–") : stat("Kinderslot", on(e.lock) ? "Aan" : "Uit"),
           stat("Op afstand", remote ? "Aan" : "Uit"),
         ],
       };
@@ -292,10 +292,10 @@
         pill: OP_NL[op] || raw(e.op),
         progress: idle ? null : num(e.progress),
         stats: [
-          stat("Deur", { open: "Open", closed: "Dicht", locked: "Vergrendeld" }[low(e.door)] || "--"),
-          stat("Onderhoud", Number.isFinite(num(e.care)) ? `over ${fmt(num(e.care))}×` : "--"),
-          stat("Energie", Number.isFinite(num(e.energy)) ? `${fmt(num(e.energy))}%` : "--"),
-          stat("Water", Number.isFinite(num(e.water)) ? `${fmt(num(e.water))}%` : "--"),
+          stat("Deur", { open: "Open", closed: "Dicht", locked: "Vergrendeld" }[low(e.door)] || "–"),
+          stat("Onderhoud", Number.isFinite(num(e.care)) ? `over ${fmt(num(e.care))}×` : "–"),
+          stat("Energie", Number.isFinite(num(e.energy)) ? `${fmt(num(e.energy))}%` : "–"),
+          stat("Water", Number.isFinite(num(e.water)) ? `${fmt(num(e.water))}%` : "–"),
         ],
       };
       if (idle) {
@@ -368,8 +368,8 @@
       const microwave = isMicrowave(program);
       const target = busy && Number.isFinite(num(e.setpoint)) ? num(e.setpoint) : Panel.applianceTarget(e.setpointSet);
       const timer = Panel.applianceTarget(e.duration);
-      const tempText = Number.isFinite(target) ? `${fmt(target)}°` : "--";
-      const timerText = Number.isFinite(timer) ? duration(timer).join(" ") : "--";
+      const tempText = Number.isFinite(target) ? `${fmt(target)}°` : "–";
+      const timerText = Number.isFinite(timer) ? duration(timer).join(" ") : "–";
       const [left, leftUnit] = duration(num(e.remaining));
 
       const range = attrs(e.setpointSet);
@@ -416,17 +416,17 @@
       return {
         tone: running ? "run" : paused ? "paused" : op === "finished" ? "done" : op === "error" ? "error" : standby ? "off" : "ready",
         pill: OP_NL[op] || raw(e.op),
-        big: Number.isFinite(temp) ? fmt(temp) : "--",
+        big: Number.isFinite(temp) ? fmt(temp) : "–",
         unit: "°C",
         sub: busy
           ? [programLabel, !microwave && `naar ${tempText}`, Number.isFinite(num(e.remaining)) && `nog ${left} ${leftUnit}`].filter(Boolean).join(" · ")
           : standby ? "Stand-by" : [programLabel, !microwave && tempText, Number.isFinite(timer) && timerText].filter(Boolean).join(" · "),
         progress: busy ? num(e.progress) : null,
         stats: [
-          stat("Deur", { open: "Open", closed: "Dicht", locked: "Vergrendeld" }[low(e.door)] || "--"),
+          stat("Deur", { open: "Open", closed: "Dicht", locked: "Vergrendeld" }[low(e.door)] || "–"),
           stat("Lamp", on(e.light) || on(e.lamp) ? "Aan" : "Uit"),
           ...(busy
-            ? [stat("Doel", microwave ? "--" : tempText), stat("Verstreken", Number.isFinite(num(e.elapsed)) ? duration(num(e.elapsed)).join(" ") : "--")]
+            ? [stat("Doel", microwave ? "–" : tempText), stat("Verstreken", Number.isFinite(num(e.elapsed)) ? duration(num(e.elapsed)).join(" ") : "–")]
             : []),
         ],
         controls,
@@ -511,9 +511,9 @@
         sub: vent && vent !== "Off" ? `Afzuiging ${ventLabel.toLowerCase()}` : "Afzuiging uit",
         extra: `<div class="ap-zones">${zones.map((z, n) => `<div class="ap-zone${isOn(z) ? " on" : ""}" title="Zone ${n + 1}">${zoneLabel(z)}</div>`).join("")}</div>`,
         stats: [
-          stat("Afzuiging", ventLabel || "--"),
+          stat("Afzuiging", ventLabel || "–"),
           stat("Lucht", low(e.airmode) === "extraction" ? "Afvoer" : "Recirculatie"),
-          stat("Koolstoffilter", Number.isFinite(num(e.filter)) ? `niveau ${fmt(num(e.filter))}` : "--"),
+          stat("Koolstoffilter", Number.isFinite(num(e.filter)) ? `niveau ${fmt(num(e.filter))}` : "–"),
           stat("Kinderslot", on(e.childlock) ? "Aan" : "Uit"),
         ],
         controls:
@@ -544,21 +544,21 @@
       const e = a.entities;
       if (offline(e.mode)) {
         const v = offlineView("Het filterpaneel is niet bereikbaar");
-        v.stats = [stat("Plasmacel 1", "--"), stat("Plasmacel 2", "--")];
+        v.stats = [stat("Plasmacel 1", "–"), stat("Plasmacel 2", "–")];
         return v;
       }
-      const hours = (id) => (Number.isFinite(num(id)) ? `${fmt(num(id))} u` : "--");
+      const hours = (id) => (Number.isFinite(num(id)) ? `${fmt(num(id))} u` : "–");
       return {
         tone: on(e.active) ? "run" : "off",
         pill: on(e.active) ? "Actief" : "Stand-by",
-        big: known(raw(e.mode)) ? raw(e.mode) : "--",
+        big: known(raw(e.mode)) ? raw(e.mode) : "–",
         word: true,
         sub: known(raw(e.airflow)) ? `Luchtstroom ${raw(e.airflow)}` : "Modus",
         stats: [
           stat("Plasmacel 1", hours(e.cell1)),
           stat("Plasmacel 2", hours(e.cell2)),
-          stat("Spanning", Number.isFinite(num(e.voltage)) ? `${fmt(num(e.voltage))} V` : "--"),
-          stat("Stroom", Number.isFinite(num(e.current)) ? `${fmt(num(e.current))} mA` : "--"),
+          stat("Spanning", Number.isFinite(num(e.voltage)) ? `${fmt(num(e.voltage))} V` : "–"),
+          stat("Stroom", Number.isFinite(num(e.current)) ? `${fmt(num(e.current))} mA` : "–"),
         ],
         controls: "",
       };
@@ -583,10 +583,10 @@
       const mins = c.endsWith("x2") ? 30 : c.endsWith("x3") ? 45 : 15;
       return { pill: c[3] === "3" && mins > 15 ? `Boost ${mins} min` : `Stand ${level}`, sub: "" };
     }
-    return { pill: known(c) ? c : "--", sub: "" };
+    return { pill: known(c) ? c : "–", sub: "" };
   }
   Panel.wtwStand = wtwStand; /* the quick look beside the house (house-quick.js) */
-  const deg1 = (id) => (Number.isFinite(num(id)) ? `${fmt(num(id), 1)}°` : "--");
+  const deg1 = (id) => (Number.isFinite(num(id)) ? `${fmt(num(id), 1)}°` : "–");
   /* The exchanger: two streams crossing in its core, the efficiency in the middle. */
   function wtwDiagram(e) {
     const eff = num(e.efficiency);
@@ -599,7 +599,7 @@
       `<span class="wtw-t tr"><small>Uit huis</small><b class="warm">${deg1(e.extract)}</b></span>` +
       `<span class="wtw-t bl"><small>Afvoer</small><b class="dim">${deg1(e.exhaust)}</b></span>` +
       `<span class="wtw-t br"><small>Naar huis</small><b class="cold">${deg1(e.supply)}</b></span>` +
-      `<span class="wtw-eff"><b>${Number.isFinite(eff) ? `${fmt(eff)}%` : "--"}</b><small>rendement</small></span>` +
+      `<span class="wtw-eff"><b>${Number.isFinite(eff) ? `${fmt(eff)}%` : "–"}</b><small>rendement</small></span>` +
       `</div>`
     );
   }
@@ -632,7 +632,7 @@
       const fanSup = num(e.fanSup);
       const fanEha = num(e.fanEha);
       const fanLevel = num(e.fanLevel);
-      const fans = Number.isFinite(fanSup) && Number.isFinite(fanEha) ? `${fmt(fanSup)} / ${fmt(fanEha)} tpm` : "--";
+      const fans = Number.isFinite(fanSup) && Number.isFinite(fanEha) ? `${fmt(fanSup)} / ${fmt(fanEha)} tpm` : "–";
       const nbTemp = Panel.applianceTarget(e.nightboostTemp);
       const nbAttr = attrs(e.nightboostTemp);
       const bypassMode = raw(e.bypassMode);
@@ -667,7 +667,7 @@
               const at = attrs(e[k]);
               return field(
                 `Stand ${label}`,
-                stepper(i, `level|${k}`, Number.isFinite(v) ? `${fmt(v)}%` : "--", {
+                stepper(i, `level|${k}`, Number.isFinite(v) ? `${fmt(v)}%` : "–", {
                   canDown: Number.isFinite(v) && v > (at.min ?? 0),
                   canUp: Number.isFinite(v) && v < (at.max ?? 100),
                 }),
@@ -682,16 +682,16 @@
       return {
         tone: Number.isFinite(flow) && flow > 0 ? "run" : "off",
         pill: st.pill,
-        big: Number.isFinite(flow) ? fmt(flow) : "--",
+        big: Number.isFinite(flow) ? fmt(flow) : "–",
         unit: "% debiet",
         sub: timed ? `nog ${duration(left).join(" ")}, dan weer automatisch` : st.sub,
         progress: Number.isFinite(flow) ? flow : null,
         stats: [
-          stat("Bypass", Number.isFinite(num(e.bypass)) ? `${fmt(num(e.bypass))}%` : "--"),
-          stat("Filter nog", Number.isFinite(filterDays) ? `${fmt(filterDays)} dagen` : "--"),
+          stat("Bypass", Number.isFinite(num(e.bypass)) ? `${fmt(num(e.bypass))}%` : "–"),
+          stat("Filter nog", Number.isFinite(filterDays) ? `${fmt(filterDays)} dagen` : "–"),
           /* the comfort temperature only where the Duco reports it (not every model does) */
-          Number.isFinite(comfort) ? stat("Comfort", `${fmt(comfort, 1)}°`) : stat("Tijd resterend", timed ? duration(left).join(" ") : "--"),
-          stat("Rendement", Number.isFinite(num(e.efficiency)) ? `${fmt(num(e.efficiency))}%` : "--"),
+          Number.isFinite(comfort) ? stat("Comfort", `${fmt(comfort, 1)}°`) : stat("Tijd resterend", timed ? duration(left).join(" ") : "–"),
+          stat("Rendement", Number.isFinite(num(e.efficiency)) ? `${fmt(num(e.efficiency))}%` : "–"),
           /* what the fans really do, next to the airflow the stand asks for */
           ...(s(e.fanSup) ? [stat("Ventilatoren", Number.isFinite(fanLevel) ? `${fans} · ${fmt(fanLevel)}%` : fans)] : []),
         ],
@@ -705,7 +705,7 @@
           `<div class="ap-chips">${chipFor("15 min", "MAN3")}${chipFor("30 min", "MAN3x2")}${chipFor("45 min", "MAN3x3")}</div>` +
           (Number.isFinite(comfort)
             ? `<div class="ap-label">Comforttemperatuur: daarboven gaat de bypass open</div>` +
-              stepper(i, "comfort", Number.isFinite(comfort) ? `${fmt(comfort, 1)}°` : "--", {
+              stepper(i, "comfort", Number.isFinite(comfort) ? `${fmt(comfort, 1)}°` : "–", {
                 canDown: Number.isFinite(comfort) && comfort > (cAttr.min ?? 10),
                 canUp: Number.isFinite(comfort) && comfort < (cAttr.max ?? 25.5),
                 down: "Kouder",
@@ -788,13 +788,13 @@
       return {
         tone: on(e.supercool) ? "cold" : "ready",
         pill: on(e.supercool) ? "SuperCool" : on(e.party) ? "Party" : on(e.night) ? "Nacht" : "Koelt",
-        big: Number.isFinite(temp) ? fmt(temp) : "--",
+        big: Number.isFinite(temp) ? fmt(temp) : "–",
         unit: "°C",
         sub: Number.isFinite(set) ? `ingesteld op ${fmt(set)}°` : "",
         stats: [],
         controls:
           `<div class="ap-row">` +
-          stepper(i, "setpoint", Number.isFinite(set) ? `${fmt(set)}°` : "--", {
+          stepper(i, "setpoint", Number.isFinite(set) ? `${fmt(set)}°` : "–", {
             canDown: set > (sp.min ?? 1),
             canUp: set < (sp.max ?? 9),
             down: "Kouder",

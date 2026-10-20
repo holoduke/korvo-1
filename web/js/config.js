@@ -1338,7 +1338,7 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "ventilation",
-      "label": "WTW",
+      "label": "Ventilatie",
       "name": "wtw",
       "entities": {
         "stand": "select.wtw_stand",

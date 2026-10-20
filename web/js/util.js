@@ -41,7 +41,7 @@
     /* "14:05" */
     pad2,
     hm: (d) => pad2(d.getHours()) + ":" + pad2(d.getMinutes()),
-    /* 1234.5 -> "1.235" or, with digits = 1, "1.234,5"; "--" when not a number. */
+    /* 1234.5 -> "1.235" or, with digits = 1, "1.234,5"; "–" when not a number. */
     /* [lowest, highest] of a (possibly very long) array: a spread into
      * Math.min/max fails past the engine's argument limit. */
     minMax(arr) {
@@ -54,7 +54,7 @@
       return [lo, hi];
     },
     fmt: (n, digits = 0) =>
-      Number.isFinite(n) ? n.toLocaleString("nl-NL", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "--",
+      Number.isFinite(n) ? n.toLocaleString("nl-NL", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "–",
     /* A value that changed flashes a hairline under itself (CSS .tick). */
     flashOnChange(el) {
       const now = el.textContent;
@@ -75,7 +75,7 @@
     },
     /* Seconds -> ["2:05", "uur"] or ["42", "min"]. */
     duration(sec) {
-      if (!Number.isFinite(sec) || sec < 0) return ["--", ""];
+      if (!Number.isFinite(sec) || sec < 0) return ["–", ""];
       const m = Math.round(sec / 60);
       if (m >= 60) return [`${Math.floor(m / 60)}:${pad2(m % 60)}`, "uur"];
       return [String(m), "min"];
@@ -87,7 +87,7 @@
     },
     /* "vandaag 14:05", "gisteren 14:05", "di 14:05" or "9 dagen geleden". */
     ago(ms) {
-      if (!ms) return "nog niet gedaan";
+      if (!ms) return "nog nooit";
       const d = new Date(ms);
       const days = Math.round((new Date(new Date().toDateString()) - new Date(d.toDateString())) / 86400e3);
       if (days === 0) return `vandaag ${Util.hm(d)}`;

@@ -197,7 +197,7 @@
       `<div class="au-kicker">${playing(lead) ? "Nu speelt" : STATE_NL[(s(lead) || {}).state] || "Stil"} · ${esc(g.map(label).join(" + "))}</div>` +
       `<div class="au-title">${esc(n.title || (playing(lead) ? n.source || "Muziek" : "Niets aan het spelen"))}</div>` +
       `<div class="au-sub">${esc([n.artist, n.album].filter(Boolean).join(" · ") || (n.title ? "" : n.source ? `Bron: ${n.source}` : ""))}</div>` +
-      `<div class="au-tags">${n.source ? `<span>${esc(n.source)}</span>` : ""}${q ? `<span>${esc(q)}</span>` : ""}${g.length > 1 ? `<span>${g.length} speakers samen</span>` : ""}</div>` +
+      `<div class="au-tags">${n.source ? `<span>${esc(n.source)}</span>` : ""}${q ? `<span>${esc(q)}</span>` : ""}${g.length > 1 ? `<span>Speelt op ${g.length} luidsprekers</span>` : ""}</div>` +
       (p ? `<div class="au-prog"><span class="au-t0">${mmss(p.pos)}</span><div><b style="width:${(p.pos / p.dur) * 100}%"></b></div><span>${mmss(p.dur)}</span></div>` : "") +
       `<div class="au-transport">` +
       btn(`prev|${lead}`, "Vorige", { ic: "prev", round: true }) +
@@ -469,7 +469,7 @@
     const what = n.title ? [n.title, n.artist].filter(Boolean).join(" – ") : n.source ? `Bron: ${n.source}` : "Muziek";
     quick.classList.toggle("live", playing(lead));
     quick.innerHTML =
-      `<div class="cw-title">${icon("music")}<span>${esc(g.map(label).join(" + "))}</span></div>` +
+      `<div class="cw-title">${icon("music")}<span>${esc(label(lead))}</span>${g.length > 1 ? `<em class="cw-more">+${g.length - 1}</em>` : ""}</div>` +
       `<div class="aq-now" title="${esc(what)}">${esc(what)}</div>` +
       `<div class="aq-row aq-transport">` +
       `<button class="ap-btn" data-aq="prev" aria-label="Vorige">${icon("prev")}</button>` +

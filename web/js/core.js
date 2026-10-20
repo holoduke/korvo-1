@@ -36,7 +36,7 @@
   }
   Panel.prefs = {
     theme: pref("theme", 0),
-    saverMode: pref("saverMode", 2), /* 0 = scherm uit, 1 = AI oog, 2 = het huis, 3 = Vision (saver-vision.js) */
+    saverMode: pref("saverMode", 2), /* 0 = scherm uit, 1 = klimaat (the AI eye), 2 = 3D-huis, 3 = live data (Vision, saver-vision.js) */
     saverIdx: pref("saverIdx", 1),
     deepIdx: pref("deepIdx", 2), /* the sleep stage after this long in the screensaver (saver.js DEEP_TIMES) */
     houseLayer: pref("houseLayer", undefined),

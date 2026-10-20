@@ -10,7 +10,7 @@
 .usage-sum .usage-total b { font-size: 32px; }
 .usage-sum small { font-size: 13px; font-weight: 600; color: var(--text_dim); }
 .usage-dim { font-size: 15px; font-weight: 600; color: var(--text_dim); align-self: center; }
-.usage-chart-title { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); margin-bottom: 4px; }
+.usage-chart-title { font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); margin-bottom: 4px; }
 .usage-chart-wrap { position: relative; height: 240px; }
 .usage-chart-wrap canvas { width: 100%; height: 100%; display: block; }
 .usage-legend { margin-top: 10px; }

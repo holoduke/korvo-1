@@ -1,14 +1,20 @@
 /* Control tiles shared by the Schoonmaak and Tesla pages: section titles,
  * labels, choice tiles (.vchip, in rows of equal width) and action tiles (.vbtn). */
 
-.vlabel { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
-.vs-section-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text_dim); margin: 4px 0 2px; }
+.vlabel { font-size: var(--h1-size); font-weight: 700; letter-spacing: var(--h1-track); text-transform: uppercase; color: var(--text_dim); }
+.vs-section-title { font-size: var(--h1-size); font-weight: 700; letter-spacing: var(--h1-track); text-transform: uppercase; color: var(--text_dim); margin: 4px 0 2px; }
 .vchip, .vbtn {
   position: relative; min-width: 0; border-radius: calc(16px * var(--round)); background: var(--tile); color: var(--text);
   font-weight: 700; line-height: 1.15; text-align: left;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 0 0 1px color-mix(in srgb, var(--text_dim) 18%, transparent);
   transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.12s;
 }
+/* One stat tile for every section (Apparaten, Tesla, Schoonmaak, Internet):
+ * an uppercase label over its value, which takes two lines rather than an
+ * ellipsis ("1.217 / 1.229 tpm"). A page may set --stat-size. */
+.ap-stat, .cp-stat, .tv-stat, .nw-stat { min-width: 0; padding: 10px 12px; border-radius: calc(12px * var(--round)); background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.ap-stat span, .cp-stat span, .tv-stat span, .nw-stat span { display: block; font-size: var(--h2-size); font-weight: 700; letter-spacing: var(--h2-track); text-transform: uppercase; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-stat b, .cp-stat b, .tv-stat b, .nw-stat b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin-top: 2px; font-size: var(--stat-size, 18px); font-weight: 700; line-height: 1.25; overflow: hidden; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 /* Choices: a row of equal tiles, one fixed height. */
 .vchip { height: 64px; padding: 0 14px; display: flex; align-items: center; font-size: 17px; }
 /* A chosen option (mode, suction, preset): the scene colour, so that amber

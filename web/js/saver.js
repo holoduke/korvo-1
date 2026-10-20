@@ -17,7 +17,7 @@
   Panel.DEEP_LABELS = ["Nooit", "5 min", "10 min", "30 min"];
   /* A phone (the same query as the phone layout in the CSS) gets no screensaver
    * and no screen lock: it is in a hand, not on a wall, and locks by itself. */
-  const phoneQuery = matchMedia("(max-width: 700px), (orientation: landscape) and (max-height: 440px)");
+  const phoneQuery = matchMedia("(max-width: 760px), (orientation: landscape) and (max-height: 440px)");
   const isPhone = () => phoneQuery.matches;
 
   /* ---- Keep the screen on --------------------------------------------------------- */
