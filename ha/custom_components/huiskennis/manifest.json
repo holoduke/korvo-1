@@ -1,7 +1,7 @@
 {
   "domain": "huiskennis",
   "name": "Huiskennis",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "documentation": "https://github.com/holoduke/korvo-1",
   "issue_tracker": "https://github.com/holoduke/korvo-1/issues",
   "dependencies": ["recorder"],
