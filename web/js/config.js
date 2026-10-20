@@ -1871,6 +1871,16 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "climate",
+      "label": "Badkamer boven",
+      "name": "sensor_badkamer_boven_1",
+      "entities": {
+        "temperature": "sensor.sensor_badkamer_boven_1_temperature",
+        "humidity": "sensor.sensor_badkamer_boven_1_humidity",
+        "battery": "sensor.sensor_badkamer_boven_1_battery"
+      }
+    },
+    {
+      "kind": "climate",
       "label": "Zoldergang",
       "name": "sensor_zolder_1",
       "entities": {

@@ -648,6 +648,8 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Naomi",            "sensor_naomi_1" },
     { "climate",  "Valerie",          "sensor_valerie_1" },
     { "climate",  "Gillis en Ilse",   "sensor_achterkamer_boven_1" },
+    /* the bathroom on the first floor (Zbeacon TH01, added 2026-10-20) */
+    { "climate",  "Badkamer boven",   "sensor_badkamer_boven_1" },
     { "climate",  "Zoldergang",       "sensor_zolder_1" },
     { "climate",  "Zolder voor",      "sensor_zolder_voorkamer_1" },
     { "climate",  "Zolder achter",    "sensor_zolder_achterkamer_1" },

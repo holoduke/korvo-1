@@ -62,7 +62,7 @@ window.HOUSE_PLAN = {
       { name: "Naomi", climate: "Naomi", x: 0, z: 0, w: 2.84, d: 3.77 },
       { name: "Valerie", climate: "Valerie", x: 2.84, z: 0, w: 2.76, d: 5.0 },
       { name: "Gang", x: 0, z: 3.77, w: 2.84, d: 5.03 },
-      { name: "Badkamer", x: 2.84, z: 5.0, w: 2.76, d: 3.8 },
+      { name: "Badkamer", climate: "Badkamer boven", x: 2.84, z: 5.0, w: 2.76, d: 3.8 },
       { name: "Gillis en Ilse", climate: "Gillis en Ilse", x: 0, z: 8.8, w: 5.6, d: 4.2 },
     ],
     /* Attic (plan, page 7): the stair and the technical room along the
