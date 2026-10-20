@@ -83,7 +83,7 @@ window.HOUSE_PLAN = {
   /* The plants with a soil sensor (PANEL_SENSOR_CARDS kind plant), in the room
    * their name says, off the room's own reading. */
   plants: [
-    { card: "Plant voorkamer", at: [1.0, 0.45, 0.8] },
+    { card: "Plant achterkamer", at: [6.2, 0.45, 16.6] },
     { card: "Plant zitkamer achter", at: [8.6, 0.45, 16.6] },
   ],
   /* Inner walls of the ground floor, drawn as walls (floor line, ceiling line

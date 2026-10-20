@@ -1931,15 +1931,15 @@ window.PANEL_CONFIG = {
     },
     {
       "kind": "plant",
-      "label": "Plant voorkamer",
-      "name": "sensor_plant_voorkamer_1",
+      "label": "Plant achterkamer",
+      "name": "sensor_plant_achterkamer_1",
       "entities": {
-        "moisture": "sensor.sensor_plant_voorkamer_1_soil_moisture",
-        "dry": "binary_sensor.sensor_plant_voorkamer_1_dry",
-        "warning": "number.sensor_plant_voorkamer_1_soil_warning",
-        "temperature": "sensor.sensor_plant_voorkamer_1_temperature",
-        "humidity": "sensor.sensor_plant_voorkamer_1_humidity",
-        "battery": "sensor.sensor_plant_voorkamer_1_battery"
+        "moisture": "sensor.sensor_plant_achterkamer_1_soil_moisture",
+        "dry": "binary_sensor.sensor_plant_achterkamer_1_dry",
+        "warning": "number.sensor_plant_achterkamer_1_soil_warning",
+        "temperature": "sensor.sensor_plant_achterkamer_1_temperature",
+        "humidity": "sensor.sensor_plant_achterkamer_1_humidity",
+        "battery": "sensor.sensor_plant_achterkamer_1_battery"
       }
     },
     {

@@ -295,10 +295,11 @@ test("switching every appliance off asks for a second tap, visibly", async ({ pa
   expect(problems).toEqual([]);
 });
 
-test("beside the house the energy opens Energie, and a floor's lights switch off", async ({ page }) => {
+test("beside the house the energy opens Energie, the WTW boosts, and a floor's lights switch off", async ({ page }) => {
   const problems = watch(page);
   await open(page);
   const energy = page.locator("[data-house-energy]");
+  const wtw = page.locator("[data-house-wtw]");
   const lights = page.locator("[data-house-lights]");
   test.skip(!(await energy.isVisible()) && !(await lights.isVisible()), "no quick looks beside the house on this screen");
   /* nothing in one column runs over another */
@@ -313,10 +314,28 @@ test("beside the house the energy opens Energie, and a floor's lights switch off
     await floor.click();
     await expect(lights.locator(`[data-ql-floor="${fi}"] [data-ql-n]`)).toHaveText("uit", { timeout: 5000 });
   }
+  if (await wtw.isVisible()) {
+    await expect(wtw.locator("[data-qw-now] b")).not.toHaveText("--");
+    const boost = wtw.locator('[data-qw-mode="MAN3x2"]');
+    if (await boost.isVisible()) {
+      await boost.click();
+      await expect(boost).toHaveClass(/active/, { timeout: 5000 });
+      await expect(wtw.locator("[data-qw-stand]")).toContainText("nog 30 min");
+      await expect(wtw.locator("[data-qw-now] b")).toHaveText("100");
+      await wtw.locator('[data-qw-mode="AUTO"]').click();
+      await expect(wtw.locator('[data-qw-mode="AUTO"]')).toHaveClass(/active/, { timeout: 5000 });
+    }
+  }
   if (await energy.isVisible()) {
     await expect(energy.locator("[data-qe-now] b")).not.toHaveText("--");
     await energy.click();
     await expect(page.locator("#track > .page:not(.away) .en-now")).toBeVisible();
+  }
+  if (await wtw.isVisible()) {
+    await page.goto(page.url().split("#")[0]);
+    await expect(wtw).toBeVisible();
+    await wtw.locator("[data-qw-open]").click();
+    await expect(page.locator('#track > .page:not(.away) .ap-card[data-kind="ventilation"]')).toBeVisible();
   }
   expect(problems).toEqual([]);
 });

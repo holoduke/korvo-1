@@ -585,6 +585,7 @@
     }
     return { pill: known(c) ? c : "--", sub: "" };
   }
+  Panel.wtwStand = wtwStand; /* the quick look beside the house (house-quick.js) */
   const deg1 = (id) => (Number.isFinite(num(id)) ? `${fmt(num(id), 1)}°` : "--");
   /* The exchanger: two streams crossing in its core, the efficiency in the middle. */
   function wtwDiagram(e) {
@@ -602,13 +603,13 @@
       `</div>`
     );
   }
-  /* What the box's error log says, in words; 43.23.01 is the one this box has had
-   * from the start: it was never commissioned, so the fans run alike in every stand. */
+  /* What the box's error log says, in words; 43.23.01 is the one this box had
+   * from the start until 2026-10-20: not commissioned, so the fans run alike in every stand. */
   function wtwErrors(codes) {
     const c = String(codes || "");
     if (!known(c) || c === "Geen") return "";
     const text = c.includes("43.23.01")
-      ? `Storing ${c}: de WTW is nooit ingeregeld, dus de ventilatoren draaien in elke stand even hard. De installateur moet de inregeling nog doen.`
+      ? `Storing ${c}: de WTW is niet ingeregeld, dus de ventilatoren draaien in elke stand even hard. Inregelen: op het display ADVANCED, code 9876, dan CALIBRATION > WIZARD.`
       : `Storing ${c}: zie de foutenlijst op het display van de WTW.`;
     return `<p class="ap-note warn">${Util.esc(text)}</p>`;
   }

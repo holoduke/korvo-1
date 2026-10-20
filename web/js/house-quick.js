@@ -1,9 +1,10 @@
-/* Two quick looks beside the house on the Start screen: the energy above the
- * thermostat on the left (what the house uses now, the sun and the grid, what
- * today cost; a tap opens Energie), the lights above the garage door on the
- * right (how many burn, a switch per floor, all off). start.js stands them in
- * their columns; where a column has no room they step aside, and a phone has
- * no room for them at all (its CSS). */
+/* Quick looks beside the house on the Start screen. On the left, above the
+ * thermostat: the ventilation (its airflow and stand, Auto and Boost; a tap
+ * opens its card in Apparaten) and above that the energy (what the house uses
+ * now, the sun and the grid, what today cost; a tap opens Energie). On the
+ * right, above the garage door, the lights (how many burn, a switch per floor,
+ * all off). start.js stands them in their columns; where a column has no room
+ * they step aside, and a phone has no room for them at all (its CSS). */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -33,6 +34,55 @@
     energyEl.querySelector("[data-qe-flow]").innerHTML = flow.join("");
     const today = [Number.isFinite(s.cost) ? E.eur(s.cost) : "", Number.isFinite(s.houseToday) ? E.kwhText(s.houseToday) : ""].filter(Boolean);
     energyEl.querySelector("[data-qe-today]").innerHTML = today.length ? `<span>Vandaag</span><b>${today.join(" · ")}</b>` : "";
+  }
+
+  /* ---- Ventilation ------------------------------------------------------------------ */
+  const wtw = (cfg.appliances || []).find((a) => a.kind === "ventilation");
+  const WTW_MODES = [["AUTO", "Auto"], ["MAN3x2", "Boost"]]; /* boost: 30 minutes on III, then automatic again */
+  const WTW_BUSY_MS = 8000;
+  let wtwEl = null;
+  let wtwBusy = null; /* {option, timer}: asked, not yet answered */
+
+  function renderWtw() {
+    if (!wtwEl || !Panel.wtwStand) return;
+    const e = wtw.entities;
+    const code = (Panel.st(e.stand) || {}).state || "";
+    const flow = Panel.num(e.flow);
+    const left = Panel.num(e.left);
+    const st = Panel.wtwStand(code);
+    if (wtwBusy && code === wtwBusy.option) settleWtw();
+    const timed = code.startsWith("MAN") && Number.isFinite(left) && left > 0;
+    wtwEl.classList.toggle("hard", Number.isFinite(flow) && flow >= 60);
+    wtwEl.querySelector("[data-qw-now]").innerHTML = `<b>${Number.isFinite(flow) ? Math.round(flow) : "--"}</b><span>% debiet</span>`;
+    wtwEl.querySelector("[data-qw-stand]").textContent = timed ? `${st.pill} · nog ${Math.max(1, Math.round(left / 60))} min` : st.pill;
+    WTW_MODES.forEach(([option]) => {
+      const b = wtwEl.querySelector(`[data-qw-mode="${option}"]`);
+      /* Boost lights for any timed stand III, whatever its length */
+      const active = option === "AUTO" ? code === "AUTO" : code.startsWith("MAN3");
+      b.classList.toggle("active", active);
+      b.classList.toggle("pending", !!wtwBusy && wtwBusy.option === option);
+      b.setAttribute("aria-pressed", String(active));
+    });
+  }
+  function settleWtw() {
+    if (wtwBusy) clearTimeout(wtwBusy.timer);
+    wtwBusy = null;
+  }
+  function setWtw(option) {
+    settleWtw();
+    wtwBusy = { option, timer: setTimeout(() => (settleWtw(), renderWtw()), WTW_BUSY_MS) };
+    Panel.sound && Panel.sound.tap && Panel.sound.tap();
+    renderWtw();
+    Panel.client.callService("select", "select_option", { option }, { entity_id: wtw.entities.stand }).catch((err) => {
+      settleWtw();
+      renderWtw();
+      Panel.commandFailed(wtw.label)(err);
+    });
+  }
+  /* its card in Apparaten, through the hash the page routes on */
+  function openWtw() {
+    const sec = cfg.sections.find((x) => x.kind === "appliances");
+    if (sec) location.hash = `${Util.slug(sec.name)}/${Util.slug(wtw.label)}`;
   }
 
   /* ---- Lights ----------------------------------------------------------------------- */
@@ -114,6 +164,31 @@
       hideOnRoom(energyEl);
       renderEnergy();
     }
+    if (wtw) {
+      house.insertAdjacentHTML(
+        "beforeend",
+        `<div class="house-quick house-wtw" data-house-wtw>` +
+          `<button class="qw-open" data-qw-open aria-label="${esc(wtw.label)} openen in Apparaten">` +
+          `<span class="hq-title">${icon("fan")}<span>Ventilatie</span></span>` +
+          `<span class="qw-now" data-qw-now></span>` +
+          `<span class="qw-stand" data-qw-stand></span>` +
+          `</button>` +
+          `<div class="qw-modes">` +
+          WTW_MODES.map(([option, label]) => `<button class="qw-mode" data-qw-mode="${option}" aria-pressed="false">${label}</button>`).join("") +
+          `</div>` +
+          `</div>`
+      );
+      wtwEl = house.querySelector("[data-house-wtw]");
+      wtwEl.addEventListener("click", (e) => {
+        const m = e.target.closest("[data-qw-mode]");
+        if (m) {
+          if (!m.classList.contains("active")) setWtw(m.dataset.qwMode);
+        } else if (e.target.closest("[data-qw-open]")) openWtw();
+      });
+      stop(wtwEl);
+      hideOnRoom(wtwEl);
+      renderWtw();
+    }
     if (floors.length) {
       house.insertAdjacentHTML(
         "beforeend",
@@ -142,6 +217,11 @@
     const later = Panel.whenShown("start", renderEnergy);
     Panel.track(E.liveIds(), () => later());
     Panel.on("energy", () => later());
+    Panel.on("loaded", () => later());
+  }
+  if (wtw) {
+    const later = Panel.whenShown("start", renderWtw);
+    Panel.track([wtw.entities.stand, wtw.entities.flow, wtw.entities.left].filter(Boolean), () => later());
     Panel.on("loaded", () => later());
   }
   if (floors.length) {

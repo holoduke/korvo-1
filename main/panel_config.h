@@ -656,7 +656,7 @@ static const panel_sensor_card_t PANEL_SENSOR_CARDS[] = {
     { "climate",  "Garage",           "sensor_garage_1" },
     { "climate",  "Buiten voor",      "sensor_buiten_voor_1" },
     /* two soil sensors in plant pots (AOYAN AY-303Z, added 2026-09-24) */
-    { "plant",    "Plant voorkamer",  "sensor_plant_voorkamer_1" },
+    { "plant",    "Plant achterkamer", "sensor_plant_achterkamer_1" }, /* was in the front room until 2026-10-20 */
     { "plant",    "Plant zitkamer achter", "sensor_plant_zitkamer_achter_1" },
 };
 

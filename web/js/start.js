@@ -9,8 +9,8 @@
   const HINT_MS = 9000; /* the gesture hint goes on its own after this */
 
   /* The quick controls beside the house stand in two columns: on the left the
-   * heating's thermostat (heating.js) with the energy (house-quick.js) above
-   * it, on the right the garage door (covers.js) with the lights
+   * heating's thermostat (heating.js) with the ventilation and the energy
+   * (house-quick.js) above it, on the right the garage door (covers.js) with the lights
    * (house-quick.js) and the music (audio.js) above it. Each column stands
    * with its bottom on one line with the ask bar (ask.js): level with its
    * bottom where it runs between them (a panel, an iPad), just above its top
@@ -19,7 +19,7 @@
    * little room gives up, in turn, what it can do without (TIGHT). */
   const GAP = 10;
   const TIGHT = {
-    left: ["no-quick-energy"],
+    left: ["tight-wtw", "no-quick-energy", "no-quick-wtw"],
     right: ["tight-door", "tight-now", "tight-off", "tight-mute", "no-quick-lights"], /* start.css */
   };
   const shown = (el) => !!el && !el.hidden && !!el.offsetParent;
@@ -34,7 +34,7 @@
     house.classList.toggle("music-bar", musicBar);
     if (musicBar) musicEl.style.top = "";
     const columns = {
-      left: { floor: hud ? hud.getBoundingClientRect().bottom - box.top + 12 : 8, items: ["[data-house-heat]", "[data-house-energy]"] },
+      left: { floor: hud ? hud.getBoundingClientRect().bottom - box.top + 12 : 8, items: ["[data-house-heat]", "[data-house-wtw]", "[data-house-energy]"] },
       right: {
         floor: musicBar ? musicEl.getBoundingClientRect().bottom - box.top + 8 : 8,
         items: ["[data-house-cover]:not([data-house-audio])", "[data-house-lights]", ...(musicBar ? [] : ["[data-house-audio]"])],
