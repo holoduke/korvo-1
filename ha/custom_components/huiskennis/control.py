@@ -1,7 +1,8 @@
 """Bedienen via Huiskennis: alleen wat hier staat, binnen vaste grenzen.
 
-- schakel: lampen (aan, uit, helderheid), scènes en muziek (afspelen, pauze,
-  stop, volume), alleen entiteiten die aan Assist zijn blootgesteld;
+- schakel: lampen (aan, uit, helderheid, kleur, kleurtemperatuur), scènes en
+  muziek (afspelen, pauze, stop, volume), alleen entiteiten die aan Assist
+  zijn blootgesteld;
 - instelling: een vaste lijst instellingen van dit huis (SETTINGS) met hun
   toegestane waarden, de garagedeur inbegrepen; zonder waarde leest hij de
   huidige stand.
@@ -19,6 +20,7 @@ import voluptuous as vol
 from homeassistant.components.homeassistant.exposed_entities import async_should_expose
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
+from homeassistant.util import color as color_util
 from homeassistant.util.json import JsonObjectType
 
 from .const import DOMAIN
@@ -26,6 +28,15 @@ from .const import DOMAIN
 ASSISTANT = "conversation"
 SWITCHABLE = ("light", "scene", "media_player")
 UNAVAILABLE = ("unavailable", "unknown")
+KELVIN = (2000, 6500)
+
+# Kleuren in woorden: een kleur als RGB, wit als kleurtemperatuur (kelvin).
+COLOURS: dict[str, tuple[int, int, int]] = {
+    "rood": (255, 0, 0), "oranje": (255, 120, 0), "geel": (255, 220, 0), "groen": (0, 255, 0),
+    "cyaan": (0, 255, 255), "turquoise": (0, 220, 200), "blauw": (0, 0, 255), "paars": (140, 0, 255),
+    "lila": (200, 150, 255), "roze": (255, 105, 180), "magenta": (255, 0, 255),
+}
+WHITES: dict[str, int] = {"warm wit": 2700, "wit": 4000, "neutraal wit": 4000, "koel wit": 5000, "koud wit": 6500, "daglicht": 6500}
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,9 +126,11 @@ class _ControlTool(llm.Tool):
 class Schakel(_ControlTool):
     name = "schakel"
     description = (
-        "Een lamp aan of uit zetten (met helderheid 1-100), een scène aanzetten, of muziek bedienen "
-        "(afspelen, pauze, stop, volume 0-100). Zoek de entity_id eerst met huis_nu. Alleen op verzoek "
-        "van de gebruiker."
+        "Een lamp aan of uit zetten, met helderheid 1-100, een kleur (rood, oranje, geel, groen, cyaan, "
+        "turquoise, blauw, paars, lila, roze, magenta, een Engelse kleurnaam, #rrggbb of r,g,b) of wit "
+        "(warm wit, wit, koel wit, koud wit, daglicht, of kelvin 2000-6500); een scène aanzetten; of muziek "
+        "bedienen (afspelen, pauze, stop, volume 0-100). Zoek de entity_id eerst met huis_nu. Alleen op "
+        "verzoek van de gebruiker."
     )
     parameters = vol.Schema(
         {
@@ -126,6 +139,8 @@ class Schakel(_ControlTool):
                 ["aan", "uit", "afspelen", "pauze", "stop", "volume"]
             ),
             vol.Optional("waarde", description="helderheid of volume in procent"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+            vol.Optional("kleur", description="bij een lamp: een kleur of een wit, zie boven"): str,
+            vol.Optional("kelvin", description="bij een lamp: kleurtemperatuur 2000-6500"): vol.All(vol.Coerce(int), vol.Range(min=KELVIN[0], max=KELVIN[1])),
         }
     )
 
@@ -143,8 +158,43 @@ class Schakel(_ControlTool):
         service, data = self._service(domain, action, value)
         if service is None:
             return {"fout": f"{action} kan niet bij een {domain}"}
+        said = f" {value}%" if value is not None else ""
+        if args.get("kleur") or args.get("kelvin"):
+            if domain != "light" or service != "turn_on":
+                return {"fout": "een kleur kan alleen bij een lamp die aan gaat"}
+            colour = self._colour(args.get("kleur"), args.get("kelvin"))
+            if isinstance(colour, str):
+                return {"fout": colour}
+            modes = set(state.attributes.get("supported_color_modes") or [])
+            if "rgb_color" in colour and not modes & {"hs", "rgb", "rgbw", "rgbww", "xy"}:
+                return {"fout": f"{state.name} kan geen kleur, alleen wit of helderheid"}
+            if "color_temp_kelvin" in colour and not modes & {"color_temp", "hs", "rgb", "rgbw", "rgbww", "xy"}:
+                return {"fout": f"{state.name} kan geen kleurtemperatuur, alleen helderheid"}
+            data.update(colour)
+            said += f" {args.get('kleur') or ''}".rstrip() + (f" {args['kelvin']} K" if args.get("kelvin") else "")
         await hass.services.async_call(domain, service, {"entity_id": entity_id, **data}, blocking=True, context=llm_context.context)
-        return {"gedaan": f"{state.name}: {action}" + (f" {value}%" if value is not None else ""), "entity_id": entity_id}
+        return {"gedaan": f"{state.name}: {action}{said}", "entity_id": entity_id}
+
+    @staticmethod
+    def _colour(text: str | None, kelvin: int | None) -> dict[str, Any] | str:
+        """De kleur voor light.turn_on, of wat er mis is."""
+        if kelvin:
+            return {"color_temp_kelvin": kelvin}
+        word = (text or "").strip().lower()
+        if word in WHITES:
+            return {"color_temp_kelvin": WHITES[word]}
+        if word in COLOURS:
+            return {"rgb_color": list(COLOURS[word])}
+        hexa = word.lstrip("#")
+        if len(hexa) == 6 and all(c in "0123456789abcdef" for c in hexa):
+            return {"rgb_color": [int(hexa[i : i + 2], 16) for i in (0, 2, 4)]}
+        parts = [p.strip() for p in word.replace(";", ",").split(",")]
+        if len(parts) == 3 and all(p.isdigit() and int(p) <= 255 for p in parts):
+            return {"rgb_color": [int(p) for p in parts]}
+        try:
+            return {"rgb_color": list(color_util.color_name_to_rgb(word.replace(" ", "")))}
+        except ValueError:
+            return f"onbekende kleur {text}: gebruik een kleurnaam, #rrggbb, r,g,b of een wit"
 
     @staticmethod
     def _service(domain: str, action: str, value: int | None) -> tuple[str | None, dict[str, Any]]:
