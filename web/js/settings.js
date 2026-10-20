@@ -45,7 +45,7 @@
     const faults = window.Diag ? window.Diag.errors() : [];
     const rows = [
       ["Home Assistant", connected ? `verbonden${c.latency && c.latency() != null ? ` · ${c.latency()} ms` : ""}${c.connectedSince && c.connectedSince() ? ` · sinds ${Util.hm(new Date(c.connectedSince()))}` : ""}` : "geen verbinding", connected ? "ok" : "bad"],
-      ["Zigbee", !h.zigbee || st(h.zigbee) === undefined ? "onbekend" : st(h.zigbee) === "on" ? `bridge online · ${gone ? `${gone} van ${lights.length} lampen niet bereikbaar` : "alle lampen bereikbaar"}` : "bridge offline", !h.zigbee || st(h.zigbee) === undefined ? "dim" : st(h.zigbee) !== "on" ? "bad" : gone > lights.length * 0.4 ? "bad" : gone ? "warn" : "ok"],
+      ["Zigbee", !h.zigbee || st(h.zigbee) === undefined ? "onbekend" : st(h.zigbee) === "on" ? `verbonden · ${gone ? `${gone} van ${lights.length} lampen niet bereikbaar` : "alle lampen bereikbaar"}` : "niet verbonden", !h.zigbee || st(h.zigbee) === undefined ? "dim" : st(h.zigbee) !== "on" ? "bad" : gone > lights.length * 0.4 ? "bad" : gone ? "warn" : "ok"],
       ["Internet", !h.internet || st(h.internet) === undefined ? "onbekend" : st(h.internet) === "on" ? "verbonden" : "weg", !h.internet || st(h.internet) === undefined ? "dim" : st(h.internet) === "on" ? "ok" : "bad"],
       ...robots.map((r) => [r.label, st(r.id) === "unavailable" ? "niet bereikbaar" : st(r.id) === undefined ? "onbekend" : "bereikbaar", st(r.id) === "unavailable" ? "warn" : st(r.id) === undefined ? "dim" : "ok"]),
       ["Paneel", `versie ${(document.querySelector('meta[name="panel-version"]') || {}).content || "?"} · aan sinds ${Util.hm(bootedAt)}`, "dim"],

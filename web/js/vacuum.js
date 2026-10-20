@@ -12,12 +12,12 @@
   const vac = cfg.vacuum;
   if (!vac) return;
 
-  const STATE_NL = { docked: "In dock", idle: "Klaar", paused: "Pauze", error: "Storing" };
+  const STATE_NL = { docked: "In station", idle: "Klaar", paused: "Pauze", error: "Storing" };
   /* What the robot says it is doing (sensor.<robot>_status / its status_desc). */
   const STATUS_NL = {
     sweeping: "Zuigt", mopping: "Dweilt", "sweeping and mopping": "Zuigt en dweilt", paused: "Gepauzeerd",
     idle: "Staat stil", busy: "Bezig", delay: "Wacht op de starttijd", error: "Storing",
-    charging: "Laadt op", breakcharging: "Laadt tussendoor op", "go charging": "Gaat naar het dock",
+    charging: "Laadt op", breakcharging: "Laadt tussendoor op", "go charging": "Gaat naar het station",
     gochargebreak: "Gaat opladen, gaat daarna verder", charged: "Opgeladen", sleeping: "Slaapt",
     gowash: "Gaat de dweil wassen", washbreak: "Wast de dweil, gaat daarna verder", godust: "Gaat stof legen",
     stationworking: "Station is bezig", buildingmap: "Maakt een kaart", mappingpause: "Kaart maken staat stil",
@@ -157,12 +157,12 @@
       `</div><div class="vs-plan"></div>` +
       `<div class="vs-section-title">Laatste rondes</div><div class="vs-rec-list"></div></section>` +
       `<section class="vs-side"><div class="vs-actions">` +
-      `<button class="vbtn primary" data-vac="rooms">${icon("play")}<span>Kies kamers</span></button>` +
+      `<button class="vbtn primary" data-vac="rooms">${icon("play")}<span>Tik eerst kamers aan</span></button>` +
       `<button class="vbtn" data-vac="start">${icon("play")}<span>Hele huis</span></button>` +
       `<button class="vbtn" data-vac="pause">${icon("pause")}<span>Pauze</span></button>` +
       `<button class="vbtn" data-vac="resume">${icon("play")}<span>Ga verder</span></button>` +
       `<button class="vbtn" data-vac="stop">${icon("stop")}<span>Stop</span></button>` +
-      `<button class="vbtn" data-vac="dock">${icon("dock")}<span>Naar dock</span></button>` +
+      `<button class="vbtn" data-vac="dock">${icon("dock")}<span>Naar station</span></button>` +
       `<button class="vbtn" data-vac="locate">${icon("locate")}<span>Zoek robot</span></button>` +
       `</div>` +
       `<div class="vs-group"><span class="vlabel">Modus</span>${chips("mode", MODE_NL)}</div>` +
@@ -315,7 +315,7 @@
     } else {
       roomsBtn.hidden = false;
       roomsBtn.disabled = !n || offline;
-      roomsBtn.querySelector("span").textContent = n ? `Start ${n === 1 ? "kamer" : n + " kamers"}` : "Kies kamers";
+      roomsBtn.querySelector("span").textContent = n ? `Start ${n === 1 ? "kamer" : n + " kamers"}` : "Tik eerst kamers aan";
     }
     q('[data-vac="pause"]').hidden = !busy || vstate === "returning";
     q('[data-vac="resume"]').hidden = !(paused || stuck);
@@ -604,7 +604,7 @@
       const cleaned = Number.isFinite(area) && Number.isFinite(run.area) ? area - run.area : 0;
       if (cleaned < 1) {
         run.told = true;
-        const text = `${vac.label} vindt zijn plek op de kaart niet en gaat terug naar het dock`;
+        const text = `${vac.label} vindt zijn plek op de kaart niet en gaat terug naar het station`;
         Panel.toast(text, "warn");
         if (Panel.houseEvent) Panel.houseEvent(text, "warn");
       }

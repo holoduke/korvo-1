@@ -58,6 +58,8 @@
       })
       .join("");
     cfg.sections.forEach((sec, si) => pages[sec.kind].build && pages[sec.kind].build(track.children[si], sec));
+    /* the upright scrollers say when there is more below (base.css .more-below) */
+    track.querySelectorAll(".ap-detail, .split-list, .dc-page, .vs-side").forEach((el) => Util.watchScroll(el));
   });
 
   function setIndicator(pos, animate) {

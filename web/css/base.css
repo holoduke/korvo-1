@@ -30,7 +30,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 @media (max-width: 760px) {
-  :root { --header-h: auto; --tabbar-h: 44px; --row-h: 72px; --lane: 72px; --gap: 10px; --pad: 12px; --radius: 16px; }
+  :root { --header-h: auto; --tabbar-h: 44px; --row-h: 72px; --lane: 60px; --gap: 10px; --pad: 12px; --radius: 16px; } /* the lamps get the width the slider and rail can spare */
 }
 
 * { box-sizing: border-box; }
@@ -120,6 +120,13 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .overlay.closing { animation: fade-out 0.16s ease-in forwards; }
 .overlay.closing .box { animation: pop-out 0.16s ease-in forwards; }
 .box { background: var(--tile); border-radius: calc(20px * var(--round)); padding: 24px; width: 100%; animation: pop-in 0.22s var(--ease-out); max-height: calc(100dvh - 32px); overflow: auto; }
+/* An upright scroller with more below (Util.watchScroll): its bottom edge fades. */
+.more-below { -webkit-mask-image: linear-gradient(#000 calc(100% - 36px), transparent); mask-image: linear-gradient(#000 calc(100% - 36px), transparent); }
+/* A phone: a dialog is a sheet from the bottom over the full width, not a card with wide gutters. */
+@media (max-width: 760px) {
+  .overlay { padding: max(16px, env(safe-area-inset-top)) 0 0; place-items: end stretch; }
+  .overlay > .box { max-width: none; padding: 18px 16px max(18px, env(safe-area-inset-bottom)); border-radius: calc(20px * var(--round)) calc(20px * var(--round)) 0 0; max-height: calc(100dvh - 24px); }
+}
 .box-head { display: flex; align-items: center; gap: 12px; margin: -6px -6px 12px 0; }
 .box-title { font-size: 24px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .close-btn { width: 44px; height: 44px; border-radius: calc(12px * var(--round)); background: var(--tile_off); font-size: 18px; display: grid; place-items: center; flex: none; }

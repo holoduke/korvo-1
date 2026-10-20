@@ -23,7 +23,7 @@
 }
 .hdr-strip::-webkit-scrollbar { display: none; }
 /* More columns hide to the right: fade that edge (header.js toggles it). */
-.hdr-strip.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 78%, transparent); mask-image: linear-gradient(90deg, #000 78%, transparent); }
+.hdr-strip.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
 .fc { display: flex; gap: var(--hdr-gap); align-items: center; }
 .fc-col, .sensor-col { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .fc-day { font-size: 13px; color: var(--text_dim); font-weight: 600; }
@@ -78,6 +78,7 @@
 .timebox { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .clock { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.05; }
 .daterow { display: flex; gap: 6px; font-size: 13px; font-weight: 600; }
+.hdr-section { display: none; }
 /* The date line sets the clock box's width on its longest day ("donderdag 17
  * sep"): a size smaller up to 1300 px keeps every column of an 11" iPad in
  * landscape (1194 px) in view on every day of the week. */
@@ -161,7 +162,23 @@
   .timebox { flex-direction: row; align-items: baseline; gap: 10px; margin-right: auto; }
   .clock { font-size: 28px; }
   .gear { font-size: 26px; }
-  .hdr-strip { flex: 1 1 100%; padding-bottom: 2px; }
+  /* the tabs are icons alone: the section's name beside the clock, the weekday makes room */
+  .dow { display: none; }
+  .hdr-section:not(:empty) {
+    display: block; padding-left: 10px; border-left: 2px solid var(--accent); color: var(--accent);
+    font-family: var(--font-display), "Orbitron", "Eurostile", ui-monospace, monospace;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+  }
+  /* the columns a size smaller: the content gets the height, the strip still reads */
+  .hdr-strip { flex: 1 1 100%; padding-bottom: 2px; scroll-snap-type: x proximity; }
+  .fc, .sensor-col { scroll-snap-align: start; } /* the forecast first, not skipped past to the first column */
+  .fc-col { gap: 0; }
+  .fc .wx { transform: scale(0.72); margin: -5px -5px; }
+  .fc-day { font-size: 12px; }
+  .fc-temp { font-size: 15px; }
+  .s-name, .s-hum { font-size: 11.5px; }
+  .s-temp { font-size: 18px; }
+  .rule { height: 40px; }
   /* A phone has no room for eight names at a readable size: each tab is its
    * icon alone (the name is its aria-label), at a normal size, the eight
    * sharing the width evenly — no scrolling bar, no tiny text. */

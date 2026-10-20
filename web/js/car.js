@@ -169,7 +169,9 @@
     const armed = twoTap.armed(action);
     const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
     el.querySelector(".cp-label b").textContent = armed ? "Nogmaals tikken" : stateBig && small ? cap(small) : label;
-    el.querySelector(".cp-label small").textContent = stateBig && small ? label : small;
+    const sub = el.querySelector(".cp-label small");
+    sub.textContent = stateBig && small ? label : small;
+    sub.classList.toggle("act", !!(stateBig && small)); /* what a tap does, under what the car is doing */
     return el;
   }
   function setStat(id, text) {

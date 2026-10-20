@@ -76,6 +76,8 @@
     },
     stat: (label, value) => `<div class="ap-stat"><span>${label}</span><b>${esc(value)}</b></div>`,
     note: (text) => `<p class="ap-note">${esc(text)}</p>`,
+    /* a fault or something to do soon: boxed, with the warning sign */
+    alert: (text) => `<p class="ap-note warn" role="alert">${icon("warning")}<span>${esc(text)}</span></p>`,
     offlineView: (text) => ({ tone: "offline", pill: "Offline", big: "Offline", word: true, sub: "", stats: [], controls: ui.note(text) }),
   };
   Panel.applianceUi = ui;
@@ -106,6 +108,7 @@
       `</div><figure class="ap-figure" hidden><img alt=""></figure></div>` +
       `<div class="ap-bar"><b></b></div><div class="ap-stats"></div><div class="ap-controls"></div><div class="ap-usage"></div>` +
       `</article></div>`;
+    Util.watchOverflow(root.querySelector(".ap-list")); /* a phone's sideways strip fades where more hide */
     render();
   }
 

@@ -34,7 +34,7 @@
 /* --dc-icon: the card's own colour for its icon (Energie), else the tone's. */
 .dc-icon { flex: none; width: 34px; height: 34px; border-radius: calc(11px * var(--round)); display: grid; place-items: center; font-size: 18px; color: var(--dc-icon, var(--dc-tone)); background: color-mix(in srgb, var(--dc-icon, var(--dc-tone)) 16%, transparent); }
 /* The name may take two lines: room names are the point of the card. */
-.dc-head b { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: break-word; hyphens: manual; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.dc-head b { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .dc-dot { position: absolute; top: 14px; right: 14px; width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, var(--text_dim) 40%, transparent); }
 .tone-active .dc-dot, .tone-warn .dc-dot { background: var(--dc-tone); }
 /* the pulse is a ring that grows and fades: transform and opacity only, drawn by the compositor */
@@ -45,6 +45,8 @@
 .dc-value { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .dc-value b { font-size: 34px; font-weight: 700; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; transition: color 0.4s; }
 .tone-active .dc-value b, .tone-warn .dc-value b { color: var(--dc-tone); }
+/* a calm state (dicht, niemand) is quieter than one that asks for attention */
+.dc-card:not(.tone-active):not(.tone-warn) .dc-value b { color: color-mix(in srgb, var(--text) 78%, transparent); }
 .dc-value span { font-size: 14px; font-weight: 700; color: var(--text_dim); white-space: nowrap; }
 .dc-level { height: 6px; border-radius: calc(3px * var(--round)); overflow: hidden; background: color-mix(in srgb, var(--bg) 40%, transparent); }
 .dc-level i { display: block; height: 100%; border-radius: inherit; transition: width 0.6s var(--ease-out); }

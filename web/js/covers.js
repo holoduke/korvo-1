@@ -20,7 +20,7 @@
 
   const ACTIONS = [
     { key: "open", label: "Open", icon: "chevron-up" },
-    { key: "stop", label: "Stop", icon: "close" },
+    { key: "stop", label: "Stop", icon: "stop" }, /* a square, as on the music: not a cross that reads as "close" */
     { key: "close", label: "Dicht", icon: "chevron-down" },
     { key: "vent", label: "Kier", icon: "vent" },
   ];

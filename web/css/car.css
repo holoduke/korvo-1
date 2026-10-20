@@ -8,7 +8,12 @@
 .cp-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; min-height: 0; flex: 1; }
 /* Scroll containers reset touch-action: keep horizontal moves for the section swipe. */
 .cp-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; touch-action: pan-y; padding-right: 2px; }
-.cp-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: calc(18px * var(--round)); background: var(--tile_off); }
+.cp-card {
+  display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: calc(18px * var(--round));
+  /* the glass of the other sections' panels (cards.css .dc-panel) */
+  background: linear-gradient(165deg, color-mix(in srgb, var(--tile) 90%, #fff 10%) 0%, var(--tile_off) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
 .cp-card .vs-section-title { margin: 0; }
 .cp-card .vs-section-title em { font-style: normal; font-weight: 600; letter-spacing: 0; text-transform: none; margin-left: 8px; }
 .cp-hero-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
@@ -36,6 +41,7 @@
 .cp-label b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cp-label small { font-size: 13px; font-weight: 600; opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cp-label small:empty { display: none; }
+.cp-label small.act::before { content: "→ "; } /* a tap does this; the big line is the state */
 .cp .vbtn.on { background: var(--tile_on); color: var(--on_text); }
 .cp-dots { position: absolute; top: 14px; right: 14px; display: flex; gap: 4px; }
 .cp-dots s { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.25; text-decoration: none; }

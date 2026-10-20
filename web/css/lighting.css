@@ -41,7 +41,7 @@
 }
 .scene-save .ss-text { min-width: 0; }
 .scene-save .ss-btns { display: flex; gap: 8px; flex: none; }
-.ss-btn { height: 40px; padding: 0 18px; border-radius: calc(11px * var(--round)); font-weight: 700; background: var(--tile); transition: transform 0.12s; }
+.ss-btn { height: 44px; padding: 0 18px; border-radius: calc(11px * var(--round)); font-weight: 700; background: var(--tile); transition: transform 0.12s; }
 .ss-btn.primary { background: var(--accent); color: var(--on_text); }
 .ss-btn.pressed { transform: scale(0.95); }
 .tile .t-text { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
@@ -50,7 +50,7 @@
 .tile.on { background: var(--tile_on); color: var(--on_text); }
 .tile.on .t-icon { color: var(--on_text); }
 .tile.on .t-sub { color: var(--on_sub); }
-.tile.unavail { background: var(--tile_off); opacity: 0.5; color: var(--text_dim); }
+.tile.unavail { background: var(--tile_off); opacity: 0.75; color: color-mix(in srgb, var(--warn) 65%, var(--text_dim)); }
 .tile.pending::after {
   content: "";
   position: absolute;
@@ -116,7 +116,7 @@
 /* A name takes up to two lines ("Badkamer / plafond 1") rather than an
  * ellipsis after a few letters; the line under it stays one line. */
 .split .tile { padding: 10px 12px; gap: 10px; }
-.split .tile .t-name { font-size: 16px; line-height: 1.12; white-space: normal; hyphens: manual; overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.split .tile .t-name { font-size: 16px; line-height: 1.12; white-space: normal; hyphens: auto; overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .split .tile .t-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 .split .tile.lamp .t-power { width: 40px; height: 40px; }
 
@@ -282,13 +282,13 @@
   .allbtn { flex: 0 0 calc(var(--row-h) - 12px); }
   .allbtn .txt, .allbtn .chev { display: none; }
   .allbtn .ic { font-size: 24px; }
-  .vslider { width: 48px; right: 10px; }
-  .vs-track { width: 48px; }
+  .vslider { width: 44px; right: 8px; }
+  .vs-track { width: 44px; }
   .vs-knob { height: 38px; }
   .drawer-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 12px; }
   .drawer .tile .t-icon { font-size: 16px; }
   /* a name takes two lines rather than an ellipsis ("Zitk. achter plafond 1"); the tile grows with it */
-  .drawer .tile .t-name { font-size: 15px; line-height: 1.15; white-space: normal; hyphens: manual; overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .drawer .tile .t-name { font-size: 15px; line-height: 1.15; white-space: normal; hyphens: auto; overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
   .drawer-grid { grid-auto-rows: minmax(96px, auto); }
   .drawer .tile .t-sub { font-size: 14px; }
 }

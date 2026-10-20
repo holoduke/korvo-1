@@ -6,7 +6,7 @@
   "use strict";
   const Panel = window.Panel;
   const { hm, fmt, known, duration } = Util;
-  const { raw, low, num, on, attrs, offline, s, btn, chip, stepper, stat, note, offlineView } = Panel.applianceUi;
+  const { raw, low, num, on, attrs, offline, s, btn, chip, stepper, stat, note, alert, offlineView } = Panel.applianceUi;
 
   const OP_NL = {
     inactive: "Uit", ready: "Gereed", delayedstart: "Uitgestelde start", run: "Bezig", pause: "Gepauzeerd",
@@ -70,7 +70,7 @@
           : [stat("Vandaag", solarKwh(today)), stat("Totaal", solarKwh(total))],
         controls: awake
           ? low(e.mode).includes("fault")
-            ? `<p class="ap-note warn">${Util.esc("De omvormer meldt een storing: kijk op zijn display of in de SolaXCloud-app.")}</p>`
+            ? alert("De omvormer meldt een storing: kijk op zijn display of in de SolaXCloud-app.")
             : ""
           : note("De omvormer staat uit zolang er geen zon is; zijn netwerkstick krijgt stroom van de omvormer, dus ’s nachts zijn er geen metingen."),
       };
@@ -187,7 +187,7 @@
         (s(e.maxAdd) ? `<span class="vlabel">Maximale bijverwarming</span>${hpChips(i, "maxAdd", e, {})}` : "") +
         `<span class="vlabel">Metingen</span>` +
         `<div class="ap-stats">${details.map(([label, value]) => stat(label, value)).join("")}</div>` +
-        (alarm ? note("De warmtepomp meldt een storing. Kijk op het display van de pomp welke.") : "");
+        (alarm ? alert("De warmtepomp meldt een storing. Kijk op het display van de pomp welke.") : "");
       return {
         tone: alarm ? "error" : running ? "run" : status === "off" ? "off" : "ready",
         pill: doing,
@@ -575,7 +575,7 @@
   const WTW_LEVEL = { 1: "I", 2: "II", 3: "III" };
   function wtwStand(code) {
     const c = String(code || "");
-    if (c === "AUTO") return { pill: "Automatisch", sub: "op de sensoren en het schema" };
+    if (c === "AUTO") return { pill: "Automatisch", sub: "regelt zelf, op sensoren en schema" };
     if (c === "EMPT") return { pill: "Afwezig", sub: "minimale ventilatie" };
     const level = WTW_LEVEL[c[3]];
     if (c.startsWith("CNT") && level) return { pill: `Continu ${level}`, sub: "blijft aan tot je iets anders kiest" };
@@ -611,7 +611,7 @@
     const text = c.includes("43.23.01")
       ? `Storing ${c}: de WTW is niet ingeregeld, dus de ventilatoren draaien in elke stand even hard. Inregelen: op het display ADVANCED, code 9876, dan CALIBRATION > WIZARD.`
       : `Storing ${c}: zie de foutenlijst op het display van de WTW.`;
-    return `<p class="ap-note warn">${Util.esc(text)}</p>`;
+    return alert(text);
   }
   const WTW_BYPASS = [["Automatisch", "Auto"], ["Dicht", "Dicht"], ["Open", "Open"]];
   const WTW_LEVELS = [["level1", "I"], ["level2", "II"], ["level3", "III"]];
@@ -632,7 +632,7 @@
       const fanSup = num(e.fanSup);
       const fanEha = num(e.fanEha);
       const fanLevel = num(e.fanLevel);
-      const fans = Number.isFinite(fanSup) && Number.isFinite(fanEha) ? `${fmt(fanSup)} / ${fmt(fanEha)} rpm` : "--";
+      const fans = Number.isFinite(fanSup) && Number.isFinite(fanEha) ? `${fmt(fanSup)} / ${fmt(fanEha)} tpm` : "--";
       const nbTemp = Panel.applianceTarget(e.nightboostTemp);
       const nbAttr = attrs(e.nightboostTemp);
       const bypassMode = raw(e.bypassMode);
@@ -690,7 +690,7 @@
           stat("Bypass", Number.isFinite(num(e.bypass)) ? `${fmt(num(e.bypass))}%` : "--"),
           stat("Filter nog", Number.isFinite(filterDays) ? `${fmt(filterDays)} dagen` : "--"),
           /* the comfort temperature only where the Duco reports it (not every model does) */
-          Number.isFinite(comfort) ? stat("Comforttemperatuur", `${fmt(comfort, 1)}°`) : stat("Tijd resterend", timed ? duration(left).join(" ") : "--"),
+          Number.isFinite(comfort) ? stat("Comfort", `${fmt(comfort, 1)}°`) : stat("Tijd resterend", timed ? duration(left).join(" ") : "--"),
           stat("Rendement", Number.isFinite(num(e.efficiency)) ? `${fmt(num(e.efficiency))}%` : "--"),
           /* what the fans really do, next to the airflow the stand asks for */
           ...(s(e.fanSup) ? [stat("Ventilatoren", Number.isFinite(fanLevel) ? `${fans} · ${fmt(fanLevel)}%` : fans)] : []),
@@ -713,7 +713,7 @@
                 wide: true,
               })
             : "") +
-          (Number.isFinite(filterDays) && filterDays <= 14 ? note("Het filter is bijna aan vervanging toe.") : "") +
+          (Number.isFinite(filterDays) && filterDays <= 14 ? alert("Het filter is bijna aan vervanging toe.") : "") +
           settings,
       };
     },
@@ -762,13 +762,13 @@
         pill: awake ? "Aan" : "Uit",
         big: awake ? "Aan" : "Uit",
         word: true,
-        sub: awake ? (online ? "Aan en bereikbaar op het netwerk" : "Aangezet, nog niet bereikbaar") : online ? "Nog bereikbaar, gaat slapen" : "Uit of in slaapstand",
+        sub: awake ? (online ? "Bereikbaar op het netwerk" : "Aangezet, nog niet bereikbaar") : online ? "Nog bereikbaar, gaat slapen" : "Uit of in slaapstand",
         stats: [],
         controls:
           `<div class="ap-row">` +
           (awake ? btn(i, "sleep", "Slaapstand", { ic: "power", confirm: true }) : btn(i, "wake", "Aanzetten", { primary: true, ic: "power" })) +
           `</div>` +
-          note(awake ? "Slaapstand zet de pc in de slaapstand; aanzetten kan daarna weer vanaf hier." : "Aanzetten gaat via Wake-on-LAN over het netwerk."),
+          note(awake ? "Zet de pc in slaapstand; aanzetten kan daarna weer hier, via het netwerk." : "Aanzetten gaat via het netwerk (Wake-on-LAN)."),
       };
     },
     actions: {

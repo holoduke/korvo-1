@@ -101,7 +101,7 @@
     const tone = up === false || lat == null && net && net.at ? "bad" : Number.isFinite(lat) && lat > 80 ? "warn" : "ok";
     q(".nw-internet .nw-status").className = `nw-status ${tone}`;
     q(".nw-internet .nw-status").innerHTML =
-      `${icon("globe")}<b>${up === false ? "Geen internet" : lat == null && net && net.at ? "Internet onbereikbaar" : "Online"}</b>` +
+      `${icon("globe")}<b>${up === false ? "Geen internet" : lat == null && net && net.at ? "Internet niet bereikbaar" : "Online"}</b>` +
       `<span>${Number.isFinite(lat) ? `${fmt(Math.round(lat))} ms` : "--"}</span>`;
     q(".nw-internet .nw-facts").innerHTML =
       `<span>Gemiddeld <b>${Number.isFinite(inet.avg) ? `${fmt(Math.round(inet.avg))} ms` : "--"}</b></span>` +

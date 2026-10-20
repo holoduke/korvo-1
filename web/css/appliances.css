@@ -36,14 +36,14 @@
 .ap-item .ap-badge.photo { width: 52px; height: 52px; border-radius: calc(14px * var(--round)); }
 .ap-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 /* A longer name ("Stofzuiger beneden") takes two lines in the column list. */
-.ap-item-text b { font-size: 16px; font-weight: 700; line-height: 1.2; overflow: hidden; overflow-wrap: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.ap-item-text b { font-size: 16px; font-weight: 700; line-height: 1.2; overflow: hidden; overflow-wrap: break-word; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .ap-item-text small { font-size: 13px; font-weight: 600; color: var(--ap-tone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- Card -------------------------------------------------------------------------- */
 .ap-detail { min-height: 0; overflow-y: auto; touch-action: pan-y; scrollbar-width: none; border-radius: calc(22px * var(--round)); }
 .ap-detail::-webkit-scrollbar { display: none; }
 .ap-card {
-  position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 16px; min-height: 100%; min-width: 0; padding: 22px;
+  position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 22px;
   border-radius: calc(22px * var(--round));
   background: linear-gradient(165deg, color-mix(in srgb, var(--tile) 88%, #fff 12%) 0%, var(--tile) 38%, var(--tile_off) 100%);
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent), 0 12px 32px rgba(0, 0, 0, 0.28);
@@ -92,10 +92,10 @@
 .ap-bar b { display: block; height: 100%; border-radius: calc(4px * var(--round)); background: linear-gradient(90deg, color-mix(in srgb, var(--ap-tone) 70%, #fff 30%), var(--ap-tone)); transition: width 0.6s var(--ease-out); }
 .ap-bar.busy b { width: 35%; animation: ap-slide 1.8s ease-in-out infinite; }
 @keyframes ap-slide { from { transform: translateX(-110%); } to { transform: translateX(300%); } }
-.ap-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ap-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .ap-stat { padding: 10px 12px; border-radius: calc(12px * var(--round)); background: color-mix(in srgb, var(--bg) 35%, transparent); min-width: 0; }
-.ap-stat span { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
-.ap-stat b { display: block; margin-top: 2px; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.ap-stat span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ap-stat b { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; margin-top: 2px; font-size: 18px; font-weight: 700; line-height: 1.25; overflow: hidden; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 
 /* ---- Controls ------------------------------------------------------------------------ */
 .ap-controls { display: flex; flex-direction: column; gap: 10px; }
@@ -122,10 +122,10 @@
 .ap-btn.pressed, .ap-chip.pressed { transform: scale(0.96); }
 /* Option toggles: as many per row as fit (the dishwasher's four become 2 x 2). */
 .ap-row.ap-toggles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
-.ap-toggles .ap-btn { height: 42px; font-size: 14px; }
+.ap-toggles .ap-btn { height: 44px; font-size: 14px; }
 .ap-chips { display: flex; gap: 8px; overflow-x: auto; touch-action: pan-x; scrollbar-width: none; margin: 0 -22px; padding: 0 22px; }
 .ap-chips::-webkit-scrollbar { display: none; }
-.ap-chip { flex: 0 0 auto; height: 40px; padding: 0 14px; border-radius: calc(12px * var(--round)); font-size: 14px; font-weight: 700; background: color-mix(in srgb, var(--text_dim) 16%, var(--tile)); white-space: nowrap; transition: background-color 0.2s, color 0.2s, transform 0.12s; }
+.ap-chip { flex: 0 0 auto; height: 44px; min-width: 56px; padding: 0 14px; border-radius: calc(12px * var(--round)); font-size: 14px; font-weight: 700; background: color-mix(in srgb, var(--text_dim) 16%, var(--tile)); white-space: nowrap; transition: background-color 0.2s, color 0.2s, transform 0.12s; }
 .ap-chip.active { background: var(--scene_on); color: var(--scene_text); }
 .ap-row > .ap-chip { height: 50px; }
 .ap-stepper { flex: 1; display: grid; grid-template-columns: 50px minmax(0, 1fr) 50px; align-items: center; gap: 8px; }
@@ -139,7 +139,12 @@
 .ap-field > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
 .ap-field .ap-stepper { flex: none; }
 .ap-note { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text_dim); }
-.ap-note.warn { color: var(--warn); }
+.ap-note.warn {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; color: var(--text);
+  border-radius: calc(12px * var(--round)); background: color-mix(in srgb, var(--warn) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.ap-note.warn .ic { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--warn); }
 
 /* Hob zones, two by two. */
 .ap-zones { flex: none; display: grid; grid-template-columns: repeat(2, 56px); gap: 10px; }
@@ -177,6 +182,10 @@
 @media (max-width: 760px) {
   .ap { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; padding: 12px; }
   .ap-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; touch-action: pan-x; }
+  /* more appliances hide past the right edge: fade it (Util.watchOverflow), as the header does */
+  .ap-list.overflowing { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+  .ap-stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .ap-bottom .pill .lbl { display: inline; } /* "Aan: 5 apparaten", not a bare total */
   .ap-item { padding: 7px 10px; gap: 8px; }
   .ap-item.active { box-shadow: inset 0 -3px 0 var(--ap-tone); }
   .ap-item .ap-badge { width: 32px; height: 32px; border-radius: calc(10px * var(--round)); font-size: 18px; }

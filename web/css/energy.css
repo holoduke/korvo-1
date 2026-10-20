@@ -146,7 +146,7 @@
   .em-phase-head { font-size: 10px; letter-spacing: 0.04em; }
   .em-label { min-width: 0; width: 100%; }
 }
-@media (pointer: coarse) { .en-pick button { height: 40px; } } /* a finger needs 40 px */
+@media (pointer: coarse) { .en-pick button { height: 44px; } } /* a finger needs 44 px */
 
 /* Per month: the chart across the width, the sums beside the colour keys. */
 .en-months { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }

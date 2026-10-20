@@ -216,7 +216,7 @@ test("the WTW in Apparaten shows its stand and air, and switches the stand", asy
   await expect(card).toContainText("Boost 30 min");
   /* the box's error, the real fans and its settings */
   await expect(card.locator(".ap-note.warn")).toContainText("43.23.01");
-  await expect(card).toContainText("1.217 / 1.229 rpm");
+  await expect(card).toContainText("1.217 / 1.229 tpm");
   await card.locator('[data-appl$="|bypassmode|Dicht"]').click();
   await expect(card.locator('[data-appl$="|bypassmode|Dicht"]')).toHaveClass(/active/);
   await expect(card).not.toContainText("NightBoost koelt");

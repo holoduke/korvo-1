@@ -108,4 +108,13 @@
   .nw-stats { gap: 8px; }
   .nw-stat b { font-size: 22px; }
 }
-@media (pointer: coarse) { .nw-chip { min-height: 40px; } }
+@media (pointer: coarse) { .nw-chip { min-height: 44px; } }
+
+/* An iPad upright: the access points' names fit beside each other. */
+@media (max-width: 900px) {
+  .nw-node { min-width: 0; max-width: 180px; }
+}
+/* A phone: the four facts as two by two, not three and one left over. */
+@media (max-width: 760px) {
+  .nw-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

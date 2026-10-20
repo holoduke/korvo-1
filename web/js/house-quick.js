@@ -198,7 +198,7 @@
           floors.map((f, fi) => `<button class="ql-floor" data-ql-floor="${fi}"><span class="ql-name">${esc(cfg.tabs[f.tab].name || f.name)}</span><span class="ql-n" data-ql-n>…</span></button>`).join("") +
           `</div>` +
           `<div class="ql-foot"><b class="ql-count" data-ql-count>…</b>` +
-          `<button class="ap-btn ql-off" data-ql-off>${icon("power")}<span>Alles uit</span></button></div>` +
+          `<button class="ap-btn ql-off" data-ql-off aria-label="Alle lampen uit">${icon("power")}<span>Uit</span></button></div>` +
           `</div>`
       );
       lightsEl = house.querySelector("[data-house-lights]");

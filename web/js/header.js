@@ -257,4 +257,12 @@
     else if (col.dataset.air) Panel.openAir(+col.dataset.air);
     else Panel.showSection(col.dataset.device);
   });
+
+  /* On a phone the tabs are icons alone: the section's name stands beside the clock (header.css). */
+  const sectionName = () => {
+    const sec = cfg.sections[Panel.section];
+    $("hdrSection").textContent = sec && sec.kind !== "start" ? sec.name : "";
+  };
+  Panel.on("section", sectionName);
+  Panel.on("build", sectionName);
 })();

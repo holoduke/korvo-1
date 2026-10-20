@@ -8,7 +8,7 @@
   const { fmt } = Util;
   const { raw, num, offline, btn, stat, offlineView } = Panel.applianceUi;
 
-  const STATE_NL = { cleaning: "Zuigt", returning: "Terug naar dock", paused: "Gepauzeerd", docked: "In dock", idle: "Staat stil", error: "Storing", unknown: "Onbekend", unavailable: "Offline" };
+  const STATE_NL = { cleaning: "Zuigt", returning: "Terug naar station", paused: "Gepauzeerd", docked: "In station", idle: "Staat stil", error: "Storing", unknown: "Onbekend", unavailable: "Offline" };
   const JOB = ["cleaning", "returning", "paused"];
   const floorName = (label) => (cfg.floors.find((f) => f.label === label) || {}).name || label;
   const cleaningSlug = () => Util.slug((cfg.sections.find((s) => s.kind === "vacuum") || { name: "" }).name);
@@ -52,7 +52,7 @@
         ],
         controls:
           `<div class="ap-row">${start}` +
-          (state !== "docked" && state !== "returning" ? btn(i, "dock", "Naar dock", { ic: "dock" }) : "") +
+          (state !== "docked" && state !== "returning" ? btn(i, "dock", "Naar station", { ic: "dock" }) : "") +
           `</div>` +
           openRow(i),
       };

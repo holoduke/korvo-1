@@ -124,6 +124,23 @@
       mark();
     },
 
+    /* Fades the bottom edge of an upright scroller ("more-below") while more of
+     * it hides there: the panel hides scrollbars, so a list cut mid-tile would
+     * otherwise look like the end. Its content is re-rendered often, so it
+     * watches the subtree, once per frame at most. */
+    watchScroll(el) {
+      let frame = 0;
+      const mark = () => {
+        frame = 0;
+        el.classList.toggle("more-below", el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+      };
+      const soon = () => frame || (frame = requestAnimationFrame(mark));
+      new ResizeObserver(soon).observe(el);
+      new MutationObserver(soon).observe(el, { childList: true, subtree: true });
+      el.addEventListener("scroll", soon, { passive: true });
+      soon();
+    },
+
     /* Moves a value from `from` to `to` over `ms`, easing out, on animation frames:
      * step(value) each frame, done() at the end. Returns {cancel}. The page and
      * floor tracks glide this way instead of by a CSS transition: on iPad Safari

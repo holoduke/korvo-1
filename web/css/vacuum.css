@@ -26,8 +26,8 @@
   transition: background-color 0.2s, color 0.2s, transform 0.12s, box-shadow 0.2s;
 }
 .vs-room.pressed { transform: scale(0.95); }
-.vs-rname { font-size: 22px; font-weight: 700; }
-.vs-rlast { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--text_dim); }
+.vs-rname { font-size: 18px; font-weight: 700; line-height: 1.15; } /* as a room name elsewhere, not louder */
+.vs-rlast { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .vs-rlast .ic { font-size: 14px; }
 .vs-room.active { background: var(--tile_on); color: var(--on_text); }
 .vs-room.active .vs-rlast { color: var(--on_sub); }
@@ -106,7 +106,7 @@
 .vs-batt i b { display: block; height: 100%; border-radius: inherit; transition: width 0.6s var(--ease-out); }
 .tv-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .tv-stat { min-width: 0; padding: 10px 12px; border-radius: calc(12px * var(--round)); background: var(--tile); }
-.tv-stat span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text_dim); }
+.tv-stat span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text_dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tv-stat b { display: block; margin-top: 4px; font-size: 18px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 /* Two or three action tiles share the row. */
 .tv-actions { display: flex; gap: 10px; }
@@ -114,7 +114,7 @@
 .tv-cons { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; }
 .tv-cons em { font-style: normal; font-size: 14px; color: var(--text_dim); font-variant-numeric: tabular-nums; }
 .tv-cons.dirty em { color: var(--warn); }
-.tv-reset { height: 40px; padding: 0 14px; border-radius: calc(12px * var(--round)); font-size: 14px; font-weight: 700; background: var(--tile); transition: transform 0.12s, background-color 0.2s, color 0.2s; }
+.tv-reset { height: 44px; padding: 0 14px; border-radius: calc(12px * var(--round)); font-size: 14px; font-weight: 700; background: var(--tile); transition: transform 0.12s, background-color 0.2s, color 0.2s; }
 .tv-reset.pressed { transform: scale(0.95); }
 .tv-reset.armed { background: var(--bad); color: #fff; }
 
@@ -124,7 +124,7 @@
   .vs-body { grid-template-columns: minmax(0, 1fr); grid-auto-rows: max-content; align-content: start; overflow-y: auto; touch-action: pan-y; }
   .vs-map, .vs-side { overflow: visible; min-height: auto; }
   .vs-rooms { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 110px; padding: 10px; gap: 10px; }
-  .vs-rname { font-size: 18px; }
+  .vs-rname { font-size: 16px; }
 }
 @media (max-width: 760px) {
   /* Phones: the robots' rail lies flat above the panel, which keeps the full width. */
@@ -133,7 +133,7 @@
   .vac-page .rail-track { flex-direction: row; }
   .vac-page .rail-btn { flex-direction: row; gap: 8px; height: 44px; }
   .vac-page .rail-btn span { display: inline; font-size: 13px; }
-  .vac-page .rail-btn b { font-size: 20px; }
+  .vac-page .rail-btn b { display: none; } /* the floor's name says it; "0 Begane grond" read double */
   .vac-page .rail-ind { display: none; }
   .vac-page .rail-btn.active { background: var(--accent); }
   .vs-chips.many { grid-template-columns: repeat(3, minmax(0, 1fr)); }

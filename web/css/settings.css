@@ -13,7 +13,7 @@
 .theme-card .tc-dots i { width: 22px; height: 22px; border-radius: 50%; display: block; }
 .theme-card .tc-name { font-size: 16px; font-weight: 600; }
 .seg { display: flex; background: var(--tile_off); border-radius: calc(12px * var(--round)); padding: 4px; gap: 4px; }
-.seg button { flex: 1; padding: 10px 6px; border-radius: calc(9px * var(--round)); font-size: 15px; font-weight: 600; color: var(--text_dim); transition: background-color 0.2s, color 0.2s; }
+.seg button { flex: 1; min-height: 44px; padding: 10px 6px; border-radius: calc(9px * var(--round)); font-size: 15px; font-weight: 600; color: var(--text_dim); transition: background-color 0.2s, color 0.2s; }
 .seg button.selected { background: var(--tile); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); }
 .text-btn { align-self: flex-start; display: flex; gap: 8px; align-items: center; font-size: 16px; font-weight: 600; color: var(--accent); padding: 8px 0; }
 
@@ -35,3 +35,12 @@
 .join-state b { font-variant-numeric: tabular-nums; color: var(--text); }
 .join-state .hud-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); animation: pulse 1s ease-in-out infinite alternate; }
 @media (prefers-reduced-motion: reduce) { .join-state .hud-dot { animation: none; } }
+
+/* A phone: three theme cards a row, so the other settings are not a long scroll away. */
+@media (max-width: 760px) {
+  .theme-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .theme-card { padding: 8px; gap: 6px; }
+  .theme-card .tc-dots { gap: 4px; }
+  .theme-card .tc-dots i { width: 14px; height: 14px; }
+  .theme-card .tc-name { font-size: 14px; }
+}

@@ -37,8 +37,8 @@
   const SLEEP = [0, 15, 30, 60, 90, 120];
   /* source names in Dutch: the speaker's own modes and Home Assistant's source_list names */
   const SOURCE_NL = {
-    wifi: "Wi-Fi", bluetooth: "Bluetooth", "line-in": "Line-in", optical: "Optisch", coaxial: "Coax", HDMI: "HDMI", udisk: "USB",
-    Network: "Wi-Fi", "Line In": "Line-in", "Optical In": "Optisch", TV: "TV (HDMI)",
+    wifi: "Wifi", bluetooth: "Bluetooth", "line-in": "Line-in", optical: "Optisch", coaxial: "Coax", HDMI: "HDMI", udisk: "USB",
+    Network: "Wifi", "Line In": "Line-in", "Optical In": "Optisch", TV: "TV (HDMI)",
   };
   const STATE_NL = { playing: "Speelt", paused: "Pauze", idle: "Stil", on: "Aan", off: "Uit", standby: "Stand-by", buffering: "Laden", unavailable: "Offline" };
 

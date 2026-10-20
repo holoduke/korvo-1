@@ -325,15 +325,28 @@
     const placed = [...labels.children]
       .map((el) => ({ el, p: house.project(spotOf(el)) }))
       .sort((a, b) => (a.p ? a.p.depth : Infinity) - (b.p ? b.p.depth : Infinity));
+    /* a label is as wide as its words ("BADKAMER BOVEN" is twice "KEUKEN"), and none sits under the ask bar */
+    const ask = labels.parentElement && labels.parentElement.querySelector(".house-ask");
+    const box = labels.getBoundingClientRect();
+    const askR = ask && ask.offsetParent ? ask.getBoundingClientRect() : null;
+    const under = (p) => askR && p.x + box.left > askR.left && p.x + box.left < askR.right && p.y + box.top > askR.top - LABEL_H / 2;
     const kept = [];
     for (const { el, p } of placed) {
-      const clash = p && kept.some((k) => Math.abs(k.x - p.x) < LABEL_W && Math.abs(k.y - p.y) < LABEL_H);
+      const w = sizeOf(el, "w"), h = sizeOf(el, "h");
+      const clash = p && (under(p) || kept.some((k) => Math.abs(k.x - p.x) < (k.w + w) / 2 && Math.abs(k.y - p.y) < (k.h + h) / 2));
       el.hidden = !p || clash;
       if (p && !clash) {
-        kept.push(p);
+        kept.push({ x: p.x, y: p.y, w, h });
         el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px)`;
       }
     }
+  }
+  /* a label's size, measured the first time it shows (a hidden one measures 0) */
+  const sizes = new WeakMap();
+  function sizeOf(el, key) {
+    let s = sizes.get(el);
+    if (!s && el.offsetWidth) sizes.set(el, (s = { w: el.offsetWidth + 6, h: el.offsetHeight + 2 }));
+    return s ? s[key] : key === "w" ? LABEL_W : LABEL_H;
   }
   function follow() {
     raf = 0;

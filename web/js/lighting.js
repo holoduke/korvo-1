@@ -97,13 +97,15 @@
   };
   /* With a room: without the room's name in front ("Badkamer plafond 1" in
    * the Badkamer is "Plafond 1"). */
+  /* A trailing number stays with its word: "Plafond 4", never "Plafond" over "4". */
+  const keepNumber = (name) => name.replace(/ (\d+)$/, "\u00a0$1");
   Panel.lightLabel = function (id, room) {
     const full = fullLabel(id);
-    if (!room) return full;
+    if (!room) return keepNumber(full);
     const rest = full.slice(room.length).trim();
-    if (!full.toLowerCase().startsWith(room.toLowerCase() + " ") || !rest) return full;
+    if (!full.toLowerCase().startsWith(room.toLowerCase() + " ") || !rest) return keepNumber(full);
     /* a bare number says nothing on its own: "Zitk. achter 3" is "Lamp 3" there */
-    return /^\d+$/.test(rest) ? `Lamp ${rest}` : rest.charAt(0).toUpperCase() + rest.slice(1);
+    return keepNumber(/^\d+$/.test(rest) ? `Lamp ${rest}` : rest.charAt(0).toUpperCase() + rest.slice(1));
   };
   function fullLabel(id) {
     if (names.has(id)) return names.get(id);
@@ -154,7 +156,7 @@
         ic.innerHTML = icon(want);
       }
       const sub = el.querySelector(".t-sub");
-      const text = !s && !loaded ? "..." : un ? "onbereikbaar" : on ? "aan" : "uit";
+      const text = !s && !loaded ? "..." : un ? "offline" : on ? "aan" : "uit";
       if (sub && sub.textContent !== text) sub.textContent = text; /* unchanged text: no relayout */
       /* The power button fills with the lamp's colour; its icon goes dark on a light colour. */
       if (ic.classList.contains("t-power")) {
@@ -217,18 +219,32 @@
     lampChanged([id]);
   };
 
-  /* The tab's main light (a group) sets the slider while no room is chosen. */
+  /* The tab's main light (a group) sets the slider while no room is chosen.
+   * A group that reports off or no brightness while lamps of the tab burn
+   * (a group light lags, or is not a group of them all) would show 0 % over a
+   * lit floor: then the average of the lamps that are on. */
   Panel.tabBrightness = cfg.tabs.map(() => -1);
+  function tabLevel(ti) {
+    const group = cfg.tabs[ti].lights[0].id;
+    const own = (st(group) || {}).state === "on" ? Panel.brightnessPct(group) : -1;
+    if (own >= 0) return own;
+    const lit = (Panel.lampsOfTab ? Panel.lampsOfTab(ti) : []).filter((l) => (st(l) || {}).state === "on").map((l) => Panel.brightnessPct(l)).filter((v) => v >= 0);
+    if (lit.length) return Math.round(lit.reduce((a, b) => a + b, 0) / lit.length);
+    /* off has no brightness attribute: the slider goes to 0, not stays where it was */
+    return (st(group) || {}).state === "off" ? 0 : -1;
+  }
   function syncTabBrightness(id) {
     cfg.tabs.forEach((t, ti) => {
-      if (!t.lights[0] || t.lights[0].id !== id) return;
-      /* off has no brightness attribute: the slider goes to 0, not stays where it was */
-      const v = (st(id) || {}).state === "off" ? 0 : Panel.brightnessPct(id);
+      if (!t.lights[0] || (t.lights[0].id !== id && !(Panel.lampsOfTab && Panel.lampsOfTab(ti).includes(id)))) return;
+      const v = tabLevel(ti);
       if (v < 0) return;
       Panel.tabBrightness[ti] = v;
       if (ti === Panel.activeTab() && !Panel.activeArea()) Panel.showBrightness(v);
     });
   }
+
+  /* once the lamps of each tab are known (loadLamps), their level counts too */
+  Panel.on("lamps", () => cfg.tabs.forEach((t) => t.lights[0] && syncTabBrightness(t.lights[0].id)));
 
   function onLights(changed) {
     for (const id of changed) {
@@ -283,7 +299,7 @@
       const sub = el.querySelector(".t-sub");
       if (!sub) return;
       const w = wattsText(sceneWatts(ti, i));
-      sub.textContent = on ? (w ? `actief · ${w}` : "actief") : w || "scène";
+      sub.textContent = on ? "actief" : w || "scène"; /* the watts of the scene that burns are the floor's own: "actief" says enough */
     });
   }
   Panel.renderScenes = renderSceneWatts;

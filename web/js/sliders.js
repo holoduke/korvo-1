@@ -26,7 +26,7 @@
     const h = vTrack.clientHeight || 1;
     const k = knobH();
     const y = (v / 100) * (h - k) + k / 2; /* knob centre from the bottom */
-    bright.querySelector(".vs-fill").style.height = y + "px";
+    bright.querySelector(".vs-fill").style.height = (v ? y : 0) + "px"; /* at 0 no sliver of fill under the knob */
     bright.querySelector(".vs-knob").style.bottom = y + "px";
     bright.dataset.value = v;
     vTrack.setAttribute("aria-valuenow", v);

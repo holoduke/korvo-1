@@ -397,7 +397,8 @@
       `<div class="en-sub">${flow}</div>` +
       `<div class="en-share">${segs.map(([w, c]) => `<i style="flex-grow:${w};background:${c}"></i>`).join("")}</div>` +
       `<div class="en-legend">` +
-      rows.map((r) => legendItem(r.d.label, colour.get(r.d), power(r.w).join(" "), !(r.w > 0))).join("") +
+      /* what draws nothing now is left out: "Droger 0 W" says nothing */
+      rows.filter((r) => r.w > 0).map((r) => legendItem(r.d.label, colour.get(r.d), power(r.w).join(" "))).join("") +
       (other > 0 ? legendItem("Overig", OTHER, power(other).join(" ")) : "") +
       `</div>`;
   }

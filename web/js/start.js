@@ -20,7 +20,7 @@
   const GAP = 10;
   const TIGHT = {
     left: ["tight-wtw", "no-quick-energy", "no-quick-wtw"],
-    right: ["tight-door", "tight-now", "tight-off", "tight-mute", "no-quick-lights"], /* start.css */
+    right: ["tight-door", "tight-now", "tight-mute", "tight-off", "no-quick-lights"], /* start.css */
   };
   const shown = (el) => !!el && !el.hidden && !!el.offsetParent;
   function layoutSides(house) {
