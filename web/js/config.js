@@ -338,6 +338,10 @@ window.PANEL_CONFIG = {
           "label": "Gang trap"
         },
         {
+          "id": "light.lamp_gang_boven_muur_1",
+          "label": "Gang muur"
+        },
+        {
           "id": "light.lamp_slaapkamer_plafond_achter_1",
           "label": "Gillis en Ilse plafond"
         },
@@ -560,6 +564,10 @@ window.PANEL_CONFIG = {
           "label": "Gang trap"
         },
         {
+          "id": "light.lamp_gang_boven_muur_1",
+          "label": "Gang muur"
+        },
+        {
           "id": "light.lamp_slaapkamer_plafond_achter_1",
           "label": "Gillis en Ilse plafond"
         },
@@ -676,6 +684,7 @@ window.PANEL_CONFIG = {
             "light.lamp_gang_boven_plafond_3",
             "light.lamp_gang_boven_plafond_4",
             "light.lamp_gang_trap_boven_1",
+            "light.lamp_gang_boven_muur_1",
             "light.lamp_kledingkast_plafond_1",
             "light.lamp_kledingkast_plafond_2"
           ]
