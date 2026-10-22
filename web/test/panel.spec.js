@@ -258,6 +258,8 @@ test("the WTW in Apparaten shows its stand and air, and switches the stand", asy
   await page.locator(`#track > .page:not(.away) [data-pick="${i}"]`).first().click();
   const card = page.locator("#track > .page:not(.away) .ap-card");
   await expect(card).toContainText("Automatisch");
+  /* in AUTO it follows its CO2 room sensor, and says what it reads */
+  await expect(card).toContainText("op CO2: 640 ppm");
   await expect(card.locator(".wtw-x")).toContainText("rendement");
   await expect(card.locator(".wtw-x")).toContainText("13,5°");
   await card.locator('[data-appl$="|stand|CNT2"]').click();

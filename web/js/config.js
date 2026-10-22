@@ -1390,7 +1390,8 @@ window.PANEL_CONFIG = {
         "level1": "number.wtw_stand_i",
         "level2": "number.wtw_stand_ii",
         "level3": "number.wtw_stand_iii",
-        "filterInterval": "select.wtw_filter_interval"
+        "filterInterval": "select.wtw_filter_interval",
+        "co2": "sensor.wtw_co2"
       }
     },
     {

@@ -689,9 +689,15 @@
         pill: st.pill,
         big: Number.isFinite(flow) ? fmt(flow) : "–",
         unit: "% debiet",
-        sub: timed ? `nog ${duration(left).join(" ")}, dan weer automatisch` : st.sub,
+        /* in AUTO the box follows its CO2 room sensor: say what it reads */
+        sub: timed
+          ? `nog ${duration(left).join(" ")}, dan weer automatisch`
+          : code === "AUTO" && Number.isFinite(num(e.co2))
+            ? `regelt zelf, op CO2: ${fmt(num(e.co2))} ppm`
+            : st.sub,
         progress: Number.isFinite(flow) ? flow : null,
         stats: [
+          ...(s(e.co2) ? [stat("CO2", Number.isFinite(num(e.co2)) ? `${fmt(num(e.co2))} ppm` : "–")] : []),
           stat("Bypass", Number.isFinite(num(e.bypass)) ? `${fmt(num(e.bypass))}%` : "–"),
           stat("Filter nog", Number.isFinite(filterDays) ? `${fmt(filterDays)} dagen` : "–"),
           /* the comfort temperature only where the Duco reports it (not every model does) */

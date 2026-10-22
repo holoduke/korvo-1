@@ -287,6 +287,7 @@
         put("extract", "21.2", { unit_of_measurement: "°C" });
         put("exhaust", "15.2", { unit_of_measurement: "°C" });
         put("efficiency", "77", { unit_of_measurement: "%" });
+        put("co2", "640", { unit_of_measurement: "ppm", device_class: "carbon_dioxide" }); /* its CO2 room sensor */
         put("comfort", "21.0", { min: 10, max: 25.5, step: 0.1, unit_of_measurement: "°C" });
         /* the house's own box: never commissioned, so its fans ignore the stand */
         put("fanSup", "1217", { unit_of_measurement: "rpm" });

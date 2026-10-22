@@ -345,6 +345,8 @@ APPLIANCE_ENTITIES = {
         "nightboost": "switch.{n}_nightboost", "nightboostTemp": "number.{n}_nightboost_vanaf",
         "level1": "number.{n}_stand_i", "level2": "number.{n}_stand_ii", "level3": "number.{n}_stand_iii",
         "filterInterval": "select.{n}_filter_interval",
+        # the Duco CO2 room sensor (node 2) the box follows in AUTO
+        "co2": "sensor.{n}_co2",
     },
     "washer": {**_LAUNDRY, "water": "sensor.{n}_water_consumption"},
     "dryer": _LAUNDRY,
