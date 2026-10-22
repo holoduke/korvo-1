@@ -64,6 +64,10 @@ window.PANEL_CONFIG = {
           "label": "Ochtend"
         },
         {
+          "id": "scene.beneden_fel_warm_licht",
+          "label": "Fel warm licht"
+        },
+        {
           "id": "scene.woonkamer_min",
           "label": "Min"
         },
@@ -213,6 +217,7 @@ window.PANEL_CONFIG = {
         null,
         null,
         null,
+        null,
         "minus",
         "plus"
       ],
@@ -245,6 +250,10 @@ window.PANEL_CONFIG = {
         {
           "a": "#fff1dc",
           "b": null
+        },
+        {
+          "a": "#ffc27a",
+          "b": "#ffe2c0"
         },
         null,
         null
