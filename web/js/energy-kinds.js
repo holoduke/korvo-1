@@ -110,10 +110,12 @@
     },
   });
 
-  /* Heat pump: what it delivered, not what it used. The NIBE has no electricity
+  /* Heat pump: what it draws and what it delivers. The NIBE has no electricity
    * meter (its phase-current inputs are the house load-monitor clamps, not
-   * fitted here), so it stays out of the house's use and shows the heat it put
-   * into the house and the hot water instead. */
+   * fitted here): Home Assistant estimates its power from the compressor's
+   * frequency, the temperatures and the pumps (packages/energie_schatting.yaml),
+   * so it counts towards the house's use, marked as an estimate. Its own kWh
+   * counters are the heat it put into the house and the hot water. */
   const HP_DOING = {
     off: "In rust", "hot water": "Warm water", heating: "Verwarmen", cooling: "Koelen",
     starting: "Starten", operating: "In bedrijf", stopping: "Stoppen", defrosting: "Ontdooien",
@@ -126,11 +128,12 @@
   };
   Panel.defineEnergyKind("heatpump", {
     icon: "heatpump",
-    use: false, /* delivered heat, not electricity: it may not count as use */
-    chart: null,
-    meter: null,
-    stats: ["heat", "heatAdd", "water", "waterAdd", "cool"],
-    power: () => NaN,
+    use: true,
+    estimated: true,
+    chart: "elec",
+    meter: "elecEnergy",
+    stats: ["elecEnergy", "heat", "heatAdd", "water", "waterAdd", "cool"],
+    power: (e) => (E.missing(e.elec) ? NaN : E.scaled(e.elec)),
     card(e) {
       if (E.missing(e.status)) return E.offline();
       const status = (stateOf(e.status) || "").toLowerCase();
@@ -138,26 +141,61 @@
       const running = compressor === "operating" || compressor === "starting";
       const alarm = stateOf(e.alarm) === "on";
       const freq = num(e.freq);
-      const today = sum2(e.heatAdd, e.waterAdd);
+      const w = E.missing(e.elec) ? NaN : E.scaled(e.elec);
+      const heatKw = Number(((Panel.st(e.elec) || {}).attributes || {}).warmte_kw);
+      const cop = running && heatKw > 0 && w > 0 ? (heatKw * 1000) / w : NaN;
+      const delivered = sum2(e.heatAdd, e.waterAdd);
+      const drawn = E.today(e.elecEnergy);
       const total = E.scaled(e.heatAdd) + E.scaled(e.waterAdd);
+      const [big, unit] = E.power(w);
       return {
         tone: alarm ? "warn" : running ? "active" : "idle",
-        big: known(today) ? fmt(today, today < 10 ? 2 : today < 100 ? 1 : 0) : "–",
-        unit: "kWh", /* the foot says what it is: heat delivered, not electricity used */
+        big: known(w) ? `≈ ${big}` : "–",
+        unit: `${unit} stroom`,
         chips: [
           ["heatpump", alarm ? "Storing" : HP_DOING[status] || stateOf(e.status)],
           running && known(freq) ? ["bolt", `compressor ${fmt(freq)} Hz`] : null,
+          running && heatKw > 0 ? ["flame", `warmte ${fmt(heatKw, 1)} kW`] : null,
+          known(cop) ? ["leaf", `COP ≈ ${fmt(cop, 1)}`] : null,
           ["drop", known(num(e.hotWaterTop)) ? `warm water ${fmt(num(e.hotWaterTop), 1)}°` : null],
           ["thermometer", known(num(e.outdoor)) ? `buiten ${fmt(num(e.outdoor), 1)}°` : null],
         ],
         foot: [
+          [`Stroom vandaag <b>≈ ${E.kwhText(drawn)}</b>`],
           [`Warmte vandaag <b>${E.kwhText(E.today(e.heatAdd))}</b>`],
           [`warm water <b>${E.kwhText(E.today(e.waterAdd))}</b>`],
+          known(drawn) && drawn > 0 && known(delivered) ? [`gemiddeld COP <b>≈ ${fmt(delivered / drawn, 1)}</b>`] : null,
           /* passive cooling (the ground loop cooling the floor): what it took out of the house */
           e.cool && !E.missing(e.cool) ? [`Koeling vandaag <b>${E.kwhText(E.today(e.cool))}</b>`] : null,
-          e.cool && !E.missing(e.cool) ? [`koeling totaal <b>${E.kwhText(E.scaled(e.cool))}</b>`] : null,
           [`Geleverd totaal <b>${E.kwhText(total)}</b>`],
         ],
+      };
+    },
+  });
+
+  /* Something without a meter of its own whose use Home Assistant estimates:
+   * the lights (Powercalc, each lamp from its model's measured profile at its
+   * brightness and colour) and the WTW (its fans' speed). Counts towards the
+   * house's use, marked as an estimate. */
+  const ESTIMATE_ICON = { verlichting: "lights", wtw: "fan" };
+  Panel.defineEnergyKind("estimate", {
+    icon: (d) => ESTIMATE_ICON[d.name] || "bolt",
+    use: true,
+    estimated: true,
+    chart: "power",
+    meter: "energy",
+    stats: ["energy"],
+    power: (e) => (E.missing(e.power) ? NaN : E.scaled(e.power)),
+    card(e) {
+      if (E.missing(e.power)) return E.offline();
+      const w = E.scaled(e.power);
+      const [big, unit] = E.power(w);
+      return {
+        tone: w > 1 ? "active" : "idle",
+        big: `≈ ${big}`,
+        unit,
+        chips: [["chart", "geschat, geen eigen meter"]],
+        foot: [[`Vandaag <b>≈ ${E.kwhText(E.today(e.energy))}</b>`], [`Totaal <b>≈ ${E.kwhText(E.missing(e.energy) ? NaN : E.scaled(e.energy))}</b>`]],
       };
     },
   });

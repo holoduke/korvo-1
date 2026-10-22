@@ -447,9 +447,15 @@ ENERGY_ENTITIES = {
             "homeEnergy": "sensor.tesla_thuis_geladen"},
     "bike": {"battery": "sensor.{n}_battery", "energy": "sensor.{n}_energy_used_total",
              "average": "sensor.{n}_energy_used_average", "distance": "sensor.{n}_total_distance"},
-    # the heat pump's own counters: heat delivered, not electricity used
-    "heatpump": {k: _HEATPUMP[k] for k in ("status", "compressor", "alarm", "freq", "outdoor", "room",
-                                           "hotWaterTop", "heat", "heatAdd", "water", "waterAdd", "cool")},
+    # the heat pump's own counters are heat delivered, not electricity used; what
+    # it draws is estimated in Home Assistant (packages/energie_schatting.yaml:
+    # compressor frequency, temperatures and pumps) with a kWh counter of its own
+    "heatpump": {**{k: _HEATPUMP[k] for k in ("status", "compressor", "alarm", "freq", "outdoor", "room",
+                                              "hotWaterTop", "heat", "heatAdd", "water", "waterAdd", "cool")},
+                 "elec": "sensor.warmtepomp_elektrisch_vermogen", "elecEnergy": "sensor.warmtepomp_elektrisch_verbruik"},
+    # something without a meter of its own, estimated in Home Assistant: its power
+    # now and the kWh counter integrated from it (the lights: Powercalc's sum)
+    "estimate": {"power": "sensor.{n}_vermogen", "energy": "sensor.{n}_verbruik"},
     "solar": _SOLAR,
     "battery": {"soc": "sensor.{n}_soc", "power": "sensor.{n}_power", "voltage": "sensor.{n}_voltage",
                 **{f"cell{c}": f"sensor.{{n}}_cell_{c}" for c in (1, 2, 3, 4)}, "delta": "sensor.{n}_cell_delta",

@@ -436,6 +436,14 @@
         put("discharged", "776.9", { unit_of_measurement: "kWh" });
       } else if (d.kind === "battery") {
         Object.keys(e).forEach((k) => put(k, "unavailable"));
+      } else if (d.kind === "heatpump") {
+        /* what Home Assistant estimates it draws, heating at 36 Hz (the rest of it is the appliance's) */
+        put("elec", "720", { unit_of_measurement: "W", device_class: "power", state_class: "measurement", warmte_kw: 3.06, geschat: true });
+        put("elecEnergy", "412.8", { unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" });
+      } else if (d.kind === "estimate") {
+        const lights = d.name === "verlichting";
+        put("power", lights ? "146.4" : "18.2", { unit_of_measurement: "W", device_class: "power", state_class: "measurement" });
+        put("energy", lights ? "96.31" : "11.2", { unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" });
       } else if (d.kind === "solar") {
         /* the panels late on an autumn afternoon: one string, 640 W into the house */
         const w = { unit_of_measurement: "W", device_class: "power", state_class: "measurement" };
@@ -474,6 +482,9 @@
       : /production_tarif_2/.test(id) ? 1.4
       : /production_tarif_1/.test(id) ? 0.3
       : /droger/.test(id) ? 1.6
+      : /warmtepomp_elektrisch/.test(id) ? 7.8
+      : /verlichting/.test(id) ? 1.9
+      : /wtw_verbruik/.test(id) ? 0.45
       : 0.9;
     const WEEK_SHAPE = [0.4, 1.3, 0, 1, 1.6, 0.2];
 

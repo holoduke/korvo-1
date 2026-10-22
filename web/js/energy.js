@@ -13,8 +13,10 @@
  * wide panel of their own: what they make now, per string, today, the week.
  *
  * Each kind of device (energy-kinds.js) registers with
- *   Panel.defineEnergyKind(kind, {icon, use, chart, meter, stats, power(e), card(e)})
- * use: counts towards the house's use (a battery stores instead); chart: key of
+ *   Panel.defineEnergyKind(kind, {icon, use, estimated, chart, meter, stats, power(e), card(e)})
+ * icon: an icon name, or a function of the device giving one; use: counts
+ * towards the house's use (a battery stores instead); estimated: its power and
+ * kWh are Home Assistant's estimate, not a meter's (shown with ≈); chart: key of
  * its power entity for the chart; meter: key of the kWh counter summed into
  * "vandaag" and the week; stats: every counter key whose daily use it shows;
  * power(e): W now; card(e): the card's view (cards.js). Helpers for the kinds
@@ -34,12 +36,19 @@
   const solar = devices.find((d) => d.kind === "solar") || null;
   const others = devices.filter((d) => d !== grid);
   const users = () => others.filter((d) => kinds[d.kind].use);
-  const PALETTE = ["#4fc3f7", "#ffb74d", "#ef7a78", "#8bd17c", "#b48ef0", "#f48fb1", "#4db6ac"];
+  /* one colour per device: twelve, so the estimates added on 2026-10-22 don't repeat one */
+  const PALETTE = ["#4fc3f7", "#ffb74d", "#ef7a78", "#8bd17c", "#b48ef0", "#f48fb1", "#4db6ac", "#7986cb", "#dce775", "#ff8a65", "#a1887f", "#e57373"];
   const OTHER = "#8a93a6"; /* "Overig": what the smart meter sees beyond the devices */
   const SUN = "#ffc83d"; /* the panels: the colour of the sun, outside the devices' palette */
   const colour = new Map(others.filter((d) => d !== solar).map((d, i) => [d, PALETTE[i % PALETTE.length]]));
   if (solar) colour.set(solar, SUN);
   const colourOf = (d) => (d === grid ? Panel.cssVar("--accent") : colour.get(d));
+  const iconOf = (d) => {
+    const icon = (kinds[d.kind] || {}).icon;
+    return (typeof icon === "function" ? icon(d) : icon) || "bolt";
+  };
+  /* "≈ " before what a device's figures are when they are an estimate */
+  const approx = (d) => (d !== grid && (kinds[d.kind] || {}).estimated ? "≈ " : "");
 
   /* ---- Units ------------------------------------------------------------------------ */
   const exists = (id) => !!(id && Panel.st(id));
@@ -391,7 +400,7 @@
     const segs = [...rows.filter((r) => r.w > 0).map((r) => [r.w, colour.get(r.d)]), ...(other > 0 ? [[other, OTHER]] : [])];
     const flow = Number.isFinite(house)
       ? `zon ${power(sun).join(" ")} · ${gw < 0 ? `terug ${power(-gw).join(" ")}` : `net ${power(gw).join(" ")}`}`
-      : metered ? `${power(measured).join(" ")} gemeten per apparaat` : "Samen, van de apparaten met een meter";
+      : metered ? `${power(measured).join(" ")} per apparaat` : "Samen, van de apparaten met een meter";
     q(".en-now").innerHTML =
       `<h2 class="dc-title">${Number.isFinite(house) ? "Verbruik huis nu" : metered ? (gw < 0 ? "Teruglevering nu" : "Van het net nu") : "Verbruik nu"}</h2>` +
       `<div class="en-big"><b>${value}</b><span>${unit}</span></div>` +
@@ -399,7 +408,7 @@
       `<div class="en-share">${segs.map(([w, c]) => `<i style="flex-grow:${w};background:${c}"></i>`).join("")}</div>` +
       `<div class="en-legend">` +
       /* what draws nothing now is left out: "Droger 0 W" says nothing */
-      rows.filter((r) => r.w > 0).map((r) => legendItem(r.d.label, colour.get(r.d), power(r.w).join(" "))).join("") +
+      rows.filter((r) => r.w > 0).map((r) => legendItem(r.d.label, colour.get(r.d), approx(r.d) + power(r.w).join(" "))).join("") +
       (other > 0 ? legendItem("Overig", OTHER, power(other).join(" ")) : "") +
       `</div>`;
   }
@@ -578,12 +587,12 @@
         Number.isFinite(sun)
           ? `${net} · ${kwhText(selfOn(0))} eigen zon`
           : Number.isFinite(fromGrid)
-            ? `van het net${Number.isFinite(cost) ? `, ${eur(cost)}` : ""} · ${kwhText(sum)} gemeten per apparaat`
+            ? `van het net${Number.isFinite(cost) ? `, ${eur(cost)}` : ""} · ${kwhText(sum)} per apparaat`
             : "Samen, van de apparaten met een meter"
       }</div>` +
       /* the devices are part of the house's total, not more on top of it */
       (rows.length && Number.isFinite(fromGrid) ? `<div class="en-of">Waarvan</div>` : "") +
-      `<ul class="en-list">${rows.map(([d, v]) => `<li data-usage="e${devices.indexOf(d)}"><i style="background:${colour.get(d)}"></i><span>${esc(d.label)}</span><b>${kwhText(v)}</b></li>`).join("")}</ul>`;
+      `<ul class="en-list">${rows.map(([d, v]) => `<li data-usage="e${devices.indexOf(d)}"><i style="background:${colour.get(d)}"></i><span>${esc(d.label)}</span><b>${approx(d)}${kwhText(v)}</b></li>`).join("")}</ul>`;
   }
 
   function renderCard(d) {
@@ -653,7 +662,7 @@
     const weekOf = (d) => days.reduce((s, back) => s + (perDay.get(back).get(d) || 0), 0);
     const otherWeek = bars.reduce((s, b) => s + (b.parts.find((p) => p.colour === OTHER) || { v: 0 }).v, 0);
     q(".en-week .en-legend").innerHTML =
-      meters.map((d) => legendItem(d.label, colour.get(d), kwhText(weekOf(d)))).join("") +
+      meters.map((d) => legendItem(d.label, colour.get(d), approx(d) + kwhText(weekOf(d)))).join("") +
       (otherWeek > 0 ? legendItem("Overig", OTHER, kwhText(otherWeek)) : "");
   }
 
@@ -800,7 +809,7 @@
         : "") +
       (grid ? `<section class="dc-panel en-months" hidden><h2 class="dc-title">Van het net per maand, kWh · kosten tegen de huidige prijzen</h2><div class="en-chart"><canvas></canvas></div><div class="en-legend"></div></section>` : "") +
       `<section class="dc-group"><h2 class="dc-title">Per apparaat</h2><div class="dc-grid">` +
-      others.map((d) => Panel.cardHtml(`data-energy-card="${devices.indexOf(d)}" data-usage="e${devices.indexOf(d)}" style="--dc-icon:${colour.get(d)}"`, kinds[d.kind].icon, d.label)).join("") +
+      others.map((d) => Panel.cardHtml(`data-energy-card="${devices.indexOf(d)}" data-usage="e${devices.indexOf(d)}" style="--dc-icon:${colour.get(d)}"`, iconOf(d), d.label)).join("") +
       `</div></section>`;
 
     /* The meters tick every few seconds: while another section is shown the
@@ -876,7 +885,7 @@
     machineWatts,
     machineRuns,
     devices,
-    describe: (d) => ({ icon: (kinds[d.kind] || {}).icon || "bolt", colour: colourOf(d) }),
+    describe: (d) => ({ icon: iconOf(d), colour: colourOf(d) }),
     /* €/kWh from the grid: the mean of the tariffs' import prices (NaN until known). */
     importPrice() {
       const p = IMPORT.map((k) => priceOf(G[k])).filter(Number.isFinite);

@@ -199,6 +199,19 @@ test("a running washer whose power sensor says 0 W shows an estimate from its co
   expect(problems).toEqual([]);
 });
 
+test("Energie counts the estimated heat pump, lights and WTW, marked as estimates", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "energie");
+  const est = await page.evaluate(() => (window.PANEL_CONFIG.energy || []).filter((d) => d.kind === "estimate" || d.kind === "heatpump").map((d) => d.label));
+  test.skip(!est.length, "no estimated devices on Energie");
+  const now = page.locator("#track > .page:not(.away) .en-now .en-legend");
+  for (const label of est) await expect(now).toContainText(new RegExp(`${label} ≈ \\d`));
+  const hp = page.locator("#track > .page:not(.away) .dc-card").filter({ hasText: "Warmtepomp" }).first();
+  await expect(hp).toContainText("stroom");
+  await expect(hp).toContainText(/COP ≈ \d/);
+  expect(problems).toEqual([]);
+});
+
 test("a washer the LAN says runs shows how far it is, even when SmartThings is stuck on stop", async ({ page }) => {
   const problems = watch(page);
   await open(page, "apparaten");

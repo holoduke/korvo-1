@@ -698,6 +698,11 @@ static const panel_cover_t PANEL_COVERS[] = {
  *   battery  a JK BMS on the JKBMS-ESP32 firmware
  *   solar    a SolaX inverter (solax_modbus): what the panels make; at most
  *            one. With the smart meter it gives the house's own use.
+ *   heatpump the NIBE (myUplink): the heat it delivers, and what it draws as
+ *            estimated in HA (sensor.warmtepomp_elektrisch_vermogen/_verbruik)
+ *   estimate something without its own meter whose use HA estimates:
+ *            sensor.<name>_vermogen (W) and sensor.<name>_verbruik (kWh), e.g.
+ *            the lights (Powercalc) and the WTW (from its fans' speed)
  * Order = display order. */
 typedef struct {
     const char *kind;
@@ -713,8 +718,10 @@ static const panel_energy_t PANEL_ENERGY[] = {
     { "bike",    "Stromer",      "st7" },
     { "battery", "Accu 1",       "jk_bms_1" },
     { "battery", "Accu 2",       "jk_bms_2" },
-    /* Last: its kWh counters are delivered heat, so it counts towards nothing. */
+    /* Estimated (packages/energie_schatting.yaml): no meter of their own. */
     { "heatpump", "Warmtepomp",   "f1253_6_r_pc_em" },
+    { "estimate", "Verlichting",  "verlichting" },  /* Powercalc, every lamp from its model */
+    { "estimate", "WTW",          "wtw" },          /* the Duco's fans, from their speed */
 };
 
 /* The home network in the web app's Internet tab (the panel's firmware does

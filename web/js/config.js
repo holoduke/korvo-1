@@ -2169,7 +2169,27 @@ window.PANEL_CONFIG = {
         "heatAdd": "sensor.f1253_6_r_pc_em_heating_including_int_add_heat",
         "water": "sensor.f1253_6_r_pc_em_hot_water_compressor_only",
         "waterAdd": "sensor.f1253_6_r_pc_em_hot_water_including_int_add_heat",
-        "cool": "sensor.f1253_6_r_pc_em_built_in_passive_cooling"
+        "cool": "sensor.f1253_6_r_pc_em_built_in_passive_cooling",
+        "elec": "sensor.warmtepomp_elektrisch_vermogen",
+        "elecEnergy": "sensor.warmtepomp_elektrisch_verbruik"
+      }
+    },
+    {
+      "kind": "estimate",
+      "label": "Verlichting",
+      "name": "verlichting",
+      "entities": {
+        "power": "sensor.verlichting_vermogen",
+        "energy": "sensor.verlichting_verbruik"
+      }
+    },
+    {
+      "kind": "estimate",
+      "label": "WTW",
+      "name": "wtw",
+      "entities": {
+        "power": "sensor.wtw_vermogen",
+        "energy": "sensor.wtw_verbruik"
       }
     }
   ],
