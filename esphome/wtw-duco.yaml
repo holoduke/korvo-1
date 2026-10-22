@@ -195,6 +195,8 @@ globals:
 external_components:
   - source: github://pr#7993
     components: [duco]
+    # the PR moves on; keep the copy this board was built and tested with
+    refresh: never
 
 uart:
   id: duco_uart
@@ -429,6 +431,15 @@ button:
 
 sensor:
   - platform: duco
+    # the Duco CO2 room sensor (UCCO2, node 2, added 2026-10-22): in AUTO the box
+    # follows it, so a high flow in the evening is the CO2 rising
+    co2:
+      - address: 2
+        id: co2_room
+        name: CO2
+    temperature:
+      - address: 2
+        name: Temperatuur CO2-sensor
     flow_level:
       id: flow
       name: Debiet

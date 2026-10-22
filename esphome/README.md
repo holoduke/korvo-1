@@ -20,11 +20,19 @@ scp esphome/wtw-duco.yaml esphome/secrets.yaml gillis@192.168.2.111:esphome-wtw/
 ssh gillis@192.168.2.111
 cd ~/esphome-wtw
 # over Wi-Fi (the usual way)
-docker run --rm --network host -v "$PWD":/config ghcr.io/esphome/esphome:stable run wtw-duco.yaml --device 192.168.2.200
+docker run --rm --network host -v "$PWD":/config ghcr.io/esphome/esphome:2026.9.1 run wtw-duco.yaml --device 192.168.2.200
 # over USB, only when it is plugged into the server (never ttyUSB0: that is the smart meter's P1 cable)
 docker run --rm -v "$PWD":/config --device=/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0:/dev/ttyUSB9 \
-  ghcr.io/esphome/esphome:stable run wtw-duco.yaml --device /dev/ttyUSB9
+  ghcr.io/esphome/esphome:2026.9.1 run wtw-duco.yaml --device /dev/ttyUSB9
 ```
+
+Build with ESPHome **2026.9.1**, not `stable`: 2026.10.0 no longer loads the
+Duco component (its `CONF_DISABLE_CRC` import fails), found 2026-10-22. The
+component's source is pinned with `refresh: never` for the same reason.
+
+The Duco CO2 room sensor (UCCO2, node 2) was added on 2026-10-22: in AUTO the
+box follows it, so the flow rises with the CO2 (`sensor.wtw_co2`, ppm, and its
+temperature).
 
 The board's USB-C has no CC resistors: a USB-C to USB-C cable gives it no
 power or data from a Mac. Use a USB-A to USB-C data cable.
