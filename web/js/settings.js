@@ -1,5 +1,5 @@
-/* Settings (the gear): theme, screensaver mode and delay, Zigbee pairing,
- * the health of the chain, the connection. */
+/* Settings (the gear): theme, screensaver mode and delay, sound, the Slim
+ * licht helpers, Zigbee pairing, the health of the chain, the connection. */
 (function () {
   "use strict";
   const Panel = window.Panel;
@@ -31,6 +31,39 @@
   }
 
   Panel.on("status", () => !$("settings").hidden && render()); /* the connection line follows */
+
+  /* ---- Slim licht: the lighting helpers in Home Assistant (verlichting_slim.yaml),
+   * each an input_boolean switched here; a helper HA does not have is left out. */
+  const smart = cfg.smartLights || [];
+  const smartBusy = new Set();
+  function renderSmart() {
+    const shown = smart.map((x, i) => [x, i]).filter(([x]) => Panel.st(x.id));
+    $("smartRow").hidden = !shown.length;
+    $("smartLights").innerHTML = shown
+      .map(([x, i]) => {
+        const on = (Panel.st(x.id) || {}).state === "on";
+        return (
+          `<div class="smart-item"><div><b>${Util.esc(x.label)}</b><span class="set-note">${Util.esc(x.note)}</span></div>` +
+          `<button class="smart-toggle${on ? " on" : ""}" role="switch" aria-checked="${on}" aria-label="${Util.esc(x.label)}" data-smart="${i}"${smartBusy.has(i) ? " disabled" : ""}>${on ? "Aan" : "Uit"}</button></div>`
+        );
+      })
+      .join("");
+  }
+  async function toggleSmart(i) {
+    const x = smart[i];
+    const on = (Panel.st(x.id) || {}).state === "on";
+    smartBusy.add(i);
+    renderSmart();
+    try {
+      await Panel.client.callService("input_boolean", on ? "turn_off" : "turn_on", null, { entity_id: x.id });
+    } catch (e) {
+      Panel.commandFailed(x.label)(e);
+    } finally {
+      smartBusy.delete(i);
+      renderSmart();
+    }
+  }
+  if (smart.length) Panel.track(smart.map((x) => x.id), () => !$("settings").hidden && renderSmart());
   /* The health page: each link in the chain with its state, refreshed each
    * minute and on every change while the dialog is open. */
   function renderHealth() {
@@ -110,6 +143,7 @@
 
   $("gear").addEventListener("click", () => {
     render();
+    renderSmart();
     renderJoin();
     renderHealth();
     Panel.openOverlay($("settings"));
@@ -124,6 +158,8 @@
     const deep = e.target.closest("[data-deep]");
     const sound = e.target.closest("[data-sound]");
     const join = e.target.closest("[data-join]");
+    const smartBtn = e.target.closest("[data-smart]");
+    if (smartBtn && !smartBtn.disabled) toggleSmart(+smartBtn.dataset.smart);
     if (join && !join.disabled) setJoin(join.dataset.join === "on");
     if (sound) {
       Panel.setPref("sound", sound.dataset.sound === "1");

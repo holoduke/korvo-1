@@ -555,6 +555,17 @@ def parse_covers(src, tabs):
     return out
 
 
+def parse_smart_lights(src):
+    """PANEL_SMART_LIGHTS -> [{id, label, note}]: the Slim licht switches."""
+    rows = table_rows(src, "PANEL_SMART_LIGHTS", r'\{\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\}')
+    out = []
+    for entity, label, note in rows:
+        if not entity.startswith("input_boolean."):
+            fail(f"PANEL_SMART_LIGHTS {label!r}: {entity!r} is not an input_boolean")
+        out.append({"id": entity, "label": label, "note": note})
+    return out
+
+
 def parse_areas(src, tabs):
     """PANEL_AREAS -> tabs[i]["areas"] = [{label, lights: [ids]}]."""
     names = [t["name"] for t in tabs]
@@ -737,6 +748,7 @@ def main():
         "appliances": parse_appliances(cfg, media, robots),
         "sensorCards": parse_device_table(cfg, "PANEL_SENSOR_CARDS", SENSOR_ENTITIES),
         "covers": parse_covers(cfg, tabs),
+        "smartLights": parse_smart_lights(cfg),
         "energy": parse_energy(cfg),
         "network": parse_network(cfg, floors),
         "media": media,

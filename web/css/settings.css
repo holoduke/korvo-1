@@ -44,3 +44,12 @@
   .theme-card .tc-dots i { width: 14px; height: 14px; }
   .theme-card .tc-name { font-size: 14px; }
 }
+/* Slim licht: one switch per lighting helper, its note under the name */
+.smart-list { display: flex; flex-direction: column; gap: 8px; }
+.smart-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--tile_off); border-radius: calc(12px * var(--round)); }
+.smart-item > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.smart-item b { font-size: 15px; font-weight: 700; color: var(--text); }
+.smart-toggle { flex: none; min-width: 64px; min-height: 40px; padding: 8px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--tile); color: var(--text_dim); transition: background-color 0.2s, color 0.2s; }
+.smart-toggle.on { background: var(--accent); color: var(--bg); }
+.smart-toggle:disabled { opacity: 0.5; }
+.smart-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

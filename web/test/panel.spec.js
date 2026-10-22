@@ -199,6 +199,24 @@ test("a running washer whose power sensor says 0 W shows an estimate from its co
   expect(problems).toEqual([]);
 });
 
+test("Instellingen switches the Slim licht helpers on and off", async ({ page }) => {
+  const problems = watch(page);
+  await open(page);
+  const smart = await page.evaluate(() => window.PANEL_CONFIG.smartLights || []);
+  test.skip(!smart.length, "no Slim licht helpers configured");
+  await page.locator("#gear").click();
+  const items = page.locator("#smartLights .smart-item");
+  await expect(items).toHaveCount(smart.length);
+  const holiday = items.filter({ hasText: "Vakantie" }).locator(".smart-toggle");
+  await expect(holiday).toHaveText("Uit");
+  await holiday.click();
+  await expect(holiday).toHaveText("Aan");
+  await expect(holiday).toHaveAttribute("aria-checked", "true");
+  await holiday.click();
+  await expect(holiday).toHaveText("Uit");
+  expect(problems).toEqual([]);
+});
+
 test("Energie counts the estimated heat pump, lights and WTW, marked as estimates", async ({ page }) => {
   const problems = watch(page);
   await open(page, "energie");

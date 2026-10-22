@@ -488,6 +488,8 @@
       : 0.9;
     const WEEK_SHAPE = [0.4, 1.3, 0, 1, 1.6, 0.2];
 
+    /* Slim licht: the everyday helpers on, wake-up light and holiday off */
+    (cfg.smartLights || []).forEach((x) => set(x.id, /wekker|vakantie/.test(x.id) ? "off" : "on", { friendly_name: x.label }));
     set(cfg.weather, "partlycloudy", { temperature: 17 });
     cfg.media.forEach((m, i) => {
       if (!states.has(m.id)) set(m.id, i === 0 ? "playing" : "idle", i === 0 ? { media_title: "Bloom", media_artist: "The Paper Kites" } : {});
@@ -622,6 +624,14 @@
       },
       async callService(domain, service, data, target, returnResponse) {
         const ids = [].concat((target && target.entity_id) || []);
+        if (domain === "input_boolean") {
+          ids.forEach((id) => {
+            const cur = states.get(id) || { state: "off", attributes: {} };
+            set(id, service === "turn_on" ? "on" : service === "turn_off" ? "off" : cur.state === "on" ? "off" : "on", cur.attributes, Date.now());
+          });
+          change(ids);
+          return {};
+        }
         if (domain === "weather" && service === "get_forecasts") {
           const entity = (target && target.entity_id) || cfg.weather;
           if (data && data.type === "hourly") {

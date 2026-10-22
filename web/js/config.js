@@ -2000,6 +2000,38 @@ window.PANEL_CONFIG = {
       }
     }
   ],
+  "smartLights": [
+    {
+      "id": "input_boolean.licht_voordeur",
+      "label": "Voordeur",
+      "note": "In het donker de voordeur open: de gang gaat aan, de gangsensor doet hem weer uit."
+    },
+    {
+      "id": "input_boolean.licht_vroeg_donker",
+      "label": "Donkere dag",
+      "note": "Wordt het 's middags donker en is de woonkamer uit, dan gaat het avondlicht alvast aan."
+    },
+    {
+      "id": "input_boolean.licht_badkamer_nacht",
+      "label": "Badkamer 's nachts",
+      "note": "Van 23:00 tot 06:30 gaat de badkamer met de schakelaar zacht en warm aan."
+    },
+    {
+      "id": "input_boolean.licht_film_gameroom",
+      "label": "Film in de gameroom",
+      "note": "Speelt de Shield, dan dimt het licht; bij pauze en na afloop komt het oude licht terug."
+    },
+    {
+      "id": "input_boolean.licht_wekker",
+      "label": "Wekkerlicht",
+      "note": "20 minuten voor de wekker op Gillis' telefoon loopt de slaapkamer op als een zonsopkomst."
+    },
+    {
+      "id": "input_boolean.licht_vakantie",
+      "label": "Vakantie",
+      "note": "'s Avonds gaan boven op wisselende tijden lampen aan en uit, alsof er iemand is."
+    }
+  ],
   "energy": [
     {
       "kind": "grid",

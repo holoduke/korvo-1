@@ -684,6 +684,23 @@ static const panel_cover_t PANEL_COVERS[] = {
     { "Garagedeur", "Garage", "garagedeur", "cover.garagedeur", "button.garagedeur_ventilatie" },
 };
 
+/* Slim licht (web app, Instellingen): the lighting helpers of HA's package
+ * verlichting_slim.yaml, each switched by its own input_boolean; label and a
+ * one-line note of what it does. Order = display order. */
+typedef struct {
+    const char *entity; /* input_boolean.* */
+    const char *label;
+    const char *note;
+} panel_smart_light_t;
+static const panel_smart_light_t PANEL_SMART_LIGHTS[] = {
+    { "input_boolean.licht_voordeur",       "Voordeur",        "In het donker de voordeur open: de gang gaat aan, de gangsensor doet hem weer uit." },
+    { "input_boolean.licht_vroeg_donker",   "Donkere dag",     "Wordt het 's middags donker en is de woonkamer uit, dan gaat het avondlicht alvast aan." },
+    { "input_boolean.licht_badkamer_nacht", "Badkamer 's nachts", "Van 23:00 tot 06:30 gaat de badkamer met de schakelaar zacht en warm aan." },
+    { "input_boolean.licht_film_gameroom",  "Film in de gameroom", "Speelt de Shield, dan dimt het licht; bij pauze en na afloop komt het oude licht terug." },
+    { "input_boolean.licht_wekker",         "Wekkerlicht",     "20 minuten voor de wekker op Gillis' telefoon loopt de slaapkamer op als een zonsopkomst." },
+    { "input_boolean.licht_vakantie",       "Vakantie",        "'s Avonds gaan boven op wisselende tijden lampen aan en uit, alsof er iemand is." },
+};
+
 /* The web app's "Energie" section (the panel's firmware does not show it): one
  * row per meter, device or battery; kind selects which entities it has, name
  * is the device's part of its entity ids; tools/gen_web_config.py derives the
