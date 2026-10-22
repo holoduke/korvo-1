@@ -7,8 +7,9 @@
   per ruimte en domein ("alle lampen in de keuken"). Automatiseringen aan, uit
   of uitvoeren, ook als ze niet blootgesteld zijn.
 - instelling: een vaste lijst instellingen van dit huis (SETTINGS) die niet
-  blootgesteld zijn, met hun grenzen: de warmtepomp, de ventilatie, de
-  garagedeur, de stofzuiger per kamer, de oven en de kookplaat.
+  blootgesteld zijn, met hun grenzen: de warmtepomp, de ventilatie (stand,
+  tijdelijke standen, de sterkte van elke stand, bypass, NightBoost, filter),
+  de garagedeur, de stofzuiger per kamer, de oven en de kookplaat.
 - melding: een bericht naar een telefoon met de Home Assistant-app.
 - omroep: een zin uitspreken op een (blootgestelde) speaker.
 
@@ -80,18 +81,79 @@ SETTINGS: dict[str, Setting] = {
     ),
     "ventilatie": Setting(
         "select.wtw_stand",
-        "De stand van de ventilatie (WTW). Automatisch is de gewone stand; boost loopt na de tijd vanzelf "
-        "terug; afwezig ventileert zo weinig mogelijk.",
+        "De stand van de ventilatie (WTW). Automatisch is de gewone stand (de box regelt zelf op vocht en "
+        "CO2); stand 1, 2 en 3 blijven staan tot iemand iets anders kiest; een stand 'voor N minuten' en "
+        "boost lopen na de tijd vanzelf terug naar automatisch; afwezig ventileert zo weinig mogelijk.",
         keuzes={
             "automatisch": "AUTO",
             "stand 1": "CNT1",
             "stand 2": "CNT2",
             "stand 3": "CNT3",
+            "stand 1 voor 15 minuten": "MAN1",
+            "stand 1 voor 30 minuten": "MAN1x2",
+            "stand 1 voor 45 minuten": "MAN1x3",
+            "stand 2 voor 15 minuten": "MAN2",
+            "stand 2 voor 30 minuten": "MAN2x2",
+            "stand 2 voor 45 minuten": "MAN2x3",
             "boost 15 minuten": "MAN3",
             "boost 30 minuten": "MAN3x2",
             "boost 45 minuten": "MAN3x3",
             "afwezig": "EMPT",
         },
+    ),
+    "ventilatie_stand_1": Setting(
+        "number.wtw_stand_i",
+        "Hoe hard de ventilatie draait in stand 1, in % van het maximale debiet.",
+        minimum=10, maximum=50, stap=5,
+    ),
+    "ventilatie_stand_2": Setting(
+        "number.wtw_stand_ii",
+        "Hoe hard de ventilatie draait in stand 2, in % van het maximale debiet.",
+        minimum=20, maximum=100, stap=5,
+    ),
+    "ventilatie_stand_3": Setting(
+        "number.wtw_stand_iii",
+        "Hoe hard de ventilatie draait in stand 3 en bij boost, in % van het maximale debiet.",
+        minimum=50, maximum=100, stap=5,
+    ),
+    "ventilatie_automatisch_minimum": Setting(
+        "number.wtw_auto_minimum",
+        "Het minimum waar de automatische stand nooit onder gaat, in %. Te laag geeft muffe lucht.",
+        minimum=15, maximum=60, stap=5,
+    ),
+    "ventilatie_automatisch_maximum": Setting(
+        "number.wtw_auto_maximum",
+        "Het maximum dat de automatische stand mag gebruiken, in % (lager is stiller).",
+        minimum=50, maximum=100, stap=5,
+    ),
+    "ventilatie_comforttemperatuur": Setting(
+        "number.wtw_comforttemperatuur",
+        "De binnentemperatuur (°C) waarboven de bypass koele buitenlucht binnenlaat in plaats van warmte terug "
+        "te winnen (bij bypass automatisch).",
+        minimum=18, maximum=25, stap=0.5,
+    ),
+    "ventilatie_bypass_adaptief": Setting(
+        "switch.wtw_bypass_adaptief",
+        "Of de bypass zelf leert wanneer hij open moet (aan is de gewone stand).",
+        keuzes={"aan": "on", "uit": "off"},
+        acties={"aan": ("switch", "turn_on", "switch.wtw_bypass_adaptief"), "uit": ("switch", "turn_off", "switch.wtw_bypass_adaptief")},
+    ),
+    "ventilatie_nachtboost": Setting(
+        "switch.wtw_nightboost",
+        "NightBoost: 's nachts harder ventileren om het huis met koele buitenlucht af te koelen, als het binnen "
+        "warmer is dan ventilatie_nachtboost_vanaf. Voor de zomer.",
+        keuzes={"aan": "on", "uit": "off"},
+        acties={"aan": ("switch", "turn_on", "switch.wtw_nightboost"), "uit": ("switch", "turn_off", "switch.wtw_nightboost")},
+    ),
+    "ventilatie_nachtboost_vanaf": Setting(
+        "number.wtw_nightboost_vanaf",
+        "Vanaf welke binnentemperatuur (°C) NightBoost 's nachts gaat koelen.",
+        minimum=18, maximum=30, stap=1,
+    ),
+    "ventilatie_filter_interval": Setting(
+        "select.wtw_filter_interval",
+        "Na hoeveel dagen de WTW om een nieuw filter vraagt.",
+        keuzes={"90 dagen": "90", "180 dagen": "180", "270 dagen": "270", "360 dagen": "360"},
     ),
     "garagedeur": Setting(
         "cover.garagedeur",
@@ -476,7 +538,7 @@ class Instelling(_ControlTool):
 
         if setting.minimum is not None:
             try:
-                number = float(str(raw).replace(",", ".").replace("°C", "").strip())
+                number = float(str(raw).replace(",", ".").replace("°C", "").replace("%", "").strip())
             except ValueError:
                 return {"fout": f"{raw} is geen getal", "mag": allowed}
             if not setting.minimum <= number <= setting.maximum:
