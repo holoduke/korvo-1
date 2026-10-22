@@ -1422,6 +1422,9 @@ window.PANEL_CONFIG = {
         "remote": "binary_sensor.wasruimte_wasmachine_remote_control",
         "lock": "binary_sensor.wasruimte_wasmachine_child_lock",
         "on": "binary_sensor.wasruimte_wasmachine_power",
+        "running": "binary_sensor.wasruimte_wasmachine_lokaal_running",
+        "progress": "sensor.wasruimte_wasmachine_lokaal_progress_percent",
+        "finish": "sensor.wasruimte_wasmachine_lokaal_estimated_finish",
         "water": "sensor.wasruimte_wasmachine_water_consumption"
       }
     },
@@ -1438,7 +1441,10 @@ window.PANEL_CONFIG = {
         "energy": "sensor.wasruimte_droger_energy",
         "remote": "binary_sensor.wasruimte_droger_remote_control",
         "lock": "binary_sensor.wasruimte_droger_child_lock",
-        "on": "binary_sensor.wasruimte_droger_power"
+        "on": "binary_sensor.wasruimte_droger_power",
+        "running": "binary_sensor.wasruimte_droger_lokaal_running",
+        "progress": "sensor.wasruimte_droger_lokaal_progress_percent",
+        "finish": "sensor.wasruimte_droger_lokaal_estimated_finish"
       }
     },
     {
@@ -2055,7 +2061,8 @@ window.PANEL_CONFIG = {
         "water": "sensor.wasruimte_wasmachine_water_consumption",
         "machine": "sensor.wasruimte_wasmachine_machine_state",
         "on": "binary_sensor.wasruimte_wasmachine_power",
-        "done": "sensor.wasruimte_wasmachine_completion_time"
+        "done": "sensor.wasruimte_wasmachine_completion_time",
+        "running": "binary_sensor.wasruimte_wasmachine_lokaal_running"
       }
     },
     {
@@ -2067,7 +2074,8 @@ window.PANEL_CONFIG = {
         "energy": "sensor.wasruimte_droger_energy",
         "machine": "sensor.wasruimte_droger_machine_state",
         "on": "binary_sensor.wasruimte_droger_power",
-        "done": "sensor.wasruimte_droger_completion_time"
+        "done": "sensor.wasruimte_droger_completion_time",
+        "running": "binary_sensor.wasruimte_droger_lokaal_running"
       }
     },
     {

@@ -233,19 +233,21 @@
       if (offline(e.machine)) return offlineView(`${noun} is niet bereikbaar`);
       const machine = low(e.machine);
       const job = low(e.job);
-      const done = Util.dateOf(raw(e.done));
+      /* the LAN reading (LocalThings) first: SmartThings can freeze on old data */
+      const done = Util.dateOf(raw(e.finish)) || Util.dateOf(raw(e.done));
       const paused = machine === "pause";
       /* Samsung's machine_state is unreliable (it can stay "stop" while the
        * machine runs), so a machine that is on with a completion time still
        * ahead counts as running too, unless it reports a pause. */
-      const running = !paused && (machine === "run" || (on(e.on) && !!done && done.getTime() > Date.now()));
+      const running = !paused && (on(e.running) || machine === "run" || (on(e.on) && !!done && done.getTime() > Date.now()));
+      const pct = num(e.progress);
       const [big, unit] = duration(done ? Math.max(0, (done - Date.now()) / 1000) : NaN);
       const remote = on(e.remote);
       const finished = job === "finish" || job === "finished";
       const view = {
         tone: running ? "run" : paused ? "paused" : finished ? "done" : "off",
         pill: running ? JOB_NL[job] || "Bezig" : paused ? "Gepauzeerd" : finished ? "Klaar" : on(e.on) ? "Aan" : "Uit",
-        progress: running ? "busy" : null,
+        progress: running ? (pct > 0 ? pct : "busy") : null,
         stats: [
           stat("Vermogen", wattsText(running, e)),
           stat("Energie", Number.isFinite(num(e.energy)) ? `${fmt(num(e.energy), 1)} kWh` : "–"),
@@ -253,7 +255,10 @@
           stat("Op afstand", remote ? "Aan" : "Uit"),
         ],
       };
-      if (running || paused) Object.assign(view, { big, unit, sub: done ? `klaar om ${hm(done)}` : "" });
+      if (running || paused) {
+        const parts = [pct > 0 ? `${fmt(pct)}%` : "", done ? `klaar om ${hm(done)}` : ""].filter(Boolean);
+        Object.assign(view, { big, unit, sub: parts.join(" \u00b7 ") });
+      }
       else Object.assign(view, { big: finished ? "Klaar" : "Uit", word: true, sub: done && finished ? `klaar sinds ${hm(done)}` : "" });
       view.controls =
         `<div class="ap-row">` +

@@ -107,10 +107,11 @@
     }
     return r.w;
   }
-  /* Whether a Samsung washer or dryer runs. Its machine state can stay "stop"
-   * while it runs, so one that is on with its completion time still ahead
-   * runs too, unless it reports a pause. */
+  /* Whether a Samsung washer or dryer runs: the LAN reading says so first. Its
+   * SmartThings machine state can stay "stop" while it runs, so one that is on
+   * with its completion time still ahead runs too, unless it reports a pause. */
   function machineRuns(e) {
+    if ((Panel.st(e.running) || {}).state === "on") return true; /* over the LAN (LocalThings) */
     const state = String((Panel.st(e.machine) || {}).state || "").toLowerCase();
     if (state === "run") return true;
     if (state === "pause") return false;

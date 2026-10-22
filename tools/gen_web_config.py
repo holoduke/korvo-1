@@ -274,6 +274,10 @@ _LAUNDRY = {
     "state": "select.{n}", "machine": "sensor.{n}_machine_state", "job": "sensor.{n}_job_state",
     "done": "sensor.{n}_completion_time", "power": "sensor.{n}_power", "energy": "sensor.{n}_energy",
     "remote": "binary_sensor.{n}_remote_control", "lock": "binary_sensor.{n}_child_lock", "on": "binary_sensor.{n}_power",
+    # the same machine read over the LAN (LocalThings, entities renamed to {n}_lokaal_*):
+    # it does not freeze like the SmartThings cloud and knows how far the run is
+    "running": "binary_sensor.{n}_lokaal_running", "progress": "sensor.{n}_lokaal_progress_percent",
+    "finish": "sensor.{n}_lokaal_estimated_finish",
 }
 # NIBE F1253 heat pump (nibe_heatpump over Modbus): its readings and its settings.
 # Its kWh counters are DELIVERED heat, not electricity — the pump has no power meter.
@@ -434,8 +438,8 @@ ENERGY_ENTITIES = {
             ("voltage", "voltage"), ("sags", "voltage_sags"), ("swells", "voltage_swells"))},
     },
     # on and done too: Samsung's machine state can stay "stop" while it runs
-    "washer": {k: APPLIANCE_ENTITIES["washer"][k] for k in ("power", "energy", "water", "machine", "on", "done")},
-    "dryer": {k: APPLIANCE_ENTITIES["dryer"][k] for k in ("power", "energy", "machine", "on", "done")},
+    "washer": {k: APPLIANCE_ENTITIES["washer"][k] for k in ("power", "energy", "water", "machine", "on", "done", "running")},
+    "dryer": {k: APPLIANCE_ENTITIES["dryer"][k] for k in ("power", "energy", "machine", "on", "done", "running")},
     "car": {**{key: f"{domain}.{{n}}_{object_id}" for key, domain, object_id in TESLA_FLEET_ENTITIES
                if key in ("battery", "charging", "chargerPower", "chargerVoltage", "chargerCurrent", "energyAdded", "location")},
             # charged at home only: HA's packages/tesla_energie.yaml integrates the

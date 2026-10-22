@@ -199,6 +199,26 @@ test("a running washer whose power sensor says 0 W shows an estimate from its co
   expect(problems).toEqual([]);
 });
 
+test("a washer the LAN says runs shows how far it is, even when SmartThings is stuck on stop", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "apparaten");
+  const at = await page.evaluate(() => window.PANEL_CONFIG.appliances.findIndex((a) => a.kind === "washer"));
+  const w = await page.evaluate((n) => window.PANEL_CONFIG.appliances[n], at);
+  test.skip(!w || !w.entities.running, "no washer read over the LAN");
+  await page.locator(`#track > .page:not(.away) [data-pick="${at}"]`).first().click();
+  const finish = new Date(Date.now() + 47 * 60000).toISOString();
+  await page.evaluate(([e, at]) => {
+    Panel.client.simulate(e.machine, "stop"); /* SmartThings frozen */
+    Panel.client.simulate(e.running, "on");
+    Panel.client.simulate(e.progress, "42");
+    Panel.client.simulate(e.finish, at);
+  }, [w.entities, finish]);
+  const card = page.locator("#track > .page:not(.away) .ap-card").first();
+  await expect(card).toContainText("42%");
+  await expect(card).toContainText("klaar om");
+  expect(problems).toEqual([]);
+});
+
 test("the WTW in Apparaten shows its stand and air, and switches the stand", async ({ page }) => {
   const problems = watch(page);
   await open(page, "apparaten");
