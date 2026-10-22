@@ -1,0 +1,121 @@
+# The warmtepomp (NIBE F1253-6) locally, without myUplink: a NibeGW gateway.
+#
+# The F1253 takes the NIBE MODBUS 40 accessory on its RS485 accessory bus; this
+# board plays that accessory (elupus/esphome-nibe) and passes the pump's
+# telegrams over UDP to Home Assistant's own Nibe Heat Pump integration
+# (nibe_heatpump, connection "NibeGW", model F1155/F1255: checked 2026-10-22,
+# 79 of the 108 points myUplink shows for this pump have the same register and
+# meaning in that model's list). The pump keeps myUplink as it is.
+#
+# Hardware: a LilyGo T-CAN485 (ESP32 with its RS485 chip on board, 5-12 V in;
+# the gateway's verified board). Pins below are that board's.
+#
+# Wiring: where MODBUS 40 goes, an accessory with circuit board AA9
+# (installation manual, "Connecting accessories"): the input board's terminal
+# block AA3-X4 pins 9-12 = 12 V, A, B, GND, with a LiYY/EKKX-type cable:
+#   X4:10 A -> T-CAN485 RS485 A      X4:12 GND -> GND
+#   X4:11 B -> T-CAN485 RS485 B      X4:9 12 V -> the board's 5-12 V input
+# (the pump feeds its AA9 accessories; or leave 9 open and use an adapter).
+# If the link stays silent, swap A and B. Power the pump down at its service
+# switch while connecting. Then in the pump, menu 5.2.4 (accessories), tick
+# "MODBUS 40" — only once this board runs: an accessory that does not answer
+# puts the pump in alarm.
+#
+# A virtual room unit (RMU 40 on S1) gives the pump the living rooms'
+# temperature from Home Assistant (sensor.woonkamer_temperatuur, the average of
+# zitkamer achter and voorkamer) instead of its own BT50, which hangs warm
+# (22° against 18.5° in the rooms on 2026-10-22). Tick "RMU 40 S1" in 5.2.4
+# too, and turn room-sensor control (47394) back on afterwards.
+#
+# Build and flash like wtw-duco (esphome/README.md); secrets in
+# esphome/secrets.yaml (gitignored), its API key in nibe_api_key.
+esphome:
+  name: nibe-gw
+  friendly_name: Warmtepomp gateway
+  comment: NibeGW (MODBUS 40) voor de NIBE F1253
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+  # the gateway must keep running when Home Assistant restarts: the pump
+  # alarms when its accessory stops answering, not when HA is away
+  reboot_timeout: 0s
+  encryption:
+    key: !secret nibe_api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # no power save: a sleeping radio misses the integration's UDP requests
+  power_save_mode: none
+  ap:
+    ssid: "nibe-gw"
+    password: !secret fallback_password
+
+captive_portal:
+
+external_components:
+  - source: github://elupus/esphome-nibe@v4.1.2
+    components: [nibegw]
+
+# The T-CAN485's RS485 chip: on, automatic direction, its 5 V rail
+output:
+  - platform: gpio
+    id: rs485_enable
+    pin: { number: GPIO19, inverted: true }
+  - platform: gpio
+    id: rs485_auto_direction
+    pin: { number: GPIO17, inverted: true }
+  - platform: gpio
+    id: rs485_5v
+    pin: { number: GPIO16, inverted: true }
+
+uart:
+  rx_pin: GPIO21
+  tx_pin: GPIO22
+  baud_rate: 9600
+
+nibegw:
+  udp:
+    # only Home Assistant may read and write through the gateway
+    source:
+      - 192.168.2.111
+  acknowledge:
+    - MODBUS40
+    - RMU40_S1
+  constants:
+    - address: MODBUS40
+      token: ACCESSORY
+      data: [0x0A, 0x00, 0x01] # MODBUS 40 version 10, address 1
+
+climate:
+  - platform: nibegw
+    name: Woonkamer (RMU 40)
+    system: 1 # answers as RMU40_S1
+    sensor: woonkamer
+
+sensor:
+  - platform: homeassistant
+    id: woonkamer
+    entity_id: sensor.woonkamer_temperatuur
+  - platform: wifi_signal
+    name: Wi-Fi signaal
+    update_interval: 60s
+  - platform: uptime
+    name: Aan sinds
+    update_interval: 60s
+
+button:
+  - platform: restart
+    name: Herstarten
+  - platform: safe_mode
+    name: Veilige modus

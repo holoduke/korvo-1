@@ -28,3 +28,23 @@ docker run --rm -v "$PWD":/config --device=/dev/serial/by-id/usb-1a86_USB_Serial
 
 The board's USB-C has no CC resistors: a USB-C to USB-C cable gives it no
 power or data from a Mac. Use a USB-A to USB-C data cable.
+
+## nibe-gw — the warmtepomp (NIBE F1253) locally, without myUplink
+
+`nibe-gw.yaml`: a LilyGo T-CAN485 on the pump's accessory bus (AA3-X4 pins
+9-12, where a MODBUS 40 would go; wiring in the file's header) that plays the
+MODBUS 40 accessory (elupus/esphome-nibe v4.1.2). Home Assistant reads and
+writes the pump through it with its own Nibe Heat Pump integration: connection
+NibeGW, model F1155/F1255, the board's IP, ports 9999 (read) / 10000 (write),
+listening port 9999. On 2026-10-22, 79 of the 108 points myUplink shows for
+this pump had the same register and meaning in the F1155/F1255 list.
+
+It also is a virtual room unit (RMU 40 on S1) fed with
+`sensor.woonkamer_temperatuur` (package warmtepomp.yaml), so the pump can
+regulate on the living rooms instead of its own BT50, which hangs warm.
+
+Order on the day: flash the board (USB first, then OTA as below with
+`esphome-nibe/` and `nibe-gw.yaml`), power the pump down, wire it, power up,
+then menu 5.2.4: tick MODBUS 40 and RMU 40 S1. Then add the integration in HA.
+Secrets: `nibe_api_key` in `esphome/secrets.yaml` (also `secrets/nibe_api_key.txt`).
+Compiled clean with ESPHome 2026.9.1 on 2026-10-22.
