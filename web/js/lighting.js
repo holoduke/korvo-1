@@ -381,21 +381,26 @@
   const saveBar = document.getElementById("sceneSave");
   let dirty = null; /* {tab, idx, lights: Set of lamp ids} */
 
-  /* The active scene a lamp belongs to, as {tab, idx}, or null: its room's
-   * scene if the room has scenes of its own, else its floor's; the tab on
-   * screen first. */
+  /* The active scene a lamp belongs to, as {tab, idx}, or null: of its room's
+   * active scene (a room with scenes of its own) and its floor's, the one
+   * switched on last — a floor scene chosen after the room's (the evening
+   * light after the gameroom's film) holds the lamp now, so a change is saved
+   * there; the tab on screen first. */
+  const activatedAt = (ti, idx) => Date.parse((st(cfg.tabs[ti].scenes[idx].id) || {}).state) || 0;
   function activeSceneOf(id) {
     const of = (ti) => {
       const t = cfg.tabs[ti];
       if (!t.scenes.length) return null;
       const room = (t.areas || []).find((a) => a.lights.includes(id) && sceneRooms(ti).includes(a.label));
-      if (room) {
-        const idx = activeScene.get(scopeKey(ti, room.label)) ?? -1;
-        return idx >= 0 ? { tab: ti, idx } : null;
-      }
-      const idx = activeScene.get(scopeKey(ti, "")) ?? -1;
-      const mine = (lampsOfTab.get(ti) || []).includes(id) || [...t.lights, ...t.devices].some((d) => d.id === id);
-      return idx >= 0 && mine ? { tab: ti, idx } : null;
+      const roomIdx = room ? activeScene.get(scopeKey(ti, room.label)) ?? -1 : -1;
+      const floorIdx = activeScene.get(scopeKey(ti, "")) ?? -1;
+      /* the floor's scene holds the lamp when it sets it (its stored states, once known) */
+      const stored = floorIdx >= 0 ? sceneStates.get(t.scenes[floorIdx].id) : null;
+      const floorHolds =
+        floorIdx >= 0 &&
+        (stored ? id in stored : (lampsOfTab.get(ti) || []).includes(id) || [...t.lights, ...t.devices].some((d) => d.id === id));
+      if (roomIdx >= 0 && (!floorHolds || activatedAt(ti, roomIdx) >= activatedAt(ti, floorIdx))) return { tab: ti, idx: roomIdx };
+      return floorHolds ? { tab: ti, idx: floorIdx } : null;
     };
     const active = Panel.activeTab();
     if (active >= 0 && of(active)) return of(active);

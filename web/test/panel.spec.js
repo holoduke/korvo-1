@@ -199,6 +199,33 @@ test("a running washer whose power sensor says 0 W shows an estimate from its co
   expect(problems).toEqual([]);
 });
 
+test("a lamp changed after a floor scene is saved in that scene, not in its room's older one", async ({ page }) => {
+  const problems = watch(page);
+  await open(page, "verlichting");
+  const ids = await page.evaluate(() => {
+    const t = window.PANEL_CONFIG.tabs.find((x) => x.scenes.some((s) => s.id === "scene.gameroom_film"));
+    const floor = t && t.scenes.find((s) => s.id === "scene.woonkamer_avond_licht");
+    return t && floor ? { room: "scene.gameroom_film", floor: floor.id, floorLabel: floor.label } : null;
+  });
+  test.skip(!ids, "no gameroom film and evening scenes on one tab");
+  const bar = page.locator("#sceneSave");
+  const run = async (first, second) => {
+    await page.evaluate(([a, b]) => {
+      Panel.client.callService("scene", "turn_on", null, { entity_id: a });
+      setTimeout(() => Panel.client.callService("scene", "turn_on", null, { entity_id: b }), 1100);
+    }, [first, second]);
+    await page.waitForTimeout(2200);
+    await page.evaluate(() => Panel.setBrightness(["light.lamp_playroom_1"], 33));
+  };
+  /* the gameroom's film first, then the evening light for the whole floor */
+  await run(ids.room, ids.floor);
+  await expect(bar.locator(".ss-text")).toContainText(ids.floorLabel);
+  /* the other way round: the film came last, so it holds the lamp */
+  await run(ids.floor, ids.room);
+  await expect(bar.locator(".ss-text")).toContainText("Film");
+  expect(problems).toEqual([]);
+});
+
 test("Instellingen switches the Slim licht helpers on and off", async ({ page }) => {
   const problems = watch(page);
   await open(page);
